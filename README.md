@@ -7,6 +7,7 @@ GardenPal is a mobile-friendly plant diary web app for saving plants you discove
 - Add plants with photos (camera capture/upload) or image URLs
 - Track plant details (size, flowering schedule, sun needs, lifecycle)
 - Add freeform notes
+- Account system (signup/login/logout) so each user has a private plant diary
 - Organize plants by categories (for example: "Love this", "Front porch")
 - Filter views by sun exposure, lifecycle, category, and text search
 
@@ -62,6 +63,7 @@ GardenPal is a mobile-friendly plant diary web app for saving plants you discove
 
 - SQLite database is created at `instance/gardenpal.db`.
 - Uploaded photos are stored in `instance/uploads/`.
+- Existing pre-auth plants are migrated to a starter `demo` account on first launch.
 
 ## Suggested next features
 
