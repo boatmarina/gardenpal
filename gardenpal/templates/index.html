@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Plant Diary</h2>
+    <form class="filters" method="get">
+      <input type="text" name="q" placeholder="Search name, note, source..." value="{{ active_filters.q }}" />
+      <select name="sun">
+        <option value="">Any Sun</option>
+        <option value="shade" {% if active_filters.sun == "shade" %}selected{% endif %}>Shade</option>
+        <option value="part-sun" {% if active_filters.sun == "part-sun" %}selected{% endif %}>Part Sun</option>
+        <option value="full-sun" {% if active_filters.sun == "full-sun" %}selected{% endif %}>Full Sun</option>
+      </select>
+      <select name="lifecycle">
+        <option value="">Any Lifecycle</option>
+        <option value="annual" {% if active_filters.lifecycle == "annual" %}selected{% endif %}>Annual</option>
+        <option value="perennial" {% if active_filters.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
+        <option value="biennial" {% if active_filters.lifecycle == "biennial" %}selected{% endif %}>Biennial</option>
+      </select>
+      <select name="category">
+        <option value="">Any Category</option>
+        {% for category in categories %}
+          <option value="{{ category.id }}" {% if active_filters.category == category.id|string %}selected{% endif %}>{{ category.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Filter</button>
+    </form>
+  </section>
+
+  <section class="cards">
+    {% if plants %}
+      {% for plant in plants %}
+        <article class="card">
+          <a href="{{ url_for('plant_detail', plant_id=plant.id) }}" class="card-link">
+            <div class="thumb">
+              {% if plant.image_path %}
+                <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
+              {% elif plant.image_url %}
+                <img src="{{ plant.image_url }}" alt="{{ plant.name }}" />
+              {% else %}
+                <div class="placeholder">No photo</div>
+              {% endif %}
+            </div>
+            <div class="card-content">
+              <h3>{{ plant.name }}</h3>
+              <p>{{ plant.sun_exposure or "Sun preference unknown" }} | {{ plant.lifecycle or "Lifecycle unknown" }}</p>
+              <p class="muted">{{ plant.size_info or "No size details yet." }}</p>
+            </div>
+          </a>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">No plants match your filters yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

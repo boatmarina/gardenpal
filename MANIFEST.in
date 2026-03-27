@@ -1,0 +1,2 @@
+recursive-include gardenpal/templates *.html
+recursive-include gardenpal/static *.css

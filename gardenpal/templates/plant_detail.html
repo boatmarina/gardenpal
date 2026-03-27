@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+  <article class="panel detail">
+    <h2>{{ plant.name }}</h2>
+
+    <div class="detail-image">
+      {% if plant.image_path %}
+        <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
+      {% elif plant.image_url %}
+        <img src="{{ plant.image_url }}" alt="{{ plant.name }}" />
+      {% else %}
+        <div class="placeholder">No photo</div>
+      {% endif %}
+    </div>
+
+    <dl>
+      <dt>Source</dt>
+      <dd>{{ plant.source_type or "Unknown" }}{% if plant.source_note %} - {{ plant.source_note }}{% endif %}</dd>
+      <dt>Size</dt>
+      <dd>{{ plant.size_info or "No details yet" }}</dd>
+      <dt>Flowering Schedule</dt>
+      <dd>{{ plant.flowering_schedule or "No details yet" }}</dd>
+      <dt>Sun Exposure</dt>
+      <dd>{{ plant.sun_exposure or "Unknown" }}</dd>
+      <dt>Lifecycle</dt>
+      <dd>{{ plant.lifecycle or "Unknown" }}</dd>
+      <dt>Categories</dt>
+      <dd>
+        {% if categories %}
+          <div class="tags">
+            {% for category in categories %}
+              <span class="chip">{{ category.name }}</span>
+            {% endfor %}
+          </div>
+        {% else %}
+          No categories yet
+        {% endif %}
+      </dd>
+      <dt>Notes</dt>
+      <dd>{{ plant.notes or "No notes yet." }}</dd>
+    </dl>
+  </article>
+{% endblock %}

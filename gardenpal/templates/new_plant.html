@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Add a Plant</h2>
+    <form method="post" enctype="multipart/form-data" class="stack">
+      <label>
+        Plant name *
+        <input type="text" name="name" required />
+      </label>
+
+      <label>
+        Where did you find it?
+        <select name="source_type">
+          <option value="world">In the real world</option>
+          <option value="online">Online</option>
+          <option value="nursery">Nursery</option>
+        </select>
+      </label>
+
+      <label>
+        Source note
+        <input type="text" name="source_note" placeholder="e.g., Neighbor's front yard on Maple St." />
+      </label>
+
+      <label>
+        Snap/upload photo
+        <input type="file" name="photo" accept="image/*" capture="environment" />
+      </label>
+
+      <label>
+        ...or image URL
+        <input type="url" name="image_url" placeholder="https://..." />
+      </label>
+
+      <label>
+        Size info
+        <input type="text" name="size_info" placeholder="e.g., 24-36 in tall, 18 in spread" />
+      </label>
+
+      <label>
+        Flowering schedule
+        <input type="text" name="flowering_schedule" placeholder="e.g., blooms spring through midsummer" />
+      </label>
+
+      <div class="split">
+        <label>
+          Sun exposure
+          <select name="sun_exposure">
+            <option value="">Unknown</option>
+            <option value="shade">Shade</option>
+            <option value="part-sun">Part sun</option>
+            <option value="full-sun">Full sun</option>
+          </select>
+        </label>
+        <label>
+          Lifecycle
+          <select name="lifecycle">
+            <option value="">Unknown</option>
+            <option value="annual">Annual</option>
+            <option value="perennial">Perennial</option>
+            <option value="biennial">Biennial</option>
+          </select>
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>Categories</legend>
+        <div class="tags">
+          {% for category in categories %}
+            <label class="chip">
+              <input type="checkbox" name="categories" value="{{ category.id }}" />
+              {{ category.name }}
+            </label>
+          {% endfor %}
+        </div>
+        <label>
+          Add new categories (comma separated)
+          <input type="text" name="new_categories" placeholder="love this, front porch area" />
+        </label>
+      </fieldset>
+
+      <label>
+        Notes
+        <textarea name="notes" rows="4" placeholder="What you like, maintenance notes, companion plants..."></textarea>
+      </label>
+
+      <button type="submit">Save Plant</button>
+    </form>
+  </section>
+{% endblock %}
