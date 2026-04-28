@@ -13,6 +13,7 @@ setup(
     },
     install_requires=[
         "Flask",
+        "requests",
     ],
     python_requires=">=3.8",
 )

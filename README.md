@@ -10,7 +10,10 @@ GardenPal is a mobile-friendly garden app with two main workflows: saving plant 
 - Account system (signup/login/logout) so each user has a private dataset
 - Plant Ideas capture: common/scientific names, lookup query, plant photo, label photo, categories
 - Yard Planner capture: zone photo, planted item photo, rough x/y map marker per plant
-- Baseline detail fields for future lookup automation (size, watering, sun, flowering, lifecycle, spread)
+- Built-in auto-fill actions for:
+  - name-based lookup
+  - label photo OCR (extract text then lookup)
+  - plant photo identification (suggest then lookup)
 - Organize plant ideas by categories (for example: "Love this", "Front porch")
 - Filter plant ideas by sun exposure, lifecycle, category, and text search
 
@@ -45,6 +48,16 @@ GardenPal is a mobile-friendly garden app with two main workflows: saving plant 
 5. Open:
 
    - [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+## Optional API keys for automation
+
+Set these environment variables to enable auto-fill features:
+
+- `PERENUAL_API_KEY`: species search/details by plant name
+- `OCR_SPACE_API_KEY`: OCR from label/tag photos
+- `PLANT_ID_API_KEY`: plant identification from plant photos
+
+Without these keys, the app still works and will show clear setup messages when auto-fill is attempted.
 
 ## Deploy on Vercel
 

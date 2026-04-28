@@ -9,6 +9,8 @@ from flask import Flask, flash, g, redirect, render_template, request, send_from
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
+from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details
+
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
 
@@ -84,7 +86,7 @@ def create_app() -> Flask:
     @app.route("/auth/login", methods=["GET", "POST"])
     def login():
         if g.user:
-            return redirect(url_for("index"))
+            return redirect(url_for("dashboard"))
 
         if request.method == "POST":
             username = request.form.get("username", "").strip()
@@ -102,7 +104,7 @@ def create_app() -> Flask:
             session.clear()
             session["user_id"] = user["id"]
             flash("Welcome back.")
-            return redirect(url_for("index"))
+            return redirect(url_for("dashboard"))
 
         return render_template("login.html")
 
@@ -204,25 +206,106 @@ def create_app() -> Flask:
         ).fetchall()
         if not categories:
             categories = db.execute("SELECT * FROM categories WHERE is_default = 1 ORDER BY name ASC").fetchall()
-        if request.method == "POST":
-            name = request.form.get("name", "").strip()
-            source_type = request.form.get("source_type", "world").strip()
-            source_note = request.form.get("source_note", "").strip()
-            image_url = request.form.get("image_url", "").strip()
-            scientific_name = request.form.get("scientific_name", "").strip()
-            lookup_query = request.form.get("lookup_query", "").strip()
-            size_info = request.form.get("size_info", "").strip()
-            flowering_schedule = request.form.get("flowering_schedule", "").strip()
-            sun_exposure = request.form.get("sun_exposure", "").strip()
-            lifecycle = request.form.get("lifecycle", "").strip()
-            notes = request.form.get("notes", "").strip()
-            lookup_status = request.form.get("lookup_status", "not-started").strip()
-            selected_categories = request.form.getlist("categories")
-            new_categories_raw = request.form.get("new_categories", "").strip()
 
-            if not name:
+        form_values = {
+            "name": "",
+            "scientific_name": "",
+            "lookup_query": "",
+            "source_type": "world",
+            "source_note": "",
+            "image_url": "",
+            "size_info": "",
+            "flowering_schedule": "",
+            "sun_exposure": "",
+            "lifecycle": "",
+            "notes": "",
+            "lookup_status": "not-started",
+            "new_categories": "",
+        }
+        selected_categories = []
+
+        if request.method == "POST":
+            form_action = request.form.get("form_action", "save")
+            form_values = {
+                "name": request.form.get("name", "").strip(),
+                "scientific_name": request.form.get("scientific_name", "").strip(),
+                "lookup_query": request.form.get("lookup_query", "").strip(),
+                "source_type": request.form.get("source_type", "world").strip(),
+                "source_note": request.form.get("source_note", "").strip(),
+                "image_url": request.form.get("image_url", "").strip(),
+                "size_info": request.form.get("size_info", "").strip(),
+                "flowering_schedule": request.form.get("flowering_schedule", "").strip(),
+                "sun_exposure": request.form.get("sun_exposure", "").strip(),
+                "lifecycle": request.form.get("lifecycle", "").strip(),
+                "notes": request.form.get("notes", "").strip(),
+                "lookup_status": request.form.get("lookup_status", "not-started").strip(),
+                "new_categories": request.form.get("new_categories", "").strip(),
+            }
+            selected_categories = request.form.getlist("categories")
+
+            if form_action == "autofill_name":
+                details, error = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                if error:
+                    flash(error)
+                else:
+                    apply_lookup_to_form(form_values, details, use_common_name=True)
+                    flash("Plant details autofilled from name search.")
+                return render_template(
+                    "idea_new.html",
+                    categories=categories,
+                    form_values=form_values,
+                    selected_categories=selected_categories,
+                )
+
+            if form_action == "autofill_label":
+                text, error = extract_text_from_image(request.files.get("label_photo"))
+                if error:
+                    flash(error)
+                else:
+                    guessed = infer_query_from_text(text)
+                    form_values["lookup_query"] = guessed
+                    flash(f"Extracted label text: {guessed}")
+                    details, lookup_error = lookup_plant_details(guessed)
+                    if not lookup_error:
+                        apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
+                        flash("Used extracted text to autofill details.")
+                return render_template(
+                    "idea_new.html",
+                    categories=categories,
+                    form_values=form_values,
+                    selected_categories=selected_categories,
+                )
+
+            if form_action == "autofill_photo":
+                suggestion, error = identify_plant_from_image(request.files.get("photo"))
+                if error:
+                    flash(error)
+                else:
+                    if suggestion.get("common_name") and not form_values["name"]:
+                        form_values["name"] = suggestion["common_name"]
+                    if suggestion.get("scientific_name"):
+                        form_values["scientific_name"] = suggestion["scientific_name"]
+                        form_values["lookup_query"] = suggestion["scientific_name"]
+                    flash(f"Top photo match confidence: {suggestion.get('confidence') or 'unknown'}")
+                    details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                    if not lookup_error:
+                        apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
+                        flash("Used photo match to autofill details.")
+                return render_template(
+                    "idea_new.html",
+                    categories=categories,
+                    form_values=form_values,
+                    selected_categories=selected_categories,
+                )
+
+            if not form_values["name"]:
                 flash("Plant name is required.")
-                return render_template("idea_new.html", categories=categories)
+                return render_template(
+                    "idea_new.html",
+                    categories=categories,
+                    form_values=form_values,
+                    selected_categories=selected_categories,
+                )
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
             label_photo_path = save_upload(
@@ -240,28 +323,28 @@ def create_app() -> Flask:
                 """,
                 (
                     user_id,
-                    name,
-                    scientific_name,
-                    lookup_query,
-                    source_type,
-                    source_note,
+                    form_values["name"],
+                    form_values["scientific_name"],
+                    form_values["lookup_query"],
+                    form_values["source_type"],
+                    form_values["source_note"],
                     image_path,
                     label_photo_path,
-                    image_url,
-                    size_info,
-                    flowering_schedule,
-                    sun_exposure,
-                    lifecycle,
-                    lookup_status,
-                    notes,
+                    form_values["image_url"],
+                    form_values["size_info"],
+                    form_values["flowering_schedule"],
+                    form_values["sun_exposure"],
+                    form_values["lifecycle"],
+                    form_values["lookup_status"],
+                    form_values["notes"],
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             )
             plant_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
             created_category_ids = list(selected_categories)
-            if new_categories_raw:
-                for category_name in [c.strip() for c in new_categories_raw.split(",") if c.strip()]:
+            if form_values["new_categories"]:
+                for category_name in [c.strip() for c in form_values["new_categories"].split(",") if c.strip()]:
                     existing = db.execute(
                         "SELECT id FROM categories WHERE lower(name) = lower(?)", (category_name,)
                     ).fetchone()
@@ -282,7 +365,12 @@ def create_app() -> Flask:
             flash("Plant idea added.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
 
-        return render_template("idea_new.html", categories=categories)
+        return render_template(
+            "idea_new.html",
+            categories=categories,
+            form_values=form_values,
+            selected_categories=selected_categories,
+        )
 
     @app.route("/ideas/<int:plant_id>")
     @login_required
@@ -364,28 +452,77 @@ def create_app() -> Flask:
     def yard_plant_new():
         db = get_db()
         zones = db.execute("SELECT * FROM yard_zones WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()
-        if request.method == "POST":
-            zone_id = request.form.get("zone_id", "").strip()
-            plant_name = request.form.get("plant_name", "").strip()
-            scientific_name = request.form.get("scientific_name", "").strip()
-            lookup_query = request.form.get("lookup_query", "").strip()
-            watering_needs = request.form.get("watering_needs", "").strip()
-            sun_needs = request.form.get("sun_needs", "").strip()
-            flowering_schedule = request.form.get("flowering_schedule", "").strip()
-            lifecycle = request.form.get("lifecycle", "").strip()
-            size_info = request.form.get("size_info", "").strip()
-            spreads = request.form.get("spreads", "").strip()
-            notes = request.form.get("notes", "").strip()
-            location_x = request.form.get("location_x", "").strip() or "50"
-            location_y = request.form.get("location_y", "").strip() or "50"
-            if not zone_id or not plant_name:
-                flash("Zone and plant name are required.")
-                return render_template("yard_plant_new.html", zones=zones)
 
-            zone = db.execute("SELECT id FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+        form_values = {
+            "zone_id": "",
+            "plant_name": "",
+            "scientific_name": "",
+            "lookup_query": "",
+            "watering_needs": "",
+            "sun_needs": "",
+            "flowering_schedule": "",
+            "lifecycle": "",
+            "size_info": "",
+            "spreads": "",
+            "notes": "",
+            "location_x": "50",
+            "location_y": "50",
+        }
+
+        if request.method == "POST":
+            form_action = request.form.get("form_action", "save")
+            form_values = {
+                "zone_id": request.form.get("zone_id", "").strip(),
+                "plant_name": request.form.get("plant_name", "").strip(),
+                "scientific_name": request.form.get("scientific_name", "").strip(),
+                "lookup_query": request.form.get("lookup_query", "").strip(),
+                "watering_needs": request.form.get("watering_needs", "").strip(),
+                "sun_needs": request.form.get("sun_needs", "").strip(),
+                "flowering_schedule": request.form.get("flowering_schedule", "").strip(),
+                "lifecycle": request.form.get("lifecycle", "").strip(),
+                "size_info": request.form.get("size_info", "").strip(),
+                "spreads": request.form.get("spreads", "").strip(),
+                "notes": request.form.get("notes", "").strip(),
+                "location_x": request.form.get("location_x", "").strip() or "50",
+                "location_y": request.form.get("location_y", "").strip() or "50",
+            }
+
+            if form_action == "autofill_name":
+                details, error = lookup_plant_details(form_values["lookup_query"] or form_values["plant_name"])
+                if error:
+                    flash(error)
+                else:
+                    apply_lookup_to_yard_form(form_values, details)
+                    flash("Planted item details autofilled from name lookup.")
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+
+            if form_action == "autofill_photo":
+                suggestion, error = identify_plant_from_image(request.files.get("photo"))
+                if error:
+                    flash(error)
+                else:
+                    if suggestion.get("common_name") and not form_values["plant_name"]:
+                        form_values["plant_name"] = suggestion["common_name"]
+                    if suggestion.get("scientific_name"):
+                        form_values["scientific_name"] = suggestion["scientific_name"]
+                        form_values["lookup_query"] = suggestion["scientific_name"]
+                    details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["plant_name"])
+                    if not lookup_error:
+                        apply_lookup_to_yard_form(form_values, details)
+                    flash(f"Photo-based suggestion confidence: {suggestion.get('confidence') or 'unknown'}")
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+
+            if not form_values["zone_id"] or not form_values["plant_name"]:
+                flash("Zone and plant name are required.")
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+
+            zone = db.execute(
+                "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
+                (form_values["zone_id"], g.user["id"]),
+            ).fetchone()
             if zone is None:
                 flash("Please choose a valid zone.")
-                return render_template("yard_plant_new.html", zones=zones)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "yardplant")
             db.execute(
@@ -397,27 +534,27 @@ def create_app() -> Flask:
                 """,
                 (
                     g.user["id"],
-                    zone_id,
-                    plant_name,
-                    scientific_name,
-                    lookup_query,
+                    form_values["zone_id"],
+                    form_values["plant_name"],
+                    form_values["scientific_name"],
+                    form_values["lookup_query"],
                     image_path,
-                    location_x,
-                    location_y,
-                    size_info,
-                    watering_needs,
-                    sun_needs,
-                    flowering_schedule,
-                    lifecycle,
-                    spreads,
-                    notes,
+                    form_values["location_x"],
+                    form_values["location_y"],
+                    form_values["size_info"],
+                    form_values["watering_needs"],
+                    form_values["sun_needs"],
+                    form_values["flowering_schedule"],
+                    form_values["lifecycle"],
+                    form_values["spreads"],
+                    form_values["notes"],
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             )
             db.commit()
             flash("Planted item saved.")
-            return redirect(url_for("yard_zone_detail", zone_id=zone_id))
-        return render_template("yard_plant_new.html", zones=zones)
+            return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
+        return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
 
     @app.route("/plants/new")
     def legacy_new_plant():
@@ -597,6 +734,76 @@ def ensure_column(db, table_name: str, column_name: str, column_spec: str):
     existing = {col["name"] for col in columns}
     if column_name not in existing:
         db.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_spec}")
+
+
+def infer_query_from_text(raw_text: str) -> str:
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    preferred = [line for line in lines if 2 <= len(line.split()) <= 4]
+    source = preferred[0] if preferred else lines[0]
+    return source[:80]
+
+
+def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool):
+    if use_common_name and details.get("name"):
+        form_values["name"] = details["name"]
+    if details.get("scientific_name"):
+        form_values["scientific_name"] = details["scientific_name"]
+        if not form_values.get("lookup_query"):
+            form_values["lookup_query"] = details["scientific_name"]
+    if details.get("sun_needs"):
+        form_values["sun_exposure"] = normalize_sun_value(details["sun_needs"])
+    if details.get("lifecycle"):
+        form_values["lifecycle"] = normalize_lifecycle(details["lifecycle"])
+    if details.get("size_info"):
+        form_values["size_info"] = details["size_info"]
+    if details.get("flowering_schedule"):
+        form_values["flowering_schedule"] = details["flowering_schedule"]
+    form_values["lookup_status"] = "draft"
+
+
+def apply_lookup_to_yard_form(form_values: dict, details: dict):
+    if details.get("name") and not form_values.get("plant_name"):
+        form_values["plant_name"] = details["name"]
+    if details.get("scientific_name"):
+        form_values["scientific_name"] = details["scientific_name"]
+        if not form_values.get("lookup_query"):
+            form_values["lookup_query"] = details["scientific_name"]
+    if details.get("sun_needs"):
+        form_values["sun_needs"] = details["sun_needs"]
+    if details.get("watering_needs"):
+        form_values["watering_needs"] = details["watering_needs"]
+    if details.get("flowering_schedule"):
+        form_values["flowering_schedule"] = details["flowering_schedule"]
+    if details.get("lifecycle"):
+        form_values["lifecycle"] = details["lifecycle"]
+    if details.get("size_info"):
+        form_values["size_info"] = details["size_info"]
+    if details.get("spreads"):
+        form_values["spreads"] = details["spreads"]
+
+
+def normalize_sun_value(value: str) -> str:
+    lower = value.lower()
+    if "full" in lower and "sun" in lower:
+        return "full-sun"
+    if "part" in lower:
+        return "part-sun"
+    if "shade" in lower:
+        return "shade"
+    return ""
+
+
+def normalize_lifecycle(value: str) -> str:
+    lower = value.lower()
+    if "perennial" in lower:
+        return "perennial"
+    if "annual" in lower:
+        return "annual"
+    if "biennial" in lower:
+        return "biennial"
+    return ""
 
 
 def run():

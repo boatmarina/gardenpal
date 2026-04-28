@@ -8,67 +8,73 @@
         <select name="zone_id" required>
           <option value="">Choose a zone...</option>
           {% for zone in zones %}
-            <option value="{{ zone.id }}">{{ zone.name }}</option>
+            <option value="{{ zone.id }}" {% if form_values.zone_id == zone.id|string %}selected{% endif %}>{{ zone.name }}</option>
           {% endfor %}
         </select>
       </label>
       <label>
         Plant name *
-        <input type="text" name="plant_name" required />
+        <input type="text" name="plant_name" value="{{ form_values.plant_name }}" required />
       </label>
       <label>
         Scientific name
-        <input type="text" name="scientific_name" />
+        <input type="text" name="scientific_name" value="{{ form_values.scientific_name }}" />
       </label>
       <label>
         Lookup query
-        <input type="text" name="lookup_query" placeholder="Used later for automated plant info lookup" />
+        <input type="text" name="lookup_query" value="{{ form_values.lookup_query }}" placeholder="Used later for automated plant info lookup" />
       </label>
+      <div class="actions">
+        <button type="submit" name="form_action" value="autofill_name">Auto-fill from Name</button>
+      </div>
       <label>
         Photo of planted spot/plant
         <input type="file" name="photo" accept="image/*" capture="environment" />
       </label>
+      <div class="actions">
+        <button type="submit" name="form_action" value="autofill_photo">Auto-fill from Plant Photo</button>
+      </div>
 
       <div class="split">
         <label>
           X position (%)
-          <input type="number" min="0" max="100" step="0.1" name="location_x" value="50" />
+          <input type="number" min="0" max="100" step="0.1" name="location_x" value="{{ form_values.location_x }}" />
         </label>
         <label>
           Y position (%)
-          <input type="number" min="0" max="100" step="0.1" name="location_y" value="50" />
+          <input type="number" min="0" max="100" step="0.1" name="location_y" value="{{ form_values.location_y }}" />
         </label>
       </div>
 
       <label>
         Size
-        <input type="text" name="size_info" />
+        <input type="text" name="size_info" value="{{ form_values.size_info }}" />
       </label>
       <label>
         Watering needs
-        <input type="text" name="watering_needs" />
+        <input type="text" name="watering_needs" value="{{ form_values.watering_needs }}" />
       </label>
       <label>
         Sun needs
-        <input type="text" name="sun_needs" />
+        <input type="text" name="sun_needs" value="{{ form_values.sun_needs }}" />
       </label>
       <label>
         Flowering schedule
-        <input type="text" name="flowering_schedule" />
+        <input type="text" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
       </label>
       <label>
         Lifecycle (annual/perennial/etc.)
-        <input type="text" name="lifecycle" />
+        <input type="text" name="lifecycle" value="{{ form_values.lifecycle }}" />
       </label>
       <label>
         Spreads?
-        <input type="text" name="spreads" placeholder="e.g., clumping, runners, non-spreading" />
+        <input type="text" name="spreads" value="{{ form_values.spreads }}" placeholder="e.g., clumping, runners, non-spreading" />
       </label>
       <label>
         Notes
-        <textarea name="notes" rows="4"></textarea>
+        <textarea name="notes" rows="4">{{ form_values.notes }}</textarea>
       </label>
-      <button type="submit">Save Planted Item</button>
+      <button type="submit" name="form_action" value="save">Save Planted Item</button>
     </form>
   </section>
 {% endblock %}
