@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Add Planted Item</h2>
+    <form method="post" enctype="multipart/form-data" class="stack">
+      <label>
+        Yard zone *
+        <select name="zone_id" required>
+          <option value="">Choose a zone...</option>
+          {% for zone in zones %}
+            <option value="{{ zone.id }}">{{ zone.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Plant name *
+        <input type="text" name="plant_name" required />
+      </label>
+      <label>
+        Scientific name
+        <input type="text" name="scientific_name" />
+      </label>
+      <label>
+        Lookup query
+        <input type="text" name="lookup_query" placeholder="Used later for automated plant info lookup" />
+      </label>
+      <label>
+        Photo of planted spot/plant
+        <input type="file" name="photo" accept="image/*" capture="environment" />
+      </label>
+
+      <div class="split">
+        <label>
+          X position (%)
+          <input type="number" min="0" max="100" step="0.1" name="location_x" value="50" />
+        </label>
+        <label>
+          Y position (%)
+          <input type="number" min="0" max="100" step="0.1" name="location_y" value="50" />
+        </label>
+      </div>
+
+      <label>
+        Size
+        <input type="text" name="size_info" />
+      </label>
+      <label>
+        Watering needs
+        <input type="text" name="watering_needs" />
+      </label>
+      <label>
+        Sun needs
+        <input type="text" name="sun_needs" />
+      </label>
+      <label>
+        Flowering schedule
+        <input type="text" name="flowering_schedule" />
+      </label>
+      <label>
+        Lifecycle (annual/perennial/etc.)
+        <input type="text" name="lifecycle" />
+      </label>
+      <label>
+        Spreads?
+        <input type="text" name="spreads" placeholder="e.g., clumping, runners, non-spreading" />
+      </label>
+      <label>
+        Notes
+        <textarea name="notes" rows="4"></textarea>
+      </label>
+      <button type="submit">Save Planted Item</button>
+    </form>
+  </section>
+{% endblock %}

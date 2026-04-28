@@ -1,45 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
   <section class="panel">
-    <h2>Add a Plant</h2>
+    <h2>Add Plant Idea</h2>
     <form method="post" enctype="multipart/form-data" class="stack">
       <label>
         Plant name *
         <input type="text" name="name" required />
       </label>
+      <label>
+        Scientific name
+        <input type="text" name="scientific_name" placeholder="e.g., Echinacea purpurea" />
+      </label>
+      <label>
+        Lookup query (common/scientific)
+        <input type="text" name="lookup_query" placeholder="Text to use for automated lookup APIs" />
+      </label>
 
       <label>
-        Where did you find it?
+        Source type
         <select name="source_type">
-          <option value="world">In the real world</option>
-          <option value="online">Online</option>
+          <option value="world">Seen out in the world</option>
+          <option value="online">Seen online</option>
           <option value="nursery">Nursery</option>
         </select>
       </label>
-
       <label>
         Source note
-        <input type="text" name="source_note" placeholder="e.g., Neighbor's front yard on Maple St." />
+        <input type="text" name="source_note" placeholder="Where/when you saw it" />
       </label>
 
       <label>
-        Snap/upload photo
+        Plant photo
         <input type="file" name="photo" accept="image/*" capture="environment" />
       </label>
-
+      <label>
+        Label photo (plant tag)
+        <input type="file" name="label_photo" accept="image/*" capture="environment" />
+      </label>
       <label>
         ...or image URL
         <input type="url" name="image_url" placeholder="https://..." />
       </label>
 
       <label>
-        Size info
-        <input type="text" name="size_info" placeholder="e.g., 24-36 in tall, 18 in spread" />
-      </label>
-
-      <label>
-        Flowering schedule
-        <input type="text" name="flowering_schedule" placeholder="e.g., blooms spring through midsummer" />
+        Lookup status
+        <select name="lookup_status">
+          <option value="not-started">Not started</option>
+          <option value="draft">Draft info</option>
+          <option value="verified">Verified</option>
+        </select>
       </label>
 
       <div class="split">
@@ -63,6 +72,15 @@
         </label>
       </div>
 
+      <label>
+        Size info
+        <input type="text" name="size_info" placeholder="Height/spread" />
+      </label>
+      <label>
+        Flowering schedule
+        <input type="text" name="flowering_schedule" placeholder="e.g., late spring to summer" />
+      </label>
+
       <fieldset>
         <legend>Categories</legend>
         <div class="tags">
@@ -75,16 +93,16 @@
         </div>
         <label>
           Add new categories (comma separated)
-          <input type="text" name="new_categories" placeholder="love this, front porch area" />
+          <input type="text" name="new_categories" placeholder="shade candidate, front border" />
         </label>
       </fieldset>
 
       <label>
         Notes
-        <textarea name="notes" rows="4" placeholder="What you like, maintenance notes, companion plants..."></textarea>
+        <textarea name="notes" rows="4"></textarea>
       </label>
 
-      <button type="submit">Save Plant</button>
+      <button type="submit">Save Idea</button>
     </form>
   </section>
 {% endblock %}

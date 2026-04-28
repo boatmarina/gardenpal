@@ -9,11 +9,12 @@
   <body>
     <header class="topbar">
       <div class="container">
-        <h1><a href="{{ url_for('index') }}">GardenPal</a></h1>
+        <h1><a href="{{ url_for('dashboard') }}">GardenPal</a></h1>
         <nav class="topnav">
           {% if current_user %}
             <span class="welcome">Hi, {{ current_user.username }}</span>
-            <a class="button" href="{{ url_for('new_plant') }}">+ Add Plant</a>
+            <a class="button button-secondary" href="{{ url_for('ideas_index') }}">Plant Ideas</a>
+            <a class="button button-secondary" href="{{ url_for('yard_index') }}">Yard Planner</a>
             <form method="post" action="{{ url_for('logout') }}">
               <button type="submit" class="button button-secondary">Log out</button>
             </form>

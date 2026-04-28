@@ -88,6 +88,28 @@ button {
   border-radius: 0.8rem;
 }
 
+.panel-like {
+  padding: 1rem;
+}
+
+.cards-two {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -197,6 +219,36 @@ textarea {
   max-width: 420px;
 }
 
+.zone-map {
+  position: relative;
+  width: 100%;
+  min-height: 260px;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #dde5d7;
+}
+
+.zone-map img {
+  width: 100%;
+  height: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  display: block;
+}
+
+.zone-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: #d7463b;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
 dt {
   font-weight: 600;
 }
@@ -213,5 +265,10 @@ dd {
   .topbar .container {
     gap: 0.75rem;
     flex-wrap: wrap;
+  }
+
+  .title-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

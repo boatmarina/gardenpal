@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <div class="title-row">
+      <h2>Yard Planner</h2>
+      <div class="actions">
+        <a class="button button-secondary" href="{{ url_for('yard_plant_new') }}">+ Add Planted Item</a>
+        <a class="button" href="{{ url_for('yard_zone_new') }}">+ Add Yard Zone</a>
+      </div>
+    </div>
+    <p>Track what is planted in each yard area and view rough position markers.</p>
+  </section>
+
+  <section class="cards">
+    {% if zones %}
+      {% for zone in zones %}
+        <article class="card">
+          <a class="card-link" href="{{ url_for('yard_zone_detail', zone_id=zone.id) }}">
+            <div class="thumb">
+              {% if zone.reference_image_path %}
+                <img src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
+              {% else %}
+                <div class="placeholder">No zone photo</div>
+              {% endif %}
+            </div>
+            <div class="card-content">
+              <h3>{{ zone.name }}</h3>
+              <p class="muted">{{ zone.plant_count }} planted items</p>
+              <p>{{ zone.description or "No description yet." }}</p>
+            </div>
+          </a>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">No yard zones yet. Add one to start your yard map.</p>
+    {% endif %}
+  </section>
+{% endblock %}

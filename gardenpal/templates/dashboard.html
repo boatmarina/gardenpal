@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>GardenPal Home</h2>
+    <p>Choose a section to track plant ideas or map what is planted in your yard.</p>
+  </section>
+
+  <section class="cards cards-two">
+    <article class="card panel-like">
+      <h3>Plant Ideas</h3>
+      <p>Plants you've spotted in the world or online, with lookup-ready details.</p>
+      <p class="muted">{{ idea_count }} saved ideas</p>
+      <div class="actions">
+        <a class="button" href="{{ url_for('ideas_index') }}">Open Ideas</a>
+        <a class="button button-secondary" href="{{ url_for('new_idea') }}">Add Idea</a>
+      </div>
+    </article>
+    <article class="card panel-like">
+      <h3>Yard Planner</h3>
+      <p>Zones and plants you've actually planted, including location markers.</p>
+      <p class="muted">{{ zone_count }} zones · {{ yard_plant_count }} planted items</p>
+      <div class="actions">
+        <a class="button" href="{{ url_for('yard_index') }}">Open Yard Planner</a>
+        <a class="button button-secondary" href="{{ url_for('yard_zone_new') }}">Add Zone</a>
+      </div>
+    </article>
+  </section>
+{% endblock %}

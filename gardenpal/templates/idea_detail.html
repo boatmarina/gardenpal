@@ -2,6 +2,7 @@
 {% block content %}
   <article class="panel detail">
     <h2>{{ plant.name }}</h2>
+    <p class="muted">{{ plant.scientific_name or "Scientific name not set" }}</p>
 
     <div class="detail-image">
       {% if plant.image_path %}
@@ -14,8 +15,12 @@
     </div>
 
     <dl>
+      <dt>Lookup Query</dt>
+      <dd>{{ plant.lookup_query or "Not set" }}</dd>
+      <dt>Lookup Status</dt>
+      <dd>{{ plant.lookup_status or "not-started" }}</dd>
       <dt>Source</dt>
-      <dd>{{ plant.source_type or "Unknown" }}{% if plant.source_note %} - {{ plant.source_note }}{% endif %}</dd>
+      <dd>{{ plant.source_type }}{% if plant.source_note %} - {{ plant.source_note }}{% endif %}</dd>
       <dt>Size</dt>
       <dd>{{ plant.size_info or "No details yet" }}</dd>
       <dt>Flowering Schedule</dt>

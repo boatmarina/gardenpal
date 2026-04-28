@@ -1,15 +1,18 @@
 # GardenPal
 
-GardenPal is a mobile-friendly plant diary web app for saving plants you discover in the world or online.
+GardenPal is a mobile-friendly garden app with two main workflows: saving plant ideas and mapping plants in your own yard.
 
 ## What is included right now
 
-- Add plants with photos (camera capture/upload) or image URLs
-- Track plant details (size, flowering schedule, sun needs, lifecycle)
-- Add freeform notes
-- Account system (signup/login/logout) so each user has a private plant diary
-- Organize plants by categories (for example: "Love this", "Front porch")
-- Filter views by sun exposure, lifecycle, category, and text search
+- Two sections:
+  - **Plant Ideas** for plants you see in the world/online and want to remember
+  - **Yard Planner** for plants you have actually planted in yard zones
+- Account system (signup/login/logout) so each user has a private dataset
+- Plant Ideas capture: common/scientific names, lookup query, plant photo, label photo, categories
+- Yard Planner capture: zone photo, planted item photo, rough x/y map marker per plant
+- Baseline detail fields for future lookup automation (size, watering, sun, flowering, lifecycle, spread)
+- Organize plant ideas by categories (for example: "Love this", "Front porch")
+- Filter plant ideas by sun exposure, lifecycle, category, and text search
 
 ## Quick start
 
@@ -67,8 +70,8 @@ GardenPal is a mobile-friendly plant diary web app for saving plants you discove
 
 ## Suggested next features
 
-- Plant lookup integration (for example, Trefle or Perenual APIs)
+- Automated plant identification from photos (Vision API or plant ID service)
+- Automated plant lookup integration (for example, Trefle or Perenual APIs)
 - Edit/delete flows
-- User accounts and sync
-- Map/location history where plants were found
-- Export/share wishlists
+- Drag-and-drop yard marker placement on zone image
+- Per-zone schedule/reminders (watering, pruning, fertilizer)

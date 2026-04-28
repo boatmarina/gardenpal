@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
   <section class="panel">
-    <h2>Plant Diary</h2>
+    <div class="title-row">
+      <h2>Plant Ideas</h2>
+      <a class="button" href="{{ url_for('new_idea') }}">+ Add Idea</a>
+    </div>
     <form class="filters" method="get">
-      <input type="text" name="q" placeholder="Search name, note, source..." value="{{ active_filters.q }}" />
+      <input type="text" name="q" placeholder="Search name, scientific, notes..." value="{{ active_filters.q }}" />
       <select name="sun">
         <option value="">Any Sun</option>
         <option value="shade" {% if active_filters.sun == "shade" %}selected{% endif %}>Shade</option>
@@ -30,7 +33,7 @@
     {% if plants %}
       {% for plant in plants %}
         <article class="card">
-          <a href="{{ url_for('plant_detail', plant_id=plant.id) }}" class="card-link">
+          <a href="{{ url_for('idea_detail', plant_id=plant.id) }}" class="card-link">
             <div class="thumb">
               {% if plant.image_path %}
                 <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
@@ -42,14 +45,14 @@
             </div>
             <div class="card-content">
               <h3>{{ plant.name }}</h3>
-              <p>{{ plant.sun_exposure or "Sun preference unknown" }} | {{ plant.lifecycle or "Lifecycle unknown" }}</p>
-              <p class="muted">{{ plant.size_info or "No size details yet." }}</p>
+              <p>{{ plant.scientific_name or "Scientific name not set" }}</p>
+              <p class="muted">Lookup: {{ plant.lookup_status or "not-started" }}</p>
             </div>
           </a>
         </article>
       {% endfor %}
     {% else %}
-      <p class="empty">No plants match your filters yet.</p>
+      <p class="empty">No ideas saved yet.</p>
     {% endif %}
   </section>
 {% endblock %}

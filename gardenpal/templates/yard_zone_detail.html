@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <div class="title-row">
+      <h2>{{ zone.name }}</h2>
+      <a class="button" href="{{ url_for('yard_plant_new') }}">+ Add Planted Item</a>
+    </div>
+    <p>{{ zone.description or "No description yet." }}</p>
+  </section>
+
+  <section class="panel">
+    <h3>Zone Visual</h3>
+    <div class="zone-map">
+      {% if zone.reference_image_path %}
+        <img src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
+      {% else %}
+        <div class="placeholder">No zone photo</div>
+      {% endif %}
+      {% for plant in plants %}
+        <div class="zone-marker" style="left: {{ plant.location_x }}%; top: {{ plant.location_y }}%;" title="{{ plant.plant_name }}"></div>
+      {% endfor %}
+    </div>
+    <p class="muted">Markers are percentage positions so you can roughly map each planted item.</p>
+  </section>
+
+  <section class="cards">
+    {% if plants %}
+      {% for plant in plants %}
+        <article class="card">
+          <div class="thumb">
+            {% if plant.image_path %}
+              <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.plant_name }}" />
+            {% else %}
+              <div class="placeholder">No photo</div>
+            {% endif %}
+          </div>
+          <div class="card-content">
+            <h3>{{ plant.plant_name }}</h3>
+            <p>{{ plant.scientific_name or "Scientific name not set" }}</p>
+            <p class="muted">Water: {{ plant.watering_needs or "unknown" }} · Sun: {{ plant.sun_needs or "unknown" }}</p>
+            <p class="muted">Flowering: {{ plant.flowering_schedule or "unknown" }} · {{ plant.lifecycle or "unknown lifecycle" }}</p>
+          </div>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">No plants mapped in this zone yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

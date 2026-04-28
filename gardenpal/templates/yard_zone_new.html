@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="panel">
+    <h2>Add Yard Zone</h2>
+    <form method="post" enctype="multipart/form-data" class="stack">
+      <label>
+        Zone name *
+        <input type="text" name="name" placeholder="Front porch bed, side yard, etc." required />
+      </label>
+      <label>
+        Description
+        <textarea name="description" rows="4" placeholder="Sun pattern, soil notes, dimensions..."></textarea>
+      </label>
+      <label>
+        Reference photo of this zone
+        <input type="file" name="reference_photo" accept="image/*" capture="environment" />
+      </label>
+      <button type="submit">Save Zone</button>
+    </form>
+  </section>
+{% endblock %}

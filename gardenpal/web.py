@@ -44,7 +44,7 @@ def create_app() -> Flask:
     @app.route("/auth/signup", methods=["GET", "POST"])
     def signup():
         if g.user:
-            return redirect(url_for("index"))
+            return redirect(url_for("dashboard"))
 
         if request.method == "POST":
             username = request.form.get("username", "").strip()
@@ -77,7 +77,7 @@ def create_app() -> Flask:
             session.clear()
             session["user_id"] = user["id"]
             flash("Account created. Welcome to GardenPal.")
-            return redirect(url_for("index"))
+            return redirect(url_for("dashboard"))
 
         return render_template("signup.html")
 
@@ -114,7 +114,28 @@ def create_app() -> Flask:
 
     @app.route("/")
     @login_required
-    def index():
+    def dashboard():
+        db = get_db()
+        user_id = g.user["id"]
+        idea_count = db.execute("SELECT COUNT(*) AS count FROM plants WHERE user_id = ?", (user_id,)).fetchone()["count"]
+        zone_count = db.execute(
+            "SELECT COUNT(*) AS count FROM yard_zones WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()["count"]
+        yard_plant_count = db.execute(
+            "SELECT COUNT(*) AS count FROM yard_plants WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()["count"]
+        return render_template(
+            "dashboard.html",
+            idea_count=idea_count,
+            zone_count=zone_count,
+            yard_plant_count=yard_plant_count,
+        )
+
+    @app.route("/ideas")
+    @login_required
+    def ideas_index():
         db = get_db()
         user_id = g.user["id"]
         q = request.args.get("q", "").strip()
@@ -159,15 +180,15 @@ def create_app() -> Flask:
             (user_id,),
         ).fetchall()
         return render_template(
-            "index.html",
+            "ideas_index.html",
             plants=plants,
             categories=categories,
             active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "category": category_id},
         )
 
-    @app.route("/plants/new", methods=["GET", "POST"])
+    @app.route("/ideas/new", methods=["GET", "POST"])
     @login_required
-    def new_plant():
+    def new_idea():
         db = get_db()
         user_id = g.user["id"]
         categories = db.execute(
@@ -188,37 +209,50 @@ def create_app() -> Flask:
             source_type = request.form.get("source_type", "world").strip()
             source_note = request.form.get("source_note", "").strip()
             image_url = request.form.get("image_url", "").strip()
+            scientific_name = request.form.get("scientific_name", "").strip()
+            lookup_query = request.form.get("lookup_query", "").strip()
             size_info = request.form.get("size_info", "").strip()
             flowering_schedule = request.form.get("flowering_schedule", "").strip()
             sun_exposure = request.form.get("sun_exposure", "").strip()
             lifecycle = request.form.get("lifecycle", "").strip()
             notes = request.form.get("notes", "").strip()
+            lookup_status = request.form.get("lookup_status", "not-started").strip()
             selected_categories = request.form.getlist("categories")
             new_categories_raw = request.form.get("new_categories", "").strip()
 
             if not name:
                 flash("Plant name is required.")
-                return render_template("new_plant.html", categories=categories)
+                return render_template("idea_new.html", categories=categories)
 
-            image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id)
+            image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
+            label_photo_path = save_upload(
+                request.files.get("label_photo"),
+                app.config["UPLOAD_FOLDER"],
+                user_id,
+                "label",
+            )
             db.execute(
                 """
                 INSERT INTO plants
-                (user_id, name, source_type, source_note, image_path, image_url, size_info, flowering_schedule,
-                 sun_exposure, lifecycle, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
+                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     user_id,
                     name,
+                    scientific_name,
+                    lookup_query,
                     source_type,
                     source_note,
                     image_path,
+                    label_photo_path,
                     image_url,
                     size_info,
                     flowering_schedule,
                     sun_exposure,
                     lifecycle,
+                    lookup_status,
                     notes,
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
@@ -245,19 +279,19 @@ def create_app() -> Flask:
                 )
 
             db.commit()
-            flash("Plant added to your diary.")
-            return redirect(url_for("plant_detail", plant_id=plant_id))
+            flash("Plant idea added.")
+            return redirect(url_for("idea_detail", plant_id=plant_id))
 
-        return render_template("new_plant.html", categories=categories)
+        return render_template("idea_new.html", categories=categories)
 
-    @app.route("/plants/<int:plant_id>")
+    @app.route("/ideas/<int:plant_id>")
     @login_required
-    def plant_detail(plant_id: int):
+    def idea_detail(plant_id: int):
         db = get_db()
         plant = db.execute("SELECT * FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])).fetchone()
         if plant is None:
             flash("Plant was not found.")
-            return redirect(url_for("index"))
+            return redirect(url_for("ideas_index"))
 
         categories = db.execute(
             """
@@ -269,14 +303,136 @@ def create_app() -> Flask:
             """,
             (plant_id,),
         ).fetchall()
-        return render_template("plant_detail.html", plant=plant, categories=categories)
+        return render_template("idea_detail.html", plant=plant, categories=categories)
+
+    @app.route("/yard")
+    @login_required
+    def yard_index():
+        db = get_db()
+        zones = db.execute(
+            """
+            SELECT z.*, COUNT(yp.id) AS plant_count
+            FROM yard_zones z
+            LEFT JOIN yard_plants yp ON yp.zone_id = z.id
+            WHERE z.user_id = ?
+            GROUP BY z.id
+            ORDER BY z.created_at DESC
+            """,
+            (g.user["id"],),
+        ).fetchall()
+        return render_template("yard_index.html", zones=zones)
+
+    @app.route("/yard/zones/new", methods=["GET", "POST"])
+    @login_required
+    def yard_zone_new():
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            description = request.form.get("description", "").strip()
+            if not name:
+                flash("Zone name is required.")
+                return render_template("yard_zone_new.html")
+            ref_image = save_upload(request.files.get("reference_photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "zone")
+            db = get_db()
+            db.execute(
+                """
+                INSERT INTO yard_zones (user_id, name, description, reference_image_path, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (g.user["id"], name, description, ref_image, datetime.utcnow().isoformat(timespec="seconds")),
+            )
+            db.commit()
+            flash("Yard zone created.")
+            return redirect(url_for("yard_index"))
+        return render_template("yard_zone_new.html")
+
+    @app.route("/yard/zones/<int:zone_id>")
+    @login_required
+    def yard_zone_detail(zone_id: int):
+        db = get_db()
+        zone = db.execute("SELECT * FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+        if zone is None:
+            flash("Yard zone not found.")
+            return redirect(url_for("yard_index"))
+        plants = db.execute(
+            "SELECT * FROM yard_plants WHERE zone_id = ? AND user_id = ? ORDER BY created_at DESC",
+            (zone_id, g.user["id"]),
+        ).fetchall()
+        return render_template("yard_zone_detail.html", zone=zone, plants=plants)
+
+    @app.route("/yard/plants/new", methods=["GET", "POST"])
+    @login_required
+    def yard_plant_new():
+        db = get_db()
+        zones = db.execute("SELECT * FROM yard_zones WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()
+        if request.method == "POST":
+            zone_id = request.form.get("zone_id", "").strip()
+            plant_name = request.form.get("plant_name", "").strip()
+            scientific_name = request.form.get("scientific_name", "").strip()
+            lookup_query = request.form.get("lookup_query", "").strip()
+            watering_needs = request.form.get("watering_needs", "").strip()
+            sun_needs = request.form.get("sun_needs", "").strip()
+            flowering_schedule = request.form.get("flowering_schedule", "").strip()
+            lifecycle = request.form.get("lifecycle", "").strip()
+            size_info = request.form.get("size_info", "").strip()
+            spreads = request.form.get("spreads", "").strip()
+            notes = request.form.get("notes", "").strip()
+            location_x = request.form.get("location_x", "").strip() or "50"
+            location_y = request.form.get("location_y", "").strip() or "50"
+            if not zone_id or not plant_name:
+                flash("Zone and plant name are required.")
+                return render_template("yard_plant_new.html", zones=zones)
+
+            zone = db.execute("SELECT id FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+            if zone is None:
+                flash("Please choose a valid zone.")
+                return render_template("yard_plant_new.html", zones=zones)
+
+            image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "yardplant")
+            db.execute(
+                """
+                INSERT INTO yard_plants
+                (user_id, zone_id, plant_name, scientific_name, lookup_query, image_path, location_x, location_y,
+                 size_info, watering_needs, sun_needs, flowering_schedule, lifecycle, spreads, notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    g.user["id"],
+                    zone_id,
+                    plant_name,
+                    scientific_name,
+                    lookup_query,
+                    image_path,
+                    location_x,
+                    location_y,
+                    size_info,
+                    watering_needs,
+                    sun_needs,
+                    flowering_schedule,
+                    lifecycle,
+                    spreads,
+                    notes,
+                    datetime.utcnow().isoformat(timespec="seconds"),
+                ),
+            )
+            db.commit()
+            flash("Planted item saved.")
+            return redirect(url_for("yard_zone_detail", zone_id=zone_id))
+        return render_template("yard_plant_new.html", zones=zones)
+
+    @app.route("/plants/new")
+    def legacy_new_plant():
+        return redirect(url_for("new_idea"))
+
+    @app.route("/plants/<int:plant_id>")
+    def legacy_plant_detail(plant_id: int):
+        return redirect(url_for("idea_detail", plant_id=plant_id))
 
     @app.route("/uploads/<path:filename>")
     @login_required
     def uploads(filename: str):
         if not filename.startswith(f"{g.user['id']}_"):
             flash("You do not have access to that file.")
-            return redirect(url_for("index"))
+            return redirect(url_for("dashboard"))
         return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
     @app.teardown_appcontext
@@ -320,14 +476,18 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             name TEXT NOT NULL,
+            scientific_name TEXT,
+            lookup_query TEXT,
             source_type TEXT NOT NULL DEFAULT 'world',
             source_note TEXT,
             image_path TEXT,
+            label_photo_path TEXT,
             image_url TEXT,
             size_info TEXT,
             flowering_schedule TEXT,
             sun_exposure TEXT,
             lifecycle TEXT,
+            lookup_status TEXT,
             notes TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
@@ -346,10 +506,46 @@ def init_db():
             FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE,
             FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS yard_zones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            reference_image_path TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS yard_plants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            zone_id INTEGER NOT NULL,
+            plant_name TEXT NOT NULL,
+            scientific_name TEXT,
+            lookup_query TEXT,
+            image_path TEXT,
+            location_x REAL NOT NULL DEFAULT 50,
+            location_y REAL NOT NULL DEFAULT 50,
+            size_info TEXT,
+            watering_needs TEXT,
+            sun_needs TEXT,
+            flowering_schedule TEXT,
+            lifecycle TEXT,
+            spreads TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (zone_id) REFERENCES yard_zones (id) ON DELETE CASCADE
+        );
         """
     )
 
     ensure_column(db, "plants", "user_id", "INTEGER")
+    ensure_column(db, "plants", "scientific_name", "TEXT")
+    ensure_column(db, "plants", "lookup_query", "TEXT")
+    ensure_column(db, "plants", "label_photo_path", "TEXT")
+    ensure_column(db, "plants", "lookup_status", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     # Keep existing records usable if they predate auth.
@@ -371,7 +567,7 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def save_upload(file_storage, upload_folder: str, user_id: int):
+def save_upload(file_storage, upload_folder: str, user_id: int, kind: str):
     if file_storage is None or not file_storage.filename:
         return ""
     filename = secure_filename(file_storage.filename)
@@ -379,7 +575,7 @@ def save_upload(file_storage, upload_folder: str, user_id: int):
         return ""
 
     ext = filename.rsplit(".", 1)[1].lower()
-    unique_name = f"{user_id}_{uuid.uuid4().hex}.{ext}"
+    unique_name = f"{user_id}_{kind}_{uuid.uuid4().hex}.{ext}"
     destination = Path(upload_folder) / unique_name
     file_storage.save(destination)
     return unique_name
