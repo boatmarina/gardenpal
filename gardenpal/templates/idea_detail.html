@@ -12,13 +12,16 @@
       </form>
     </div>
 
-    <div class="detail-image">
+    <div id="plant-photos"
+         class="photos-grid"
+         data-query="{{ plant.name | e }}"
+         data-fallback="{{ plant.image_url or '' }}">
       {% if plant.image_path %}
         <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
       {% elif plant.image_url %}
         <img src="{{ plant.image_url }}" alt="{{ plant.name }}" />
       {% else %}
-        <div class="placeholder">No photo</div>
+        <div class="placeholder photos-grid-placeholder">No photo yet</div>
       {% endif %}
     </div>
 
@@ -53,4 +56,26 @@
       <dd>{{ plant.notes or "No notes yet." }}</dd>
     </dl>
   </article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const grid = document.getElementById('plant-photos');
+  if (!grid) return;
+  const query = grid.dataset.query;
+  if (!query) return;
+  fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=3')
+    .then(r => r.json())
+    .then(d => {
+      const photos = d.photos || [];
+      if (photos.length) {
+        grid.innerHTML = photos
+          .map(u => `<img src="${u}" alt="${query}" loading="lazy" />`)
+          .join('');
+      }
+    })
+    .catch(() => {});
+})();
+</script>
 {% endblock %}

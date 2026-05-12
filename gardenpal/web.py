@@ -12,7 +12,7 @@ from flask import Flask, flash, g, jsonify, redirect, render_template, request, 
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image
+from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -659,6 +659,15 @@ def create_app() -> Flask:
         if not q:
             return jsonify(photo_url=None)
         return jsonify(photo_url=lookup_plant_image(q))
+
+    @app.route("/api/plant-photos")
+    @login_required
+    def api_plant_photos():
+        q = request.args.get("q", "").strip()
+        count = min(int(request.args.get("count", "3")), 6)
+        if not q:
+            return jsonify(photos=[])
+        return jsonify(photos=lookup_plant_photos(q, count))
 
     @app.route("/ideas/<int:plant_id>/delete", methods=["POST"])
     @login_required

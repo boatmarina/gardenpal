@@ -43,8 +43,10 @@
             {% endfor %}
           </datalist>
         </label>
-        <div id="name-photo-preview" class="name-photo-preview" {% if not form_values.image_url %}hidden{% endif %}>
-          <img id="name-photo-img" src="{{ form_values.image_url }}" alt="{{ form_values.name }}" />
+        <div id="name-photo-preview" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>
+          {% if form_values.image_url %}
+            <img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" />
+          {% endif %}
         </div>
       </div>
 
@@ -221,29 +223,29 @@
     showPhotoPreview(plant.photo_url, plant.common_name || plant.scientific_name);
   }
 
-  function showPhotoPreview(url, name) {
+  function showPhotoPreview(inlineUrl, name) {
     const preview = document.getElementById('name-photo-preview');
-    const img = document.getElementById('name-photo-img');
-    if (!preview || !img) return;
-    if (url) {
-      img.src = url;
-      img.alt = name || '';
-      if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = url;
+    if (!preview) return;
+    // Show inline photo immediately if search already gave us one
+    if (inlineUrl) {
+      preview.innerHTML = `<img src="${inlineUrl}" alt="${name || ''}" />`;
+      if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = inlineUrl;
       preview.hidden = false;
-    } else {
-      // Fetch from server (used when Perenual results don't include a photo)
-      fetch('/api/plant-photo?q=' + encodeURIComponent(name || ''))
-        .then(r => r.json())
-        .then(d => {
-          if (d.photo_url) {
-            img.src = d.photo_url;
-            img.alt = name || '';
-            if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = d.photo_url;
-            preview.hidden = false;
-          }
-        })
-        .catch(() => {});
     }
+    // Fetch 3 community photos in the background
+    fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=3')
+      .then(r => r.json())
+      .then(d => {
+        const photos = d.photos || [];
+        if (photos.length) {
+          preview.innerHTML = photos
+            .map(u => `<img src="${u}" alt="${name || ''}" />`)
+            .join('');
+          if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = photos[0];
+          preview.hidden = false;
+        }
+      })
+      .catch(() => {});
   }
 })();
 </script>
