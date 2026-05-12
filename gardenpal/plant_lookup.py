@@ -118,11 +118,16 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
         result, error = _lookup_via_fallback(query)
         if result is None:
             return None, error or "No plant information found for that name."
+    else:
+        # Perenual returned data — supplement any empty care fields from OpenFarm
+        _supplement_from_openfarm(result)
 
-    # Enrich with iNaturalist photo if not already set
+    # Always enrich with iNaturalist photo using the common name, which gives
+    # much better results than cultivar/scientific names (e.g. "tall bearded iris"
+    # finds photos; "Iris 'America's Cup'" finds nothing)
     if not result.get("photo_url"):
-        search_q = result.get("scientific_name") or query
-        _, _, photo_url = _lookup_via_inat(search_q)
+        inat_q = result.get("name") or result.get("scientific_name") or query
+        _, _, photo_url = _lookup_via_inat(inat_q)
         result["photo_url"] = photo_url
 
     return result, None
@@ -187,6 +192,41 @@ def _lookup_via_perenual(query: str, api_key: str) -> Optional[Dict[str, str]]:
         "spreads": str(spread) if spread else "",
         "photo_url": None,
     }
+
+
+def _supplement_from_openfarm(result: dict) -> None:
+    """Fill empty care fields in-place using OpenFarm when Perenual left them blank."""
+    if result.get("sun_needs") and result.get("lifecycle"):
+        return
+    search_q = result.get("name") or ""
+    if not search_q:
+        return
+    try:
+        resp = requests.get(
+            "https://openfarm.cc/api/v1/crops",
+            params={"filter": search_q},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        if not data:
+            return
+        attrs = data[0].get("attributes", {})
+        if not result.get("sun_needs") and attrs.get("sun_requirements"):
+            result["sun_needs"] = attrs["sun_requirements"]
+        if not result.get("size_info"):
+            height = attrs.get("height")
+            spread = attrs.get("spread")
+            if height:
+                try:
+                    size = f"{int(float(height))}cm tall"
+                    if spread:
+                        size += f", {int(float(spread))}cm spread"
+                    result["size_info"] = size
+                except (ValueError, TypeError):
+                    pass
+    except Exception:
+        pass
 
 
 def _lookup_via_fallback(query: str) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
