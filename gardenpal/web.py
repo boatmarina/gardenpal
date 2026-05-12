@@ -282,19 +282,6 @@ def create_app() -> Flask:
     def new_idea():
         db = get_db()
         user_id = g.user["id"]
-        categories = db.execute(
-            """
-            SELECT DISTINCT c.*
-            FROM categories c
-            JOIN plant_categories pc ON c.id = pc.category_id
-            JOIN plants p ON p.id = pc.plant_id
-            WHERE p.user_id = ?
-            ORDER BY c.name ASC
-            """,
-            (user_id,),
-        ).fetchall()
-        if not categories:
-            categories = db.execute("SELECT * FROM categories WHERE is_default = 1 ORDER BY name ASC").fetchall()
         plant_names = [
             r["name"] for r in db.execute(
                 "SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (user_id,)
@@ -314,10 +301,8 @@ def create_app() -> Flask:
             "lifecycle": "",
             "notes": "",
             "lookup_status": "not-started",
-            "new_categories": "",
             "active_mode": "name",
         }
-        selected_categories = []
 
         if request.method == "POST":
             form_action = request.form.get("form_action", "save")
@@ -334,10 +319,8 @@ def create_app() -> Flask:
                 "lifecycle": request.form.get("lifecycle", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
                 "lookup_status": request.form.get("lookup_status", "not-started").strip(),
-                "new_categories": request.form.get("new_categories", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
             }
-            selected_categories = request.form.getlist("categories")
 
             if form_action == "autofill_name":
                 details, error = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
@@ -345,14 +328,8 @@ def create_app() -> Flask:
                     flash(error)
                 else:
                     apply_lookup_to_form(form_values, details, use_common_name=True)
-                    flash("Plant details autofilled from name search.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                    plant_names=plant_names,
-                )
+                    flash("Plant details autofilled.")
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             if form_action == "autofill_label":
                 text, error = extract_text_from_image(request.files.get("label_photo"))
@@ -366,13 +343,7 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                         flash("Used extracted text to autofill details.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                    plant_names=plant_names,
-                )
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             if form_action == "autofill_photo":
                 suggestion, error = identify_plant_from_image(request.files.get("photo"))
@@ -389,23 +360,11 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                         flash("Used photo match to autofill details.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                    plant_names=plant_names,
-                )
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             if not form_values["name"]:
                 flash("Plant name is required.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                    plant_names=plant_names,
-                )
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
             label_photo_path = save_upload(
@@ -442,37 +401,11 @@ def create_app() -> Flask:
                 ),
             ).fetchone()["id"]
 
-            created_category_ids = list(selected_categories)
-            if form_values["new_categories"]:
-                for category_name in [c.strip() for c in form_values["new_categories"].split(",") if c.strip()]:
-                    existing = db.execute(
-                        "SELECT id FROM categories WHERE lower(name) = lower(?)", (category_name,)
-                    ).fetchone()
-                    if existing:
-                        created_category_ids.append(str(existing["id"]))
-                    else:
-                        new_id = db.execute(
-                            "INSERT INTO categories (name) VALUES (?) RETURNING id", (category_name,)
-                        ).fetchone()["id"]
-                        created_category_ids.append(str(new_id))
-
-            for category in set(created_category_ids):
-                db.execute(
-                    "INSERT INTO plant_categories (plant_id, category_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
-                    (plant_id, category),
-                )
-
             db.commit()
             flash("Plant idea added.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
 
-        return render_template(
-            "idea_new.html",
-            categories=categories,
-            form_values=form_values,
-            selected_categories=selected_categories,
-            plant_names=plant_names,
-        )
+        return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
     @app.route("/ideas/<int:plant_id>")
     @login_required
@@ -913,6 +846,8 @@ def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool
         form_values["size_info"] = details["size_info"]
     if details.get("flowering_schedule"):
         form_values["flowering_schedule"] = details["flowering_schedule"]
+    if details.get("photo_url") and not form_values.get("image_url"):
+        form_values["image_url"] = details["photo_url"]
     form_values["lookup_status"] = "draft"
 
 

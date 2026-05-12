@@ -25,8 +25,9 @@
         </button>
       </div>
 
-      <!-- Hidden name carrier — the only field with name="name" submitted to the server -->
+      <!-- Hidden carriers — only these are submitted with name/image_url -->
       <input type="hidden" name="name" id="name-hidden" value="{{ form_values.name }}" />
+      <input type="hidden" name="image_url" id="image-url-hidden" value="{{ form_values.image_url }}" />
 
       <div class="mode-section" id="mode-name">
         <label>
@@ -76,7 +77,7 @@
       <div class="mode-section" id="mode-url">
         <label>
           Image URL
-          <input type="url" name="image_url" value="{{ form_values.image_url }}" placeholder="https://…" />
+          <input id="url-image-input" type="url" placeholder="https://…" value="{{ form_values.image_url }}" />
         </label>
         <label>
           Plant name
@@ -95,13 +96,18 @@
       <input type="hidden" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
       <input type="hidden" name="source_type"        value="world" />
 
-      {% if form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info %}
+      {% if form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info %}
         <div class="autofill-summary">
-          {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
-          {% if form_values.sun_exposure %}<span class="chip">{{ form_values.sun_exposure }}</span>{% endif %}
-          {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
-          {% if form_values.size_info %}<span class="chip">{{ form_values.size_info }}</span>{% endif %}
-          {% if form_values.flowering_schedule %}<span class="chip">{{ form_values.flowering_schedule }}</span>{% endif %}
+          {% if form_values.image_url %}
+            <img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" class="autofill-thumb" />
+          {% endif %}
+          <div class="autofill-chips">
+            {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
+            {% if form_values.sun_exposure %}<span class="chip">{{ form_values.sun_exposure }}</span>{% endif %}
+            {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
+            {% if form_values.size_info %}<span class="chip">{{ form_values.size_info }}</span>{% endif %}
+            {% if form_values.flowering_schedule %}<span class="chip">{{ form_values.flowering_schedule }}</span>{% endif %}
+          </div>
         </div>
       {% endif %}
 
@@ -110,24 +116,6 @@
         <input type="text" name="source_note" value="{{ form_values.source_note }}"
                placeholder="e.g., neighbor's garden, June 2024, found it online" />
       </label>
-
-      <fieldset>
-        <legend>Categories</legend>
-        <div class="tags">
-          {% for category in categories %}
-            <label class="chip">
-              <input type="checkbox" name="categories" value="{{ category.id }}"
-                     {% if category.id|string in selected_categories %}checked{% endif %} />
-              {{ category.name }}
-            </label>
-          {% endfor %}
-        </div>
-        <label>
-          Add new categories (comma separated)
-          <input type="text" name="new_categories" value="{{ form_values.new_categories }}"
-                 placeholder="shade candidate, front border" />
-        </label>
-      </fieldset>
 
       <label>
         Notes
@@ -149,8 +137,10 @@
   const sections = document.querySelectorAll('.mode-section');
   const activeModeField = document.getElementById('active-mode-field');
   const nameHidden = document.getElementById('name-hidden');
+  const imageUrlHidden = document.getElementById('image-url-hidden');
   const nameInput = document.getElementById('plant-name-input');
   const urlNameInput = document.getElementById('url-name-input');
+  const urlImageInput = document.getElementById('url-image-input');
   const dropdown = document.getElementById('plant-search-dropdown');
   const sciField = document.querySelector('[name=scientific_name]');
   const queryField = document.querySelector('[name=lookup_query]');
@@ -184,9 +174,11 @@
   }
 
   if (urlNameInput) {
-    urlNameInput.addEventListener('input', () => {
-      nameHidden.value = urlNameInput.value;
-    });
+    urlNameInput.addEventListener('input', () => { nameHidden.value = urlNameInput.value; });
+  }
+
+  if (urlImageInput) {
+    urlImageInput.addEventListener('input', () => { imageUrlHidden.value = urlImageInput.value; });
   }
 
   if (form) {
@@ -194,6 +186,7 @@
       const mode = activeModeField ? activeModeField.value : 'name';
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
       if (mode === 'url' && urlNameInput) nameHidden.value = urlNameInput.value;
+      if (mode === 'url' && urlImageInput) imageUrlHidden.value = urlImageInput.value;
     });
   }
 

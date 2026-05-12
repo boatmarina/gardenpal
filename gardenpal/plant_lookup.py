@@ -74,26 +74,74 @@ def identify_plant_from_image(file_storage) -> Tuple[Optional[Dict[str, str]], O
     return {"scientific_name": scientific, "common_name": common, "confidence": confidence}, None
 
 
+def _lookup_via_inat(query: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """iNaturalist taxa search — returns (scientific_name, common_name, photo_url). No API key required."""
+    try:
+        resp = requests.get(
+            "https://api.inaturalist.org/v1/taxa",
+            params={
+                "q": query,
+                "is_active": "true",
+                "iconic_taxa": "Plantae",
+                "per_page": 1,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+        if not results:
+            return None, None, None
+        top = results[0]
+        photo = top.get("default_photo") or {}
+        photo_url = photo.get("medium_url") or photo.get("square_url")
+        return top.get("name"), top.get("preferred_common_name"), photo_url
+    except Exception:
+        return None, None, None
+
+
+def lookup_plant_image(query: str) -> Optional[str]:
+    """Return an iNaturalist photo URL for the plant, or None. No API key required."""
+    _, _, photo_url = _lookup_via_inat(query)
+    return photo_url
+
+
 def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
-    api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
-    if not api_key:
-        return None, "Name lookup is not configured. Add PERENUAL_API_KEY."
     if not query.strip():
         return None, "Enter a plant name or scientific name first."
 
+    api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
+    result = None
+    if api_key:
+        result = _lookup_via_perenual(query, api_key)
+
+    if result is None:
+        result, error = _lookup_via_fallback(query)
+        if result is None:
+            return None, error or "No plant information found for that name."
+
+    # Enrich with iNaturalist photo if not already set
+    if not result.get("photo_url"):
+        search_q = result.get("scientific_name") or query
+        _, _, photo_url = _lookup_via_inat(search_q)
+        result["photo_url"] = photo_url
+
+    return result, None
+
+
+def _lookup_via_perenual(query: str, api_key: str) -> Optional[Dict[str, str]]:
     try:
-        list_response = requests.get(
+        list_resp = requests.get(
             "https://perenual.com/api/species-list",
             params={"key": api_key, "q": query.strip()},
             timeout=20,
         )
-        list_response.raise_for_status()
-        list_data = list_response.json().get("data", [])
+        list_resp.raise_for_status()
+        list_data = list_resp.json().get("data", [])
     except requests.RequestException:
-        return None, "Plant lookup request failed."
+        return None
 
     if not list_data:
-        return None, "No plant match found for that query."
+        return None
 
     top = list_data[0]
     species_id = top.get("id")
@@ -101,17 +149,16 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
 
     if species_id:
         try:
-            detail_response = requests.get(
+            det_resp = requests.get(
                 f"https://perenual.com/api/species/details/{species_id}",
                 params={"key": api_key},
                 timeout=20,
             )
-            detail_response.raise_for_status()
-            details = detail_response.json()
+            det_resp.raise_for_status()
+            details = det_resp.json()
         except requests.RequestException:
             details = {}
 
-    # Prefer detail-endpoint data; fall back to list-level data (available on free tier)
     sunlight = details.get("sunlight") or top.get("sunlight") or []
     cycle = details.get("cycle") or top.get("cycle") or ""
     watering = details.get("watering") or top.get("watering") or ""
@@ -127,7 +174,6 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
     common_name = top.get("common_name") or ""
     scientific_list = top.get("scientific_name") or []
     scientific_name = scientific_list[0] if scientific_list else (details.get("scientific_name") or "")
-
     sun_str = ", ".join(sunlight) if isinstance(sunlight, list) else str(sunlight)
 
     return {
@@ -139,4 +185,63 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
         "lifecycle": cycle,
         "size_info": str(dimensions) if dimensions else "",
         "spreads": str(spread) if spread else "",
-    }, None
+        "photo_url": None,
+    }
+
+
+def _lookup_via_fallback(query: str) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+    """iNaturalist + OpenFarm — used when Perenual is not configured or returns no results."""
+    result = {
+        "name": query.strip(),
+        "scientific_name": "",
+        "sun_needs": "",
+        "watering_needs": "",
+        "flowering_schedule": "",
+        "lifecycle": "",
+        "size_info": "",
+        "spreads": "",
+        "photo_url": None,
+    }
+    found = False
+
+    sci, common, photo_url = _lookup_via_inat(query)
+    if sci or common:
+        if common:
+            result["name"] = common
+        if sci:
+            result["scientific_name"] = sci
+        if photo_url:
+            result["photo_url"] = photo_url
+        found = True
+
+    # OpenFarm for growing / care data (works for many edible and ornamental plants)
+    try:
+        resp = requests.get(
+            "https://openfarm.cc/api/v1/crops",
+            params={"filter": query},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        if data:
+            attrs = data[0].get("attributes", {})
+            if attrs.get("sun_requirements"):
+                result["sun_needs"] = attrs["sun_requirements"]
+            height = attrs.get("height")
+            spread = attrs.get("spread")
+            if height:
+                try:
+                    size = f"{int(float(height))}cm tall"
+                    if spread:
+                        size += f", {int(float(spread))}cm spread"
+                    result["size_info"] = size
+                except (ValueError, TypeError):
+                    pass
+            found = True
+    except Exception:
+        pass
+
+    if not found:
+        return None, "No plant information found for that name."
+
+    return result, None
