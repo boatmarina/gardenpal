@@ -255,15 +255,15 @@ def _try_openfarm(result: dict) -> None:
 
 
 def _try_wikipedia(result: dict, query: str) -> None:
-    """Extract lifecycle and sun needs from a Wikipedia intro paragraph."""
+    """Extract lifecycle and sun needs from up to 50 sentences of a Wikipedia article."""
     if not query:
         return
     try:
-        # Search for the best matching article
+        search_q = query if "plant" in query.lower() else query + " plant"
         search_resp = requests.get(
             "https://en.wikipedia.org/w/api.php",
-            params={"action": "query", "list": "search", "srsearch": query, "format": "json", "srlimit": 1},
-            timeout=10,
+            params={"action": "query", "list": "search", "srsearch": search_q, "format": "json", "srlimit": 1},
+            timeout=8,
         )
         search_resp.raise_for_status()
         hits = search_resp.json().get("query", {}).get("search", [])
@@ -271,14 +271,24 @@ def _try_wikipedia(result: dict, query: str) -> None:
             return
         title = hits[0]["title"]
 
-        summary_resp = requests.get(
-            f"https://en.wikipedia.org/api/rest_v1/page/summary/{title.replace(' ', '_')}",
-            timeout=10,
+        # Get 50 sentences rather than just the intro — captures cultivation sections
+        extract_resp = requests.get(
+            "https://en.wikipedia.org/w/api.php",
+            params={
+                "action": "query",
+                "prop": "extracts",
+                "titles": title,
+                "format": "json",
+                "exsentences": 50,
+                "explaintext": True,
+            },
+            timeout=8,
         )
-        if not summary_resp.ok:
+        extract_resp.raise_for_status()
+        pages = extract_resp.json().get("query", {}).get("pages", {})
+        if not pages:
             return
-
-        extract = (summary_resp.json().get("extract") or "").lower()
+        extract = (next(iter(pages.values())).get("extract") or "").lower()
         if not extract:
             return
 
@@ -296,6 +306,8 @@ def _try_wikipedia(result: dict, query: str) -> None:
                     result["sun_needs"] = "part_shade"
                 else:
                     result["sun_needs"] = "full_sun"
+            elif "full shade" in extract:
+                result["sun_needs"] = "shade"
             elif "partial shade" in extract or "part shade" in extract:
                 result["sun_needs"] = "part_shade"
             elif "shade" in extract and "sun" not in extract:
@@ -307,8 +319,18 @@ def _try_wikipedia(result: dict, query: str) -> None:
 def _supplement_missing_fields(result: dict, query: str) -> None:
     """Fill empty care/size fields using OpenFarm then Wikipedia."""
     _try_openfarm(result)
+
     if not result.get("sun_needs") or not result.get("lifecycle"):
         _try_wikipedia(result, result.get("name") or query)
+
+    # For cultivars (scientific name has single quotes, e.g. Astilbe 'Alive and Kicking'),
+    # the first Wikipedia search may find a vague article. Retry with just the genus name,
+    # which almost always has sun/lifecycle data in its article.
+    sci = result.get("scientific_name", "")
+    if ("'" in sci or "×" in sci) and (not result.get("sun_needs") or not result.get("lifecycle")):
+        genus = sci.split()[0]
+        if genus:
+            _try_wikipedia(result, genus)
 
 
 # ---------------------------------------------------------------------------
