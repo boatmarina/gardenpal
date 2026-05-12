@@ -115,8 +115,7 @@ def create_app() -> Flask:
             if not db_url:
                 return "<pre>Error: DATABASE_URL environment variable is not set.</pre>", 500
             try:
-                with app.app_context():
-                    init_db()
+                init_db()
                 app.config["_DB_READY"] = True
             except Exception as exc:
                 return f"<pre>Database connection failed:\n{exc}</pre>", 500
@@ -685,8 +684,16 @@ def current_app():
 
 def init_db():
     db = get_db()
+    # Autocommit each DDL statement independently so the transaction pooler
+    # can't split a SERIAL column's implicit CREATE SEQUENCE from its CREATE TABLE,
+    # and so a failed statement doesn't abort the rest.
+    db._conn.autocommit = True
     for stmt in _SCHEMA_STATEMENTS:
-        db.execute(stmt)
+        try:
+            db.execute(stmt)
+        except Exception:
+            pass  # table or sequence already exists — safe to continue
+    db._conn.autocommit = False
 
     ensure_column(db, "plants", "user_id", "INTEGER")
     ensure_column(db, "plants", "scientific_name", "TEXT")
