@@ -65,6 +65,10 @@ button {
   background: #6f7969;
 }
 
+.button-danger {
+  background: #b94040;
+}
+
 .topnav {
   display: flex;
   align-items: center;
@@ -358,6 +362,20 @@ dd {
 .mode-section.active {
   display: grid;
   gap: 0.7rem;
+}
+
+.name-photo-preview {
+  width: 100%;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.name-photo-preview img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  display: block;
 }
 
 .identified-name {

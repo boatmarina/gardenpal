@@ -12,7 +12,7 @@ from flask import Flask, flash, g, jsonify, redirect, render_template, request, 
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details
+from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -366,6 +366,12 @@ def create_app() -> Flask:
                 flash("Plant name is required.")
                 return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
+            # Auto-fill details on save if not already done via an explicit autofill action
+            if form_values["lookup_status"] != "draft":
+                details, _ = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                if details:
+                    apply_lookup_to_form(form_values, details, use_common_name=False)
+
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
             label_photo_path = save_upload(
                 request.files.get("label_photo"),
@@ -605,26 +611,70 @@ def create_app() -> Flask:
         if len(q) < 2:
             return jsonify(results=[])
         api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
-        if not api_key:
-            return jsonify(results=[], error="PERENUAL_API_KEY not configured")
+        if api_key:
+            try:
+                resp = requests.get(
+                    "https://perenual.com/api/species-list",
+                    params={"key": api_key, "q": q},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json().get("data", [])
+                results = []
+                for plant in data[:12]:
+                    sci = plant.get("scientific_name") or []
+                    results.append({
+                        "common_name": plant.get("common_name") or "",
+                        "scientific_name": sci[0] if sci else "",
+                    })
+                if results:
+                    return jsonify(results=results)
+            except Exception:
+                pass
+        # Fall back to iNaturalist (free, no API key needed)
         try:
             resp = requests.get(
-                "https://perenual.com/api/species-list",
-                params={"key": api_key, "q": q},
+                "https://api.inaturalist.org/v1/taxa",
+                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 12},
                 timeout=10,
             )
             resp.raise_for_status()
-            data = resp.json().get("data", [])
+            taxa = resp.json().get("results", [])
+            results = []
+            for t in taxa:
+                photo = t.get("default_photo") or {}
+                results.append({
+                    "common_name": t.get("preferred_common_name") or t.get("name") or "",
+                    "scientific_name": t.get("name") or "",
+                    "photo_url": photo.get("medium_url") or photo.get("square_url"),
+                })
+            return jsonify(results=results)
         except Exception:
             return jsonify(results=[])
-        results = []
-        for plant in data[:12]:
-            sci = plant.get("scientific_name") or []
-            results.append({
-                "common_name": plant.get("common_name") or "",
-                "scientific_name": sci[0] if sci else "",
-            })
-        return jsonify(results=results)
+
+    @app.route("/api/plant-photo")
+    @login_required
+    def api_plant_photo():
+        q = request.args.get("q", "").strip()
+        if not q:
+            return jsonify(photo_url=None)
+        return jsonify(photo_url=lookup_plant_image(q))
+
+    @app.route("/ideas/<int:plant_id>/delete", methods=["POST"])
+    @login_required
+    def delete_idea(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        db.execute("DELETE FROM plant_categories WHERE plant_id = ?", (plant_id,))
+        db.execute("DELETE FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"]))
+        db.commit()
+        flash("Plant idea deleted.")
+        return redirect(url_for("ideas_index"))
 
     @app.route("/plants/new")
     def legacy_new_plant():

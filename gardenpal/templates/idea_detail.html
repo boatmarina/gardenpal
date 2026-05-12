@@ -1,8 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
   <article class="panel detail">
-    <h2>{{ plant.name }}</h2>
-    <p class="muted">{{ plant.scientific_name or "Scientific name not set" }}</p>
+    <div class="title-row">
+      <div>
+        <h2>{{ plant.name }}</h2>
+        <p class="muted">{{ plant.scientific_name or "Scientific name not set" }}</p>
+      </div>
+      <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
+            onsubmit="return confirm('Delete {{ plant.name | e }}?')">
+        <button type="submit" class="button button-danger">Delete</button>
+      </form>
+    </div>
 
     <div class="detail-image">
       {% if plant.image_path %}
