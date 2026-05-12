@@ -1,11 +1,12 @@
 import os
+import ssl
 import uuid
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
+from urllib.parse import urlparse
 
-import psycopg2
-import psycopg2.extras
+import pg8000.dbapi2
 from flask import Flask, flash, g, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -16,22 +17,73 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
 
 
+class _Row:
+    """Dict- and attribute-accessible row, like sqlite3.Row."""
+
+    def __init__(self, description, values):
+        object.__setattr__(self, "_data", dict(zip([d[0] for d in description], values)))
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __getattr__(self, key):
+        try:
+            return self._data[key]
+        except KeyError:
+            raise AttributeError(key)
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+    def keys(self):
+        return self._data.keys()
+
+    def __contains__(self, key):
+        return key in self._data
+
+
+class _PgCursor:
+    def __init__(self, cur):
+        self._cur = cur
+
+    def fetchone(self):
+        row = self._cur.fetchone()
+        return None if row is None else _Row(self._cur.description, row)
+
+    def fetchall(self):
+        return [_Row(self._cur.description, row) for row in self._cur.fetchall()]
+
+
 class _PgDB:
-    """Thin adapter giving psycopg2 a SQLite-like execute() interface."""
+    """Thin adapter giving pg8000 a SQLite-like execute() interface."""
 
     def __init__(self, conn):
         self._conn = conn
 
     def execute(self, query, params=()):
         cur = self._conn.cursor()
-        cur.execute(query.replace("?", "%s"), params)
-        return cur
+        cur.execute(query.replace("?", "%s"), params or ())
+        return _PgCursor(cur)
 
     def commit(self):
         self._conn.commit()
 
     def close(self):
         self._conn.close()
+
+
+def _connect(database_url: str) -> _PgDB:
+    parsed = urlparse(database_url)
+    ssl_ctx = ssl.create_default_context()
+    conn = pg8000.dbapi2.connect(
+        host=parsed.hostname,
+        port=parsed.port or 5432,
+        database=parsed.path.lstrip("/"),
+        user=parsed.username,
+        password=parsed.password,
+        ssl_context=ssl_ctx,
+    )
+    return _PgDB(conn)
 
 
 def create_app() -> Flask:
@@ -42,12 +94,23 @@ def create_app() -> Flask:
         DATABASE_URL=os.environ.get("DATABASE_URL"),
         UPLOAD_FOLDER=str(upload_dir),
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+        _DB_READY=False,
     )
 
     os.makedirs(upload_dir, exist_ok=True)
 
-    with app.app_context():
-        init_db()
+    @app.before_request
+    def ensure_db_ready():
+        if not app.config["_DB_READY"]:
+            db_url = app.config.get("DATABASE_URL")
+            if not db_url:
+                return "<pre>Error: DATABASE_URL environment variable is not set.</pre>", 500
+            try:
+                with app.app_context():
+                    init_db()
+                app.config["_DB_READY"] = True
+            except Exception as exc:
+                return f"<pre>Database connection failed:\n{exc}</pre>", 500
 
     @app.before_request
     def load_logged_in_user():
@@ -601,11 +664,7 @@ def create_app() -> Flask:
 
 def get_db():
     if "db" not in g:
-        conn = psycopg2.connect(
-            current_app().config["DATABASE_URL"],
-            cursor_factory=psycopg2.extras.RealDictCursor,
-        )
-        g.db = _PgDB(conn)
+        g.db = _connect(current_app().config["DATABASE_URL"])
     return g.db
 
 
