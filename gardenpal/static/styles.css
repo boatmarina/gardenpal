@@ -257,6 +257,55 @@ dd {
   margin: 0 0 0.85rem;
 }
 
+.plant-search-wrap {
+  position: relative;
+}
+
+.plant-search-dropdown {
+  position: absolute;
+  z-index: 100;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  border-top: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  max-height: 260px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.plant-search-dropdown button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  background: none;
+  color: var(--fg);
+  border-radius: 0;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  gap: 0.1rem;
+}
+
+.plant-search-dropdown button:last-child {
+  border-bottom: none;
+}
+
+.plant-search-dropdown button:hover,
+.plant-search-dropdown button:focus {
+  background: #f0f5ee;
+  outline: none;
+}
+
+.plant-search-dropdown button small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
 .autofill-summary {
   display: flex;
   flex-wrap: wrap;

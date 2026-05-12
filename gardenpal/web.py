@@ -7,7 +7,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pg8000
-from flask import Flask, flash, g, redirect, render_template, request, send_from_directory, session, url_for
+import requests
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -661,6 +662,34 @@ def create_app() -> Flask:
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
         return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
+
+    @app.route("/api/plant-search")
+    @login_required
+    def api_plant_search():
+        q = request.args.get("q", "").strip()
+        if len(q) < 2:
+            return jsonify(results=[])
+        api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
+        if not api_key:
+            return jsonify(results=[], error="PERENUAL_API_KEY not configured")
+        try:
+            resp = requests.get(
+                "https://perenual.com/api/species-list",
+                params={"key": api_key, "q": q},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json().get("data", [])
+        except Exception:
+            return jsonify(results=[])
+        results = []
+        for plant in data[:12]:
+            sci = plant.get("scientific_name") or []
+            results.append({
+                "common_name": plant.get("common_name") or "",
+                "scientific_name": sci[0] if sci else "",
+            })
+        return jsonify(results=results)
 
     @app.route("/plants/new")
     def legacy_new_plant():
