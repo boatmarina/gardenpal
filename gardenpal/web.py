@@ -1,10 +1,11 @@
 import os
-import sqlite3
 import uuid
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
+import psycopg2
+import psycopg2.extras
 from flask import Flask, flash, g, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -15,19 +16,35 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
 
 
+class _PgDB:
+    """Thin adapter giving psycopg2 a SQLite-like execute() interface."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, query, params=()):
+        cur = self._conn.cursor()
+        cur.execute(query.replace("?", "%s"), params)
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
+
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
-    running_on_vercel = bool(os.environ.get("VERCEL"))
-    data_dir = Path("/tmp/gardenpal") if running_on_vercel else Path(app.instance_path)
+    upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev"),
-        DATABASE=str(data_dir / "gardenpal.db"),
-        UPLOAD_FOLDER=str(data_dir / "uploads"),
+        DATABASE_URL=os.environ.get("DATABASE_URL"),
+        UPLOAD_FOLDER=str(upload_dir),
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
     )
 
-    os.makedirs(data_dir, exist_ok=True)
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    os.makedirs(upload_dir, exist_ok=True)
 
     with app.app_context():
         init_db()
@@ -314,12 +331,13 @@ def create_app() -> Flask:
                 user_id,
                 "label",
             )
-            db.execute(
+            plant_id = db.execute(
                 """
                 INSERT INTO plants
                 (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
                  image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
                 """,
                 (
                     user_id,
@@ -339,8 +357,7 @@ def create_app() -> Flask:
                     form_values["notes"],
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
-            )
-            plant_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+            ).fetchone()["id"]
 
             created_category_ids = list(selected_categories)
             if form_values["new_categories"]:
@@ -351,13 +368,14 @@ def create_app() -> Flask:
                     if existing:
                         created_category_ids.append(str(existing["id"]))
                     else:
-                        db.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
-                        new_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+                        new_id = db.execute(
+                            "INSERT INTO categories (name) VALUES (?) RETURNING id", (category_name,)
+                        ).fetchone()["id"]
                         created_category_ids.append(str(new_id))
 
             for category in set(created_category_ids):
                 db.execute(
-                    "INSERT OR IGNORE INTO plant_categories (plant_id, category_id) VALUES (?, ?)",
+                    "INSERT INTO plant_categories (plant_id, category_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                     (plant_id, category),
                 )
 
@@ -583,12 +601,11 @@ def create_app() -> Flask:
 
 def get_db():
     if "db" not in g:
-        db = sqlite3.connect(
-            current_app().config["DATABASE"],
-            detect_types=sqlite3.PARSE_DECLTYPES,
+        conn = psycopg2.connect(
+            current_app().config["DATABASE_URL"],
+            cursor_factory=psycopg2.extras.RealDictCursor,
         )
-        db.row_factory = sqlite3.Row
-        g.db = db
+        g.db = _PgDB(conn)
     return g.db
 
 
@@ -600,83 +617,8 @@ def current_app():
 
 def init_db():
     db = get_db()
-    db.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS plants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            name TEXT NOT NULL,
-            scientific_name TEXT,
-            lookup_query TEXT,
-            source_type TEXT NOT NULL DEFAULT 'world',
-            source_note TEXT,
-            image_path TEXT,
-            label_photo_path TEXT,
-            image_url TEXT,
-            size_info TEXT,
-            flowering_schedule TEXT,
-            sun_exposure TEXT,
-            lifecycle TEXT,
-            lookup_status TEXT,
-            notes TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            is_default INTEGER NOT NULL DEFAULT 0
-        );
-
-        CREATE TABLE IF NOT EXISTS plant_categories (
-            plant_id INTEGER NOT NULL,
-            category_id INTEGER NOT NULL,
-            PRIMARY KEY (plant_id, category_id),
-            FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS yard_zones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            description TEXT,
-            reference_image_path TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS yard_plants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            zone_id INTEGER NOT NULL,
-            plant_name TEXT NOT NULL,
-            scientific_name TEXT,
-            lookup_query TEXT,
-            image_path TEXT,
-            location_x REAL NOT NULL DEFAULT 50,
-            location_y REAL NOT NULL DEFAULT 50,
-            size_info TEXT,
-            watering_needs TEXT,
-            sun_needs TEXT,
-            flowering_schedule TEXT,
-            lifecycle TEXT,
-            spreads TEXT,
-            notes TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-            FOREIGN KEY (zone_id) REFERENCES yard_zones (id) ON DELETE CASCADE
-        );
-        """
-    )
+    for stmt in _SCHEMA_STATEMENTS:
+        db.execute(stmt)
 
     ensure_column(db, "plants", "user_id", "INTEGER")
     ensure_column(db, "plants", "scientific_name", "TEXT")
@@ -685,7 +627,6 @@ def init_db():
     ensure_column(db, "plants", "lookup_status", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
-    # Keep existing records usable if they predate auth.
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
     if user is None:
         db.execute(
@@ -696,8 +637,95 @@ def init_db():
     db.execute("UPDATE plants SET user_id = ? WHERE user_id IS NULL", (user["id"],))
 
     for category in DEFAULT_CATEGORIES:
-        db.execute("INSERT OR IGNORE INTO categories (name, is_default) VALUES (?, 1)", (category,))
+        db.execute(
+            "INSERT INTO categories (name, is_default) VALUES (?, 1) ON CONFLICT (name) DO NOTHING",
+            (category,),
+        )
     db.commit()
+
+
+_SCHEMA_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS plants (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        name TEXT NOT NULL,
+        scientific_name TEXT,
+        lookup_query TEXT,
+        source_type TEXT NOT NULL DEFAULT 'world',
+        source_note TEXT,
+        image_path TEXT,
+        label_photo_path TEXT,
+        image_url TEXT,
+        size_info TEXT,
+        flowering_schedule TEXT,
+        sun_exposure TEXT,
+        lifecycle TEXT,
+        lookup_status TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        is_default INTEGER NOT NULL DEFAULT 0
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS plant_categories (
+        plant_id INTEGER NOT NULL,
+        category_id INTEGER NOT NULL,
+        PRIMARY KEY (plant_id, category_id),
+        FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE,
+        FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS yard_zones (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        reference_image_path TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS yard_plants (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        zone_id INTEGER NOT NULL,
+        plant_name TEXT NOT NULL,
+        scientific_name TEXT,
+        lookup_query TEXT,
+        image_path TEXT,
+        location_x REAL NOT NULL DEFAULT 50,
+        location_y REAL NOT NULL DEFAULT 50,
+        size_info TEXT,
+        watering_needs TEXT,
+        sun_needs TEXT,
+        flowering_schedule TEXT,
+        lifecycle TEXT,
+        spreads TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (zone_id) REFERENCES yard_zones (id) ON DELETE CASCADE
+    )
+    """,
+]
 
 
 def allowed_file(filename: str) -> bool:
@@ -730,10 +758,12 @@ def login_required(view):
 
 
 def ensure_column(db, table_name: str, column_name: str, column_spec: str):
-    columns = db.execute(f"PRAGMA table_info({table_name})").fetchall()
-    existing = {col["name"] for col in columns}
-    if column_name not in existing:
-        db.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_spec}")
+    exists = db.execute(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        (table_name, column_name),
+    ).fetchone()
+    if exists is None:
+        db.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_spec}")
 
 
 def infer_query_from_text(raw_text: str) -> str:
@@ -811,4 +841,3 @@ def run():
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5000"))
     app.run(host=host, port=port, debug=True)
-

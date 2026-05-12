@@ -14,6 +14,7 @@ setup(
     install_requires=[
         "Flask",
         "requests",
+        "psycopg2-binary",
     ],
     python_requires=">=3.8",
 )
