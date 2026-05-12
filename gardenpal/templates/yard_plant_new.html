@@ -3,32 +3,55 @@
   <section class="panel">
     <h2>Add Planted Item</h2>
     <form method="post" enctype="multipart/form-data" class="stack">
+
       <label>
         Yard zone *
         <select name="zone_id" required>
-          <option value="">Choose a zone...</option>
+          <option value="">Choose a zone…</option>
           {% for zone in zones %}
             <option value="{{ zone.id }}" {% if form_values.zone_id == zone.id|string %}selected{% endif %}>{{ zone.name }}</option>
           {% endfor %}
         </select>
       </label>
+
       <label>
         Plant name *
-        <input type="text" name="plant_name" value="{{ form_values.plant_name }}" required />
+        <input type="text" name="plant_name" value="{{ form_values.plant_name }}" required
+               list="plant-names-list" placeholder="Start typing a plant name…" autocomplete="off" />
       </label>
-      <label>
-        Scientific name
-        <input type="text" name="scientific_name" value="{{ form_values.scientific_name }}" />
-      </label>
-      <label>
-        Lookup query
-        <input type="text" name="lookup_query" value="{{ form_values.lookup_query }}" placeholder="Used later for automated plant info lookup" />
-      </label>
+      <datalist id="plant-names-list">
+        {% for name in plant_names %}
+          <option value="{{ name }}">
+        {% endfor %}
+      </datalist>
       <div class="actions">
-        <button type="submit" name="form_action" value="autofill_name">Auto-fill from Name</button>
+        <button type="submit" name="form_action" value="autofill_name">Search &amp; Auto-fill Details</button>
       </div>
+
+      <!-- Hidden fields preserve auto-filled values across form round-trips -->
+      <input type="hidden" name="scientific_name"    value="{{ form_values.scientific_name }}" />
+      <input type="hidden" name="lookup_query"       value="{{ form_values.lookup_query }}" />
+      <input type="hidden" name="watering_needs"     value="{{ form_values.watering_needs }}" />
+      <input type="hidden" name="sun_needs"          value="{{ form_values.sun_needs }}" />
+      <input type="hidden" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
+      <input type="hidden" name="lifecycle"          value="{{ form_values.lifecycle }}" />
+      <input type="hidden" name="size_info"          value="{{ form_values.size_info }}" />
+      <input type="hidden" name="spreads"            value="{{ form_values.spreads }}" />
+
+      {% if form_values.scientific_name or form_values.sun_needs or form_values.lifecycle or form_values.size_info %}
+        <div class="autofill-summary">
+          {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
+          {% if form_values.sun_needs %}<span class="chip">{{ form_values.sun_needs }}</span>{% endif %}
+          {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
+          {% if form_values.size_info %}<span class="chip">{{ form_values.size_info }}</span>{% endif %}
+          {% if form_values.watering_needs %}<span class="chip">{{ form_values.watering_needs }}</span>{% endif %}
+          {% if form_values.flowering_schedule %}<span class="chip">{{ form_values.flowering_schedule }}</span>{% endif %}
+          {% if form_values.spreads %}<span class="chip">{{ form_values.spreads }}</span>{% endif %}
+        </div>
+      {% endif %}
+
       <label>
-        Photo of planted spot/plant
+        Photo of planted spot / plant
         <input type="file" name="photo" accept="image/*" capture="environment" />
       </label>
       <div class="actions">
@@ -47,33 +70,10 @@
       </div>
 
       <label>
-        Size
-        <input type="text" name="size_info" value="{{ form_values.size_info }}" />
-      </label>
-      <label>
-        Watering needs
-        <input type="text" name="watering_needs" value="{{ form_values.watering_needs }}" />
-      </label>
-      <label>
-        Sun needs
-        <input type="text" name="sun_needs" value="{{ form_values.sun_needs }}" />
-      </label>
-      <label>
-        Flowering schedule
-        <input type="text" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
-      </label>
-      <label>
-        Lifecycle (annual/perennial/etc.)
-        <input type="text" name="lifecycle" value="{{ form_values.lifecycle }}" />
-      </label>
-      <label>
-        Spreads?
-        <input type="text" name="spreads" value="{{ form_values.spreads }}" placeholder="e.g., clumping, runners, non-spreading" />
-      </label>
-      <label>
         Notes
-        <textarea name="notes" rows="4">{{ form_values.notes }}</textarea>
+        <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
+
       <button type="submit" name="form_action" value="save">Save Planted Item</button>
     </form>
   </section>

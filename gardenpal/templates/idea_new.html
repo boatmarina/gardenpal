@@ -3,33 +3,52 @@
   <section class="panel">
     <h2>Add Plant Idea</h2>
     <form method="post" enctype="multipart/form-data" class="stack">
-      <label>
-        Plant name *
-        <input type="text" name="name" value="{{ form_values.name }}" required />
-      </label>
-      <label>
-        Scientific name
-        <input type="text" name="scientific_name" value="{{ form_values.scientific_name }}" placeholder="e.g., Echinacea purpurea" />
-      </label>
-      <label>
-        Lookup query (common/scientific)
-        <input type="text" name="lookup_query" value="{{ form_values.lookup_query }}" placeholder="Text to use for automated lookup APIs" />
-      </label>
-      <div class="actions">
-        <button type="submit" name="form_action" value="autofill_name">Auto-fill from Name</button>
-      </div>
 
       <label>
-        Source type
+        Plant name *
+        <input type="text" name="name" value="{{ form_values.name }}" required
+               list="plant-names-list" placeholder="Start typing a plant name…" autocomplete="off" />
+      </label>
+      <datalist id="plant-names-list">
+        {% for name in plant_names %}
+          <option value="{{ name }}">
+        {% endfor %}
+      </datalist>
+      <div class="actions">
+        <button type="submit" name="form_action" value="autofill_name">Search &amp; Auto-fill Details</button>
+      </div>
+
+      <!-- Hidden fields preserve auto-filled values across form round-trips -->
+      <input type="hidden" name="scientific_name"    value="{{ form_values.scientific_name }}" />
+      <input type="hidden" name="lookup_query"       value="{{ form_values.lookup_query }}" />
+      <input type="hidden" name="lookup_status"      value="{{ form_values.lookup_status }}" />
+      <input type="hidden" name="sun_exposure"       value="{{ form_values.sun_exposure }}" />
+      <input type="hidden" name="lifecycle"          value="{{ form_values.lifecycle }}" />
+      <input type="hidden" name="size_info"          value="{{ form_values.size_info }}" />
+      <input type="hidden" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
+
+      {% if form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info %}
+        <div class="autofill-summary">
+          {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
+          {% if form_values.sun_exposure %}<span class="chip">{{ form_values.sun_exposure }}</span>{% endif %}
+          {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
+          {% if form_values.size_info %}<span class="chip">{{ form_values.size_info }}</span>{% endif %}
+          {% if form_values.flowering_schedule %}<span class="chip">{{ form_values.flowering_schedule }}</span>{% endif %}
+        </div>
+      {% endif %}
+
+      <label>
+        Where did you see it?
         <select name="source_type">
-          <option value="world" {% if form_values.source_type == "world" %}selected{% endif %}>Seen out in the world</option>
-          <option value="online" {% if form_values.source_type == "online" %}selected{% endif %}>Seen online</option>
+          <option value="world"   {% if form_values.source_type == "world" %}selected{% endif %}>Out in the world</option>
+          <option value="online"  {% if form_values.source_type == "online" %}selected{% endif %}>Online</option>
           <option value="nursery" {% if form_values.source_type == "nursery" %}selected{% endif %}>Nursery</option>
         </select>
       </label>
       <label>
-        Source note
-        <input type="text" name="source_note" value="{{ form_values.source_note }}" placeholder="Where/when you saw it" />
+        Note where/when you saw it
+        <input type="text" name="source_note" value="{{ form_values.source_note }}"
+               placeholder="e.g., neighbor's garden, June 2024" />
       </label>
 
       <label>
@@ -39,6 +58,7 @@
       <div class="actions">
         <button type="submit" name="form_action" value="autofill_photo">Auto-fill from Plant Photo</button>
       </div>
+
       <label>
         Label photo (plant tag)
         <input type="file" name="label_photo" accept="image/*" capture="environment" />
@@ -46,48 +66,10 @@
       <div class="actions">
         <button type="submit" name="form_action" value="autofill_label">Extract Name from Label Photo</button>
       </div>
-      <label>
-        ...or image URL
-        <input type="url" name="image_url" value="{{ form_values.image_url }}" placeholder="https://..." />
-      </label>
 
       <label>
-        Lookup status
-        <select name="lookup_status">
-          <option value="not-started" {% if form_values.lookup_status == "not-started" %}selected{% endif %}>Not started</option>
-          <option value="draft" {% if form_values.lookup_status == "draft" %}selected{% endif %}>Draft info</option>
-          <option value="verified" {% if form_values.lookup_status == "verified" %}selected{% endif %}>Verified</option>
-        </select>
-      </label>
-
-      <div class="split">
-        <label>
-          Sun exposure
-          <select name="sun_exposure">
-            <option value="" {% if not form_values.sun_exposure %}selected{% endif %}>Unknown</option>
-            <option value="shade" {% if form_values.sun_exposure == "shade" %}selected{% endif %}>Shade</option>
-            <option value="part-sun" {% if form_values.sun_exposure == "part-sun" %}selected{% endif %}>Part sun</option>
-            <option value="full-sun" {% if form_values.sun_exposure == "full-sun" %}selected{% endif %}>Full sun</option>
-          </select>
-        </label>
-        <label>
-          Lifecycle
-          <select name="lifecycle">
-            <option value="" {% if not form_values.lifecycle %}selected{% endif %}>Unknown</option>
-            <option value="annual" {% if form_values.lifecycle == "annual" %}selected{% endif %}>Annual</option>
-            <option value="perennial" {% if form_values.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
-            <option value="biennial" {% if form_values.lifecycle == "biennial" %}selected{% endif %}>Biennial</option>
-          </select>
-        </label>
-      </div>
-
-      <label>
-        Size info
-        <input type="text" name="size_info" value="{{ form_values.size_info }}" placeholder="Height/spread" />
-      </label>
-      <label>
-        Flowering schedule
-        <input type="text" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" placeholder="e.g., late spring to summer" />
+        …or image URL
+        <input type="url" name="image_url" value="{{ form_values.image_url }}" placeholder="https://…" />
       </label>
 
       <fieldset>
@@ -95,20 +77,22 @@
         <div class="tags">
           {% for category in categories %}
             <label class="chip">
-              <input type="checkbox" name="categories" value="{{ category.id }}" {% if category.id|string in selected_categories %}checked{% endif %} />
+              <input type="checkbox" name="categories" value="{{ category.id }}"
+                     {% if category.id|string in selected_categories %}checked{% endif %} />
               {{ category.name }}
             </label>
           {% endfor %}
         </div>
         <label>
           Add new categories (comma separated)
-          <input type="text" name="new_categories" value="{{ form_values.new_categories }}" placeholder="shade candidate, front border" />
+          <input type="text" name="new_categories" value="{{ form_values.new_categories }}"
+                 placeholder="shade candidate, front border" />
         </label>
       </fieldset>
 
       <label>
         Notes
-        <textarea name="notes" rows="4">{{ form_values.notes }}</textarea>
+        <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
 
       <button type="submit" name="form_action" value="save">Save Idea</button>

@@ -257,6 +257,21 @@ dd {
   margin: 0 0 0.85rem;
 }
 
+.autofill-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.autofill-summary .chip {
+  background: #e6f0e6;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 @media (max-width: 700px) {
   .split {
     grid-template-columns: 1fr;

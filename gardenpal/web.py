@@ -294,6 +294,11 @@ def create_app() -> Flask:
         ).fetchall()
         if not categories:
             categories = db.execute("SELECT * FROM categories WHERE is_default = 1 ORDER BY name ASC").fetchall()
+        plant_names = [
+            r["name"] for r in db.execute(
+                "SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (user_id,)
+            ).fetchall()
+        ]
 
         form_values = {
             "name": "",
@@ -343,6 +348,7 @@ def create_app() -> Flask:
                     categories=categories,
                     form_values=form_values,
                     selected_categories=selected_categories,
+                    plant_names=plant_names,
                 )
 
             if form_action == "autofill_label":
@@ -362,6 +368,7 @@ def create_app() -> Flask:
                     categories=categories,
                     form_values=form_values,
                     selected_categories=selected_categories,
+                    plant_names=plant_names,
                 )
 
             if form_action == "autofill_photo":
@@ -384,6 +391,7 @@ def create_app() -> Flask:
                     categories=categories,
                     form_values=form_values,
                     selected_categories=selected_categories,
+                    plant_names=plant_names,
                 )
 
             if not form_values["name"]:
@@ -393,6 +401,7 @@ def create_app() -> Flask:
                     categories=categories,
                     form_values=form_values,
                     selected_categories=selected_categories,
+                    plant_names=plant_names,
                 )
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
@@ -459,6 +468,7 @@ def create_app() -> Flask:
             categories=categories,
             form_values=form_values,
             selected_categories=selected_categories,
+            plant_names=plant_names,
         )
 
     @app.route("/ideas/<int:plant_id>")
@@ -541,6 +551,13 @@ def create_app() -> Flask:
     def yard_plant_new():
         db = get_db()
         zones = db.execute("SELECT * FROM yard_zones WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()
+        idea_names = [r["name"] for r in db.execute(
+            "SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)
+        ).fetchall()]
+        yard_names = [r["plant_name"] for r in db.execute(
+            "SELECT DISTINCT plant_name FROM yard_plants WHERE user_id = ? ORDER BY plant_name ASC", (g.user["id"],)
+        ).fetchall()]
+        plant_names = sorted(set(idea_names + yard_names))
 
         form_values = {
             "zone_id": "",
@@ -583,7 +600,7 @@ def create_app() -> Flask:
                 else:
                     apply_lookup_to_yard_form(form_values, details)
                     flash("Planted item details autofilled from name lookup.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
 
             if form_action == "autofill_photo":
                 suggestion, error = identify_plant_from_image(request.files.get("photo"))
@@ -599,11 +616,11 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
                     flash(f"Photo-based suggestion confidence: {suggestion.get('confidence') or 'unknown'}")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
 
             if not form_values["zone_id"] or not form_values["plant_name"]:
                 flash("Zone and plant name are required.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
 
             zone = db.execute(
                 "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
@@ -611,7 +628,7 @@ def create_app() -> Flask:
             ).fetchone()
             if zone is None:
                 flash("Please choose a valid zone.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "yardplant")
             db.execute(
@@ -643,7 +660,7 @@ def create_app() -> Flask:
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
-        return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+        return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
 
     @app.route("/plants/new")
     def legacy_new_plant():
