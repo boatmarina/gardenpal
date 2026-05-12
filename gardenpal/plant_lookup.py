@@ -111,24 +111,32 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
         except requests.RequestException:
             details = {}
 
+    # Prefer detail-endpoint data; fall back to list-level data (available on free tier)
     sunlight = details.get("sunlight") or top.get("sunlight") or []
     cycle = details.get("cycle") or top.get("cycle") or ""
-    watering = details.get("watering") or ""
-    dimensions = details.get("dimension") or details.get("dimensions") or ""
-    spread = details.get("spread") or ""
-    flowering = details.get("flowers") or details.get("flowering_season") or ""
+    watering = details.get("watering") or top.get("watering") or ""
+    dimensions = details.get("dimension") or details.get("dimensions") or top.get("dimension") or ""
+    spread = details.get("spread") or top.get("spread") or ""
+    flowering = (
+        details.get("flowering_season")
+        or details.get("flowers")
+        or top.get("flowering_season")
+        or ""
+    )
 
     common_name = top.get("common_name") or ""
     scientific_list = top.get("scientific_name") or []
     scientific_name = scientific_list[0] if scientific_list else (details.get("scientific_name") or "")
 
+    sun_str = ", ".join(sunlight) if isinstance(sunlight, list) else str(sunlight)
+
     return {
         "name": common_name or query.strip(),
         "scientific_name": scientific_name,
-        "sun_needs": ", ".join(sunlight) if isinstance(sunlight, list) else str(sunlight),
+        "sun_needs": sun_str,
         "watering_needs": watering,
-        "flowering_schedule": flowering,
+        "flowering_schedule": str(flowering) if flowering else "",
         "lifecycle": cycle,
-        "size_info": dimensions,
-        "spreads": spread,
+        "size_info": str(dimensions) if dimensions else "",
+        "spreads": str(spread) if spread else "",
     }, None
