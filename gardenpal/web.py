@@ -6,7 +6,7 @@ from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
 
-import pg8000.dbapi2
+import pg8000
 from flask import Flask, flash, g, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -75,7 +75,7 @@ class _PgDB:
 def _connect(database_url: str) -> _PgDB:
     parsed = urlparse(database_url)
     ssl_ctx = ssl.create_default_context()
-    conn = pg8000.dbapi2.connect(
+    conn = pg8000.connect(
         host=parsed.hostname,
         port=parsed.port or 5432,
         database=parsed.path.lstrip("/"),
