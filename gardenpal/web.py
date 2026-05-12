@@ -82,6 +82,8 @@ def _connect(database_url: str) -> _PgDB:
             f"postgresql://postgres:YOUR_PASSWORD@db.PROJECT.supabase.co:5432/postgres"
         )
     ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
     conn = pg8000.connect(
         host=parsed.hostname,
         port=parsed.port or 5432,
