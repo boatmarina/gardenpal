@@ -315,6 +315,7 @@ def create_app() -> Flask:
             "notes": "",
             "lookup_status": "not-started",
             "new_categories": "",
+            "active_mode": "name",
         }
         selected_categories = []
 
@@ -334,6 +335,7 @@ def create_app() -> Flask:
                 "notes": request.form.get("notes", "").strip(),
                 "lookup_status": request.form.get("lookup_status", "not-started").strip(),
                 "new_categories": request.form.get("new_categories", "").strip(),
+                "active_mode": request.form.get("active_mode", "name").strip(),
             }
             selected_categories = request.form.getlist("categories")
 
