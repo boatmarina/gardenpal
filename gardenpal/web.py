@@ -74,6 +74,13 @@ class _PgDB:
 
 def _connect(database_url: str) -> _PgDB:
     parsed = urlparse(database_url)
+    if not parsed.hostname or not parsed.username:
+        raise ValueError(
+            f"DATABASE_URL could not be parsed (scheme={parsed.scheme!r}, "
+            f"host={parsed.hostname!r}, user={parsed.username!r}). "
+            f"It must be a URI in the form: "
+            f"postgresql://postgres:YOUR_PASSWORD@db.PROJECT.supabase.co:5432/postgres"
+        )
     ssl_ctx = ssl.create_default_context()
     conn = pg8000.connect(
         host=parsed.hostname,
