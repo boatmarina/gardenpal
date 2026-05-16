@@ -65,17 +65,33 @@
   if (!grid) return;
   const query = grid.dataset.query;
   if (!query) return;
-  fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=3')
+  let reserve = [];
+
+  function makePhotoItem(url) {
+    return `<div class="photo-item"><img src="${url}" alt="${query}" loading="lazy" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
+  }
+
+  function attachRemove(item) {
+    item.querySelector('.photo-remove').addEventListener('click', () => {
+      item.remove();
+      if (reserve.length) {
+        const el = document.createElement('div');
+        el.innerHTML = makePhotoItem(reserve.shift());
+        const newItem = el.firstElementChild;
+        attachRemove(newItem);
+        grid.appendChild(newItem);
+      }
+    });
+  }
+
+  fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
     .then(r => r.json())
     .then(d => {
       const photos = d.photos || [];
       if (photos.length) {
-        grid.innerHTML = photos
-          .map(u => `<div class="photo-item"><img src="${u}" alt="${query}" loading="lazy" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`)
-          .join('');
-        grid.querySelectorAll('.photo-remove').forEach(btn => {
-          btn.addEventListener('click', () => btn.closest('.photo-item').remove());
-        });
+        reserve = photos.slice(3);
+        grid.innerHTML = photos.slice(0, 3).map(makePhotoItem).join('');
+        grid.querySelectorAll('.photo-item').forEach(attachRemove);
       }
     })
     .catch(() => {});

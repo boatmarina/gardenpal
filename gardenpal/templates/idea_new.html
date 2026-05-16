@@ -223,33 +223,46 @@
     showPhotoPreview(plant.photo_url, plant.common_name || plant.scientific_name);
   }
 
+  let photoReserve = [];
+
+  function makePhotoItem(url, altText) {
+    return `<div class="photo-item"><img src="${url}" alt="${altText || ''}" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
+  }
+
+  function attachRemove(item, preview, altText) {
+    item.querySelector('.photo-remove').addEventListener('click', () => {
+      item.remove();
+      if (photoReserve.length) {
+        const el = document.createElement('div');
+        el.innerHTML = makePhotoItem(photoReserve.shift(), altText);
+        const newItem = el.firstElementChild;
+        attachRemove(newItem, preview, altText);
+        preview.appendChild(newItem);
+      }
+    });
+  }
+
   function showPhotoPreview(inlineUrl, name) {
     const preview = document.getElementById('name-photo-preview');
     if (!preview) return;
-    function makePhotoItem(url, altText) {
-      return `<div class="photo-item"><img src="${url}" alt="${altText}" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
-    }
-    function attachRemoveHandlers(container) {
-      container.querySelectorAll('.photo-remove').forEach(btn => {
-        btn.addEventListener('click', () => btn.closest('.photo-item').remove());
-      });
-    }
+    photoReserve = [];
     // Show inline photo immediately if search already gave us one
     if (inlineUrl) {
       preview.innerHTML = makePhotoItem(inlineUrl, name || '');
       if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = inlineUrl;
-      attachRemoveHandlers(preview);
+      attachRemove(preview.querySelector('.photo-item'), preview, name || '');
       preview.hidden = false;
     }
-    // Fetch 3 community photos in the background
-    fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=3')
+    // Fetch up to 6 community photos; show first 3 and keep rest in reserve
+    fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=6')
       .then(r => r.json())
       .then(d => {
         const photos = d.photos || [];
         if (photos.length) {
-          preview.innerHTML = photos.map(u => makePhotoItem(u, name || '')).join('');
+          photoReserve = photos.slice(3);
+          preview.innerHTML = photos.slice(0, 3).map(u => makePhotoItem(u, name || '')).join('');
           if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = photos[0];
-          attachRemoveHandlers(preview);
+          preview.querySelectorAll('.photo-item').forEach(item => attachRemove(item, preview, name || ''));
           preview.hidden = false;
         }
       })
