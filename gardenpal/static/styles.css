@@ -91,6 +91,16 @@ p  { line-height: 1.55; }
   color: var(--muted);
 }
 
+.page-subtitle {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--border);
+  margin-top: 2px;
+  display: block;
+}
+
 .brand-user {
   font-size: 0.68rem;
   letter-spacing: 0.07em;
