@@ -516,16 +516,17 @@ def create_app() -> Flask:
     def yard_plant_new():
         db = get_db()
         zones = db.execute("SELECT * FROM yard_zones WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()
-        idea_names = [r["name"] for r in db.execute(
-            "SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)
-        ).fetchall()]
-        yard_names = [r["plant_name"] for r in db.execute(
-            "SELECT DISTINCT plant_name FROM yard_plants WHERE user_id = ? ORDER BY plant_name ASC", (g.user["id"],)
-        ).fetchall()]
-        plant_names = sorted(set(idea_names + yard_names))
+        plant_names = sorted(set(
+            [r["name"] for r in db.execute("SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()]
+            + [r["plant_name"] for r in db.execute("SELECT DISTINCT plant_name FROM yard_plants WHERE user_id = ? ORDER BY plant_name ASC", (g.user["id"],)).fetchall()]
+        ))
+        library_plants = db.execute(
+            "SELECT id, name, scientific_name, image_path, image_url, photo_urls, sun_exposure, lifecycle, size_info, flowering_schedule FROM plants WHERE user_id = ? ORDER BY name ASC",
+            (g.user["id"],),
+        ).fetchall()
 
         form_values = {
-            "zone_id": "",
+            "zone_id": request.args.get("zone_id", ""),
             "plant_name": "",
             "scientific_name": "",
             "lookup_query": "",
@@ -536,8 +537,7 @@ def create_app() -> Flask:
             "size_info": "",
             "spreads": "",
             "notes": "",
-            "location_x": "50",
-            "location_y": "50",
+            "active_mode": "library",
         }
 
         if request.method == "POST":
@@ -554,8 +554,7 @@ def create_app() -> Flask:
                 "size_info": request.form.get("size_info", "").strip(),
                 "spreads": request.form.get("spreads", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
-                "location_x": request.form.get("location_x", "").strip() or "50",
-                "location_y": request.form.get("location_y", "").strip() or "50",
+                "active_mode": request.form.get("active_mode", "library"),
             }
 
             if form_action == "autofill_name":
@@ -565,7 +564,7 @@ def create_app() -> Flask:
                 else:
                     apply_lookup_to_yard_form(form_values, details)
                     flash("Planted item details autofilled from name lookup.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if form_action == "autofill_photo":
                 suggestion, error = identify_plant_from_image(request.files.get("photo"))
@@ -581,11 +580,11 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
                     flash(f"Photo-based suggestion confidence: {suggestion.get('confidence') or 'unknown'}")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if not form_values["zone_id"] or not form_values["plant_name"]:
                 flash("Zone and plant name are required.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             zone = db.execute(
                 "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
@@ -593,7 +592,7 @@ def create_app() -> Flask:
             ).fetchone()
             if zone is None:
                 flash("Please choose a valid zone.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "yardplant")
             db.execute(
@@ -610,8 +609,8 @@ def create_app() -> Flask:
                     form_values["scientific_name"],
                     form_values["lookup_query"],
                     image_path,
-                    form_values["location_x"],
-                    form_values["location_y"],
+                    50,
+                    50,
                     form_values["size_info"],
                     form_values["watering_needs"],
                     form_values["sun_needs"],
@@ -625,7 +624,7 @@ def create_app() -> Flask:
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
-        return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names)
+        return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
     @app.route("/api/plant-search")
     @login_required
