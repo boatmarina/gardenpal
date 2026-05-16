@@ -158,46 +158,53 @@ def lookup_plant_photos(query: str, count: int = 3) -> List[str]:
 # Claude lookup for plant care data
 # ---------------------------------------------------------------------------
 
-_PLANT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "name":               {"type": "string"},
-        "scientific_name":    {"type": "string"},
-        "sun_needs":          {"type": "string", "enum": ["full_sun", "part_shade", "shade", ""]},
-        "watering_needs":     {"type": "string"},
-        "lifecycle":          {"type": "string", "enum": ["annual", "biennial", "perennial", ""]},
-        "size_info":          {"type": "string"},
-        "flowering_schedule": {"type": "string"},
-        "recognized":         {"type": "boolean"},
-    },
-    "required": ["name", "scientific_name", "sun_needs", "watering_needs",
-                 "lifecycle", "size_info", "flowering_schedule", "recognized"],
-    "additionalProperties": False,
-}
+_CLAUDE_SYSTEM = (
+    "You are a plant encyclopedia. Respond ONLY with a valid JSON object — no markdown, "
+    "no explanation, nothing else. If the plant name is completely unrecognizable, "
+    'respond with exactly: {"recognized": false}'
+)
+
+_CLAUDE_PROMPT = """\
+Plant: {query}
+
+Return a JSON object with these fields:
+{{
+  "recognized": true,
+  "name": "most common English name",
+  "scientific_name": "Genus species",
+  "sun_needs": "full_sun or part_shade or shade (leave empty string if unknown)",
+  "watering_needs": "frequent or average or minimal (leave empty string if unknown)",
+  "lifecycle": "annual or biennial or perennial (leave empty string if unknown)",
+  "size_info": "typical height and spread, e.g. '2–4 ft tall, 1–2 ft wide'",
+  "flowering_schedule": "when it blooms, e.g. 'June to August'"
+}}"""
 
 
-def _lookup_via_claude(query: str) -> Optional[Dict]:
+def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
+    """Returns (result, error_message)."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
-        return None
+        return None, "ANTHROPIC_API_KEY not set"
     client = anthropic.Anthropic(api_key=api_key)
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=512,
-            system=(
-                "You are a plant encyclopedia. Return accurate care data for the plant given. "
-                "If the name is completely unrecognizable, set recognized=false and leave other fields empty."
-            ),
-            output_config={"format": {"type": "json_schema", "schema": _PLANT_SCHEMA}},
-            messages=[{"role": "user", "content": f"Plant: {query.strip()}"}],
+            system=_CLAUDE_SYSTEM,
+            messages=[{"role": "user", "content": _CLAUDE_PROMPT.format(query=query.strip())}],
         )
         text = next((b.text for b in response.content if b.type == "text"), "").strip()
         if not text:
-            return None
+            return None, "Claude returned empty response"
+        # Strip markdown fences if the model wrapped it anyway
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
         data = json.loads(text)
-        if not data.get("recognized"):
-            return None
+        if not isinstance(data, dict) or not data.get("recognized"):
+            return None, f"Plant not recognized by Claude: {query}"
         return {
             "name":               data.get("name") or query.strip(),
             "scientific_name":    data.get("scientific_name") or "",
@@ -208,9 +215,13 @@ def _lookup_via_claude(query: str) -> Optional[Dict]:
             "size_info":          data.get("size_info") or "",
             "spreads":            "",
             "photo_url":          None,
-        }
-    except Exception:
-        return None
+        }, None
+    except json.JSONDecodeError as exc:
+        return None, f"Claude response was not valid JSON: {exc}"
+    except anthropic.APIError as exc:
+        return None, f"Claude API error: {exc}"
+    except Exception as exc:
+        return None, f"Claude lookup failed: {exc}"
 
 
 # ---------------------------------------------------------------------------
@@ -221,13 +232,14 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
     if not query.strip():
         return None, "Enter a plant name or scientific name first."
 
-    result = _lookup_via_claude(query)
+    result, claude_error = _lookup_via_claude(query)
 
     if result is None:
         # Claude unavailable or didn't recognise the name — fall back to iNaturalist names only
         sci, common, photo_url = _lookup_via_inat(query)
         if not sci and not common:
-            return None, "No plant information found for that name."
+            err = claude_error or "No plant information found for that name."
+            return None, err
         result = {
             "name":               common or query.strip(),
             "scientific_name":    sci or "",

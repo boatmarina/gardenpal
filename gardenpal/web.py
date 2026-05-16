@@ -368,9 +368,11 @@ def create_app() -> Flask:
 
             # Auto-fill details on save if not already done via an explicit autofill action
             if form_values["lookup_status"] != "draft":
-                details, _ = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                details, lookup_err = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
                 if details:
                     apply_lookup_to_form(form_values, details, use_common_name=False)
+                elif lookup_err:
+                    flash(f"Plant details could not be fetched: {lookup_err}")
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
             label_photo_path = save_upload(
