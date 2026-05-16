@@ -1,3 +1,4 @@
+import json
 import os
 import ssl
 import uuid
@@ -108,6 +109,16 @@ def create_app() -> Flask:
     )
 
     os.makedirs(upload_dir, exist_ok=True)
+
+    @app.template_filter("first_photo")
+    def first_photo_filter(photo_urls_json):
+        if not photo_urls_json:
+            return None
+        try:
+            urls = json.loads(photo_urls_json)
+            return urls[0] if urls else None
+        except Exception:
+            return None
 
     @app.before_request
     def ensure_db_ready():
@@ -303,6 +314,7 @@ def create_app() -> Flask:
             "lookup_status": "not-started",
             "pnw_native": None,
             "photo_urls": "",
+            "evergreen_status": "",
             "active_mode": "name",
         }
 
@@ -324,6 +336,7 @@ def create_app() -> Flask:
                 "lookup_status": request.form.get("lookup_status", "not-started").strip(),
                 "pnw_native": True if pnw_raw == "1" else (False if pnw_raw == "0" else None),
                 "photo_urls": request.form.get("photo_urls", "").strip(),
+                "evergreen_status": request.form.get("evergreen_status", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
             }
 
@@ -390,8 +403,8 @@ def create_app() -> Flask:
                 """
                 INSERT INTO plants
                 (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
-                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
                 (
@@ -412,6 +425,7 @@ def create_app() -> Flask:
                     form_values["notes"],
                     1 if form_values["pnw_native"] is True else (0 if form_values["pnw_native"] is False else None),
                     form_values["photo_urls"] or None,
+                    form_values["evergreen_status"] or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             ).fetchone()["id"]
@@ -694,6 +708,24 @@ def create_app() -> Flask:
         flash("Plant idea deleted.")
         return redirect(url_for("ideas_index"))
 
+    @app.route("/ideas/<int:plant_id>/update-photos", methods=["POST"])
+    @login_required
+    def update_idea_photos(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+        ).fetchone()
+        if plant is None:
+            return jsonify(error="Not found"), 404
+        data = request.get_json(silent=True) or {}
+        photos = [str(u) for u in (data.get("photos") or []) if u]
+        db.execute(
+            "UPDATE plants SET photo_urls = ? WHERE id = ?",
+            (json.dumps(photos) if photos else None, plant_id),
+        )
+        db.commit()
+        return jsonify(ok=True)
+
     @app.route("/plants/new")
     def legacy_new_plant():
         return redirect(url_for("new_idea"))
@@ -751,6 +783,7 @@ def init_db():
     ensure_column(db, "plants", "lookup_status", "TEXT")
     ensure_column(db, "plants", "pnw_native", "INTEGER")
     ensure_column(db, "plants", "photo_urls", "TEXT")
+    ensure_column(db, "plants", "evergreen_status", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
@@ -920,6 +953,8 @@ def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool
         form_values["image_url"] = details["photo_url"]
     if details.get("pnw_native") is not None:
         form_values["pnw_native"] = details["pnw_native"]
+    if details.get("evergreen_status"):
+        form_values["evergreen_status"] = details["evergreen_status"]
     form_values["lookup_status"] = "draft"
 
 

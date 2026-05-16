@@ -159,9 +159,10 @@ def lookup_plant_photos(query: str, count: int = 3) -> List[str]:
 # ---------------------------------------------------------------------------
 
 _CLAUDE_SYSTEM = (
-    "You are a plant encyclopedia. Respond ONLY with a valid JSON object — no markdown, "
-    "no explanation, nothing else. If the plant name is completely unrecognizable, "
-    'respond with exactly: {"recognized": false}'
+    "You are a plant encyclopedia specializing in plants as grown in the Pacific Northwest "
+    "of North America (USDA zones 7b–9b: mild wet winters, dry summers). "
+    "Respond ONLY with a valid JSON object — no markdown, no explanation, nothing else. "
+    "If the plant name is completely unrecognizable, respond with exactly: {\"recognized\": false}"
 )
 
 _CLAUDE_PROMPT = """\
@@ -176,8 +177,9 @@ Return a JSON object with these fields:
   "watering_needs": "frequent or average or minimal (leave empty string if unknown)",
   "lifecycle": "annual or biennial or perennial (leave empty string if unknown)",
   "size_info": "typical height and spread, e.g. '2–4 ft tall, 1–2 ft wide'",
-  "flowering_schedule": "when it blooms, e.g. 'June to August'",
-  "pnw_native": true or false or null (true only if native to the Pacific Northwest of North America; null if uncertain)
+  "flowering_schedule": "when it blooms in the PNW, e.g. 'June to August'",
+  "pnw_native": true or false or null (true only if native to the Pacific Northwest of North America; null if uncertain),
+  "evergreen_status": "evergreen or deciduous or semi-evergreen as it behaves in PNW conditions; empty string if unknown or not applicable (e.g. annual)"
 }}"""
 
 
@@ -215,6 +217,7 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
             "lifecycle":          data.get("lifecycle") or "",
             "size_info":          data.get("size_info") or "",
             "pnw_native":         data.get("pnw_native"),
+            "evergreen_status":   data.get("evergreen_status") or "",
             "spreads":            "",
             "photo_url":          None,
         }, None

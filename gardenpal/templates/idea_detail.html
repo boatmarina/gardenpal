@@ -3,11 +3,17 @@
 {% block title %}{{ plant.name }} · GardenPal{% endblock %}
 
 {% block content %}
+  <a href="{{ url_for('ideas_index') }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Library
+  </a>
+
   <article class="card detail">
 
     <div id="plant-photos"
          class="photos-grid"
-         style="border-radius:var(--r-xl) var(--r-xl) 0 0; overflow:hidden; gap:3px"
+         style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
+         data-plant-id="{{ plant.id }}"
          data-query="{{ plant.name | e }}"
          data-stored="{{ plant.photo_urls or '' }}">
       {% if plant.image_path %}
@@ -35,7 +41,7 @@
       </div>
     </div>
 
-    {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.lookup_query %}
+    {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.lookup_query %}
       <dl>
         {% if plant.lookup_query %}
           <dt>Query</dt>
@@ -53,9 +59,11 @@
           <dt>Sun</dt>
           <dd>{{ plant.sun_exposure }}</dd>
         {% endif %}
-        {% if plant.lifecycle %}
-          <dt>Lifecycle</dt>
-          <dd>{{ plant.lifecycle }}</dd>
+        {% if plant.lifecycle or plant.evergreen_status %}
+          <dt>Type</dt>
+          <dd>
+            {{ plant.lifecycle or "" }}{% if plant.lifecycle and plant.evergreen_status %} · {% endif %}{{ plant.evergreen_status or "" }}
+          </dd>
         {% endif %}
       </dl>
     {% endif %}
@@ -69,31 +77,117 @@
   const grid = document.getElementById('plant-photos');
   if (!grid) return;
   const query = grid.dataset.query;
-  if (!query) return;
+  const plantId = grid.dataset.plantId;
   let reserve = [];
 
-  function makePhotoItem(url) {
-    return `<div class="photo-item"><img src="${url}" alt="${query}" loading="lazy" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
+  /* ── photo item factory ── */
+  function makePhotoItem(url, idx) {
+    return `<div class="photo-item">
+      <img src="${url}" alt="${query}" loading="lazy" style="cursor:zoom-in" />
+      <span class="photo-badge">${idx + 1}</span>
+      <button class="photo-remove" title="Remove" aria-label="Remove photo">×</button>
+      <div class="drag-handle" title="Drag to reorder">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="4" y1="8"  x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/>
+        </svg>
+      </div>
+    </div>`;
   }
 
-  function attachRemove(item) {
-    item.querySelector('.photo-remove').addEventListener('click', () => {
-      item.remove();
-      if (reserve.length) {
-        const el = document.createElement('div');
-        el.innerHTML = makePhotoItem(reserve.shift());
-        const newItem = el.firstElementChild;
-        attachRemove(newItem);
-        grid.appendChild(newItem);
-      }
+  function updateBadges() {
+    grid.querySelectorAll('.photo-item').forEach((item, i) => {
+      const b = item.querySelector('.photo-badge');
+      if (b) b.textContent = i + 1;
     });
   }
 
+  function saveOrder() {
+    const urls = [...grid.querySelectorAll('.photo-item img')].map(img => img.src);
+    fetch(`/ideas/${plantId}/update-photos`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({photos: urls})
+    });
+  }
+
+  /* ── attach remove handler ── */
+  function attachRemove(item) {
+    item.querySelector('.photo-remove').addEventListener('click', () => {
+      item.remove();
+      updateBadges();
+      if (reserve.length) {
+        const idx = grid.querySelectorAll('.photo-item').length;
+        const el = document.createElement('div');
+        el.innerHTML = makePhotoItem(reserve.shift(), idx);
+        const newItem = el.firstElementChild;
+        attachControls(newItem);
+        grid.appendChild(newItem);
+        updateBadges();
+      }
+      saveOrder();
+    });
+  }
+
+  /* ── lightbox ── */
+  function openLightbox(src) {
+    const box = document.createElement('div');
+    box.className = 'lightbox';
+    box.innerHTML = `<button class="lightbox-close" aria-label="Close">×</button><img src="${src}" alt="${query}" />`;
+    const close = () => box.remove();
+    box.addEventListener('click', e => { if (e.target === box || e.target.classList.contains('lightbox-close')) close(); });
+    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+    document.body.appendChild(box);
+  }
+
+  /* ── drag-and-drop (pointer events — works for mouse + touch) ── */
+  let dragging = null;
+
+  function attachDrag(item) {
+    const handle = item.querySelector('.drag-handle');
+    if (!handle) return;
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      dragging = item;
+      item.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
+
+      const onMove = e => {
+        dragging.style.pointerEvents = 'none';
+        const below = document.elementFromPoint(e.clientX, e.clientY);
+        dragging.style.pointerEvents = '';
+        const target = below?.closest('.photo-item');
+        if (target && target !== dragging) {
+          const rect = target.getBoundingClientRect();
+          grid.insertBefore(dragging, e.clientX < rect.left + rect.width / 2 ? target : target.nextSibling);
+        }
+      };
+
+      const onUp = () => {
+        dragging.classList.remove('dragging');
+        dragging = null;
+        updateBadges();
+        saveOrder();
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+      };
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+    });
+  }
+
+  function attachControls(item) {
+    attachRemove(item);
+    attachDrag(item);
+    item.querySelector('img').addEventListener('click', e => openLightbox(e.target.src));
+  }
+
+  /* ── render ── */
   function renderPhotos(photos) {
     if (!photos.length) return;
     reserve = photos.slice(3);
-    grid.innerHTML = photos.slice(0, 3).map(makePhotoItem).join('');
-    grid.querySelectorAll('.photo-item').forEach(attachRemove);
+    grid.innerHTML = photos.slice(0, 3).map((u, i) => makePhotoItem(u, i)).join('');
+    grid.querySelectorAll('.photo-item').forEach(attachControls);
   }
 
   const stored = grid.dataset.stored;

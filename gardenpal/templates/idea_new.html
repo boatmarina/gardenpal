@@ -1,5 +1,10 @@
 {% extends "base.html" %}
+{% block page_label %}Add Plant{% endblock %}
 {% block content %}
+  <a href="{{ url_for('ideas_index') }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Library
+  </a>
   <section class="panel">
     <h2>Add Plant Idea</h2>
     <form method="post" enctype="multipart/form-data" class="stack">
@@ -55,12 +60,12 @@
           <p class="identified-name">Identified: <strong>{{ form_values.name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
         {% endif %}
         <label>
-          Plant photo
-          <input type="file" name="photo" accept="image/*" capture="environment" />
+          Choose a photo to identify
+          <input type="file" name="photo" accept="image/*" id="photo-file-input"
+                 onchange="document.getElementById('photo-submit-btn').click()" />
         </label>
-        <div class="actions">
-          <button type="submit" name="form_action" value="autofill_photo">Identify from Photo</button>
-        </div>
+        <button type="submit" id="photo-submit-btn" name="form_action" value="autofill_photo"
+                style="display:none" aria-hidden="true">Identify</button>
       </div>
 
       <div class="mode-section" id="mode-label">

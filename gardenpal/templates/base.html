@@ -12,7 +12,7 @@
 <body>
 
   <header class="brand-bar">
-    <span class="brand-label">{% block page_label %}GardenPal{% endblock %}</span>
+    <a href="{{ url_for('dashboard') if current_user else url_for('login') }}" class="brand-label" style="text-decoration:none;color:inherit">{% block page_label %}GardenPal{% endblock %}</a>
     {% if current_user %}
       <form method="post" action="{{ url_for('logout') }}" style="margin:0">
         <button type="submit" class="brand-user">{{ current_user.username }} · Log out</button>
