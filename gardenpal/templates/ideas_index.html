@@ -8,42 +8,21 @@
     <button type="submit" class="btn-lookup">Look up</button>
   </form>
 
-  {% if active_filters.sun or active_filters.lifecycle or active_filters.category %}
-    <form class="filters" method="get">
-      <input type="hidden" name="q" value="{{ active_filters.q }}" />
-      <select name="sun">
-        <option value="">Any sun</option>
-        <option value="shade"    {% if active_filters.sun == "shade"    %}selected{% endif %}>Shade</option>
-        <option value="part-sun" {% if active_filters.sun == "part-sun" %}selected{% endif %}>Part sun</option>
-        <option value="full-sun" {% if active_filters.sun == "full-sun" %}selected{% endif %}>Full sun</option>
-      </select>
-      <select name="lifecycle">
-        <option value="">Any lifecycle</option>
-        <option value="annual"    {% if active_filters.lifecycle == "annual"    %}selected{% endif %}>Annual</option>
-        <option value="perennial" {% if active_filters.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
-        <option value="biennial"  {% if active_filters.lifecycle == "biennial"  %}selected{% endif %}>Biennial</option>
-      </select>
-      <button type="submit">Filter</button>
-    </form>
-  {% else %}
-    <form method="get" style="margin-bottom:20px">
-      <input type="hidden" name="q" value="{{ active_filters.q }}" />
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <select name="sun" style="flex:1;min-width:120px" onchange="this.form.submit()">
-          <option value="">Any sun</option>
-          <option value="shade"    {% if active_filters.sun == "shade"    %}selected{% endif %}>Shade</option>
-          <option value="part-sun" {% if active_filters.sun == "part-sun" %}selected{% endif %}>Part sun</option>
-          <option value="full-sun" {% if active_filters.sun == "full-sun" %}selected{% endif %}>Full sun</option>
-        </select>
-        <select name="lifecycle" style="flex:1;min-width:120px" onchange="this.form.submit()">
-          <option value="">Any lifecycle</option>
-          <option value="annual"    {% if active_filters.lifecycle == "annual"    %}selected{% endif %}>Annual</option>
-          <option value="perennial" {% if active_filters.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
-          <option value="biennial"  {% if active_filters.lifecycle == "biennial"  %}selected{% endif %}>Biennial</option>
-        </select>
-      </div>
-    </form>
-  {% endif %}
+  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+    <input type="hidden" name="q" value="{{ active_filters.q }}" />
+    <select name="sun" style="flex:1;min-width:120px" onchange="this.form.submit()">
+      <option value="">Any sun</option>
+      <option value="shade"    {% if active_filters.sun == "shade"    %}selected{% endif %}>Shade</option>
+      <option value="part-sun" {% if active_filters.sun == "part-sun" %}selected{% endif %}>Part sun</option>
+      <option value="full-sun" {% if active_filters.sun == "full-sun" %}selected{% endif %}>Full sun</option>
+    </select>
+    <select name="lifecycle" style="flex:1;min-width:120px" onchange="this.form.submit()">
+      <option value="">Any lifecycle</option>
+      <option value="annual"    {% if active_filters.lifecycle == "annual"    %}selected{% endif %}>Annual</option>
+      <option value="perennial" {% if active_filters.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
+      <option value="biennial"  {% if active_filters.lifecycle == "biennial"  %}selected{% endif %}>Biennial</option>
+    </select>
+  </form>
 
   <div class="section-header">
     <span class="section-title">Pinned specimens</span>
