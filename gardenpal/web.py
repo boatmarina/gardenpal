@@ -625,6 +625,42 @@ def create_app() -> Flask:
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             )
+            # Add to library if not already there
+            existing = db.execute(
+                "SELECT id FROM plants WHERE user_id = ? AND name = ?",
+                (g.user["id"], form_values["plant_name"]),
+            ).fetchone()
+            if existing is None:
+                db.execute(
+                    """
+                    INSERT INTO plants
+                    (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path,
+                     label_photo_path, image_url, size_info, flowering_schedule, sun_exposure, lifecycle,
+                     lookup_status, notes, pnw_native, photo_urls, evergreen_status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        g.user["id"],
+                        form_values["plant_name"],
+                        form_values["scientific_name"],
+                        form_values["lookup_query"],
+                        "yard",
+                        None,
+                        image_path,
+                        None,
+                        None,
+                        form_values["size_info"],
+                        form_values["flowering_schedule"],
+                        form_values["sun_needs"],
+                        form_values["lifecycle"],
+                        None,
+                        form_values["notes"],
+                        None,
+                        None,
+                        None,
+                        datetime.utcnow().isoformat(timespec="seconds"),
+                    ),
+                )
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
