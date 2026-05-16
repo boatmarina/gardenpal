@@ -301,11 +301,14 @@ def create_app() -> Flask:
             "lifecycle": "",
             "notes": "",
             "lookup_status": "not-started",
+            "pnw_native": None,
+            "photo_urls": "",
             "active_mode": "name",
         }
 
         if request.method == "POST":
             form_action = request.form.get("form_action", "save")
+            pnw_raw = request.form.get("pnw_native", "")
             form_values = {
                 "name": request.form.get("name", "").strip(),
                 "scientific_name": request.form.get("scientific_name", "").strip(),
@@ -319,6 +322,8 @@ def create_app() -> Flask:
                 "lifecycle": request.form.get("lifecycle", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
                 "lookup_status": request.form.get("lookup_status", "not-started").strip(),
+                "pnw_native": True if pnw_raw == "1" else (False if pnw_raw == "0" else None),
+                "photo_urls": request.form.get("photo_urls", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
             }
 
@@ -385,8 +390,8 @@ def create_app() -> Flask:
                 """
                 INSERT INTO plants
                 (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
-                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
                 (
@@ -405,6 +410,8 @@ def create_app() -> Flask:
                     form_values["lifecycle"],
                     form_values["lookup_status"],
                     form_values["notes"],
+                    1 if form_values["pnw_native"] is True else (0 if form_values["pnw_native"] is False else None),
+                    form_values["photo_urls"] or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             ).fetchone()["id"]
@@ -742,6 +749,8 @@ def init_db():
     ensure_column(db, "plants", "lookup_query", "TEXT")
     ensure_column(db, "plants", "label_photo_path", "TEXT")
     ensure_column(db, "plants", "lookup_status", "TEXT")
+    ensure_column(db, "plants", "pnw_native", "INTEGER")
+    ensure_column(db, "plants", "photo_urls", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
@@ -909,6 +918,8 @@ def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool
         form_values["flowering_schedule"] = details["flowering_schedule"]
     if details.get("photo_url") and not form_values.get("image_url"):
         form_values["image_url"] = details["photo_url"]
+    if details.get("pnw_native") is not None:
+        form_values["pnw_native"] = details["pnw_native"]
     form_values["lookup_status"] = "draft"
 
 

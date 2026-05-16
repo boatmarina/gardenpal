@@ -96,6 +96,7 @@
       <input type="hidden" name="lifecycle"          value="{{ form_values.lifecycle }}" />
       <input type="hidden" name="size_info"          value="{{ form_values.size_info }}" />
       <input type="hidden" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
+      <input type="hidden" name="photo_urls"         id="photo-urls-hidden" value="" />
       <input type="hidden" name="source_type"        value="world" />
 
       {% if form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info %}
@@ -183,12 +184,20 @@
     urlImageInput.addEventListener('input', () => { imageUrlHidden.value = urlImageInput.value; });
   }
 
+  const photoUrlsHidden = document.getElementById('photo-urls-hidden');
+
   if (form) {
     form.addEventListener('submit', () => {
       const mode = activeModeField ? activeModeField.value : 'name';
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
       if (mode === 'url' && urlNameInput) nameHidden.value = urlNameInput.value;
       if (mode === 'url' && urlImageInput) imageUrlHidden.value = urlImageInput.value;
+      // Capture remaining visible community photos so detail page uses them
+      const preview = document.getElementById('name-photo-preview');
+      if (preview && photoUrlsHidden) {
+        const urls = Array.from(preview.querySelectorAll('.photo-item img')).map(img => img.src);
+        if (urls.length) photoUrlsHidden.value = JSON.stringify(urls);
+      }
     });
   }
 

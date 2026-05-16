@@ -176,7 +176,8 @@ Return a JSON object with these fields:
   "watering_needs": "frequent or average or minimal (leave empty string if unknown)",
   "lifecycle": "annual or biennial or perennial (leave empty string if unknown)",
   "size_info": "typical height and spread, e.g. '2–4 ft tall, 1–2 ft wide'",
-  "flowering_schedule": "when it blooms, e.g. 'June to August'"
+  "flowering_schedule": "when it blooms, e.g. 'June to August'",
+  "pnw_native": true or false or null (true only if native to the Pacific Northwest of North America; null if uncertain)
 }}"""
 
 
@@ -213,6 +214,7 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
             "flowering_schedule": data.get("flowering_schedule") or "",
             "lifecycle":          data.get("lifecycle") or "",
             "size_info":          data.get("size_info") or "",
+            "pnw_native":         data.get("pnw_native"),
             "spreads":            "",
             "photo_url":          None,
         }, None

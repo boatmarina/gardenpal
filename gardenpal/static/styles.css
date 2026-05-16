@@ -364,6 +364,17 @@ dd {
   gap: 0.7rem;
 }
 
+.native-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: #d4edda;
+  color: #276138;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
 .photos-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
