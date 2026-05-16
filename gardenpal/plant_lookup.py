@@ -1,7 +1,9 @@
 import base64
+import json
 import os
 from typing import Dict, List, Optional, Tuple
 
+import anthropic
 import requests
 
 
@@ -153,184 +155,62 @@ def lookup_plant_photos(query: str, count: int = 3) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
-# Perenual lookup
+# Claude lookup for plant care data
 # ---------------------------------------------------------------------------
 
-def _lookup_via_perenual(query: str, api_key: str) -> Optional[Dict]:
-    try:
-        list_resp = requests.get(
-            "https://perenual.com/api/species-list",
-            params={"key": api_key, "q": query.strip()},
-            timeout=20,
-        )
-        list_resp.raise_for_status()
-        list_data = list_resp.json().get("data", [])
-    except requests.RequestException:
+_PLANT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name":               {"type": "string"},
+        "scientific_name":    {"type": "string"},
+        "sun_needs":          {"type": "string", "enum": ["full_sun", "part_shade", "shade", ""]},
+        "watering_needs":     {"type": "string"},
+        "lifecycle":          {"type": "string", "enum": ["annual", "biennial", "perennial", ""]},
+        "size_info":          {"type": "string"},
+        "flowering_schedule": {"type": "string"},
+        "recognized":         {"type": "boolean"},
+    },
+    "required": ["name", "scientific_name", "sun_needs", "watering_needs",
+                 "lifecycle", "size_info", "flowering_schedule", "recognized"],
+    "additionalProperties": False,
+}
+
+
+def _lookup_via_claude(query: str) -> Optional[Dict]:
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
         return None
-
-    if not list_data:
+    client = anthropic.Anthropic(api_key=api_key)
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=512,
+            system=(
+                "You are a plant encyclopedia. Return accurate care data for the plant given. "
+                "If the name is completely unrecognizable, set recognized=false and leave other fields empty."
+            ),
+            output_config={"format": {"type": "json_schema", "schema": _PLANT_SCHEMA}},
+            messages=[{"role": "user", "content": f"Plant: {query.strip()}"}],
+        )
+        text = next((b.text for b in response.content if b.type == "text"), "").strip()
+        if not text:
+            return None
+        data = json.loads(text)
+        if not data.get("recognized"):
+            return None
+        return {
+            "name":               data.get("name") or query.strip(),
+            "scientific_name":    data.get("scientific_name") or "",
+            "sun_needs":          data.get("sun_needs") or "",
+            "watering_needs":     data.get("watering_needs") or "",
+            "flowering_schedule": data.get("flowering_schedule") or "",
+            "lifecycle":          data.get("lifecycle") or "",
+            "size_info":          data.get("size_info") or "",
+            "spreads":            "",
+            "photo_url":          None,
+        }
+    except Exception:
         return None
-
-    top = list_data[0]
-    species_id = top.get("id")
-    details = {}
-
-    if species_id:
-        try:
-            det_resp = requests.get(
-                f"https://perenual.com/api/species/details/{species_id}",
-                params={"key": api_key},
-                timeout=20,
-            )
-            det_resp.raise_for_status()
-            details = det_resp.json()
-        except requests.RequestException:
-            details = {}
-
-    sunlight = details.get("sunlight") or top.get("sunlight") or []
-    cycle = details.get("cycle") or top.get("cycle") or ""
-    watering = details.get("watering") or top.get("watering") or ""
-    dimensions = details.get("dimension") or details.get("dimensions") or top.get("dimension") or ""
-    spread = details.get("spread") or top.get("spread") or ""
-    flowering = (
-        details.get("flowering_season")
-        or details.get("flowers")
-        or top.get("flowering_season")
-        or ""
-    )
-
-    common_name = top.get("common_name") or ""
-    scientific_list = top.get("scientific_name") or []
-    scientific_name = scientific_list[0] if scientific_list else (details.get("scientific_name") or "")
-    sun_str = ", ".join(sunlight) if isinstance(sunlight, list) else str(sunlight)
-
-    return {
-        "name": common_name or query.strip(),
-        "scientific_name": scientific_name,
-        "sun_needs": sun_str,
-        "watering_needs": watering,
-        "flowering_schedule": str(flowering) if flowering else "",
-        "lifecycle": cycle,
-        "size_info": str(dimensions) if dimensions else "",
-        "spreads": str(spread) if spread else "",
-        "photo_url": None,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Supplementary sources: OpenFarm + Wikipedia
-# ---------------------------------------------------------------------------
-
-def _try_openfarm(result: dict) -> None:
-    """Fill empty care fields from OpenFarm (good for edible/culinary plants)."""
-    name = result.get("name") or ""
-    if not name:
-        return
-    try:
-        resp = requests.get(
-            "https://openfarm.cc/api/v1/crops",
-            params={"filter": name},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json().get("data", [])
-        if not data:
-            return
-        attrs = data[0].get("attributes", {})
-        if not result.get("sun_needs") and attrs.get("sun_requirements"):
-            result["sun_needs"] = attrs["sun_requirements"]
-        if not result.get("size_info"):
-            height = attrs.get("height")
-            spread = attrs.get("spread")
-            if height:
-                try:
-                    size = f"{int(float(height))}cm tall"
-                    if spread:
-                        size += f", {int(float(spread))}cm spread"
-                    result["size_info"] = size
-                except (ValueError, TypeError):
-                    pass
-    except Exception:
-        pass
-
-
-def _try_wikipedia(result: dict, query: str) -> None:
-    """Extract lifecycle and sun needs from up to 50 sentences of a Wikipedia article."""
-    if not query:
-        return
-    try:
-        search_q = query if "plant" in query.lower() else query + " plant"
-        search_resp = requests.get(
-            "https://en.wikipedia.org/w/api.php",
-            params={"action": "query", "list": "search", "srsearch": search_q, "format": "json", "srlimit": 1},
-            timeout=8,
-        )
-        search_resp.raise_for_status()
-        hits = search_resp.json().get("query", {}).get("search", [])
-        if not hits:
-            return
-        title = hits[0]["title"]
-
-        # Get 50 sentences rather than just the intro — captures cultivation sections
-        extract_resp = requests.get(
-            "https://en.wikipedia.org/w/api.php",
-            params={
-                "action": "query",
-                "prop": "extracts",
-                "titles": title,
-                "format": "json",
-                "exsentences": 50,
-                "explaintext": True,
-            },
-            timeout=8,
-        )
-        extract_resp.raise_for_status()
-        pages = extract_resp.json().get("query", {}).get("pages", {})
-        if not pages:
-            return
-        extract = (next(iter(pages.values())).get("extract") or "").lower()
-        if not extract:
-            return
-
-        if not result.get("lifecycle"):
-            if "perennial" in extract:
-                result["lifecycle"] = "perennial"
-            elif "biennial" in extract:
-                result["lifecycle"] = "biennial"
-            elif "annual" in extract:
-                result["lifecycle"] = "annual"
-
-        if not result.get("sun_needs"):
-            if "full sun" in extract:
-                if "partial shade" in extract or "part shade" in extract or "partial sun" in extract:
-                    result["sun_needs"] = "part_shade"
-                else:
-                    result["sun_needs"] = "full_sun"
-            elif "full shade" in extract:
-                result["sun_needs"] = "shade"
-            elif "partial shade" in extract or "part shade" in extract:
-                result["sun_needs"] = "part_shade"
-            elif "shade" in extract and "sun" not in extract:
-                result["sun_needs"] = "shade"
-    except Exception:
-        pass
-
-
-def _supplement_missing_fields(result: dict, query: str) -> None:
-    """Fill empty care/size fields using OpenFarm then Wikipedia."""
-    _try_openfarm(result)
-
-    if not result.get("sun_needs") or not result.get("lifecycle"):
-        _try_wikipedia(result, result.get("name") or query)
-
-    # For cultivars (scientific name has single quotes, e.g. Astilbe 'Alive and Kicking'),
-    # the first Wikipedia search may find a vague article. Retry with just the genus name,
-    # which almost always has sun/lifecycle data in its article.
-    sci = result.get("scientific_name", "")
-    if ("'" in sci or "×" in sci) and (not result.get("sun_needs") or not result.get("lifecycle")):
-        genus = sci.split()[0]
-        if genus:
-            _try_wikipedia(result, genus)
 
 
 # ---------------------------------------------------------------------------
@@ -341,33 +221,26 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
     if not query.strip():
         return None, "Enter a plant name or scientific name first."
 
-    api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
-    result = None
-    if api_key:
-        result = _lookup_via_perenual(query, api_key)
+    result = _lookup_via_claude(query)
 
     if result is None:
-        # No Perenual or no result — build from iNaturalist + OpenFarm + Wikipedia
+        # Claude unavailable or didn't recognise the name — fall back to iNaturalist names only
         sci, common, photo_url = _lookup_via_inat(query)
         if not sci and not common:
             return None, "No plant information found for that name."
         result = {
-            "name": common or query.strip(),
-            "scientific_name": sci or "",
-            "sun_needs": "",
-            "watering_needs": "",
+            "name":               common or query.strip(),
+            "scientific_name":    sci or "",
+            "sun_needs":          "",
+            "watering_needs":     "",
             "flowering_schedule": "",
-            "lifecycle": "",
-            "size_info": "",
-            "spreads": "",
-            "photo_url": photo_url,
+            "lifecycle":          "",
+            "size_info":          "",
+            "spreads":            "",
+            "photo_url":          photo_url,
         }
-        _supplement_missing_fields(result, query)
-    else:
-        # Perenual found something — fill any gaps it left
-        _supplement_missing_fields(result, query)
 
-    # Ensure we have a photo (prefer common name for cultivar-heavy queries)
+    # Ensure we have a photo
     if not result.get("photo_url"):
         inat_q = result.get("name") or result.get("scientific_name") or query
         _, _, photo_url = _lookup_via_inat(inat_q)
