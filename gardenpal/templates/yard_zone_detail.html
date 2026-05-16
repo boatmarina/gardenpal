@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_label %}{{ zone.name }}{% endblock %}
+{% block page_label %}<span class="page-subtitle">{{ zone.name }}</span>{% endblock %}
 {% block content %}
   <a href="{{ url_for('yard_index') }}" class="back-btn">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -33,10 +33,18 @@
       {% for plant in plants %}
         <article class="card">
           <div class="thumb">
-            {% if plant.image_path %}
+            {% set lib_thumb = plant.lib_photo_urls | first_photo %}
+            {% if lib_thumb %}
+              <img src="{{ lib_thumb }}" alt="{{ plant.plant_name }}" />
+            {% elif plant.image_path %}
               <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.plant_name }}" />
             {% else %}
-              <div class="placeholder">No photo</div>
+              <div class="placeholder">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3">
+                  <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+              </div>
             {% endif %}
           </div>
           <div class="card-content">

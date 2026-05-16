@@ -506,7 +506,11 @@ def create_app() -> Flask:
             flash("Yard zone not found.")
             return redirect(url_for("yard_index"))
         plants = db.execute(
-            "SELECT * FROM yard_plants WHERE zone_id = ? AND user_id = ? ORDER BY created_at DESC",
+            """SELECT yp.*, p.photo_urls AS lib_photo_urls
+               FROM yard_plants yp
+               LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
+               WHERE yp.zone_id = ? AND yp.user_id = ?
+               ORDER BY yp.created_at DESC""",
             (zone_id, g.user["id"]),
         ).fetchall()
         return render_template("yard_zone_detail.html", zone=zone, plants=plants)
