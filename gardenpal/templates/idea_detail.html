@@ -1,19 +1,13 @@
 {% extends "base.html" %}
+{% block page_label %}{{ plant.name }}{% endblock %}
+{% block title %}{{ plant.name }} · GardenPal{% endblock %}
+
 {% block content %}
-  <article class="panel detail">
-    <div class="title-row">
-      <div>
-        <h2>{{ plant.name }}</h2>
-        <p class="muted">{{ plant.scientific_name or "Scientific name not set" }}</p>
-      </div>
-      <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
-            onsubmit="return confirm('Delete {{ plant.name | e }}?')">
-        <button type="submit" class="button button-danger">Delete</button>
-      </form>
-    </div>
+  <article class="card detail">
 
     <div id="plant-photos"
          class="photos-grid"
+         style="border-radius:var(--r-xl) var(--r-xl) 0 0; overflow:hidden; gap:3px"
          data-query="{{ plant.name | e }}"
          data-stored="{{ plant.photo_urls or '' }}">
       {% if plant.image_path %}
@@ -21,26 +15,51 @@
       {% elif plant.image_url %}
         <img src="{{ plant.image_url }}" alt="{{ plant.name }}" />
       {% else %}
-        <div class="placeholder photos-grid-placeholder">No photo yet</div>
+        <div class="photos-grid-placeholder" style="aspect-ratio:2;border-radius:var(--r-xl) var(--r-xl) 0 0">No photo yet</div>
       {% endif %}
     </div>
 
-    {% if plant.pnw_native %}
-      <p class="native-badge">🌿 Native to the Pacific Northwest</p>
+    <div class="detail-header">
+      <h2 style="font-size:1.4rem;margin-bottom:4px">{{ plant.name }}</h2>
+      <p class="muted" style="font-style:italic;font-size:0.9rem;margin-bottom:0">
+        {{ plant.scientific_name or "Scientific name not set" }}
+      </p>
+      {% if plant.pnw_native %}
+        <p class="native-badge" style="margin:10px 0 0">Native to the Pacific Northwest</p>
+      {% endif %}
+      <div class="detail-actions">
+        <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
+              onsubmit="return confirm('Delete {{ plant.name | e }}?')">
+          <button type="submit" class="button button-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.lookup_query %}
+      <dl>
+        {% if plant.lookup_query %}
+          <dt>Query</dt>
+          <dd>{{ plant.lookup_query }}</dd>
+        {% endif %}
+        {% if plant.size_info %}
+          <dt>Size</dt>
+          <dd>{{ plant.size_info }}</dd>
+        {% endif %}
+        {% if plant.flowering_schedule %}
+          <dt>Flowering</dt>
+          <dd>{{ plant.flowering_schedule }}</dd>
+        {% endif %}
+        {% if plant.sun_exposure %}
+          <dt>Sun</dt>
+          <dd>{{ plant.sun_exposure }}</dd>
+        {% endif %}
+        {% if plant.lifecycle %}
+          <dt>Lifecycle</dt>
+          <dd>{{ plant.lifecycle }}</dd>
+        {% endif %}
+      </dl>
     {% endif %}
 
-    <dl>
-      <dt>Lookup Query</dt>
-      <dd>{{ plant.lookup_query or "Not set" }}</dd>
-      <dt>Size</dt>
-      <dd>{{ plant.size_info or "No details yet" }}</dd>
-      <dt>Flowering Schedule</dt>
-      <dd>{{ plant.flowering_schedule or "No details yet" }}</dd>
-      <dt>Sun Exposure</dt>
-      <dd>{{ plant.sun_exposure or "Unknown" }}</dd>
-      <dt>Lifecycle</dt>
-      <dd>{{ plant.lifecycle or "Unknown" }}</dd>
-    </dl>
   </article>
 {% endblock %}
 
@@ -77,7 +96,6 @@
     grid.querySelectorAll('.photo-item').forEach(attachRemove);
   }
 
-  // Use photos saved at add-time if available, otherwise fetch fresh from iNaturalist
   const stored = grid.dataset.stored;
   if (stored) {
     try { renderPhotos(JSON.parse(stored)); return; } catch (_) {}

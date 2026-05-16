@@ -1,42 +1,74 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GardenPal</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-  </head>
-  <body>
-    <header class="topbar">
-      <div class="container">
-        <h1><a href="{{ url_for('dashboard') }}">GardenPal</a></h1>
-        <nav class="topnav">
-          {% if current_user %}
-            <span class="welcome">Hi, {{ current_user.username }}</span>
-            <a class="button button-secondary" href="{{ url_for('ideas_index') }}">Plant Ideas</a>
-            <a class="button button-secondary" href="{{ url_for('yard_index') }}">Yard Planner</a>
-            <form method="post" action="{{ url_for('logout') }}">
-              <button type="submit" class="button button-secondary">Log out</button>
-            </form>
-          {% else %}
-            <a class="button button-secondary" href="{{ url_for('login') }}">Log in</a>
-            <a class="button" href="{{ url_for('signup') }}">Sign up</a>
-          {% endif %}
-        </nav>
-      </div>
-    </header>
-    <main class="container">
-      {% with messages = get_flashed_messages() %}
-        {% if messages %}
-          <div class="flash-area">
-            {% for message in messages %}
-              <div class="flash">{{ message }}</div>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endwith %}
-      {% block content %}{% endblock %}
-    </main>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}GardenPal{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital@1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+
+  <header class="brand-bar">
+    <span class="brand-label">{% block page_label %}GardenPal{% endblock %}</span>
+    {% if current_user %}
+      <form method="post" action="{{ url_for('logout') }}" style="margin:0">
+        <button type="submit" class="brand-user">{{ current_user.username }} · Log out</button>
+      </form>
+    {% else %}
+      <a href="{{ url_for('login') }}" class="brand-user">Log in</a>
+    {% endif %}
+  </header>
+
+  <main class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-area">
+          {% for msg in messages %}
+            <div class="flash">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if current_user %}
+  <nav class="bottom-nav">
+    <a href="{{ url_for('ideas_index') }}"
+       class="nav-item{% if request.endpoint in ('ideas_index', 'idea_detail', 'new_idea') %} active{% endif %}">
+      <!-- Library / shelves icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <rect x="3"  y="3" width="3.5" height="18" rx="1.5"/>
+        <rect x="10" y="7" width="3.5" height="14" rx="1.5"/>
+        <rect x="17" y="3" width="3.5" height="18" rx="1.5"/>
+      </svg>
+      <span>Library</span>
+    </a>
+
+    <a href="{{ url_for('new_idea') }}" class="nav-fab" aria-label="Add plant">
+      <!-- Leaf icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+      </svg>
+    </a>
+
+    <a href="{{ url_for('yard_index') }}"
+       class="nav-item{% if 'yard' in (request.endpoint or '') %} active{% endif %}">
+      <!-- Map icon -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+        <line x1="9"  y1="3"  x2="9"  y2="18"/>
+        <line x1="15" y1="6"  x2="15" y2="21"/>
+      </svg>
+      <span>Yard</span>
+    </a>
+  </nav>
+  {% endif %}
+
   {% block scripts %}{% endblock %}
-  </body>
+</body>
 </html>
