@@ -71,8 +71,11 @@
       const photos = d.photos || [];
       if (photos.length) {
         grid.innerHTML = photos
-          .map(u => `<img src="${u}" alt="${query}" loading="lazy" />`)
+          .map(u => `<div class="photo-item"><img src="${u}" alt="${query}" loading="lazy" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`)
           .join('');
+        grid.querySelectorAll('.photo-remove').forEach(btn => {
+          btn.addEventListener('click', () => btn.closest('.photo-item').remove());
+        });
       }
     })
     .catch(() => {});

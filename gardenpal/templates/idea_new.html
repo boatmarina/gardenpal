@@ -226,10 +226,19 @@
   function showPhotoPreview(inlineUrl, name) {
     const preview = document.getElementById('name-photo-preview');
     if (!preview) return;
+    function makePhotoItem(url, altText) {
+      return `<div class="photo-item"><img src="${url}" alt="${altText}" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
+    }
+    function attachRemoveHandlers(container) {
+      container.querySelectorAll('.photo-remove').forEach(btn => {
+        btn.addEventListener('click', () => btn.closest('.photo-item').remove());
+      });
+    }
     // Show inline photo immediately if search already gave us one
     if (inlineUrl) {
-      preview.innerHTML = `<img src="${inlineUrl}" alt="${name || ''}" />`;
+      preview.innerHTML = makePhotoItem(inlineUrl, name || '');
       if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = inlineUrl;
+      attachRemoveHandlers(preview);
       preview.hidden = false;
     }
     // Fetch 3 community photos in the background
@@ -238,10 +247,9 @@
       .then(d => {
         const photos = d.photos || [];
         if (photos.length) {
-          preview.innerHTML = photos
-            .map(u => `<img src="${u}" alt="${name || ''}" />`)
-            .join('');
+          preview.innerHTML = photos.map(u => makePhotoItem(u, name || '')).join('');
           if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = photos[0];
+          attachRemoveHandlers(preview);
           preview.hidden = false;
         }
       })
