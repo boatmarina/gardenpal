@@ -22,6 +22,12 @@
       <option value="perennial" {% if active_filters.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
       <option value="biennial"  {% if active_filters.lifecycle == "biennial"  %}selected{% endif %}>Biennial</option>
     </select>
+    <select name="evergreen" style="flex:1;min-width:120px" onchange="this.form.submit()">
+      <option value="">Evergreen or deciduous</option>
+      <option value="evergreen"  {% if active_filters.evergreen == "evergreen"  %}selected{% endif %}>Evergreen</option>
+      <option value="deciduous"  {% if active_filters.evergreen == "deciduous"  %}selected{% endif %}>Deciduous</option>
+      <option value="semi-evergreen" {% if active_filters.evergreen == "semi-evergreen" %}selected{% endif %}>Semi-evergreen</option>
+    </select>
   </form>
 
   <div class="section-header">

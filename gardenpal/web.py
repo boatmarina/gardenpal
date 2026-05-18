@@ -243,6 +243,7 @@ def create_app() -> Flask:
         q = request.args.get("q", "").strip()
         sun = request.args.get("sun", "").strip()
         lifecycle = request.args.get("lifecycle", "").strip()
+        evergreen = request.args.get("evergreen", "").strip()
         category_id = request.args.get("category", "").strip()
 
         query = """
@@ -263,6 +264,9 @@ def create_app() -> Flask:
         if lifecycle:
             query += " AND p.lifecycle = ?"
             params.append(lifecycle)
+        if evergreen:
+            query += " AND p.evergreen_status = ?"
+            params.append(evergreen)
         if category_id:
             query += " AND pc.category_id = ?"
             params.append(category_id)
@@ -285,7 +289,7 @@ def create_app() -> Flask:
             "ideas_index.html",
             plants=plants,
             categories=categories,
-            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "category": category_id},
+            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "category": category_id},
         )
 
     @app.route("/ideas/new", methods=["GET", "POST"])
@@ -506,7 +510,11 @@ def create_app() -> Flask:
             flash("Yard zone not found.")
             return redirect(url_for("yard_index"))
         plants = db.execute(
-            """SELECT yp.*, p.photo_urls AS lib_photo_urls
+            """SELECT yp.*,
+                      p.id          AS lib_plant_id,
+                      p.photo_urls  AS lib_photo_urls,
+                      p.image_path  AS lib_image_path,
+                      p.image_url   AS lib_image_url
                FROM yard_plants yp
                LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
                WHERE yp.zone_id = ? AND yp.user_id = ?
