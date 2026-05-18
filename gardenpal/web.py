@@ -1,36 +1,136 @@
+import json
 import os
-import sqlite3
+import ssl
 import uuid
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
+from urllib.parse import urlparse
 
-from flask import Flask, flash, g, redirect, render_template, request, send_from_directory, session, url_for
+import pg8000
+import requests
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details
+from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
 
 
+class _Row:
+    """Dict- and attribute-accessible row, like sqlite3.Row."""
+
+    def __init__(self, description, values):
+        object.__setattr__(self, "_data", dict(zip([d[0] for d in description], values)))
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __getattr__(self, key):
+        try:
+            return self._data[key]
+        except KeyError:
+            raise AttributeError(key)
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+    def keys(self):
+        return self._data.keys()
+
+    def __contains__(self, key):
+        return key in self._data
+
+
+class _PgCursor:
+    def __init__(self, cur):
+        self._cur = cur
+
+    def fetchone(self):
+        row = self._cur.fetchone()
+        return None if row is None else _Row(self._cur.description, row)
+
+    def fetchall(self):
+        return [_Row(self._cur.description, row) for row in self._cur.fetchall()]
+
+
+class _PgDB:
+    """Thin adapter giving pg8000 a SQLite-like execute() interface."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, query, params=()):
+        cur = self._conn.cursor()
+        cur.execute(query.replace("?", "%s"), params or ())
+        return _PgCursor(cur)
+
+    def commit(self):
+        self._conn.commit()
+
+    def close(self):
+        self._conn.close()
+
+
+def _connect(database_url: str) -> _PgDB:
+    parsed = urlparse(database_url)
+    if not parsed.hostname or not parsed.username:
+        raise ValueError(
+            f"DATABASE_URL could not be parsed (scheme={parsed.scheme!r}, "
+            f"host={parsed.hostname!r}, user={parsed.username!r}). "
+            f"It must be a URI in the form: "
+            f"postgresql://postgres:YOUR_PASSWORD@db.PROJECT.supabase.co:5432/postgres"
+        )
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+    conn = pg8000.connect(
+        host=parsed.hostname,
+        port=parsed.port or 5432,
+        database=parsed.path.lstrip("/"),
+        user=parsed.username,
+        password=parsed.password,
+        ssl_context=ssl_ctx,
+    )
+    return _PgDB(conn)
+
+
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
-    running_on_vercel = bool(os.environ.get("VERCEL"))
-    data_dir = Path("/tmp/gardenpal") if running_on_vercel else Path(app.instance_path)
+    upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev"),
-        DATABASE=str(data_dir / "gardenpal.db"),
-        UPLOAD_FOLDER=str(data_dir / "uploads"),
+        DATABASE_URL=os.environ.get("DATABASE_URL"),
+        UPLOAD_FOLDER=str(upload_dir),
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+        _DB_READY=False,
     )
 
-    os.makedirs(data_dir, exist_ok=True)
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    os.makedirs(upload_dir, exist_ok=True)
 
-    with app.app_context():
-        init_db()
+    @app.template_filter("first_photo")
+    def first_photo_filter(photo_urls_json):
+        if not photo_urls_json:
+            return None
+        try:
+            urls = json.loads(photo_urls_json)
+            return urls[0] if urls else None
+        except Exception:
+            return None
+
+    @app.before_request
+    def ensure_db_ready():
+        if not app.config["_DB_READY"]:
+            db_url = app.config.get("DATABASE_URL")
+            if not db_url:
+                return "<pre>Error: DATABASE_URL environment variable is not set.</pre>", 500
+            try:
+                init_db()
+                app.config["_DB_READY"] = True
+            except Exception as exc:
+                return f"<pre>Database connection failed:\n{exc}</pre>", 500
 
     @app.before_request
     def load_logged_in_user():
@@ -143,6 +243,7 @@ def create_app() -> Flask:
         q = request.args.get("q", "").strip()
         sun = request.args.get("sun", "").strip()
         lifecycle = request.args.get("lifecycle", "").strip()
+        evergreen = request.args.get("evergreen", "").strip()
         category_id = request.args.get("category", "").strip()
 
         query = """
@@ -163,6 +264,9 @@ def create_app() -> Flask:
         if lifecycle:
             query += " AND p.lifecycle = ?"
             params.append(lifecycle)
+        if evergreen:
+            query += " AND p.evergreen_status = ?"
+            params.append(evergreen)
         if category_id:
             query += " AND pc.category_id = ?"
             params.append(category_id)
@@ -185,7 +289,7 @@ def create_app() -> Flask:
             "ideas_index.html",
             plants=plants,
             categories=categories,
-            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "category": category_id},
+            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "category": category_id},
         )
 
     @app.route("/ideas/new", methods=["GET", "POST"])
@@ -193,19 +297,11 @@ def create_app() -> Flask:
     def new_idea():
         db = get_db()
         user_id = g.user["id"]
-        categories = db.execute(
-            """
-            SELECT DISTINCT c.*
-            FROM categories c
-            JOIN plant_categories pc ON c.id = pc.category_id
-            JOIN plants p ON p.id = pc.plant_id
-            WHERE p.user_id = ?
-            ORDER BY c.name ASC
-            """,
-            (user_id,),
-        ).fetchall()
-        if not categories:
-            categories = db.execute("SELECT * FROM categories WHERE is_default = 1 ORDER BY name ASC").fetchall()
+        plant_names = [
+            r["name"] for r in db.execute(
+                "SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (user_id,)
+            ).fetchall()
+        ]
 
         form_values = {
             "name": "",
@@ -220,12 +316,15 @@ def create_app() -> Flask:
             "lifecycle": "",
             "notes": "",
             "lookup_status": "not-started",
-            "new_categories": "",
+            "pnw_native": None,
+            "photo_urls": "",
+            "evergreen_status": "",
+            "active_mode": "name",
         }
-        selected_categories = []
 
         if request.method == "POST":
             form_action = request.form.get("form_action", "save")
+            pnw_raw = request.form.get("pnw_native", "")
             form_values = {
                 "name": request.form.get("name", "").strip(),
                 "scientific_name": request.form.get("scientific_name", "").strip(),
@@ -239,9 +338,11 @@ def create_app() -> Flask:
                 "lifecycle": request.form.get("lifecycle", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
                 "lookup_status": request.form.get("lookup_status", "not-started").strip(),
-                "new_categories": request.form.get("new_categories", "").strip(),
+                "pnw_native": True if pnw_raw == "1" else (False if pnw_raw == "0" else None),
+                "photo_urls": request.form.get("photo_urls", "").strip(),
+                "evergreen_status": request.form.get("evergreen_status", "").strip(),
+                "active_mode": request.form.get("active_mode", "name").strip(),
             }
-            selected_categories = request.form.getlist("categories")
 
             if form_action == "autofill_name":
                 details, error = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
@@ -249,13 +350,8 @@ def create_app() -> Flask:
                     flash(error)
                 else:
                     apply_lookup_to_form(form_values, details, use_common_name=True)
-                    flash("Plant details autofilled from name search.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                )
+                    flash("Plant details autofilled.")
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             if form_action == "autofill_label":
                 text, error = extract_text_from_image(request.files.get("label_photo"))
@@ -269,12 +365,7 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                         flash("Used extracted text to autofill details.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                )
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             if form_action == "autofill_photo":
                 suggestion, error = identify_plant_from_image(request.files.get("photo"))
@@ -291,21 +382,19 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                         flash("Used photo match to autofill details.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                )
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             if not form_values["name"]:
                 flash("Plant name is required.")
-                return render_template(
-                    "idea_new.html",
-                    categories=categories,
-                    form_values=form_values,
-                    selected_categories=selected_categories,
-                )
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
+
+            # Auto-fill details on save if not already done via an explicit autofill action
+            if form_values["lookup_status"] != "draft":
+                details, lookup_err = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                if details:
+                    apply_lookup_to_form(form_values, details, use_common_name=False)
+                elif lookup_err:
+                    flash(f"Plant details could not be fetched: {lookup_err}")
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
             label_photo_path = save_upload(
@@ -314,12 +403,13 @@ def create_app() -> Flask:
                 user_id,
                 "label",
             )
-            db.execute(
+            plant_id = db.execute(
                 """
                 INSERT INTO plants
                 (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
-                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
                 """,
                 (
                     user_id,
@@ -337,40 +427,18 @@ def create_app() -> Flask:
                     form_values["lifecycle"],
                     form_values["lookup_status"],
                     form_values["notes"],
+                    1 if form_values["pnw_native"] is True else (0 if form_values["pnw_native"] is False else None),
+                    form_values["photo_urls"] or None,
+                    form_values["evergreen_status"] or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
-            )
-            plant_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
-
-            created_category_ids = list(selected_categories)
-            if form_values["new_categories"]:
-                for category_name in [c.strip() for c in form_values["new_categories"].split(",") if c.strip()]:
-                    existing = db.execute(
-                        "SELECT id FROM categories WHERE lower(name) = lower(?)", (category_name,)
-                    ).fetchone()
-                    if existing:
-                        created_category_ids.append(str(existing["id"]))
-                    else:
-                        db.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
-                        new_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
-                        created_category_ids.append(str(new_id))
-
-            for category in set(created_category_ids):
-                db.execute(
-                    "INSERT OR IGNORE INTO plant_categories (plant_id, category_id) VALUES (?, ?)",
-                    (plant_id, category),
-                )
+            ).fetchone()["id"]
 
             db.commit()
             flash("Plant idea added.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
 
-        return render_template(
-            "idea_new.html",
-            categories=categories,
-            form_values=form_values,
-            selected_categories=selected_categories,
-        )
+        return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
     @app.route("/ideas/<int:plant_id>")
     @login_required
@@ -442,7 +510,15 @@ def create_app() -> Flask:
             flash("Yard zone not found.")
             return redirect(url_for("yard_index"))
         plants = db.execute(
-            "SELECT * FROM yard_plants WHERE zone_id = ? AND user_id = ? ORDER BY created_at DESC",
+            """SELECT yp.*,
+                      p.id          AS lib_plant_id,
+                      p.photo_urls  AS lib_photo_urls,
+                      p.image_path  AS lib_image_path,
+                      p.image_url   AS lib_image_url
+               FROM yard_plants yp
+               LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
+               WHERE yp.zone_id = ? AND yp.user_id = ?
+               ORDER BY yp.created_at DESC""",
             (zone_id, g.user["id"]),
         ).fetchall()
         return render_template("yard_zone_detail.html", zone=zone, plants=plants)
@@ -452,9 +528,17 @@ def create_app() -> Flask:
     def yard_plant_new():
         db = get_db()
         zones = db.execute("SELECT * FROM yard_zones WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()
+        plant_names = sorted(set(
+            [r["name"] for r in db.execute("SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()]
+            + [r["plant_name"] for r in db.execute("SELECT DISTINCT plant_name FROM yard_plants WHERE user_id = ? ORDER BY plant_name ASC", (g.user["id"],)).fetchall()]
+        ))
+        library_plants = db.execute(
+            "SELECT id, name, scientific_name, image_path, image_url, photo_urls, sun_exposure, lifecycle, size_info, flowering_schedule FROM plants WHERE user_id = ? ORDER BY name ASC",
+            (g.user["id"],),
+        ).fetchall()
 
         form_values = {
-            "zone_id": "",
+            "zone_id": request.args.get("zone_id", ""),
             "plant_name": "",
             "scientific_name": "",
             "lookup_query": "",
@@ -465,8 +549,7 @@ def create_app() -> Flask:
             "size_info": "",
             "spreads": "",
             "notes": "",
-            "location_x": "50",
-            "location_y": "50",
+            "active_mode": "library",
         }
 
         if request.method == "POST":
@@ -483,8 +566,7 @@ def create_app() -> Flask:
                 "size_info": request.form.get("size_info", "").strip(),
                 "spreads": request.form.get("spreads", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
-                "location_x": request.form.get("location_x", "").strip() or "50",
-                "location_y": request.form.get("location_y", "").strip() or "50",
+                "active_mode": request.form.get("active_mode", "library"),
             }
 
             if form_action == "autofill_name":
@@ -494,7 +576,7 @@ def create_app() -> Flask:
                 else:
                     apply_lookup_to_yard_form(form_values, details)
                     flash("Planted item details autofilled from name lookup.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if form_action == "autofill_photo":
                 suggestion, error = identify_plant_from_image(request.files.get("photo"))
@@ -510,11 +592,11 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
                     flash(f"Photo-based suggestion confidence: {suggestion.get('confidence') or 'unknown'}")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if not form_values["zone_id"] or not form_values["plant_name"]:
                 flash("Zone and plant name are required.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             zone = db.execute(
                 "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
@@ -522,7 +604,7 @@ def create_app() -> Flask:
             ).fetchone()
             if zone is None:
                 flash("Please choose a valid zone.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "yardplant")
             db.execute(
@@ -539,8 +621,8 @@ def create_app() -> Flask:
                     form_values["scientific_name"],
                     form_values["lookup_query"],
                     image_path,
-                    form_values["location_x"],
-                    form_values["location_y"],
+                    50,
+                    50,
                     form_values["size_info"],
                     form_values["watering_needs"],
                     form_values["sun_needs"],
@@ -551,10 +633,145 @@ def create_app() -> Flask:
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             )
+            # Add to library if not already there
+            existing = db.execute(
+                "SELECT id FROM plants WHERE user_id = ? AND name = ?",
+                (g.user["id"], form_values["plant_name"]),
+            ).fetchone()
+            if existing is None:
+                db.execute(
+                    """
+                    INSERT INTO plants
+                    (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path,
+                     label_photo_path, image_url, size_info, flowering_schedule, sun_exposure, lifecycle,
+                     lookup_status, notes, pnw_native, photo_urls, evergreen_status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        g.user["id"],
+                        form_values["plant_name"],
+                        form_values["scientific_name"],
+                        form_values["lookup_query"],
+                        "yard",
+                        None,
+                        image_path,
+                        None,
+                        None,
+                        form_values["size_info"],
+                        form_values["flowering_schedule"],
+                        form_values["sun_needs"],
+                        form_values["lifecycle"],
+                        None,
+                        form_values["notes"],
+                        None,
+                        None,
+                        None,
+                        datetime.utcnow().isoformat(timespec="seconds"),
+                    ),
+                )
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
-        return render_template("yard_plant_new.html", zones=zones, form_values=form_values)
+        return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+
+    @app.route("/api/plant-search")
+    @login_required
+    def api_plant_search():
+        q = request.args.get("q", "").strip()
+        if len(q) < 2:
+            return jsonify(results=[])
+        api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
+        if api_key:
+            try:
+                resp = requests.get(
+                    "https://perenual.com/api/species-list",
+                    params={"key": api_key, "q": q},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json().get("data", [])
+                results = []
+                for plant in data[:12]:
+                    sci = plant.get("scientific_name") or []
+                    results.append({
+                        "common_name": plant.get("common_name") or "",
+                        "scientific_name": sci[0] if sci else "",
+                    })
+                if results:
+                    return jsonify(results=results)
+            except Exception:
+                pass
+        # Fall back to iNaturalist (free, no API key needed)
+        try:
+            resp = requests.get(
+                "https://api.inaturalist.org/v1/taxa",
+                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 12},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            taxa = resp.json().get("results", [])
+            results = []
+            for t in taxa:
+                photo = t.get("default_photo") or {}
+                results.append({
+                    "common_name": t.get("preferred_common_name") or t.get("name") or "",
+                    "scientific_name": t.get("name") or "",
+                    "photo_url": photo.get("medium_url") or photo.get("square_url"),
+                })
+            return jsonify(results=results)
+        except Exception:
+            return jsonify(results=[])
+
+    @app.route("/api/plant-photo")
+    @login_required
+    def api_plant_photo():
+        q = request.args.get("q", "").strip()
+        if not q:
+            return jsonify(photo_url=None)
+        return jsonify(photo_url=lookup_plant_image(q))
+
+    @app.route("/api/plant-photos")
+    @login_required
+    def api_plant_photos():
+        q = request.args.get("q", "").strip()
+        count = min(int(request.args.get("count", "3")), 6)
+        if not q:
+            return jsonify(photos=[])
+        return jsonify(photos=lookup_plant_photos(q, count))
+
+    @app.route("/ideas/<int:plant_id>/delete", methods=["POST"])
+    @login_required
+    def delete_idea(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        db.execute("DELETE FROM plant_categories WHERE plant_id = ?", (plant_id,))
+        db.execute("DELETE FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"]))
+        db.commit()
+        flash("Plant idea deleted.")
+        return redirect(url_for("ideas_index"))
+
+    @app.route("/ideas/<int:plant_id>/update-photos", methods=["POST"])
+    @login_required
+    def update_idea_photos(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+        ).fetchone()
+        if plant is None:
+            return jsonify(error="Not found"), 404
+        data = request.get_json(silent=True) or {}
+        photos = [str(u) for u in (data.get("photos") or []) if u]
+        db.execute(
+            "UPDATE plants SET photo_urls = ? WHERE id = ?",
+            (json.dumps(photos) if photos else None, plant_id),
+        )
+        db.commit()
+        return jsonify(ok=True)
 
     @app.route("/plants/new")
     def legacy_new_plant():
@@ -583,12 +800,7 @@ def create_app() -> Flask:
 
 def get_db():
     if "db" not in g:
-        db = sqlite3.connect(
-            current_app().config["DATABASE"],
-            detect_types=sqlite3.PARSE_DECLTYPES,
-        )
-        db.row_factory = sqlite3.Row
-        g.db = db
+        g.db = _connect(current_app().config["DATABASE_URL"])
     return g.db
 
 
@@ -600,92 +812,27 @@ def current_app():
 
 def init_db():
     db = get_db()
-    db.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS plants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            name TEXT NOT NULL,
-            scientific_name TEXT,
-            lookup_query TEXT,
-            source_type TEXT NOT NULL DEFAULT 'world',
-            source_note TEXT,
-            image_path TEXT,
-            label_photo_path TEXT,
-            image_url TEXT,
-            size_info TEXT,
-            flowering_schedule TEXT,
-            sun_exposure TEXT,
-            lifecycle TEXT,
-            lookup_status TEXT,
-            notes TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            is_default INTEGER NOT NULL DEFAULT 0
-        );
-
-        CREATE TABLE IF NOT EXISTS plant_categories (
-            plant_id INTEGER NOT NULL,
-            category_id INTEGER NOT NULL,
-            PRIMARY KEY (plant_id, category_id),
-            FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE,
-            FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS yard_zones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            description TEXT,
-            reference_image_path TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS yard_plants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            zone_id INTEGER NOT NULL,
-            plant_name TEXT NOT NULL,
-            scientific_name TEXT,
-            lookup_query TEXT,
-            image_path TEXT,
-            location_x REAL NOT NULL DEFAULT 50,
-            location_y REAL NOT NULL DEFAULT 50,
-            size_info TEXT,
-            watering_needs TEXT,
-            sun_needs TEXT,
-            flowering_schedule TEXT,
-            lifecycle TEXT,
-            spreads TEXT,
-            notes TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-            FOREIGN KEY (zone_id) REFERENCES yard_zones (id) ON DELETE CASCADE
-        );
-        """
-    )
+    # Autocommit each DDL statement independently so the transaction pooler
+    # can't split a SERIAL column's implicit CREATE SEQUENCE from its CREATE TABLE,
+    # and so a failed statement doesn't abort the rest.
+    db._conn.autocommit = True
+    for stmt in _SCHEMA_STATEMENTS:
+        try:
+            db.execute(stmt)
+        except Exception:
+            pass  # table or sequence already exists — safe to continue
+    db._conn.autocommit = False
 
     ensure_column(db, "plants", "user_id", "INTEGER")
     ensure_column(db, "plants", "scientific_name", "TEXT")
     ensure_column(db, "plants", "lookup_query", "TEXT")
     ensure_column(db, "plants", "label_photo_path", "TEXT")
     ensure_column(db, "plants", "lookup_status", "TEXT")
+    ensure_column(db, "plants", "pnw_native", "INTEGER")
+    ensure_column(db, "plants", "photo_urls", "TEXT")
+    ensure_column(db, "plants", "evergreen_status", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
-    # Keep existing records usable if they predate auth.
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
     if user is None:
         db.execute(
@@ -696,8 +843,95 @@ def init_db():
     db.execute("UPDATE plants SET user_id = ? WHERE user_id IS NULL", (user["id"],))
 
     for category in DEFAULT_CATEGORIES:
-        db.execute("INSERT OR IGNORE INTO categories (name, is_default) VALUES (?, 1)", (category,))
+        db.execute(
+            "INSERT INTO categories (name, is_default) VALUES (?, 1) ON CONFLICT (name) DO NOTHING",
+            (category,),
+        )
     db.commit()
+
+
+_SCHEMA_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS plants (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        name TEXT NOT NULL,
+        scientific_name TEXT,
+        lookup_query TEXT,
+        source_type TEXT NOT NULL DEFAULT 'world',
+        source_note TEXT,
+        image_path TEXT,
+        label_photo_path TEXT,
+        image_url TEXT,
+        size_info TEXT,
+        flowering_schedule TEXT,
+        sun_exposure TEXT,
+        lifecycle TEXT,
+        lookup_status TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        is_default INTEGER NOT NULL DEFAULT 0
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS plant_categories (
+        plant_id INTEGER NOT NULL,
+        category_id INTEGER NOT NULL,
+        PRIMARY KEY (plant_id, category_id),
+        FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE,
+        FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS yard_zones (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        reference_image_path TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS yard_plants (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        zone_id INTEGER NOT NULL,
+        plant_name TEXT NOT NULL,
+        scientific_name TEXT,
+        lookup_query TEXT,
+        image_path TEXT,
+        location_x REAL NOT NULL DEFAULT 50,
+        location_y REAL NOT NULL DEFAULT 50,
+        size_info TEXT,
+        watering_needs TEXT,
+        sun_needs TEXT,
+        flowering_schedule TEXT,
+        lifecycle TEXT,
+        spreads TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (zone_id) REFERENCES yard_zones (id) ON DELETE CASCADE
+    )
+    """,
+]
 
 
 def allowed_file(filename: str) -> bool:
@@ -730,10 +964,12 @@ def login_required(view):
 
 
 def ensure_column(db, table_name: str, column_name: str, column_spec: str):
-    columns = db.execute(f"PRAGMA table_info({table_name})").fetchall()
-    existing = {col["name"] for col in columns}
-    if column_name not in existing:
-        db.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_spec}")
+    exists = db.execute(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        (table_name, column_name),
+    ).fetchone()
+    if exists is None:
+        db.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_spec}")
 
 
 def infer_query_from_text(raw_text: str) -> str:
@@ -760,6 +996,12 @@ def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool
         form_values["size_info"] = details["size_info"]
     if details.get("flowering_schedule"):
         form_values["flowering_schedule"] = details["flowering_schedule"]
+    if details.get("photo_url") and not form_values.get("image_url"):
+        form_values["image_url"] = details["photo_url"]
+    if details.get("pnw_native") is not None:
+        form_values["pnw_native"] = details["pnw_native"]
+    if details.get("evergreen_status"):
+        form_values["evergreen_status"] = details["evergreen_status"]
     form_values["lookup_status"] = "draft"
 
 
@@ -811,4 +1053,3 @@ def run():
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5000"))
     app.run(host=host, port=port, debug=True)
-

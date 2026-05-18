@@ -1,28 +1,50 @@
 {% extends "base.html" %}
-{% block content %}
-  <section class="panel">
-    <h2>GardenPal Home</h2>
-    <p>Choose a section to track plant ideas or map what is planted in your yard.</p>
-  </section>
+{% block page_label %}{% endblock %}
 
-  <section class="cards cards-two">
-    <article class="card panel-like">
-      <h3>Plant Ideas</h3>
-      <p>Plants you've spotted in the world or online, with lookup-ready details.</p>
-      <p class="muted">{{ idea_count }} saved ideas</p>
-      <div class="actions">
-        <a class="button" href="{{ url_for('ideas_index') }}">Open Ideas</a>
-        <a class="button button-secondary" href="{{ url_for('new_idea') }}">Add Idea</a>
+{% block content %}
+  <div class="hero">
+    <p class="hero-label">Index / 01</p>
+    <h1 class="hero-title">GardenPal</h1>
+    <p class="hero-sub">Track the plants you love. Plan the yard you want.</p>
+  </div>
+
+  <div class="action-cards">
+    <a href="{{ url_for('new_idea') }}" class="action-card dark">
+      <div class="action-card-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+        </svg>
       </div>
-    </article>
-    <article class="card panel-like">
-      <h3>Yard Planner</h3>
-      <p>Zones and plants you've actually planted, including location markers.</p>
-      <p class="muted">{{ zone_count }} zones · {{ yard_plant_count }} planted items</p>
-      <div class="actions">
-        <a class="button" href="{{ url_for('yard_index') }}">Open Yard Planner</a>
-        <a class="button button-secondary" href="{{ url_for('yard_zone_new') }}">Add Zone</a>
+      <span class="action-card-label">Add Plant</span>
+    </a>
+    <a href="{{ url_for('yard_zone_new') }}" class="action-card">
+      <div class="action-card-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+          <line x1="9" y1="3" x2="9" y2="18"/>
+          <line x1="15" y1="6" x2="15" y2="21"/>
+        </svg>
       </div>
-    </article>
-  </section>
+      <span class="action-card-label">Add Zone</span>
+    </a>
+  </div>
+
+  <div class="section-header" style="margin-top:24px">
+    <span class="section-title">Plant Collection</span>
+    <a href="{{ url_for('ideas_index') }}" class="section-action">View all</a>
+  </div>
+  <div class="card" style="padding:18px 20px; margin-bottom:12px">
+    <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ idea_count }}</p>
+    <p class="muted" style="font-size:0.85rem;font-style:normal">plants saved</p>
+  </div>
+
+  <div class="section-header" style="margin-top:16px">
+    <span class="section-title">Yard Planner</span>
+    <a href="{{ url_for('yard_index') }}" class="section-action">View all</a>
+  </div>
+  <div class="card" style="padding:18px 20px">
+    <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ zone_count }}</p>
+    <p class="muted" style="font-size:0.85rem;font-style:normal">zones · {{ yard_plant_count }} planted</p>
+  </div>
 {% endblock %}

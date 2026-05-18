@@ -1,48 +1,203 @@
 {% extends "base.html" %}
-{% block content %}
-  <article class="panel detail">
-    <h2>{{ plant.name }}</h2>
-    <p class="muted">{{ plant.scientific_name or "Scientific name not set" }}</p>
+{% block page_label %}<span class="page-subtitle">{{ plant.name }}</span>{% endblock %}
+{% block title %}{{ plant.name }} · GardenPal{% endblock %}
 
-    <div class="detail-image">
+{% block content %}
+  <a href="{{ url_for('ideas_index') }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Library
+  </a>
+
+  <article class="card detail">
+
+    <div id="plant-photos"
+         class="photos-grid"
+         style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
+         data-plant-id="{{ plant.id }}"
+         data-query="{{ plant.name | e }}"
+         data-stored="{{ plant.photo_urls or '' }}">
       {% if plant.image_path %}
         <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
       {% elif plant.image_url %}
         <img src="{{ plant.image_url }}" alt="{{ plant.name }}" />
       {% else %}
-        <div class="placeholder">No photo</div>
+        <div class="photos-grid-placeholder" style="aspect-ratio:2;border-radius:var(--r-xl) var(--r-xl) 0 0">No photo yet</div>
       {% endif %}
     </div>
 
-    <dl>
-      <dt>Lookup Query</dt>
-      <dd>{{ plant.lookup_query or "Not set" }}</dd>
-      <dt>Lookup Status</dt>
-      <dd>{{ plant.lookup_status or "not-started" }}</dd>
-      <dt>Source</dt>
-      <dd>{{ plant.source_type }}{% if plant.source_note %} - {{ plant.source_note }}{% endif %}</dd>
-      <dt>Size</dt>
-      <dd>{{ plant.size_info or "No details yet" }}</dd>
-      <dt>Flowering Schedule</dt>
-      <dd>{{ plant.flowering_schedule or "No details yet" }}</dd>
-      <dt>Sun Exposure</dt>
-      <dd>{{ plant.sun_exposure or "Unknown" }}</dd>
-      <dt>Lifecycle</dt>
-      <dd>{{ plant.lifecycle or "Unknown" }}</dd>
-      <dt>Categories</dt>
-      <dd>
-        {% if categories %}
-          <div class="tags">
-            {% for category in categories %}
-              <span class="chip">{{ category.name }}</span>
-            {% endfor %}
-          </div>
-        {% else %}
-          No categories yet
+    <div class="detail-header">
+      <h2 style="font-size:1.4rem;margin-bottom:4px">{{ plant.name }}</h2>
+      <p class="muted" style="font-style:italic;font-size:0.9rem;margin-bottom:0">
+        {{ plant.scientific_name or "Scientific name not set" }}
+      </p>
+      {% if plant.pnw_native %}
+        <p class="native-badge" style="margin:10px 0 0">Native to the Pacific Northwest</p>
+      {% endif %}
+      <div class="detail-actions">
+        <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
+              onsubmit="return confirm('Delete {{ plant.name | e }}?')">
+          <button type="submit" class="button button-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.lookup_query %}
+      <dl>
+        {% if plant.lookup_query %}
+          <dt>Query</dt>
+          <dd>{{ plant.lookup_query }}</dd>
         {% endif %}
-      </dd>
-      <dt>Notes</dt>
-      <dd>{{ plant.notes or "No notes yet." }}</dd>
-    </dl>
+        {% if plant.size_info %}
+          <dt>Size</dt>
+          <dd>{{ plant.size_info }}</dd>
+        {% endif %}
+        {% if plant.flowering_schedule %}
+          <dt>Flowering</dt>
+          <dd>{{ plant.flowering_schedule }}</dd>
+        {% endif %}
+        {% if plant.sun_exposure %}
+          <dt>Sun</dt>
+          <dd>{{ plant.sun_exposure }}</dd>
+        {% endif %}
+        {% if plant.lifecycle or plant.evergreen_status %}
+          <dt>Type</dt>
+          <dd>
+            {{ plant.lifecycle or "" }}{% if plant.lifecycle and plant.evergreen_status %} · {% endif %}{{ plant.evergreen_status or "" }}
+          </dd>
+        {% endif %}
+      </dl>
+    {% endif %}
+
   </article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const grid = document.getElementById('plant-photos');
+  if (!grid) return;
+  const query = grid.dataset.query;
+  const plantId = grid.dataset.plantId;
+  let reserve = [];
+
+  /* ── photo item factory ── */
+  function makePhotoItem(url, idx) {
+    return `<div class="photo-item">
+      <img src="${url}" alt="${query}" loading="lazy" style="cursor:zoom-in" />
+      <span class="photo-badge">${idx + 1}</span>
+      <button class="photo-remove" title="Remove" aria-label="Remove photo">×</button>
+      <div class="drag-handle" title="Drag to reorder">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="4" y1="8"  x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/>
+        </svg>
+      </div>
+    </div>`;
+  }
+
+  function updateBadges() {
+    grid.querySelectorAll('.photo-item').forEach((item, i) => {
+      const b = item.querySelector('.photo-badge');
+      if (b) b.textContent = i + 1;
+    });
+  }
+
+  function saveOrder() {
+    const urls = [...grid.querySelectorAll('.photo-item img')].map(img => img.src);
+    fetch(`/ideas/${plantId}/update-photos`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({photos: urls})
+    });
+  }
+
+  /* ── attach remove handler ── */
+  function attachRemove(item) {
+    item.querySelector('.photo-remove').addEventListener('click', () => {
+      item.remove();
+      updateBadges();
+      if (reserve.length) {
+        const idx = grid.querySelectorAll('.photo-item').length;
+        const el = document.createElement('div');
+        el.innerHTML = makePhotoItem(reserve.shift(), idx);
+        const newItem = el.firstElementChild;
+        attachControls(newItem);
+        grid.appendChild(newItem);
+        updateBadges();
+      }
+      saveOrder();
+    });
+  }
+
+  /* ── lightbox ── */
+  function openLightbox(src) {
+    const box = document.createElement('div');
+    box.className = 'lightbox';
+    box.innerHTML = `<button class="lightbox-close" aria-label="Close">×</button><img src="${src}" alt="${query}" />`;
+    const close = () => box.remove();
+    box.addEventListener('click', e => { if (e.target === box || e.target.classList.contains('lightbox-close')) close(); });
+    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+    document.body.appendChild(box);
+  }
+
+  /* ── drag-and-drop (pointer events — works for mouse + touch) ── */
+  let dragging = null;
+
+  function attachDrag(item) {
+    const handle = item.querySelector('.drag-handle');
+    if (!handle) return;
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      dragging = item;
+      item.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
+
+      const onMove = e => {
+        dragging.style.pointerEvents = 'none';
+        const below = document.elementFromPoint(e.clientX, e.clientY);
+        dragging.style.pointerEvents = '';
+        const target = below?.closest('.photo-item');
+        if (target && target !== dragging) {
+          const rect = target.getBoundingClientRect();
+          grid.insertBefore(dragging, e.clientX < rect.left + rect.width / 2 ? target : target.nextSibling);
+        }
+      };
+
+      const onUp = () => {
+        dragging.classList.remove('dragging');
+        dragging = null;
+        updateBadges();
+        saveOrder();
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+      };
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+    });
+  }
+
+  function attachControls(item) {
+    attachRemove(item);
+    attachDrag(item);
+    item.querySelector('img').addEventListener('click', e => openLightbox(e.target.src));
+  }
+
+  /* ── render ── */
+  function renderPhotos(photos) {
+    if (!photos.length) return;
+    reserve = photos.slice(3);
+    grid.innerHTML = photos.slice(0, 3).map((u, i) => makePhotoItem(u, i)).join('');
+    grid.querySelectorAll('.photo-item').forEach(attachControls);
+  }
+
+  const stored = grid.dataset.stored;
+  if (stored) {
+    try { renderPhotos(JSON.parse(stored)); return; } catch (_) {}
+  }
+  fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
+    .then(r => r.json())
+    .then(d => renderPhotos(d.photos || []))
+    .catch(() => {});
+})();
+</script>
 {% endblock %}

@@ -1,5 +1,10 @@
 {% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">{{ zone.name }}</span>{% endblock %}
 {% block content %}
+  <a href="{{ url_for('yard_index') }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Yard
+  </a>
   <section class="panel">
     <div class="title-row">
       <h2>{{ zone.name }}</h2>
@@ -20,26 +25,37 @@
         <div class="zone-marker" style="left: {{ plant.location_x }}%; top: {{ plant.location_y }}%;" title="{{ plant.plant_name }}"></div>
       {% endfor %}
     </div>
-    <p class="muted">Markers are percentage positions so you can roughly map each planted item.</p>
   </section>
 
   <section class="cards">
     {% if plants %}
       {% for plant in plants %}
+        {% set lib_thumb = plant.lib_photo_urls | first_photo %}
+        {% set thumb = lib_thumb or (url_for('uploads', filename=plant.lib_image_path) if plant.lib_image_path else None) or plant.lib_image_url or (url_for('uploads', filename=plant.image_path) if plant.image_path else None) %}
         <article class="card">
+          {% if plant.lib_plant_id %}
+            <a href="{{ url_for('idea_detail', plant_id=plant.lib_plant_id) }}" class="card-link">
+          {% endif %}
           <div class="thumb">
-            {% if plant.image_path %}
-              <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.plant_name }}" />
+            {% if thumb %}
+              <img src="{{ thumb }}" alt="{{ plant.plant_name }}" />
             {% else %}
-              <div class="placeholder">No photo</div>
+              <div class="placeholder">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3">
+                  <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+              </div>
             {% endif %}
           </div>
           <div class="card-content">
             <h3>{{ plant.plant_name }}</h3>
-            <p>{{ plant.scientific_name or "Scientific name not set" }}</p>
-            <p class="muted">Water: {{ plant.watering_needs or "unknown" }} · Sun: {{ plant.sun_needs or "unknown" }}</p>
-            <p class="muted">Flowering: {{ plant.flowering_schedule or "unknown" }} · {{ plant.lifecycle or "unknown lifecycle" }}</p>
+            <p>{{ plant.scientific_name or "" }}</p>
+            <p class="muted">{{ plant.sun_needs or "" }}{% if plant.sun_needs and plant.lifecycle %} · {% endif %}{{ plant.lifecycle or "" }}</p>
           </div>
+          {% if plant.lib_plant_id %}
+            </a>
+          {% endif %}
         </article>
       {% endfor %}
     {% else %}

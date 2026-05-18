@@ -1,117 +1,287 @@
 {% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">Add Plant</span>{% endblock %}
 {% block content %}
+  <a href="{{ url_for('ideas_index') }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Library
+  </a>
   <section class="panel">
     <h2>Add Plant Idea</h2>
     <form method="post" enctype="multipart/form-data" class="stack">
-      <label>
-        Plant name *
-        <input type="text" name="name" value="{{ form_values.name }}" required />
-      </label>
-      <label>
-        Scientific name
-        <input type="text" name="scientific_name" value="{{ form_values.scientific_name }}" placeholder="e.g., Echinacea purpurea" />
-      </label>
-      <label>
-        Lookup query (common/scientific)
-        <input type="text" name="lookup_query" value="{{ form_values.lookup_query }}" placeholder="Text to use for automated lookup APIs" />
-      </label>
-      <div class="actions">
-        <button type="submit" name="form_action" value="autofill_name">Auto-fill from Name</button>
+
+      <input type="hidden" name="active_mode" id="active-mode-field" value="{{ form_values.active_mode or 'name' }}" />
+
+      <div class="input-modes" role="group">
+        <button type="button" class="mode-card" data-mode="name">
+          <span class="mode-title">Type a name</span>
+          <span class="mode-desc">Search or enter manually</span>
+        </button>
+        <button type="button" class="mode-card" data-mode="photo">
+          <span class="mode-title">Plant photo</span>
+          <span class="mode-desc">Identify from a photo</span>
+        </button>
+        <button type="button" class="mode-card" data-mode="label">
+          <span class="mode-title">Label photo</span>
+          <span class="mode-desc">Scan a plant tag or label</span>
+        </button>
+        <button type="button" class="mode-card" data-mode="url">
+          <span class="mode-title">Image URL</span>
+          <span class="mode-desc">Link to a photo online</span>
+        </button>
       </div>
 
-      <label>
-        Source type
-        <select name="source_type">
-          <option value="world" {% if form_values.source_type == "world" %}selected{% endif %}>Seen out in the world</option>
-          <option value="online" {% if form_values.source_type == "online" %}selected{% endif %}>Seen online</option>
-          <option value="nursery" {% if form_values.source_type == "nursery" %}selected{% endif %}>Nursery</option>
-        </select>
-      </label>
-      <label>
-        Source note
-        <input type="text" name="source_note" value="{{ form_values.source_note }}" placeholder="Where/when you saw it" />
-      </label>
+      <!-- Hidden carriers — only these are submitted with name/image_url -->
+      <input type="hidden" name="name" id="name-hidden" value="{{ form_values.name }}" />
+      <input type="hidden" name="image_url" id="image-url-hidden" value="{{ form_values.image_url }}" />
 
-      <label>
-        Plant photo
-        <input type="file" name="photo" accept="image/*" capture="environment" />
-      </label>
-      <div class="actions">
-        <button type="submit" name="form_action" value="autofill_photo">Auto-fill from Plant Photo</button>
-      </div>
-      <label>
-        Label photo (plant tag)
-        <input type="file" name="label_photo" accept="image/*" capture="environment" />
-      </label>
-      <div class="actions">
-        <button type="submit" name="form_action" value="autofill_label">Extract Name from Label Photo</button>
-      </div>
-      <label>
-        ...or image URL
-        <input type="url" name="image_url" value="{{ form_values.image_url }}" placeholder="https://..." />
-      </label>
-
-      <label>
-        Lookup status
-        <select name="lookup_status">
-          <option value="not-started" {% if form_values.lookup_status == "not-started" %}selected{% endif %}>Not started</option>
-          <option value="draft" {% if form_values.lookup_status == "draft" %}selected{% endif %}>Draft info</option>
-          <option value="verified" {% if form_values.lookup_status == "verified" %}selected{% endif %}>Verified</option>
-        </select>
-      </label>
-
-      <div class="split">
+      <div class="mode-section" id="mode-name">
         <label>
-          Sun exposure
-          <select name="sun_exposure">
-            <option value="" {% if not form_values.sun_exposure %}selected{% endif %}>Unknown</option>
-            <option value="shade" {% if form_values.sun_exposure == "shade" %}selected{% endif %}>Shade</option>
-            <option value="part-sun" {% if form_values.sun_exposure == "part-sun" %}selected{% endif %}>Part sun</option>
-            <option value="full-sun" {% if form_values.sun_exposure == "full-sun" %}selected{% endif %}>Full sun</option>
-          </select>
+          Plant name
+          <div class="plant-search-wrap">
+            <input id="plant-name-input" type="text" placeholder="Start typing a plant name…"
+                   autocomplete="off" value="{{ form_values.name }}" />
+            <div id="plant-search-dropdown" class="plant-search-dropdown" hidden></div>
+          </div>
+          <datalist id="plant-names-list">
+            {% for pname in plant_names %}
+              <option value="{{ pname }}">
+            {% endfor %}
+          </datalist>
         </label>
-        <label>
-          Lifecycle
-          <select name="lifecycle">
-            <option value="" {% if not form_values.lifecycle %}selected{% endif %}>Unknown</option>
-            <option value="annual" {% if form_values.lifecycle == "annual" %}selected{% endif %}>Annual</option>
-            <option value="perennial" {% if form_values.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
-            <option value="biennial" {% if form_values.lifecycle == "biennial" %}selected{% endif %}>Biennial</option>
-          </select>
-        </label>
-      </div>
-
-      <label>
-        Size info
-        <input type="text" name="size_info" value="{{ form_values.size_info }}" placeholder="Height/spread" />
-      </label>
-      <label>
-        Flowering schedule
-        <input type="text" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" placeholder="e.g., late spring to summer" />
-      </label>
-
-      <fieldset>
-        <legend>Categories</legend>
-        <div class="tags">
-          {% for category in categories %}
-            <label class="chip">
-              <input type="checkbox" name="categories" value="{{ category.id }}" {% if category.id|string in selected_categories %}checked{% endif %} />
-              {{ category.name }}
-            </label>
-          {% endfor %}
+        <div id="name-photo-preview" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>
+          {% if form_values.image_url %}
+            <img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" />
+          {% endif %}
         </div>
+      </div>
+
+      <div class="mode-section" id="mode-photo">
+        {% if form_values.name %}
+          <p class="identified-name">Identified: <strong>{{ form_values.name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
+        {% endif %}
         <label>
-          Add new categories (comma separated)
-          <input type="text" name="new_categories" value="{{ form_values.new_categories }}" placeholder="shade candidate, front border" />
+          Choose a photo to identify
+          <input type="file" name="photo" accept="image/*" id="photo-file-input"
+                 onchange="document.getElementById('photo-submit-btn').click()" />
         </label>
-      </fieldset>
+        <button type="submit" id="photo-submit-btn" name="form_action" value="autofill_photo"
+                style="display:none" aria-hidden="true">Identify</button>
+      </div>
+
+      <div class="mode-section" id="mode-label">
+        {% if form_values.name %}
+          <p class="identified-name">Found: <strong>{{ form_values.name }}</strong></p>
+        {% endif %}
+        <label>
+          Label photo
+          <input type="file" name="label_photo" accept="image/*" capture="environment" />
+        </label>
+        <div class="actions">
+          <button type="submit" name="form_action" value="autofill_label">Extract from Label</button>
+        </div>
+      </div>
+
+      <div class="mode-section" id="mode-url">
+        <label>
+          Image URL
+          <input id="url-image-input" type="url" placeholder="https://…" value="{{ form_values.image_url }}" />
+        </label>
+        <label>
+          Plant name
+          <input id="url-name-input" type="text" placeholder="Enter the plant name…"
+                 autocomplete="off" value="{{ form_values.name }}" />
+        </label>
+      </div>
+
+      <!-- Hidden fields preserve auto-filled values across form round-trips -->
+      <input type="hidden" name="scientific_name"    value="{{ form_values.scientific_name }}" />
+      <input type="hidden" name="lookup_query"       value="{{ form_values.lookup_query }}" />
+      <input type="hidden" name="lookup_status"      value="{{ form_values.lookup_status }}" />
+      <input type="hidden" name="sun_exposure"       value="{{ form_values.sun_exposure }}" />
+      <input type="hidden" name="lifecycle"          value="{{ form_values.lifecycle }}" />
+      <input type="hidden" name="size_info"          value="{{ form_values.size_info }}" />
+      <input type="hidden" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
+      <input type="hidden" name="photo_urls"         id="photo-urls-hidden" value="" />
+      <input type="hidden" name="source_type"        value="world" />
+
+      {% if form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info %}
+        <div class="autofill-summary">
+          {% if form_values.image_url %}
+            <img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" class="autofill-thumb" />
+          {% endif %}
+          <div class="autofill-chips">
+            {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
+            {% if form_values.sun_exposure %}<span class="chip">{{ form_values.sun_exposure }}</span>{% endif %}
+            {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
+            {% if form_values.size_info %}<span class="chip">{{ form_values.size_info }}</span>{% endif %}
+            {% if form_values.flowering_schedule %}<span class="chip">{{ form_values.flowering_schedule }}</span>{% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      <label>
+        Where did you see it?
+        <input type="text" name="source_note" value="{{ form_values.source_note }}"
+               placeholder="e.g., neighbor's garden, June 2024, found it online" />
+      </label>
 
       <label>
         Notes
-        <textarea name="notes" rows="4">{{ form_values.notes }}</textarea>
+        <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
 
       <button type="submit" name="form_action" value="save">Save Idea</button>
     </form>
   </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  let timer = null;
+
+  const form = document.querySelector('form');
+  const cards = document.querySelectorAll('.mode-card');
+  const sections = document.querySelectorAll('.mode-section');
+  const activeModeField = document.getElementById('active-mode-field');
+  const nameHidden = document.getElementById('name-hidden');
+  const imageUrlHidden = document.getElementById('image-url-hidden');
+  const nameInput = document.getElementById('plant-name-input');
+  const urlNameInput = document.getElementById('url-name-input');
+  const urlImageInput = document.getElementById('url-image-input');
+  const dropdown = document.getElementById('plant-search-dropdown');
+  const sciField = document.querySelector('[name=scientific_name]');
+  const queryField = document.querySelector('[name=lookup_query]');
+
+  function setMode(mode) {
+    cards.forEach(c => c.classList.toggle('active', c.dataset.mode === mode));
+    sections.forEach(s => s.classList.toggle('active', s.id === 'mode-' + mode));
+    if (activeModeField) activeModeField.value = mode;
+  }
+
+  cards.forEach(card => {
+    card.addEventListener('click', () => setMode(card.dataset.mode));
+  });
+
+  setMode((activeModeField && activeModeField.value) || 'name');
+
+  if (nameInput) {
+    nameInput.addEventListener('input', () => {
+      nameHidden.value = nameInput.value;
+      clearTimeout(timer);
+      const q = nameInput.value.trim();
+      if (q.length < 2) { dropdown.hidden = true; return; }
+      timer = setTimeout(() => search(q), 320);
+    });
+    nameInput.addEventListener('keydown', e => {
+      if (e.key === 'Escape') dropdown.hidden = true;
+    });
+    document.addEventListener('click', e => {
+      if (!nameInput.contains(e.target) && !dropdown.contains(e.target)) dropdown.hidden = true;
+    });
+  }
+
+  if (urlNameInput) {
+    urlNameInput.addEventListener('input', () => { nameHidden.value = urlNameInput.value; });
+  }
+
+  if (urlImageInput) {
+    urlImageInput.addEventListener('input', () => { imageUrlHidden.value = urlImageInput.value; });
+  }
+
+  const photoUrlsHidden = document.getElementById('photo-urls-hidden');
+
+  if (form) {
+    form.addEventListener('submit', () => {
+      const mode = activeModeField ? activeModeField.value : 'name';
+      if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
+      if (mode === 'url' && urlNameInput) nameHidden.value = urlNameInput.value;
+      if (mode === 'url' && urlImageInput) imageUrlHidden.value = urlImageInput.value;
+      // Capture remaining visible community photos so detail page uses them
+      const preview = document.getElementById('name-photo-preview');
+      if (preview && photoUrlsHidden) {
+        const urls = Array.from(preview.querySelectorAll('.photo-item img')).map(img => img.src);
+        if (urls.length) photoUrlsHidden.value = JSON.stringify(urls);
+      }
+    });
+  }
+
+  async function search(q) {
+    try {
+      const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q));
+      const data = await res.json();
+      render(data.results || []);
+    } catch (_) { dropdown.hidden = true; }
+  }
+
+  function render(results) {
+    dropdown.innerHTML = '';
+    if (!results.length) { dropdown.hidden = true; return; }
+    for (const plant of results) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = plant.common_name +
+        (plant.scientific_name ? '<br><small>' + plant.scientific_name + '</small>' : '');
+      btn.addEventListener('click', () => select(plant));
+      dropdown.appendChild(btn);
+    }
+    dropdown.hidden = false;
+  }
+
+  function select(plant) {
+    if (nameInput) nameInput.value = plant.common_name;
+    nameHidden.value = plant.common_name;
+    if (sciField) sciField.value = plant.scientific_name || '';
+    if (queryField) queryField.value = plant.scientific_name || plant.common_name;
+    dropdown.hidden = true;
+    showPhotoPreview(plant.photo_url, plant.common_name || plant.scientific_name);
+  }
+
+  let photoReserve = [];
+
+  function makePhotoItem(url, altText) {
+    return `<div class="photo-item"><img src="${url}" alt="${altText || ''}" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
+  }
+
+  function attachRemove(item, preview, altText) {
+    item.querySelector('.photo-remove').addEventListener('click', () => {
+      item.remove();
+      if (photoReserve.length) {
+        const el = document.createElement('div');
+        el.innerHTML = makePhotoItem(photoReserve.shift(), altText);
+        const newItem = el.firstElementChild;
+        attachRemove(newItem, preview, altText);
+        preview.appendChild(newItem);
+      }
+    });
+  }
+
+  function showPhotoPreview(inlineUrl, name) {
+    const preview = document.getElementById('name-photo-preview');
+    if (!preview) return;
+    photoReserve = [];
+    // Show inline photo immediately if search already gave us one
+    if (inlineUrl) {
+      preview.innerHTML = makePhotoItem(inlineUrl, name || '');
+      if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = inlineUrl;
+      attachRemove(preview.querySelector('.photo-item'), preview, name || '');
+      preview.hidden = false;
+    }
+    // Fetch up to 6 community photos; show first 3 and keep rest in reserve
+    fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=6')
+      .then(r => r.json())
+      .then(d => {
+        const photos = d.photos || [];
+        if (photos.length) {
+          photoReserve = photos.slice(3);
+          preview.innerHTML = photos.slice(0, 3).map(u => makePhotoItem(u, name || '')).join('');
+          if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = photos[0];
+          preview.querySelectorAll('.photo-item').forEach(item => attachRemove(item, preview, name || ''));
+          preview.hidden = false;
+        }
+      })
+      .catch(() => {});
+  }
+})();
+</script>
 {% endblock %}

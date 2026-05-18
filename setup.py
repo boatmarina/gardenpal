@@ -14,6 +14,7 @@ setup(
     install_requires=[
         "Flask",
         "requests",
+        "pg8000",
     ],
     python_requires=">=3.8",
 )
