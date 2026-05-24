@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">{{ entry.plant_name }}</span>{% endblock %}
+{% block title %}{{ entry.plant_name }} · GardenPal{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('garden_index') }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Garden
+  </a>
+
+  <section class="panel">
+    <h2 style="margin-bottom:4px">{{ entry.plant_name }}</h2>
+    {% if entry.variety %}<p class="muted" style="font-style:italic;margin-bottom:12px">{{ entry.variety }}</p>{% endif %}
+
+    <dl class="detail-list">
+      {% if entry.location_type %}
+        <dt>Location type</dt>
+        <dd>{{ entry.location_type | replace("_", " ") | title }}</dd>
+      {% endif %}
+      {% if entry.location_name %}
+        <dt>Location</dt>
+        <dd>{{ entry.location_name }}</dd>
+      {% endif %}
+      {% if entry.planted_date %}
+        <dt>Planted</dt>
+        <dd>{{ entry.planted_date }}</dd>
+      {% endif %}
+      {% if entry.notes %}
+        <dt>Notes</dt>
+        <dd>{{ entry.notes }}</dd>
+      {% endif %}
+    </dl>
+  </section>
+
+  <!-- ── Photo timeline ── -->
+  <div class="section-header" style="margin-top:24px">
+    <span class="section-title">Growth photos</span>
+  </div>
+
+  {% if photos %}
+    <div class="cards" style="margin-bottom:20px">
+      {% for photo in photos %}
+        <div class="card" style="overflow:hidden;padding:0">
+          <img src="{{ url_for('uploads', filename=photo.image_path) }}" alt="{{ entry.plant_name }}"
+               style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
+               onclick="openLightbox(this.src)" />
+          <div style="padding:10px 14px">
+            {% if photo.photo_date %}
+              <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px">{{ photo.photo_date }}</p>
+            {% endif %}
+            {% if photo.notes %}<p class="muted" style="font-size:0.8rem">{{ photo.notes }}</p>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted" style="font-size:0.85rem;margin-bottom:20px">No photos yet — add one below to start tracking growth.</p>
+  {% endif %}
+
+  <!-- ── Add photo ── -->
+  <div class="panel stack">
+    <h3>Add a photo</h3>
+    <form method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
+      <label>
+        Photo *
+        <input type="file" name="photo" accept="image/*" capture="environment" required />
+      </label>
+      <label>
+        Date taken
+        <input type="date" name="photo_date" value="{{ today }}" />
+      </label>
+      <label>
+        Notes
+        <input type="text" name="photo_notes" placeholder="Height, flowers, any observations…" />
+      </label>
+      <button type="submit">Add Photo</button>
+    </form>
+  </div>
+
+  <!-- ── Danger ── -->
+  <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border)">
+    <form method="post" action="{{ url_for('garden_delete', entry_id=entry.id) }}"
+          onsubmit="return confirm('Delete this entry and all its photos?')">
+      <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:0;font-family:inherit">
+        Delete entry
+      </button>
+    </form>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openLightbox(src) {
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2000;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = 'max-width:96vw;max-height:92vh;object-fit:contain;border-radius:var(--r-md)';
+  box.appendChild(img);
+  box.addEventListener('click', () => box.remove());
+  document.body.appendChild(box);
+}
+</script>
+{% endblock %}
