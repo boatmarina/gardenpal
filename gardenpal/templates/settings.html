@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">Settings</span>{% endblock %}
+{% block title %}Settings · GardenPal{% endblock %}
+
+{% block content %}
+  <div class="hero" style="padding-bottom:16px">
+    <h1 class="hero-title">Settings.</h1>
+  </div>
+
+  <section class="panel stack">
+    <h2 style="margin-bottom:4px">Claude API access</h2>
+    <p class="muted" style="font-size:0.85rem">
+      Generate a personal token so Claude can update your garden tracker from any chat session.
+      Share the token and the endpoint below with Claude and it can add or update entries on your behalf.
+    </p>
+
+    {% if user.api_token %}
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-top:4px">
+        <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Your token</p>
+        <code style="font-size:0.82rem;word-break:break-all;display:block;margin-bottom:10px">{{ user.api_token }}</code>
+        <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Endpoint</p>
+        <code style="font-size:0.82rem;word-break:break-all;display:block">{{ request.host_url }}api/garden/entries</code>
+      </div>
+      <p class="muted" style="font-size:0.78rem">
+        Tell Claude: <em>"My GardenPal API endpoint is <strong>{{ request.host_url }}api/garden/entries</strong> and my token is <strong>[paste token]</strong>. Add a garden entry using POST with JSON body."</em>
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <form method="post" action="{{ url_for('generate_api_token') }}">
+          <button type="submit" class="button button-secondary" style="font-size:0.82rem">Regenerate token</button>
+        </form>
+        <form method="post" action="{{ url_for('revoke_api_token') }}"
+              onsubmit="return confirm('Revoke your token? Claude will no longer be able to update your garden.')">
+          <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;font-family:inherit;padding:8px 0">Revoke</button>
+        </form>
+      </div>
+    {% else %}
+      <form method="post" action="{{ url_for('generate_api_token') }}" style="margin-top:4px">
+        <button type="submit">Generate API token</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="panel" style="margin-top:16px">
+    <h2 style="margin-bottom:8px">API reference</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:12px">Pass your token as <code>Authorization: Bearer &lt;token&gt;</code></p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">POST /api/garden/entries</p>
+        <code style="font-size:0.78rem;color:var(--muted);display:block">{"plant_name": "Zucchini", "variety": "Black Beauty", "location_type": "raised_bed", "location_name": "Bed 1", "planted_date": "2026-05-24", "notes": "..."}</code>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">GET /api/garden/entries</p>
+        <code style="font-size:0.78rem;color:var(--muted)">Returns all your garden entries as JSON</code>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">PATCH /api/garden/entries/:id</p>
+        <code style="font-size:0.78rem;color:var(--muted)">Update any field on an existing entry</code>
+      </div>
+    </div>
+  </section>
+{% endblock %}
