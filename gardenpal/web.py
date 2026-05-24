@@ -138,7 +138,7 @@ def create_app() -> Flask:
         user_id = session.get("user_id")
         g.user = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+            g.user = get_db().execute("SELECT id, username, api_token FROM users WHERE id = ?", (user_id,)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
