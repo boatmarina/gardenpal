@@ -502,6 +502,23 @@ def create_app() -> Flask:
             return redirect(url_for("yard_index"))
         return render_template("yard_zone_new.html")
 
+    @app.route("/yard/zones/<int:zone_id>/photo", methods=["POST"])
+    @login_required
+    def yard_zone_update_photo(zone_id: int):
+        db = get_db()
+        zone = db.execute("SELECT id FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+        if zone is None:
+            flash("Yard zone not found.")
+            return redirect(url_for("yard_index"))
+        image_path = save_upload(request.files.get("reference_photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "zone")
+        if not image_path:
+            flash("Please select a photo.")
+            return redirect(url_for("yard_zone_detail", zone_id=zone_id))
+        db.execute("UPDATE yard_zones SET reference_image_path = ? WHERE id = ? AND user_id = ?", (image_path, zone_id, g.user["id"]))
+        db.commit()
+        flash("Zone photo updated.")
+        return redirect(url_for("yard_zone_detail", zone_id=zone_id))
+
     @app.route("/yard/zones/<int:zone_id>")
     @login_required
     def yard_zone_detail(zone_id: int):
@@ -795,6 +812,44 @@ def create_app() -> Flask:
         db.commit()
         flash("Photo added.")
         return redirect(url_for("garden_detail", entry_id=entry_id))
+
+    @app.route("/garden/<int:entry_id>/edit", methods=["GET", "POST"])
+    @login_required
+    def garden_edit(entry_id):
+        db = get_db()
+        entry = db.execute(
+            "SELECT * FROM garden_entries WHERE id = ? AND user_id = ?",
+            (entry_id, g.user["id"]),
+        ).fetchone()
+        if entry is None:
+            flash("Entry not found.")
+            return redirect(url_for("garden_index"))
+        if request.method == "POST":
+            plant_name = request.form.get("plant_name", "").strip()
+            if not plant_name:
+                flash("Plant name is required.")
+                return render_template("garden_entry_edit.html", entry=entry, form_values=request.form)
+            db.execute(
+                """UPDATE garden_entries
+                   SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
+                       planted_date = ?, notes = ?, updated_at = ?
+                   WHERE id = ? AND user_id = ?""",
+                (
+                    plant_name,
+                    request.form.get("variety", "").strip() or None,
+                    request.form.get("location_type", "").strip() or None,
+                    request.form.get("location_name", "").strip() or None,
+                    request.form.get("planted_date", "").strip() or None,
+                    request.form.get("notes", "").strip() or None,
+                    datetime.utcnow().isoformat(timespec="seconds"),
+                    entry_id,
+                    g.user["id"],
+                ),
+            )
+            db.commit()
+            flash("Entry updated.")
+            return redirect(url_for("garden_detail", entry_id=entry_id))
+        return render_template("garden_entry_edit.html", entry=entry, form_values=entry)
 
     @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
     @login_required

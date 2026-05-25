@@ -9,7 +9,10 @@
   </a>
 
   <section class="panel">
-    <h2 style="margin-bottom:4px">{{ entry.plant_name }}</h2>
+    <div class="title-row" style="margin-bottom:4px">
+      <h2>{{ entry.plant_name }}</h2>
+      <a class="button button-secondary" href="{{ url_for('garden_edit', entry_id=entry.id) }}" style="font-size:0.82rem">Edit</a>
+    </div>
     {% if entry.variety %}<p class="muted" style="font-style:italic;margin-bottom:12px">{{ entry.variety }}</p>{% endif %}
 
     <dl class="detail-list">
