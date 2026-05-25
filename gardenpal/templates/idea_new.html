@@ -59,11 +59,11 @@
         {% if form_values.name %}
           <p class="identified-name">Identified: <strong>{{ form_values.name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
         {% endif %}
-        <label>
-          Choose a photo to identify
-          <input type="file" name="photo" accept="image/*" id="photo-file-input"
-                 onchange="document.getElementById('photo-submit-btn').click()" />
-        </label>
+        <input type="file" name="photo" accept="image/*" id="photo-file-input" style="display:none"
+               onchange="document.getElementById('photo-submit-btn').click()" />
+        <button type="button" class="button button-secondary" onclick="document.getElementById('photo-file-input').click()">
+          Choose Photo
+        </button>
         <button type="submit" id="photo-submit-btn" name="form_action" value="autofill_photo"
                 style="display:none" aria-hidden="true">Identify</button>
       </div>
@@ -72,13 +72,13 @@
         {% if form_values.name %}
           <p class="identified-name">Found: <strong>{{ form_values.name }}</strong></p>
         {% endif %}
-        <label>
-          Label photo
-          <input type="file" name="label_photo" accept="image/*" capture="environment" />
-        </label>
-        <div class="actions">
-          <button type="submit" name="form_action" value="autofill_label">Extract from Label</button>
-        </div>
+        <input type="file" name="label_photo" accept="image/*" capture="environment" id="label-file-input" style="display:none"
+               onchange="document.getElementById('label-name-display').textContent = this.files[0]?.name || ''" />
+        <button type="button" class="button button-secondary" onclick="document.getElementById('label-file-input').click()">
+          Choose Label Photo
+        </button>
+        <span id="label-name-display" style="font-size:0.8rem;color:var(--muted)"></span>
+        <button type="submit" name="form_action" value="autofill_label">Extract from Label</button>
       </div>
 
       <div class="mode-section" id="mode-url">
