@@ -85,7 +85,7 @@
         Notes
         <input type="text" name="photo_notes" placeholder="Height, flowers, any observations…" />
       </label>
-      <button type="submit" id="garden-photo-submit-btn">Add Photo</button>
+      <button type="button" id="garden-photo-submit-btn">Add Photo</button>
     </form>
   </div>
 
@@ -153,11 +153,44 @@ function openLightbox(src) {
   }
 
   if (submitBtn) {
-    submitBtn.addEventListener('click', function() {
+    submitBtn.addEventListener('click', async function() {
+      if (!input || !input.files[0]) {
+        alert('Please choose a photo first.');
+        return;
+      }
       const loading = document.getElementById('garden-photo-loading');
+      const form = document.getElementById('garden-photo-form');
       if (loading) loading.hidden = false;
       if (uploadBtn) uploadBtn.disabled = true;
       submitBtn.disabled = true;
+      try {
+        const compressed = await compressImageFile(input.files[0]);
+        const fd = new FormData();
+        fd.append('photo', new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+        const dateInput = form.querySelector('[name="photo_date"]');
+        const notesInput = form.querySelector('[name="photo_notes"]');
+        if (dateInput) fd.append('photo_date', dateInput.value);
+        if (notesInput) fd.append('photo_notes', notesInput.value);
+        const res = await fetch(form.action, {
+          method: 'POST',
+          headers: {'X-Requested-With': 'XMLHttpRequest'},
+          body: fd,
+        });
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+          if (loading) loading.hidden = true;
+          if (uploadBtn) uploadBtn.disabled = false;
+          submitBtn.disabled = false;
+        } else {
+          window.location.reload();
+        }
+      } catch(_) {
+        alert('Upload failed — please try again.');
+        if (loading) loading.hidden = true;
+        if (uploadBtn) uploadBtn.disabled = false;
+        submitBtn.disabled = false;
+      }
     });
   }
 })();
