@@ -567,7 +567,9 @@ def create_app() -> Flask:
             "size_info": "",
             "spreads": "",
             "notes": "",
+            "image_url": "",
             "active_mode": "library",
+            "yard_input_mode": "name",
         }
 
         if request.method == "POST":
@@ -584,7 +586,9 @@ def create_app() -> Flask:
                 "size_info": request.form.get("size_info", "").strip(),
                 "spreads": request.form.get("spreads", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
+                "image_url": request.form.get("image_url", "").strip(),
                 "active_mode": request.form.get("active_mode", "library"),
+                "yard_input_mode": request.form.get("yard_input_mode", "name"),
             }
 
             if form_action == "autofill_name":
@@ -610,6 +614,23 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
                     flash(f"Photo-based suggestion confidence: {suggestion.get('confidence') or 'unknown'}")
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+
+            if form_action == "autofill_label":
+                text, error = extract_text_from_image(request.files.get("label_photo"))
+                if error:
+                    flash(error)
+                else:
+                    query = infer_query_from_text(text)
+                    if query:
+                        details, lookup_error = lookup_plant_details(query)
+                        if lookup_error:
+                            flash(lookup_error)
+                        else:
+                            apply_lookup_to_yard_form(form_values, details)
+                            flash("Planted item details autofilled from label.")
+                    else:
+                        flash("Could not extract plant name from label.")
                 return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if not form_values["zone_id"] or not form_values["plant_name"]:
@@ -674,7 +695,7 @@ def create_app() -> Flask:
                         None,
                         image_path,
                         None,
-                        None,
+                        form_values.get("image_url") or None,
                         form_values["size_info"],
                         form_values["flowering_schedule"],
                         form_values["sun_needs"],
@@ -1315,6 +1336,8 @@ def apply_lookup_to_yard_form(form_values: dict, details: dict):
         form_values["size_info"] = details["size_info"]
     if details.get("spreads"):
         form_values["spreads"] = details["spreads"]
+    if details.get("photo_url") and not form_values.get("image_url"):
+        form_values["image_url"] = details["photo_url"]
 
 
 def normalize_sun_value(value: str) -> str:
