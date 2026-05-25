@@ -3,10 +3,12 @@
 {% block title %}Garden · GardenPal{% endblock %}
 
 {% block content %}
-  <div class="hero" style="padding-bottom:16px">
-    <h1 class="hero-title">Garden.</h1>
-    <p class="hero-sub">Track what you've planted this season.</p>
-  </div>
+  <section class="panel">
+    <div class="title-row">
+      <h2>Edible Garden</h2>
+    </div>
+    <p>Track what you've planted this season.</p>
+  </section>
 
   <div class="action-cards" style="margin-bottom:20px">
     <a href="{{ url_for('garden_new') }}" class="action-card dark">
