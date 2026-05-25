@@ -44,7 +44,7 @@
     <div class="cards" style="margin-bottom:20px">
       {% for photo in photos %}
         <div class="card" style="overflow:hidden;padding:0">
-          <img src="{{ url_for('uploads', filename=photo.image_path) }}" alt="{{ entry.plant_name }}"
+          <img src="{{ photo.image_path | media_url }}" alt="{{ entry.plant_name }}"
                style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
                onclick="openLightbox(this.src)" />
           <div style="padding:10px 14px">
