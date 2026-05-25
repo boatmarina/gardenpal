@@ -24,7 +24,9 @@
                 onclick="document.getElementById('zone-ref-input').click()">
           Choose Photo
         </button>
-        <span id="zone-ref-name" style="font-size:0.8rem;color:var(--muted)"></span>
+        <div id="zone-ref-preview" hidden>
+          <img id="zone-ref-thumb" src="" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r-md)" />
+        </div>
       </div>
       <button type="submit" id="zone-save-btn">Save Zone</button>
     </form>
@@ -52,13 +54,15 @@
   }
 
   const input = document.getElementById('zone-ref-input');
-  const nameDisplay = document.getElementById('zone-ref-name');
+  const preview = document.getElementById('zone-ref-preview');
+  const thumb = document.getElementById('zone-ref-thumb');
 
   if (input) {
     input.addEventListener('change', async function() {
       const file = this.files[0];
       if (!file) return;
-      if (nameDisplay) nameDisplay.textContent = file.name;
+      if (thumb) { thumb.src = URL.createObjectURL(file); }
+      if (preview) preview.hidden = false;
       const compressed = await compressImageFile(file);
       try {
         const dt = new DataTransfer();
