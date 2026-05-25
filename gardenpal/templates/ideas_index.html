@@ -54,7 +54,7 @@
             <div class="thumb">
               {% set first_photo = plant.photo_urls | first_photo %}
               {% if plant.image_path %}
-                <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
+                <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" />
               {% elif first_photo %}
                 <img src="{{ first_photo }}" alt="{{ plant.name }}" />
               {% elif plant.image_url %}

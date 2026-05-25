@@ -61,7 +61,7 @@
                  data-thumb="{{ (thumb or plant.image_url or '') | e }}">
               <div class="thumb">
                 {% if plant.image_path %}
-                  <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
+                  <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" />
                 {% elif thumb %}
                   <img src="{{ thumb }}" alt="{{ plant.name }}" />
                 {% elif plant.image_url %}

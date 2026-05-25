@@ -17,7 +17,7 @@
          data-query="{{ plant.name | e }}"
          data-stored="{{ plant.photo_urls or '' }}">
       {% if plant.image_path %}
-        <img src="{{ url_for('uploads', filename=plant.image_path) }}" alt="{{ plant.name }}" />
+        <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" />
       {% elif plant.image_url %}
         <img src="{{ plant.image_url }}" alt="{{ plant.name }}" />
       {% else %}

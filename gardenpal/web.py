@@ -111,6 +111,14 @@ def create_app() -> Flask:
 
     os.makedirs(upload_dir, exist_ok=True)
 
+    @app.template_filter("media_url")
+    def media_url_filter(path):
+        if not path:
+            return ""
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+        return url_for("uploads", filename=path)
+
     @app.template_filter("first_photo")
     def first_photo_filter(photo_urls_json):
         if not photo_urls_json:
@@ -1335,10 +1343,34 @@ def save_upload(file_storage, upload_folder: str, user_id: int, kind: str):
         return ""
 
     ext = filename.rsplit(".", 1)[1].lower()
-    unique_name = f"{user_id}_{kind}_{uuid.uuid4().hex}.{ext}"
-    destination = Path(upload_folder) / unique_name
+    unique_name = f"{user_id}/{kind}/{uuid.uuid4().hex}.{ext}"
+
+    supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    bucket = os.environ.get("SUPABASE_STORAGE_BUCKET", "")
+
+    if supabase_url and supabase_key and bucket:
+        file_storage.stream.seek(0)
+        data = file_storage.stream.read()
+        content_type = file_storage.mimetype or "image/jpeg"
+        resp = requests.post(
+            f"{supabase_url}/storage/v1/object/{bucket}/{unique_name}",
+            headers={
+                "Authorization": f"Bearer {supabase_key}",
+                "Content-Type": content_type,
+            },
+            data=data,
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            return f"{supabase_url}/storage/v1/object/public/{bucket}/{unique_name}"
+
+    # Local fallback
+    unique_name_flat = unique_name.replace("/", "_")
+    destination = Path(upload_folder) / unique_name_flat
+    file_storage.stream.seek(0)
     file_storage.save(destination)
-    return unique_name
+    return unique_name_flat
 
 
 def login_required(view):

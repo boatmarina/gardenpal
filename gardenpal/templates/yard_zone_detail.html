@@ -24,7 +24,7 @@
       </form>
     </div>
     <div class="zone-map">
-      <img id="zone-map-img" src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
+      <img id="zone-map-img" src="{{ zone.reference_image_path | media_url }}" alt="{{ zone.name }}" />
     </div>
   </section>
   {% else %}
@@ -39,7 +39,7 @@
     {% if plants %}
       {% for plant in plants %}
         {% set lib_thumb = plant.lib_photo_urls | first_photo %}
-        {% set thumb = lib_thumb or (url_for('uploads', filename=plant.lib_image_path) if plant.lib_image_path else None) or plant.lib_image_url or (url_for('uploads', filename=plant.image_path) if plant.image_path else None) %}
+        {% set thumb = lib_thumb or (plant.lib_image_path | media_url if plant.lib_image_path else None) or plant.lib_image_url or (plant.image_path | media_url if plant.image_path else None) %}
         <article class="card">
           {% if plant.lib_plant_id %}
             <a href="{{ url_for('idea_detail', plant_id=plant.lib_plant_id) }}" class="card-link">
