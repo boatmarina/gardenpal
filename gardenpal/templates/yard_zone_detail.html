@@ -13,6 +13,7 @@
     {% if zone.description %}<p>{{ zone.description }}</p>{% endif %}
   </section>
 
+  {% if zone.reference_image_path %}
   <section class="panel">
     <div class="title-row" style="margin-bottom:12px">
       <h3 style="margin:0">Zone Visual</h3>
@@ -20,27 +21,24 @@
         <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none"
                onchange="this.form.submit()" />
         <button type="button" class="button button-secondary" style="font-size:0.82rem"
-                onclick="document.getElementById('zone-photo-input').click()">
-          {{ "Update Photo" if zone.reference_image_path else "Add Photo" }}
-        </button>
+                onclick="document.getElementById('zone-photo-input').click()">Update Photo</button>
       </form>
     </div>
     <div class="zone-map">
-      {% if zone.reference_image_path %}
-        <img src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
-      {% else %}
-        <div class="placeholder">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3">
-            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
-          </svg>
-        </div>
-      {% endif %}
+      <img src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
       {% for plant in plants %}
         <div class="zone-marker" style="left: {{ plant.location_x }}%; top: {{ plant.location_y }}%;" title="{{ plant.plant_name }}"></div>
       {% endfor %}
     </div>
   </section>
+  {% else %}
+  <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data" style="margin-bottom:14px">
+    <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none"
+           onchange="this.form.submit()" />
+    <button type="button" class="button button-secondary" style="width:100%"
+            onclick="document.getElementById('zone-photo-input').click()">+ Add Zone Photo</button>
+  </form>
+  {% endif %}
 
   <section class="cards">
     {% if plants %}
