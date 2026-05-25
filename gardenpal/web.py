@@ -892,16 +892,21 @@ def create_app() -> Flask:
     @app.route("/garden/<int:entry_id>/photos", methods=["POST"])
     @login_required
     def garden_add_photo(entry_id):
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
         db = get_db()
         entry = db.execute(
             "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
             (entry_id, g.user["id"]),
         ).fetchone()
         if entry is None:
+            if is_ajax:
+                return jsonify(error="Entry not found."), 404
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
         image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "garden")
         if not image_path:
+            if is_ajax:
+                return jsonify(error="Please select a photo."), 400
             flash("Please select a photo.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
         db.execute(
@@ -916,6 +921,8 @@ def create_app() -> Flask:
             ),
         )
         db.commit()
+        if is_ajax:
+            return jsonify(ok=True)
         flash("Photo added.")
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
