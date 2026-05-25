@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">Settings</span>{% endblock %}
+{% block title %}Settings · GardenPal{% endblock %}
+
+{% block content %}
+  <div class="hero" style="padding-bottom:16px">
+    <h1 class="hero-title">Settings.</h1>
+  </div>
+
+  <section class="panel stack">
+    <h2 style="margin-bottom:4px">Claude MCP access</h2>
+    <p class="muted" style="font-size:0.85rem">
+      Generate a personal token, then add the MCP server to Claude Desktop so Claude can read and
+      update your garden tracker directly from any chat — no copy-pasting needed.
+    </p>
+
+    {% if user.api_token %}
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-top:4px">
+        <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Your token</p>
+        <code style="font-size:0.82rem;word-break:break-all;display:block">{{ user.api_token }}</code>
+      </div>
+
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Claude Desktop config</p>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:8px">
+          Add this to your <code>claude_desktop_config.json</code>
+          (find it via Claude Desktop → Settings → Developer):
+        </p>
+        <pre style="font-size:0.73rem;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0;line-height:1.5">{
+  "mcpServers": {
+    "gardenpal": {
+      "command": "python",
+      "args": ["/path/to/gardenpal/mcp/server.py"],
+      "env": {
+        "GARDENPAL_API_URL": "{{ request.host_url.rstrip('/') }}",
+        "GARDENPAL_API_TOKEN": "{{ user.api_token }}"
+      }
+    }
+  }
+}</pre>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:8px">
+          Replace <code>/path/to/gardenpal</code> with where you cloned the repo.
+          Install deps once: <code>pip install httpx "mcp[cli]"</code> then restart Claude Desktop.
+          Once connected, just tell Claude: <em>"Add zucchini to my garden tracker, planted today in raised bed 1."</em>
+        </p>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <form method="post" action="{{ url_for('generate_api_token') }}">
+          <button type="submit" class="button button-secondary" style="font-size:0.82rem">Regenerate token</button>
+        </form>
+        <form method="post" action="{{ url_for('revoke_api_token') }}"
+              onsubmit="return confirm('Revoke your token? Claude will no longer be able to update your garden.')">
+          <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;font-family:inherit;padding:8px 0">Revoke</button>
+        </form>
+      </div>
+    {% else %}
+      <form method="post" action="{{ url_for('generate_api_token') }}" style="margin-top:4px">
+        <button type="submit">Generate API token</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="panel" style="margin-top:16px">
+    <h2 style="margin-bottom:8px">MCP tools</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:12px">
+      The MCP server exposes these tools to Claude. You can also call the REST API directly
+      with <code>Authorization: Bearer &lt;token&gt;</code>.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">list_garden_entries</p>
+        <code style="font-size:0.78rem;color:var(--muted)">Returns all your garden entries — no arguments needed</code>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">add_garden_entry</p>
+        <code style="font-size:0.78rem;color:var(--muted);display:block">plant_name, variety?, location_type?, location_name?, planted_date?, notes?</code>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">update_garden_entry</p>
+        <code style="font-size:0.78rem;color:var(--muted)">entry_id (required) + any fields to update</code>
+      </div>
+    </div>
+  </section>
+{% endblock %}

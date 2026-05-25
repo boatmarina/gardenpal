@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 import ssl
 import uuid
 from datetime import datetime
@@ -137,7 +138,7 @@ def create_app() -> Flask:
         user_id = session.get("user_id")
         g.user = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+            g.user = get_db().execute("SELECT id, username, api_token FROM users WHERE id = ?", (user_id,)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
@@ -674,6 +675,213 @@ def create_app() -> Flask:
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
         return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
+    # ── Settings ────────────────────────────────────────────────────────────
+
+    @app.route("/settings")
+    @login_required
+    def settings():
+        return render_template("settings.html", user=g.user)
+
+    @app.route("/settings/generate-token", methods=["POST"])
+    @login_required
+    def generate_api_token():
+        db = get_db()
+        token = secrets.token_urlsafe(32)
+        db.execute("UPDATE users SET api_token = ? WHERE id = ?", (token, g.user["id"]))
+        db.commit()
+        flash("New API token generated.")
+        return redirect(url_for("settings"))
+
+    @app.route("/settings/revoke-token", methods=["POST"])
+    @login_required
+    def revoke_api_token():
+        db = get_db()
+        db.execute("UPDATE users SET api_token = NULL WHERE id = ?", (g.user["id"],))
+        db.commit()
+        flash("API token revoked.")
+        return redirect(url_for("settings"))
+
+    # ── Garden tracker (UI) ─────────────────────────────────────────────────
+
+    @app.route("/garden")
+    @login_required
+    def garden_index():
+        db = get_db()
+        loc_filter = request.args.get("loc", "").strip()
+        query = "SELECT * FROM garden_entries WHERE user_id = ?"
+        params = [g.user["id"]]
+        if loc_filter:
+            query += " AND location_type = ?"
+            params.append(loc_filter)
+        query += " ORDER BY planted_date DESC NULLS LAST, created_at DESC"
+        entries = db.execute(query, params).fetchall()
+        return render_template("garden_index.html", entries=entries, active_loc=loc_filter)
+
+    @app.route("/garden/new", methods=["GET", "POST"])
+    @login_required
+    def garden_new():
+        db = get_db()
+        if request.method == "POST":
+            plant_name = request.form.get("plant_name", "").strip()
+            if not plant_name:
+                flash("Plant name is required.")
+                return render_template("garden_entry_new.html", form_values=request.form)
+            now = datetime.utcnow().isoformat(timespec="seconds")
+            entry_id = db.execute(
+                """INSERT INTO garden_entries
+                   (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                (
+                    g.user["id"],
+                    plant_name,
+                    request.form.get("variety", "").strip() or None,
+                    request.form.get("location_type", "").strip() or None,
+                    request.form.get("location_name", "").strip() or None,
+                    request.form.get("planted_date", "").strip() or None,
+                    request.form.get("notes", "").strip() or None,
+                    now, now,
+                ),
+            ).fetchone()["id"]
+            db.commit()
+            flash("Entry added to your garden tracker.")
+            return redirect(url_for("garden_detail", entry_id=entry_id))
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        return render_template("garden_entry_new.html", form_values={"planted_date": today})
+
+    @app.route("/garden/<int:entry_id>")
+    @login_required
+    def garden_detail(entry_id):
+        db = get_db()
+        entry = db.execute(
+            "SELECT * FROM garden_entries WHERE id = ? AND user_id = ?",
+            (entry_id, g.user["id"]),
+        ).fetchone()
+        if entry is None:
+            flash("Entry not found.")
+            return redirect(url_for("garden_index"))
+        photos = db.execute(
+            "SELECT * FROM garden_photos WHERE entry_id = ? ORDER BY photo_date DESC NULLS LAST, created_at DESC",
+            (entry_id,),
+        ).fetchall()
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today)
+
+    @app.route("/garden/<int:entry_id>/photos", methods=["POST"])
+    @login_required
+    def garden_add_photo(entry_id):
+        db = get_db()
+        entry = db.execute(
+            "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
+            (entry_id, g.user["id"]),
+        ).fetchone()
+        if entry is None:
+            flash("Entry not found.")
+            return redirect(url_for("garden_index"))
+        image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "garden")
+        if not image_path:
+            flash("Please select a photo.")
+            return redirect(url_for("garden_detail", entry_id=entry_id))
+        db.execute(
+            "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                entry_id,
+                g.user["id"],
+                image_path,
+                request.form.get("photo_date", "").strip() or None,
+                request.form.get("photo_notes", "").strip() or None,
+                datetime.utcnow().isoformat(timespec="seconds"),
+            ),
+        )
+        db.commit()
+        flash("Photo added.")
+        return redirect(url_for("garden_detail", entry_id=entry_id))
+
+    @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
+    @login_required
+    def garden_delete(entry_id):
+        db = get_db()
+        db.execute("DELETE FROM garden_entries WHERE id = ? AND user_id = ?", (entry_id, g.user["id"]))
+        db.commit()
+        flash("Entry deleted.")
+        return redirect(url_for("garden_index"))
+
+    # ── Garden API (token-authenticated) ────────────────────────────────────
+
+    def token_required(view):
+        @wraps(view)
+        def wrapped(**kwargs):
+            db = get_db()
+            auth = request.headers.get("Authorization", "").strip()
+            token = auth[7:] if auth.startswith("Bearer ") else auth
+            if not token:
+                return jsonify({"error": "missing token"}), 401
+            user = db.execute("SELECT * FROM users WHERE api_token = ?", (token,)).fetchone()
+            if user is None:
+                return jsonify({"error": "invalid token"}), 401
+            g.user = user
+            return view(**kwargs)
+        return wrapped
+
+    @app.route("/api/garden/entries", methods=["GET"])
+    @token_required
+    def api_garden_list():
+        db = get_db()
+        entries = db.execute(
+            "SELECT * FROM garden_entries WHERE user_id = ? ORDER BY planted_date DESC NULLS LAST, created_at DESC",
+            (g.user["id"],),
+        ).fetchall()
+        return jsonify({"entries": [dict(e) for e in entries]})
+
+    @app.route("/api/garden/entries", methods=["POST"])
+    @token_required
+    def api_garden_create():
+        db = get_db()
+        data = request.get_json(force=True) or {}
+        plant_name = (data.get("plant_name") or "").strip()
+        if not plant_name:
+            return jsonify({"error": "plant_name is required"}), 400
+        now = datetime.utcnow().isoformat(timespec="seconds")
+        entry_id = db.execute(
+            """INSERT INTO garden_entries
+               (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+            (
+                g.user["id"],
+                plant_name,
+                (data.get("variety") or "").strip() or None,
+                (data.get("location_type") or "").strip() or None,
+                (data.get("location_name") or "").strip() or None,
+                (data.get("planted_date") or "").strip() or None,
+                (data.get("notes") or "").strip() or None,
+                now, now,
+            ),
+        ).fetchone()["id"]
+        db.commit()
+        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+        return jsonify({"entry": dict(entry)}), 201
+
+    @app.route("/api/garden/entries/<int:entry_id>", methods=["PATCH"])
+    @token_required
+    def api_garden_update(entry_id):
+        db = get_db()
+        entry = db.execute(
+            "SELECT * FROM garden_entries WHERE id = ? AND user_id = ?",
+            (entry_id, g.user["id"]),
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "not found"}), 404
+        data = request.get_json(force=True) or {}
+        allowed = {"plant_name", "variety", "location_type", "location_name", "planted_date", "notes"}
+        updates = {k: v for k, v in data.items() if k in allowed and v is not None}
+        if not updates:
+            return jsonify({"error": "no valid fields"}), 400
+        updates["updated_at"] = datetime.utcnow().isoformat(timespec="seconds")
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        db.execute(f"UPDATE garden_entries SET {set_clause} WHERE id = ?", [*updates.values(), entry_id])
+        db.commit()
+        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+        return jsonify({"entry": dict(entry)})
+
     @app.route("/api/plant-search")
     @login_required
     def api_plant_search():
@@ -823,6 +1031,7 @@ def init_db():
             pass  # table or sequence already exists — safe to continue
     db._conn.autocommit = False
 
+    ensure_column(db, "users", "api_token", "TEXT")
     ensure_column(db, "plants", "user_id", "INTEGER")
     ensure_column(db, "plants", "scientific_name", "TEXT")
     ensure_column(db, "plants", "lookup_query", "TEXT")
@@ -929,6 +1138,33 @@ _SCHEMA_STATEMENTS = [
         created_at TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
         FOREIGN KEY (zone_id) REFERENCES yard_zones (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS garden_entries (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        plant_name TEXT NOT NULL,
+        variety TEXT,
+        location_type TEXT,
+        location_name TEXT,
+        planted_date TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS garden_photos (
+        id SERIAL PRIMARY KEY,
+        entry_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        image_path TEXT NOT NULL,
+        photo_date TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (entry_id) REFERENCES garden_entries (id) ON DELETE CASCADE
     )
     """,
 ]

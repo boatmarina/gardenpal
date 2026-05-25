@@ -257,10 +257,26 @@ def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional
             "photo_url":          photo_url,
         }
 
-    # Ensure we have a photo
+    # Ensure we have a photo — try progressively broader queries for cultivars
     if not result.get("photo_url"):
-        inat_q = result.get("name") or result.get("scientific_name") or query
-        _, _, photo_url = _lookup_via_inat(inat_q)
-        result["photo_url"] = photo_url
+        queries_to_try = []
+        common = result.get("name") or ""
+        sci = result.get("scientific_name") or ""
+        if common:
+            queries_to_try.append(common)
+        if sci:
+            queries_to_try.append(sci)
+            # Strip cultivar notation (e.g. Cornus sanguinea 'Midwinter Fire' -> Cornus sanguinea)
+            species_only = sci.split("'")[0].split('"')[0].strip()
+            if species_only and species_only != sci:
+                queries_to_try.append(species_only)
+        if query.strip() not in queries_to_try:
+            queries_to_try.append(query.strip())
+
+        for inat_q in queries_to_try:
+            _, _, photo_url = _lookup_via_inat(inat_q)
+            if photo_url:
+                result["photo_url"] = photo_url
+                break
 
     return result, None

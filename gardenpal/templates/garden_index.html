@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">Veggie Garden</span>{% endblock %}
+{% block title %}Garden · GardenPal{% endblock %}
+
+{% block content %}
+  <div class="hero" style="padding-bottom:16px">
+    <h1 class="hero-title">Garden.</h1>
+    <p class="hero-sub">Track what you've planted this season.</p>
+  </div>
+
+  <div class="action-cards" style="margin-bottom:20px">
+    <a href="{{ url_for('garden_new') }}" class="action-card dark">
+      <div class="action-card-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </div>
+      <span class="action-card-label">Add Plant</span>
+    </a>
+  </div>
+
+  <!-- location filter -->
+  <form method="get" style="display:flex;gap:8px;margin-bottom:20px">
+    <select name="loc" style="flex:1" onchange="this.form.submit()">
+      <option value="">All locations</option>
+      <option value="raised_bed"  {% if active_loc == "raised_bed"  %}selected{% endif %}>Raised bed</option>
+      <option value="container"   {% if active_loc == "container"   %}selected{% endif %}>Container</option>
+      <option value="in_ground"   {% if active_loc == "in_ground"   %}selected{% endif %}>In ground</option>
+    </select>
+  </form>
+
+  {% if entries %}
+    <div class="cards">
+      {% for entry in entries %}
+        <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
+          <div class="card-content" style="padding:16px 18px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div>
+                <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+                {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
+              </div>
+              {% if entry.location_type %}
+                <span class="chip" style="white-space:nowrap;flex-shrink:0">{{ entry.location_type | replace("_", " ") }}</span>
+              {% endif %}
+            </div>
+            {% if entry.location_name %}
+              <p class="muted" style="font-size:0.82rem;margin-top:6px">{{ entry.location_name }}</p>
+            {% endif %}
+            {% if entry.planted_date %}
+              <p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ entry.planted_date }}</p>
+            {% endif %}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty">Nothing planted yet — tap Add Plant to get started.</p>
+  {% endif %}
+{% endblock %}
