@@ -157,9 +157,6 @@
 
       <!-- Label mode -->
       <div class="mode-section" id="yard-mode-label">
-        {% if form_values.plant_name and form_values.yard_input_mode == 'label' %}
-          <p class="identified-name">Found: <strong>{{ form_values.plant_name }}</strong></p>
-        {% endif %}
         <div id="yard-label-loading" hidden style="text-align:center;padding:10px 0 4px">
           <div class="spinner"></div>
           <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
@@ -173,6 +170,13 @@
         </button>
         <span id="yard-label-name" style="font-size:0.8rem;color:var(--muted)"></span>
         <button type="button" class="button" id="yard-label-submit-btn">Extract from Label</button>
+        <div id="yard-label-result" {% if not (form_values.plant_name and form_values.yard_input_mode == 'label') %}hidden{% endif %}>
+          <label>
+            Plant name
+            <input id="yard-label-name-input" type="text" placeholder="Plant name…"
+                   value="{{ form_values.plant_name if form_values.yard_input_mode == 'label' else '' }}" />
+          </label>
+        </div>
       </div>
 
       <!-- URL mode -->
@@ -393,10 +397,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         if (data.error) {
           alert(data.error);
         } else if (data.name) {
-          if (visibleName) visibleName.value = data.name;
+          const resultDiv = document.getElementById('yard-label-result');
+          const labelNameInput = document.getElementById('yard-label-name-input');
+          if (labelNameInput) {
+            labelNameInput.value = data.name;
+            labelNameInput.addEventListener('input', () => { if (hName) hName.value = labelNameInput.value; });
+          }
           if (hName) hName.value = data.name;
-          if (nameDisplay) nameDisplay.textContent = '';
-          setYardMode('name');
+          if (resultDiv) resultDiv.hidden = false;
         }
       } catch(_) {
         alert('Label reading failed — please try again.');

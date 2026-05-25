@@ -79,9 +79,6 @@
       </div>
 
       <div class="mode-section" id="mode-label">
-        {% if form_values.name %}
-          <p class="identified-name">Found: <strong>{{ form_values.name }}</strong></p>
-        {% endif %}
         <div id="label-loading" hidden style="text-align:center;padding:10px 0 4px">
           <div class="spinner"></div>
           <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
@@ -95,6 +92,13 @@
         </button>
         <span id="label-name-display" style="font-size:0.8rem;color:var(--muted)"></span>
         <button type="button" class="button" id="label-submit-btn">Extract from Label</button>
+        <div id="label-result" {% if not (form_values.name and form_values.active_mode == 'label') %}hidden{% endif %}>
+          <label>
+            Plant name
+            <input id="label-name-input" type="text" placeholder="Plant name…"
+                   value="{{ form_values.name if form_values.active_mode == 'label' else '' }}" />
+          </label>
+        </div>
       </div>
 
       <div class="mode-section" id="mode-url">
@@ -290,10 +294,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         if (data.error) {
           alert(data.error);
         } else if (data.name) {
-          if (nameInput) nameInput.value = data.name;
+          const resultDiv = document.getElementById('label-result');
+          const labelNameInput = document.getElementById('label-name-input');
+          if (labelNameInput) {
+            labelNameInput.value = data.name;
+            labelNameInput.addEventListener('input', () => { if (nameHidden) nameHidden.value = labelNameInput.value; });
+          }
           if (nameHidden) nameHidden.value = data.name;
-          if (nameDisplay) nameDisplay.textContent = '';
-          setMode('name');
+          if (resultDiv) resultDiv.hidden = false;
         }
       } catch(_) {
         alert('Label reading failed — please try again.');
