@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">Edit Plant</span>{% endblock %}
+{% block title %}Edit · {{ entry.plant_name }} · GardenPal{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    {{ entry.plant_name }}
+  </a>
+
+  <div class="panel stack">
+    <form method="post" class="stack">
+      <label>
+        Plant name *
+        <input type="text" name="plant_name" value="{{ form_values.plant_name or '' }}" placeholder="e.g. Zucchini" required />
+      </label>
+      <label>
+        Variety
+        <input type="text" name="variety" value="{{ form_values.variety or '' }}" placeholder="e.g. Black Beauty" />
+      </label>
+      <label>
+        Location type
+        <select name="location_type">
+          <option value="">Choose…</option>
+          <option value="raised_bed" {% if form_values.location_type == "raised_bed" %}selected{% endif %}>Raised bed</option>
+          <option value="container"  {% if form_values.location_type == "container"  %}selected{% endif %}>Container</option>
+          <option value="in_ground"  {% if form_values.location_type == "in_ground"  %}selected{% endif %}>In ground</option>
+        </select>
+      </label>
+      <label>
+        Location name
+        <input type="text" name="location_name" value="{{ form_values.location_name or '' }}" placeholder="e.g. North bed, big pot on deck…" />
+      </label>
+      <label>
+        Date planted
+        <input type="date" name="planted_date" value="{{ form_values.planted_date or '' }}" />
+      </label>
+      <label>
+        Notes
+        <textarea name="notes" rows="3" placeholder="Seed source, spacing, observations…">{{ form_values.notes or '' }}</textarea>
+      </label>
+      <button type="submit" style="margin-top:4px">Save Changes</button>
+    </form>
+  </div>
+{% endblock %}

@@ -14,7 +14,18 @@
   </section>
 
   <section class="panel">
-    <h3>Zone Visual</h3>
+    <div class="title-row" style="margin-bottom:12px">
+      <h3 style="margin:0">Zone Visual</h3>
+      <button class="button button-secondary" style="font-size:0.82rem" onclick="document.getElementById('zone-photo-form').hidden=!document.getElementById('zone-photo-form').hidden">
+        {{ "Update Photo" if zone.reference_image_path else "Add Photo" }}
+      </button>
+    </div>
+    <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data" class="stack" hidden style="margin-bottom:16px">
+      <label>
+        <input type="file" name="reference_photo" accept="image/*" capture="environment" required />
+      </label>
+      <button type="submit">Save Photo</button>
+    </form>
     <div class="zone-map">
       {% if zone.reference_image_path %}
         <img src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
