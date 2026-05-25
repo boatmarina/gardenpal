@@ -751,7 +751,7 @@ def create_app() -> Flask:
         if loc_filter:
             query += " AND location_type = ?"
             params.append(loc_filter)
-        query += " ORDER BY planted_date DESC NULLS LAST, created_at DESC"
+        query += " ORDER BY plant_name ASC"
         entries = db.execute(query, params).fetchall()
         return render_template("garden_index.html", entries=entries, active_loc=loc_filter)
 
