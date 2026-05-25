@@ -75,29 +75,55 @@
 {% block scripts %}
 <script>
 (function() {
-  var inp = document.getElementById('zone-photo-input');
-  if (inp) {
-    inp.addEventListener('change', function() {
-      var file = this.files[0];
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function() {
-        try { sessionStorage.setItem('gpZonePhoto', reader.result); } catch(e) {}
-        document.getElementById('zone-photo-form').submit();
+  async function compressImageFile(file) {
+    return new Promise(function(resolve) {
+      var img = new Image();
+      img.onload = function() {
+        var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX || h > MAX) { var r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(img.src);
+        c.toBlob(function(b) { resolve(b || file); }, 'image/jpeg', 0.82);
       };
-      reader.readAsDataURL(file);
+      img.onerror = function() { resolve(file); };
+      img.src = URL.createObjectURL(file);
     });
   }
+
+  var inp = document.getElementById('zone-photo-input');
+  var form = document.getElementById('zone-photo-form');
   var zoneImg = document.getElementById('zone-map-img');
-  if (zoneImg) {
-    var saved; try { saved = sessionStorage.getItem('gpZonePhoto'); } catch(e) {}
-    if (saved) {
-      zoneImg.onerror = function() {
-        try { sessionStorage.removeItem('gpZonePhoto'); } catch(e) {}
-        this.src = saved;
-        this.onerror = null;
-      };
-    }
+
+  if (inp && form) {
+    inp.addEventListener('change', async function() {
+      var file = this.files[0];
+      if (!file) return;
+      var previewUrl = URL.createObjectURL(file);
+      var compressed = await compressImageFile(file);
+      var fd = new FormData();
+      fd.append('reference_photo', new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+      try {
+        var res = await fetch(form.action, {
+          method: 'POST',
+          headers: {'X-Requested-With': 'XMLHttpRequest'},
+          body: fd,
+        });
+        var data = await res.json();
+        if (data.error) {
+          alert(data.error);
+        } else {
+          if (zoneImg) {
+            zoneImg.src = previewUrl;
+            zoneImg.closest('.zone-map') && (zoneImg.closest('section').hidden = false);
+          }
+          window.location.reload();
+        }
+      } catch(e) {
+        alert('Photo upload failed — please try again.');
+      }
+    });
   }
 })();
 </script>
