@@ -519,14 +519,11 @@ label {
   color: #fff;
   border: none;
   border-radius: var(--r-sm);
-  padding: 10px 18px;
-  font: inherit;
-  font-size: 0.63rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  white-space: nowrap;
   flex-shrink: 0;
   transition: opacity 0.15s;
 }
