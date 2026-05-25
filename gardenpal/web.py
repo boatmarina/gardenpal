@@ -121,6 +121,22 @@ def create_app() -> Flask:
         except Exception:
             return None
 
+    @app.template_filter("planted_date")
+    def planted_date_filter(date_str):
+        if not date_str:
+            return ""
+        try:
+            from datetime import date
+            d = date.fromisoformat(str(date_str)[:10])
+            today = date.today()
+            one_year_ago = today.replace(year=today.year - 1)
+            if d >= one_year_ago:
+                return d.strftime("%b %-d")
+            else:
+                return d.strftime("%b %Y")
+        except Exception:
+            return date_str
+
     @app.before_request
     def ensure_db_ready():
         if not app.config["_DB_READY"]:
