@@ -39,13 +39,18 @@
               {% if zone.reference_image_path %}
                 <img src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
               {% else %}
-                <div class="placeholder">No zone photo</div>
+                <div class="placeholder">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                </div>
               {% endif %}
             </div>
             <div class="card-content">
               <h3>{{ zone.name }}</h3>
               <p class="muted">{{ zone.plant_count }} planted items</p>
-              <p>{{ zone.description or "No description yet." }}</p>
+              {% if zone.description %}<p>{{ zone.description }}</p>{% endif %}
             </div>
           </a>
         </article>
