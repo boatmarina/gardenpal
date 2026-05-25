@@ -188,7 +188,7 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
         return None, "ANTHROPIC_API_KEY not set"
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, timeout=7.0)
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",

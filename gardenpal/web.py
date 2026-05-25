@@ -389,12 +389,14 @@ def create_app() -> Flask:
                     flash(error)
                 else:
                     guessed = infer_query_from_text(text)
-                    form_values["lookup_query"] = guessed
-                    flash(f"Extracted label text: {guessed}")
-                    details, lookup_error = lookup_plant_details(guessed)
-                    if not lookup_error:
-                        apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
-                        flash("Used extracted text to autofill details.")
+                    if guessed:
+                        if not form_values["name"]:
+                            form_values["name"] = guessed
+                        form_values["lookup_query"] = guessed
+                        form_values["active_mode"] = "name"
+                        flash(f"Label read: \"{guessed}\" — review the name then save.")
+                    else:
+                        flash("Could not extract a plant name from that label.")
                 return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
 
             if form_action == "autofill_photo":
@@ -652,14 +654,12 @@ def create_app() -> Flask:
                 else:
                     query = infer_query_from_text(text)
                     if query:
-                        details, lookup_error = lookup_plant_details(query)
-                        if lookup_error:
-                            flash(lookup_error)
-                        else:
-                            apply_lookup_to_yard_form(form_values, details)
-                            flash("Planted item details autofilled from label.")
+                        if not form_values.get("plant_name"):
+                            form_values["plant_name"] = query
+                        form_values["yard_input_mode"] = "name"
+                        flash(f"Label read: \"{query}\" — review the name then save.")
                     else:
-                        flash("Could not extract plant name from label.")
+                        flash("Could not extract a plant name from that label.")
                 return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if not form_values["zone_id"] or not form_values["plant_name"]:
