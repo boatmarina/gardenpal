@@ -49,7 +49,7 @@
                onclick="openLightbox(this.src)" />
           <div style="padding:10px 14px">
             {% if photo.photo_date %}
-              <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px">{{ photo.photo_date }}</p>
+              <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px">{{ photo.photo_date | month_day }}</p>
             {% endif %}
             {% if photo.notes %}<p class="muted" style="font-size:0.8rem">{{ photo.notes }}</p>{% endif %}
           </div>
@@ -85,7 +85,7 @@
         Notes
         <input type="text" name="photo_notes" placeholder="Height, flowers, any observations…" />
       </label>
-      <button type="button" id="garden-photo-submit-btn">Add Photo</button>
+      <button type="button" class="button" id="garden-photo-submit-btn">Add Photo</button>
     </form>
   </div>
 
