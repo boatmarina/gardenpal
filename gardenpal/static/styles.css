@@ -489,6 +489,28 @@ label {
   color: rgba(255,255,255,0.8);
 }
 
+/* Inline search inside a panel */
+.library-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  border-radius: var(--r-md);
+  padding: 9px 12px;
+}
+
+.library-search input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 0.88rem;
+  color: var(--fg);
+  width: auto;
+}
+
+.library-search input:focus { outline: none; }
+.library-search input::placeholder { color: var(--muted); opacity: 0.6; }
+
 /* Search bar */
 .search-bar {
   display: flex;

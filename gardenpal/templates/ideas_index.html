@@ -3,33 +3,19 @@
 {% block title %}Library · GardenPal{% endblock %}
 
 {% block content %}
-  <section class="panel">
-    <div class="title-row">
+  <section class="panel" style="margin-bottom:20px">
+    <div class="title-row" style="margin-bottom:14px">
       <h2>Plant Library</h2>
+      <a href="{{ url_for('new_idea') }}" class="button">+ Add Plant</a>
     </div>
-    <p>Your saved plants and inspiration.</p>
-  </section>
-
-  <div class="action-cards" style="margin-bottom:20px">
-    <a href="{{ url_for('new_idea') }}" class="action-card dark">
-      <div class="action-card-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-        </svg>
-      </div>
-      <span class="action-card-label">Add Plant</span>
-    </a>
-  </div>
-
-  <form class="search-bar" method="get">
-    <input type="text" name="q" placeholder="Search by name" value="{{ active_filters.q }}" />
-    <button type="submit" class="btn-lookup">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <form class="library-search" method="get">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-    </button>
-  </form>
+      <input type="text" name="q" placeholder="Search by name" value="{{ active_filters.q }}" />
+      <button type="submit" style="display:none"></button>
+    </form>
+  </section>
 
   <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
     <input type="hidden" name="q" value="{{ active_filters.q }}" />
