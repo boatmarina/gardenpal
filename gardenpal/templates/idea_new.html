@@ -82,13 +82,19 @@
         {% if form_values.name %}
           <p class="identified-name">Found: <strong>{{ form_values.name }}</strong></p>
         {% endif %}
-        <input type="file" name="label_photo" accept="image/*" capture="environment" id="label-file-input" style="display:none"
+        <div id="label-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
+        </div>
+        <input type="file" name="label_photo" accept="image/*" capture="environment" id="label-file-input"
+               style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden"
                onchange="document.getElementById('label-name-display').textContent = this.files[0]?.name || ''" />
-        <button type="button" class="button btn-upload" onclick="document.getElementById('label-file-input').click()">
+        <button type="button" class="button btn-upload" id="label-upload-btn"
+                onclick="document.getElementById('label-file-input').click()">
           Choose Label Photo
         </button>
         <span id="label-name-display" style="font-size:0.8rem;color:var(--muted)"></span>
-        <button type="submit" name="form_action" value="autofill_label">Extract from Label</button>
+        <button type="submit" name="form_action" value="autofill_label" id="label-submit-btn">Extract from Label</button>
       </div>
 
       <div class="mode-section" id="mode-url">
@@ -259,6 +265,18 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   }
 
   const photoUrlsHidden = document.getElementById('photo-urls-hidden');
+
+  const labelSubmitBtn = document.getElementById('label-submit-btn');
+  if (labelSubmitBtn) {
+    labelSubmitBtn.addEventListener('click', () => {
+      const loading = document.getElementById('label-loading');
+      const uploadBtn = document.getElementById('label-upload-btn');
+      if (loading) loading.hidden = false;
+      if (uploadBtn) uploadBtn.disabled = true;
+      labelSubmitBtn.disabled = true;
+      document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+    });
+  }
 
   if (form) {
     form.addEventListener('submit', () => {

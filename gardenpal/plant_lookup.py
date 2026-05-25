@@ -19,7 +19,7 @@ def extract_text_from_image(file_storage) -> Tuple[Optional[str], Optional[str]]
     files = {"file": (file_storage.filename, file_storage.stream, file_storage.mimetype or "image/jpeg")}
 
     try:
-        response = requests.post("https://api.ocr.space/parse/image", data=payload, files=files, timeout=20)
+        response = requests.post("https://api.ocr.space/parse/image", data=payload, files=files, timeout=8)
         response.raise_for_status()
         data = response.json()
     except requests.RequestException:
