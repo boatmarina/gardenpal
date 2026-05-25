@@ -100,6 +100,11 @@
             <input id="label-name-input" type="text" placeholder="Plant name…"
                    value="{{ form_values.name if form_values.active_mode == 'label' else '' }}" />
           </label>
+          <div id="label-photo-grid" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>
+            {% if form_values.image_url and form_values.active_mode == 'label' %}
+              <div class="photo-item"><img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" /></div>
+            {% endif %}
+          </div>
         </div>
       </div>
 
@@ -304,6 +309,17 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           }
           if (nameHidden) nameHidden.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
+          const photoGrid = document.getElementById('label-photo-grid');
+          fetch('/api/plant-photos?q=' + encodeURIComponent(data.name) + '&count=3')
+            .then(r => r.json())
+            .then(d => {
+              const photos = d.photos || [];
+              if (photos.length && photoGrid) {
+                photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
+                photoGrid.hidden = false;
+                if (imageUrlHidden) imageUrlHidden.value = photos[0];
+              }
+            }).catch(() => {});
         }
       } catch(_) {
         alert('Label reading failed — please try again.');

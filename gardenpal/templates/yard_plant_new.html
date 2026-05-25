@@ -178,6 +178,11 @@
             <input id="yard-label-name-input" type="text" placeholder="Plant name…"
                    value="{{ form_values.plant_name if form_values.yard_input_mode == 'label' else '' }}" />
           </label>
+          <div id="yard-label-photo-grid" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>
+            {% if form_values.image_url and form_values.yard_input_mode == 'label' %}
+              <div class="photo-item"><img src="{{ form_values.image_url }}" alt="{{ form_values.plant_name }}" /></div>
+            {% endif %}
+          </div>
         </div>
       </div>
 
@@ -407,6 +412,17 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           }
           if (hName) hName.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
+          const photoGrid = document.getElementById('yard-label-photo-grid');
+          fetch('/api/plant-photos?q=' + encodeURIComponent(data.name) + '&count=3')
+            .then(r => r.json())
+            .then(d => {
+              const photos = d.photos || [];
+              if (photos.length && photoGrid) {
+                photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
+                photoGrid.hidden = false;
+                if (hImageUrl) hImageUrl.value = photos[0];
+              }
+            }).catch(() => {});
         }
       } catch(_) {
         alert('Label reading failed — please try again.');
