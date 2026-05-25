@@ -18,23 +18,18 @@
     <div class="title-row" style="margin-bottom:12px">
       <h3 style="margin:0">Zone Visual</h3>
       <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data">
-        <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none"
-               onchange="this.form.submit()" />
+        <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none" />
         <button type="button" class="button button-secondary" style="font-size:0.82rem"
                 onclick="document.getElementById('zone-photo-input').click()">Update Photo</button>
       </form>
     </div>
     <div class="zone-map">
-      <img src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
-      {% for plant in plants %}
-        <div class="zone-marker" style="left: {{ plant.location_x }}%; top: {{ plant.location_y }}%;" title="{{ plant.plant_name }}"></div>
-      {% endfor %}
+      <img id="zone-map-img" src="{{ url_for('uploads', filename=zone.reference_image_path) }}" alt="{{ zone.name }}" />
     </div>
   </section>
   {% else %}
   <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data" style="margin-bottom:14px">
-    <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none"
-           onchange="this.form.submit()" />
+    <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none" />
     <button type="button" class="button button-secondary" style="width:100%"
             onclick="document.getElementById('zone-photo-input').click()">+ Add Zone Photo</button>
   </form>
@@ -75,4 +70,35 @@
       <p class="empty">No plants mapped in this zone yet.</p>
     {% endif %}
   </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var inp = document.getElementById('zone-photo-input');
+  if (inp) {
+    inp.addEventListener('change', function() {
+      var file = this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function() {
+        try { sessionStorage.setItem('gpZonePhoto', reader.result); } catch(e) {}
+        document.getElementById('zone-photo-form').submit();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  var zoneImg = document.getElementById('zone-map-img');
+  if (zoneImg) {
+    var saved; try { saved = sessionStorage.getItem('gpZonePhoto'); } catch(e) {}
+    if (saved) {
+      zoneImg.onerror = function() {
+        try { sessionStorage.removeItem('gpZonePhoto'); } catch(e) {}
+        this.src = saved;
+        this.onerror = null;
+      };
+    }
+  }
+})();
+</script>
 {% endblock %}

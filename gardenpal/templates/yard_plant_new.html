@@ -142,9 +142,13 @@
         {% if form_values.plant_name and form_values.yard_input_mode == 'photo' %}
           <p class="identified-name">Identified: <strong>{{ form_values.plant_name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
         {% endif %}
+        <div id="photo-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Identifying plant…</p>
+        </div>
         <input type="file" name="photo" accept="image/*" id="yard-photo-input" style="display:none"
                onchange="compressAndIdentify(this,'photo-id-btn')" />
-        <button type="button" class="button btn-upload" onclick="document.getElementById('yard-photo-input').click()">
+        <button type="button" class="button btn-upload" id="photo-upload-btn" onclick="document.getElementById('yard-photo-input').click()">
           {% if form_values.plant_name and form_values.yard_input_mode == 'photo' %}Re-take Photo{% else %}Choose Photo{% endif %}
         </button>
         <button type="submit" id="photo-id-btn" name="form_action" value="autofill_photo"
@@ -261,6 +265,11 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     preview.innerHTML = '<div class="photo-item"><img src="' + URL.createObjectURL(file) + '" /></div>';
     preview.hidden = false;
   }
+  var loading = document.getElementById('photo-loading');
+  if (loading) loading.hidden = false;
+  var uploadBtn = document.getElementById('photo-upload-btn');
+  if (uploadBtn) uploadBtn.disabled = true;
+  document.querySelectorAll('button[value="save"]').forEach(function(b) { b.disabled = true; });
   var compressed = await compressImageFile(file);
   try { sessionStorage.setItem('gpPhotoPreview', await blobToDataURL(compressed)); } catch(e) {}
   try {
