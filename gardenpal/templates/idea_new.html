@@ -61,7 +61,7 @@
         {% endif %}
         <input type="file" name="photo" accept="image/*" id="photo-file-input" style="display:none"
                onchange="document.getElementById('photo-submit-btn').click()" />
-        <button type="button" class="button button-secondary" onclick="document.getElementById('photo-file-input').click()">
+        <button type="button" class="button btn-upload" onclick="document.getElementById('photo-file-input').click()">
           Choose Photo
         </button>
         <button type="submit" id="photo-submit-btn" name="form_action" value="autofill_photo"
@@ -74,7 +74,7 @@
         {% endif %}
         <input type="file" name="label_photo" accept="image/*" capture="environment" id="label-file-input" style="display:none"
                onchange="document.getElementById('label-name-display').textContent = this.files[0]?.name || ''" />
-        <button type="button" class="button button-secondary" onclick="document.getElementById('label-file-input').click()">
+        <button type="button" class="button btn-upload" onclick="document.getElementById('label-file-input').click()">
           Choose Label Photo
         </button>
         <span id="label-name-display" style="font-size:0.8rem;color:var(--muted)"></span>
