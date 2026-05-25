@@ -172,7 +172,7 @@
           Choose Label Photo
         </button>
         <span id="yard-label-name" style="font-size:0.8rem;color:var(--muted)"></span>
-        <button type="submit" name="form_action" value="autofill_label" id="yard-label-submit-btn">Extract from Label</button>
+        <button type="button" id="yard-label-submit-btn">Extract from Label</button>
       </div>
 
       <!-- URL mode -->
@@ -371,13 +371,41 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   /* ── Label mode spinner ── */
   const yardLabelSubmitBtn = document.getElementById('yard-label-submit-btn');
   if (yardLabelSubmitBtn) {
-    yardLabelSubmitBtn.addEventListener('click', () => {
+    yardLabelSubmitBtn.addEventListener('click', async () => {
+      const fileInput = document.getElementById('yard-label-input');
+      if (!fileInput || !fileInput.files[0]) {
+        alert('Please choose a label photo first.');
+        return;
+      }
       const loading = document.getElementById('yard-label-loading');
       const uploadBtn = document.getElementById('yard-label-upload-btn');
+      const nameDisplay = document.getElementById('yard-label-name');
       if (loading) loading.hidden = false;
       if (uploadBtn) uploadBtn.disabled = true;
       yardLabelSubmitBtn.disabled = true;
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+      try {
+        const compressed = await compressImageFile(fileInput.files[0]);
+        const fd = new FormData();
+        fd.append('label_photo', new File([compressed], 'label.jpg', {type: 'image/jpeg'}));
+        const res = await fetch('/api/ocr-label', {method: 'POST', body: fd});
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+        } else if (data.name) {
+          if (visibleName) visibleName.value = data.name;
+          if (hName) hName.value = data.name;
+          if (nameDisplay) nameDisplay.textContent = '';
+          setYardMode('name');
+        }
+      } catch(_) {
+        alert('Label reading failed — please try again.');
+      } finally {
+        if (loading) loading.hidden = true;
+        if (uploadBtn) uploadBtn.disabled = false;
+        yardLabelSubmitBtn.disabled = false;
+        document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+      }
     });
   }
 

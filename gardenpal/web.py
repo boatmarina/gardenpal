@@ -1108,6 +1108,17 @@ def create_app() -> Flask:
             return jsonify(photos=[])
         return jsonify(photos=lookup_plant_photos(q, count))
 
+    @app.route("/api/ocr-label", methods=["POST"])
+    @login_required
+    def api_ocr_label():
+        text, error = extract_text_from_image(request.files.get("label_photo"))
+        if error:
+            return jsonify(error=error), 200
+        name = infer_query_from_text(text)
+        if not name:
+            return jsonify(error="Could not extract a plant name from that label."), 200
+        return jsonify(name=name)
+
     @app.route("/ideas/<int:plant_id>/delete", methods=["POST"])
     @login_required
     def delete_idea(plant_id: int):
