@@ -8,7 +8,7 @@
   <section class="panel">
     <div class="title-row">
       <h2>{{ zone.name }}</h2>
-      <a class="button" href="{{ url_for('yard_plant_new') }}">+ Add Planted Item</a>
+      <a class="button" href="{{ url_for('yard_plant_new') }}?zone_id={{ zone.id }}">+ Add Planted Item</a>
     </div>
     <p>{{ zone.description or "No description yet." }}</p>
   </section>
