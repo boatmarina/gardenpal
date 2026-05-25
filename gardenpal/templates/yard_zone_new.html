@@ -7,7 +7,7 @@
   </a>
   <section class="panel">
     <h2>Add Yard Zone</h2>
-    <form method="post" enctype="multipart/form-data" class="stack">
+    <form id="zone-new-form" method="post" enctype="multipart/form-data" class="stack">
       <label>
         Zone name *
         <input type="text" name="name" placeholder="Front porch bed, side yard, etc." required />
@@ -16,16 +16,57 @@
         Description
         <textarea name="description" rows="4" placeholder="Sun pattern, soil notes, dimensions..."></textarea>
       </label>
-      <input type="file" name="reference_photo" accept="image/*" capture="environment" id="zone-ref-input" style="display:none"
-             onchange="document.getElementById('zone-ref-name').textContent = this.files[0]?.name || ''" />
+      <input type="file" name="reference_photo" accept="image/*" capture="environment" id="zone-ref-input"
+             style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
       <div class="stack" style="gap:6px">
         <label style="margin-bottom:0">Reference photo of this zone</label>
-        <button type="button" class="button btn-upload" onclick="document.getElementById('zone-ref-input').click()">
+        <button type="button" class="button btn-upload" id="zone-ref-upload-btn"
+                onclick="document.getElementById('zone-ref-input').click()">
           Choose Photo
         </button>
         <span id="zone-ref-name" style="font-size:0.8rem;color:var(--muted)"></span>
       </div>
-      <button type="submit">Save Zone</button>
+      <button type="submit" id="zone-save-btn">Save Zone</button>
     </form>
   </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  async function compressImageFile(file) {
+    return new Promise(function(resolve) {
+      var img = new Image();
+      img.onload = function() {
+        var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX || h > MAX) { var r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(img.src);
+        c.toBlob(function(b) { resolve(b || file); }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function() { resolve(file); };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  const input = document.getElementById('zone-ref-input');
+  const nameDisplay = document.getElementById('zone-ref-name');
+
+  if (input) {
+    input.addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+      if (nameDisplay) nameDisplay.textContent = file.name;
+      const compressed = await compressImageFile(file);
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+        input.files = dt.files;
+      } catch(e) {}
+    });
+  }
+})();
+</script>
 {% endblock %}

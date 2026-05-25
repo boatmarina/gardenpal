@@ -547,17 +547,24 @@ def create_app() -> Flask:
     @app.route("/yard/zones/<int:zone_id>/photo", methods=["POST"])
     @login_required
     def yard_zone_update_photo(zone_id: int):
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
         db = get_db()
         zone = db.execute("SELECT id FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
         if zone is None:
+            if is_ajax:
+                return jsonify(error="Yard zone not found."), 404
             flash("Yard zone not found.")
             return redirect(url_for("yard_index"))
         image_path = save_upload(request.files.get("reference_photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "zone")
         if not image_path:
+            if is_ajax:
+                return jsonify(error="Please select a photo."), 400
             flash("Please select a photo.")
             return redirect(url_for("yard_zone_detail", zone_id=zone_id))
         db.execute("UPDATE yard_zones SET reference_image_path = ? WHERE id = ? AND user_id = ?", (image_path, zone_id, g.user["id"]))
         db.commit()
+        if is_ajax:
+            return jsonify(ok=True, url=image_path)
         flash("Zone photo updated.")
         return redirect(url_for("yard_zone_detail", zone_id=zone_id))
 
