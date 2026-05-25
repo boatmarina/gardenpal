@@ -659,6 +659,7 @@ def create_app() -> Flask:
                 "spreads": request.form.get("spreads", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
                 "image_url": request.form.get("image_url", "").strip(),
+                "photo_urls_json": request.form.get("photo_urls_json", "").strip(),
                 "active_mode": request.form.get("active_mode", "library"),
                 "yard_input_mode": request.form.get("yard_input_mode", "name"),
             }
@@ -742,7 +743,7 @@ def create_app() -> Flask:
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             )
-            # Add to library if not already there
+            # Add to library if not already there; enrich existing record if it is
             existing = db.execute(
                 "SELECT id FROM plants WHERE user_id = ? AND name = ?",
                 (g.user["id"], form_values["plant_name"]),
@@ -773,11 +774,30 @@ def create_app() -> Flask:
                         None,
                         form_values["notes"],
                         None,
-                        None,
+                        form_values.get("photo_urls_json") or None,
                         None,
                         datetime.utcnow().isoformat(timespec="seconds"),
                     ),
                 )
+            else:
+                updates = {k: v for k, v in [
+                    ("scientific_name",    form_values["scientific_name"] or None),
+                    ("lookup_query",       form_values["lookup_query"] or None),
+                    ("image_url",          form_values.get("image_url") or None),
+                    ("photo_urls",         form_values.get("photo_urls_json") or None),
+                    ("sun_exposure",       form_values["sun_needs"] or None),
+                    ("lifecycle",          form_values["lifecycle"] or None),
+                    ("size_info",          form_values["size_info"] or None),
+                    ("flowering_schedule", form_values["flowering_schedule"] or None),
+                ] if v}
+                if updates:
+                    set_clause = ", ".join(
+                        f"{col} = COALESCE(NULLIF({col}, ''), ?)" for col in updates
+                    )
+                    db.execute(
+                        f"UPDATE plants SET {set_clause} WHERE id = ?",
+                        [*updates.values(), existing["id"]],
+                    )
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
