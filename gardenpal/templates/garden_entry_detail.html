@@ -26,7 +26,7 @@
       {% endif %}
       {% if entry.planted_date %}
         <dt>Planted</dt>
-        <dd>{{ entry.planted_date }}</dd>
+        <dd>{{ entry.planted_date | planted_date }}</dd>
       {% endif %}
       {% if entry.notes %}
         <dt>Notes</dt>

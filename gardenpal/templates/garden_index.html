@@ -47,7 +47,7 @@
               <p class="muted" style="font-size:0.82rem;margin-top:6px">{{ entry.location_name }}</p>
             {% endif %}
             {% if entry.planted_date %}
-              <p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ entry.planted_date }}</p>
+              <p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ entry.planted_date | planted_date }}</p>
             {% endif %}
           </div>
         </a>
