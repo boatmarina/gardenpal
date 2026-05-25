@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">Edit Zone</span>{% endblock %}
+{% block content %}
+  <a href="{{ url_for('yard_zone_detail', zone_id=zone.id) }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    {{ zone.name }}
+  </a>
+  <section class="panel">
+    <h2>Edit Zone</h2>
+    <form method="post" class="stack">
+      <label>
+        Zone name *
+        <input type="text" name="name" value="{{ zone.name }}" required />
+      </label>
+      <label>
+        Description
+        <textarea name="description" rows="4" placeholder="Sun pattern, soil notes, dimensions...">{{ zone.description or '' }}</textarea>
+      </label>
+      <button type="submit">Save Changes</button>
+    </form>
+  </section>
+{% endblock %}

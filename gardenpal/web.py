@@ -568,6 +568,29 @@ def create_app() -> Flask:
         flash("Zone photo updated.")
         return redirect(url_for("yard_zone_detail", zone_id=zone_id))
 
+    @app.route("/yard/zones/<int:zone_id>/edit", methods=["GET", "POST"])
+    @login_required
+    def yard_zone_edit(zone_id: int):
+        db = get_db()
+        zone = db.execute("SELECT * FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+        if zone is None:
+            flash("Yard zone not found.")
+            return redirect(url_for("yard_index"))
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            description = request.form.get("description", "").strip()
+            if not name:
+                flash("Zone name is required.")
+            else:
+                db.execute(
+                    "UPDATE yard_zones SET name = ?, description = ? WHERE id = ? AND user_id = ?",
+                    (name, description, zone_id, g.user["id"]),
+                )
+                db.commit()
+                flash("Zone updated.")
+                return redirect(url_for("yard_zone_detail", zone_id=zone_id))
+        return render_template("yard_zone_edit.html", zone=zone)
+
     @app.route("/yard/zones/<int:zone_id>")
     @login_required
     def yard_zone_detail(zone_id: int):
