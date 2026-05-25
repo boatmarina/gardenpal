@@ -53,23 +53,23 @@
 
   {% if current_user %}
   <nav class="bottom-nav">
+    <a href="{{ url_for('dashboard') }}"
+       class="nav-item{% if request.endpoint == 'dashboard' %} active{% endif %}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/>
+        <polyline points="9 21 9 12 15 12 15 21"/>
+      </svg>
+      <span>Home</span>
+    </a>
+
     <a href="{{ url_for('ideas_index') }}"
        class="nav-item{% if request.endpoint in ('ideas_index', 'idea_detail', 'new_idea') %} active{% endif %}">
-      <!-- Library / shelves icon -->
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <rect x="3"  y="3" width="3.5" height="18" rx="1.5"/>
         <rect x="10" y="7" width="3.5" height="14" rx="1.5"/>
         <rect x="17" y="3" width="3.5" height="18" rx="1.5"/>
       </svg>
       <span>Library</span>
-    </a>
-
-    <a href="{{ url_for('new_idea') }}" class="nav-fab" aria-label="Add plant">
-      <!-- Leaf icon -->
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-      </svg>
     </a>
 
     <a href="{{ url_for('yard_index') }}"
@@ -84,7 +84,6 @@
 
     <a href="{{ url_for('garden_index') }}"
        class="nav-item{% if 'garden' in (request.endpoint or '') %} active{% endif %}">
-      <!-- Sprout icon -->
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 22V12"/>
         <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
