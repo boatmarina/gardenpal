@@ -843,6 +843,20 @@ dd { margin: 0; }
   to   { opacity: 1; }
 }
 
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--green-mid);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .lightbox img {
   max-width: 100%;
   max-height: 90dvh;
