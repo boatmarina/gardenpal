@@ -829,6 +829,7 @@ def create_app() -> Flask:
             month_counts=month_counts,
             years=years,
             active_year=active_year,
+            current_year=current_year,
         )
 
     @app.route("/garden/new", methods=["GET", "POST"])
