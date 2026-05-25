@@ -136,15 +136,13 @@
         {% if form_values.plant_name and form_values.yard_input_mode == 'photo' %}
           <p class="identified-name">Identified: <strong>{{ form_values.plant_name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
         {% endif %}
-        <label>
-          Choose a photo to identify
-          <input type="file" name="photo" accept="image/*" id="yard-photo-input" style="display:none"
-               onchange="document.getElementById('photo-id-btn').click()" />
+        <input type="file" name="photo" accept="image/*" id="yard-photo-input" style="display:none"
+               onchange="(function(i){var f=i.form,b=document.getElementById('photo-id-btn');f.requestSubmit?f.requestSubmit(b):b.click()})(this)" />
         <button type="button" class="button btn-upload" onclick="document.getElementById('yard-photo-input').click()">
           Choose Photo
         </button>
         <button type="submit" id="photo-id-btn" name="form_action" value="autofill_photo"
-                style="display:none" aria-hidden="true">Identify</button>
+                style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden">Identify</button>
       </div>
 
       <!-- Label mode -->
