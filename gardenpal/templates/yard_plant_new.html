@@ -160,13 +160,19 @@
         {% if form_values.plant_name and form_values.yard_input_mode == 'label' %}
           <p class="identified-name">Found: <strong>{{ form_values.plant_name }}</strong></p>
         {% endif %}
-        <input type="file" name="label_photo" accept="image/*" capture="environment" id="yard-label-input" style="display:none"
+        <div id="yard-label-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
+        </div>
+        <input type="file" name="label_photo" accept="image/*" capture="environment" id="yard-label-input"
+               style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden"
                onchange="document.getElementById('yard-label-name').textContent = this.files[0]?.name || ''" />
-        <button type="button" class="button btn-upload" onclick="document.getElementById('yard-label-input').click()">
+        <button type="button" class="button btn-upload" id="yard-label-upload-btn"
+                onclick="document.getElementById('yard-label-input').click()">
           Choose Label Photo
         </button>
         <span id="yard-label-name" style="font-size:0.8rem;color:var(--muted)"></span>
-        <button type="submit" name="form_action" value="autofill_label">Extract from Label</button>
+        <button type="submit" name="form_action" value="autofill_label" id="yard-label-submit-btn">Extract from Label</button>
       </div>
 
       <!-- URL mode -->
@@ -361,6 +367,19 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   const urlImageInput = document.getElementById('url-image-input-yard');
   if (urlNameInput)  urlNameInput.addEventListener('input',  () => { hName.value     = urlNameInput.value; });
   if (urlImageInput) urlImageInput.addEventListener('input', () => { hImageUrl.value = urlImageInput.value; });
+
+  /* ── Label mode spinner ── */
+  const yardLabelSubmitBtn = document.getElementById('yard-label-submit-btn');
+  if (yardLabelSubmitBtn) {
+    yardLabelSubmitBtn.addEventListener('click', () => {
+      const loading = document.getElementById('yard-label-loading');
+      const uploadBtn = document.getElementById('yard-label-upload-btn');
+      if (loading) loading.hidden = false;
+      if (uploadBtn) uploadBtn.disabled = true;
+      yardLabelSubmitBtn.disabled = true;
+      document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+    });
+  }
 
   /* ── library plant pick ── */
   document.querySelectorAll('.plant-pick').forEach(card => {
