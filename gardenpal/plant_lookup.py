@@ -7,6 +7,33 @@ import anthropic
 import requests
 
 
+def extract_plant_name_from_text(raw_text: str) -> Optional[str]:
+    """Use Claude to pull the plant name out of raw OCR text. Returns None if unavailable."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key or not raw_text.strip():
+        return None
+    client = anthropic.Anthropic(api_key=api_key, timeout=7.0)
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=64,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "The following text was extracted via OCR from a plant tag or nursery label. "
+                    "Identify the plant name — it could be a common name, scientific name, or cultivar name. "
+                    "Reply with ONLY the plant name and nothing else. "
+                    "If no plant name can be found, reply with an empty string.\n\n"
+                    f"OCR text:\n{raw_text.strip()}"
+                ),
+            }],
+        )
+        name = next((b.text for b in response.content if b.type == "text"), "").strip()
+        return name or None
+    except Exception:
+        return None
+
+
 def extract_text_from_image(file_storage) -> Tuple[Optional[str], Optional[str]]:
     api_key = os.environ.get("OCR_SPACE_API_KEY", "").strip()
     if not api_key:
