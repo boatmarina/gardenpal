@@ -249,16 +249,20 @@ async function compressImageFile(file) {
   });
 }
 
+function blobToDataURL(blob) {
+  return new Promise(function(r) { var fr = new FileReader(); fr.onload = function() { r(fr.result); }; fr.readAsDataURL(blob); });
+}
+
 async function compressAndIdentify(inputEl, submitBtnId) {
   var file = inputEl.files[0];
   if (!file) return;
   var preview = document.getElementById('photo-id-preview');
   if (preview) {
-    var localUrl = URL.createObjectURL(file);
-    preview.innerHTML = '<div class="photo-item"><img src="' + localUrl + '" /></div>';
+    preview.innerHTML = '<div class="photo-item"><img src="' + URL.createObjectURL(file) + '" /></div>';
     preview.hidden = false;
   }
   var compressed = await compressImageFile(file);
+  try { sessionStorage.setItem('gpPhotoPreview', await blobToDataURL(compressed)); } catch(e) {}
   try {
     var dt = new DataTransfer();
     dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
@@ -268,6 +272,17 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   var f = inputEl.form;
   if (f.requestSubmit) f.requestSubmit(btn); else btn.click();
 }
+
+(function() {
+  var saved; try { saved = sessionStorage.getItem('gpPhotoPreview'); } catch(e) {}
+  if (!saved) return;
+  try { sessionStorage.removeItem('gpPhotoPreview'); } catch(e) {}
+  var preview = document.getElementById('photo-id-preview');
+  if (preview && preview.hidden) {
+    preview.innerHTML = '<div class="photo-item"><img src="' + saved + '" /></div>';
+    preview.hidden = false;
+  }
+})();
 
 (function () {
   const hMode      = document.getElementById('h-mode');

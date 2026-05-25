@@ -53,12 +53,12 @@ def identify_plant_from_image(file_storage) -> Tuple[Optional[Dict[str, str]], O
             "https://plant.id/api/v3/identification",
             json=payload,
             headers=headers,
-            timeout=30,
+            timeout=8,
         )
         response.raise_for_status()
         data = response.json()
     except requests.RequestException:
-        return None, "Plant photo lookup failed. Please try again."
+        return None, "Couldn't identify the plant from that photo — try a clearer shot or use a different method."
 
     suggestions = data.get("result", {}).get("classification", {}).get("suggestions", [])
     if not suggestions:
