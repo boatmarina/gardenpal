@@ -43,31 +43,25 @@
 
   <div class="section-header" style="margin-top:24px">
     <span class="section-title">Plant Collection</span>
-    <a href="{{ url_for('ideas_index') }}" class="section-action">View all</a>
   </div>
-  <div class="card" style="padding:18px 20px; margin-bottom:12px">
+  <a href="{{ url_for('ideas_index') }}" class="card" style="padding:18px 20px;margin-bottom:12px;display:block;text-decoration:none;color:inherit">
     <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ idea_count }}</p>
     <p class="muted" style="font-size:0.85rem;font-style:normal">plants saved</p>
-  </div>
+  </a>
 
   <div class="section-header" style="margin-top:16px">
     <span class="section-title">Yard Planner</span>
-    <a href="{{ url_for('yard_index') }}" class="section-action">View all</a>
   </div>
-  <div class="card" style="padding:18px 20px;margin-bottom:12px">
+  <a href="{{ url_for('yard_index') }}" class="card" style="padding:18px 20px;margin-bottom:12px;display:block;text-decoration:none;color:inherit">
     <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ zone_count }}</p>
     <p class="muted" style="font-size:0.85rem;font-style:normal">zones · {{ yard_plant_count }} planted</p>
-  </div>
+  </a>
 
   <div class="section-header" style="margin-top:16px">
     <span class="section-title">Edible Garden</span>
-    <a href="{{ url_for('garden_index') }}" class="section-action">View all</a>
   </div>
-  <div class="card" style="padding:18px 20px;display:flex;justify-content:space-between;align-items:center">
-    <div>
-      <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ garden_count }}</p>
-      <p class="muted" style="font-size:0.85rem;font-style:normal">plants tracked</p>
-    </div>
-    <a href="{{ url_for('garden_new') }}" class="button" style="flex-shrink:0">+ Add</a>
-  </div>
+  <a href="{{ url_for('garden_index') }}" class="card" style="padding:18px 20px;margin-bottom:12px;display:block;text-decoration:none;color:inherit">
+    <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ garden_count }}</p>
+    <p class="muted" style="font-size:0.85rem;font-style:normal">plants tracked</p>
+  </a>
 {% endblock %}
