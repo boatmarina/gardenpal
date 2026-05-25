@@ -112,7 +112,7 @@
       </div>
 
       <!-- Name mode -->
-      <div class="panel stack yard-input-section" id="yard-mode-name">
+      <div class="mode-section" id="yard-mode-name">
         <label>
           Plant name
           <div class="plant-search-wrap">
@@ -132,7 +132,7 @@
       </div>
 
       <!-- Photo mode -->
-      <div class="panel stack yard-input-section" id="yard-mode-photo" hidden>
+      <div class="mode-section" id="yard-mode-photo">
         {% if form_values.plant_name and form_values.yard_input_mode == 'photo' %}
           <p class="identified-name">Identified: <strong>{{ form_values.plant_name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
         {% endif %}
@@ -146,7 +146,7 @@
       </div>
 
       <!-- Label mode -->
-      <div class="panel stack yard-input-section" id="yard-mode-label" hidden>
+      <div class="mode-section" id="yard-mode-label">
         {% if form_values.plant_name and form_values.yard_input_mode == 'label' %}
           <p class="identified-name">Found: <strong>{{ form_values.plant_name }}</strong></p>
         {% endif %}
@@ -158,7 +158,7 @@
       </div>
 
       <!-- URL mode -->
-      <div class="panel stack yard-input-section" id="yard-mode-url" hidden>
+      <div class="mode-section" id="yard-mode-url">
         <label>
           Image URL
           <input id="url-image-input-yard" type="url" placeholder="https://…" value="{{ form_values.image_url }}" />
@@ -266,14 +266,14 @@
   setMode(hMode.value || 'library');
 
   /* ── yard input sub-mode (name / photo / label / url) ── */
-  const yardSections = {};
-  document.querySelectorAll('.yard-input-section').forEach(el => {
-    yardSections[el.id.replace('yard-mode-', '')] = el;
-  });
+  const yardModeIds = ['name', 'photo', 'label', 'url'];
 
   function setYardMode(mode) {
     hYardMode.value = mode;
-    Object.entries(yardSections).forEach(([key, el]) => { el.hidden = key !== mode; });
+    yardModeIds.forEach(key => {
+      const el = document.getElementById('yard-mode-' + key);
+      if (el) el.classList.toggle('active', key === mode);
+    });
     document.querySelectorAll('[data-yard-mode]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.yardMode === mode);
     });
