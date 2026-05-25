@@ -64,10 +64,12 @@
   <div class="panel stack">
     <h3>Add a photo</h3>
     <form method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
-      <label>
-        Photo *
-        <input type="file" name="photo" accept="image/*" capture="environment" required />
-      </label>
+      <input type="file" name="photo" accept="image/*" capture="environment" id="garden-photo-input" style="display:none" required
+             onchange="document.getElementById('garden-photo-name').textContent = this.files[0]?.name || ''" />
+      <button type="button" class="button button-secondary" onclick="document.getElementById('garden-photo-input').click()">
+        Choose Photo
+      </button>
+      <span id="garden-photo-name" style="font-size:0.8rem;color:var(--muted)"></span>
       <label>
         Date taken
         <input type="date" name="photo_date" value="{{ today }}" />
