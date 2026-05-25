@@ -765,16 +765,71 @@ def create_app() -> Flask:
     @app.route("/garden")
     @login_required
     def garden_index():
+        from datetime import date
+        from collections import defaultdict
         db = get_db()
-        loc_filter = request.args.get("loc", "").strip()
-        query = "SELECT * FROM garden_entries WHERE user_id = ?"
-        params = [g.user["id"]]
-        if loc_filter:
-            query += " AND location_type = ?"
-            params.append(loc_filter)
-        query += " ORDER BY plant_name ASC"
-        entries = db.execute(query, params).fetchall()
-        return render_template("garden_index.html", entries=entries, active_loc=loc_filter)
+        uid = g.user["id"]
+        today = date.today()
+        current_year = today.year
+
+        # Derive available years from planted dates
+        all_dated = db.execute(
+            "SELECT planted_date FROM garden_entries WHERE user_id = ? AND planted_date IS NOT NULL",
+            (uid,),
+        ).fetchall()
+        years_set = set()
+        for r in all_dated:
+            pd = r.planted_date
+            yr = pd.year if hasattr(pd, "year") else int(str(pd)[:4])
+            years_set.add(yr)
+        years = sorted(years_set, reverse=True)
+        if current_year not in years:
+            years = [current_year] + years
+
+        try:
+            active_year = int(request.args.get("year", current_year))
+        except (ValueError, TypeError):
+            active_year = current_year
+        if active_year not in years:
+            active_year = years[0] if years else current_year
+
+        # Entries for the active year (date range avoids EXTRACT)
+        year_start = f"{active_year}-01-01"
+        year_end   = f"{active_year + 1}-01-01"
+        entries = db.execute(
+            "SELECT * FROM garden_entries WHERE user_id = ?"
+            " AND planted_date >= ? AND planted_date < ?"
+            " ORDER BY planted_date ASC, plant_name ASC",
+            (uid, year_start, year_end),
+        ).fetchall()
+
+        # Undated entries shown only on current-year view
+        unscheduled = []
+        if active_year == current_year:
+            unscheduled = db.execute(
+                "SELECT * FROM garden_entries WHERE user_id = ? AND planted_date IS NULL"
+                " ORDER BY plant_name ASC",
+                (uid,),
+            ).fetchall()
+
+        # Group by month
+        grouped = defaultdict(list)
+        for entry in entries:
+            pd = entry.planted_date
+            month = pd.month if hasattr(pd, "month") else int(str(pd)[5:7])
+            grouped[month].append(entry)
+
+        month_counts = {m: len(lst) for m, lst in grouped.items()}
+        grouped_entries = sorted(grouped.items())
+
+        return render_template(
+            "garden_index.html",
+            grouped_entries=grouped_entries,
+            unscheduled=unscheduled,
+            month_counts=month_counts,
+            years=years,
+            active_year=active_year,
+        )
 
     @app.route("/garden/new", methods=["GET", "POST"])
     @login_required

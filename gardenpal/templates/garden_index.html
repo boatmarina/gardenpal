@@ -3,6 +3,9 @@
 {% block title %}Garden · GardenPal{% endblock %}
 
 {% block content %}
+{% set month_abbrs = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] %}
+{% set month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
+
   <section class="panel">
     <div class="title-row">
       <h2>Edible Garden</h2>
@@ -21,41 +24,90 @@
     </a>
   </div>
 
-  <!-- location filter -->
-  <form method="get" style="display:flex;gap:8px;margin-bottom:20px">
-    <select name="loc" style="flex:1" onchange="this.form.submit()">
-      <option value="">All locations</option>
-      <option value="raised_bed"  {% if active_loc == "raised_bed"  %}selected{% endif %}>Raised bed</option>
-      <option value="container"   {% if active_loc == "container"   %}selected{% endif %}>Container</option>
-      <option value="in_ground"   {% if active_loc == "in_ground"   %}selected{% endif %}>In ground</option>
-    </select>
-  </form>
+  <!-- Year switcher -->
+  {% if years | length > 1 %}
+  <div class="year-tabs">
+    {% for yr in years %}
+      <a href="?year={{ yr }}" class="year-tab{% if yr == active_year %} active{% endif %}">{{ yr }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-  {% if entries %}
-    <div class="cards">
-      {% for entry in entries %}
-        <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
-          <div class="card-content" style="padding:16px 18px">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-              <div>
-                <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
-                {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
+  <!-- Visual month grid -->
+  <div class="month-grid">
+    {% for m in range(1, 13) %}
+      {% set cnt = month_counts.get(m, 0) %}
+      {% if cnt == 0 %}{% set dot_cls = "dot-empty" %}
+      {% elif cnt <= 2 %}{% set dot_cls = "dot-sm" %}
+      {% elif cnt <= 5 %}{% set dot_cls = "dot-md" %}
+      {% else %}{% set dot_cls = "dot-lg" %}{% endif %}
+      <a href="#month-{{ m }}" class="month-cell{% if cnt > 0 %} has-plants{% endif %}">
+        <span class="month-label">{{ month_abbrs[m] }}</span>
+        <span class="month-dot {{ dot_cls }}"></span>
+        <span class="month-count">{% if cnt > 0 %}{{ cnt }}{% endif %}</span>
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- Timeline -->
+  {% if grouped_entries %}
+    {% for month_num, month_entries in grouped_entries %}
+      <div id="month-{{ month_num }}" class="timeline-section">
+        <div class="timeline-month-header">
+          <span>{{ month_names[month_num] }}</span>
+        </div>
+        <div class="cards">
+          {% for entry in month_entries %}
+            <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
+              <div class="card-content" style="padding:16px 18px">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                  <div>
+                    <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+                    {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
+                  </div>
+                  {% if entry.location_type %}
+                    <span class="chip" style="white-space:nowrap;flex-shrink:0">{{ entry.location_type | replace("_", " ") }}</span>
+                  {% endif %}
+                </div>
+                {% if entry.location_name %}
+                  <p class="muted" style="font-size:0.82rem;margin-top:6px">{{ entry.location_name }}</p>
+                {% endif %}
+                {% if entry.planted_date %}
+                  <p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ entry.planted_date | planted_date }}</p>
+                {% endif %}
               </div>
-              {% if entry.location_type %}
-                <span class="chip" style="white-space:nowrap;flex-shrink:0">{{ entry.location_type | replace("_", " ") }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="empty">Nothing planted in {{ active_year }} yet.</p>
+  {% endif %}
+
+  {% if unscheduled %}
+    <div id="month-0" class="timeline-section">
+      <div class="timeline-month-header"><span>No date</span></div>
+      <div class="cards">
+        {% for entry in unscheduled %}
+          <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
+            <div class="card-content" style="padding:16px 18px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                <div>
+                  <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+                  {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
+                </div>
+                {% if entry.location_type %}
+                  <span class="chip" style="white-space:nowrap;flex-shrink:0">{{ entry.location_type | replace("_", " ") }}</span>
+                {% endif %}
+              </div>
+              {% if entry.location_name %}
+                <p class="muted" style="font-size:0.82rem;margin-top:6px">{{ entry.location_name }}</p>
               {% endif %}
             </div>
-            {% if entry.location_name %}
-              <p class="muted" style="font-size:0.82rem;margin-top:6px">{{ entry.location_name }}</p>
-            {% endif %}
-            {% if entry.planted_date %}
-              <p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ entry.planted_date | planted_date }}</p>
-            {% endif %}
-          </div>
-        </a>
-      {% endfor %}
+          </a>
+        {% endfor %}
+      </div>
     </div>
-  {% else %}
-    <p class="empty">Nothing planted yet — tap Add Plant to get started.</p>
   {% endif %}
 {% endblock %}
