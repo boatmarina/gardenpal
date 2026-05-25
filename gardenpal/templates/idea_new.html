@@ -94,7 +94,7 @@
           Choose Label Photo
         </button>
         <span id="label-name-display" style="font-size:0.8rem;color:var(--muted)"></span>
-        <button type="submit" name="form_action" value="autofill_label" id="label-submit-btn">Extract from Label</button>
+        <button type="button" id="label-submit-btn">Extract from Label</button>
       </div>
 
       <div class="mode-section" id="mode-url">
@@ -268,13 +268,41 @@ async function compressAndIdentify(inputEl, submitBtnId) {
 
   const labelSubmitBtn = document.getElementById('label-submit-btn');
   if (labelSubmitBtn) {
-    labelSubmitBtn.addEventListener('click', () => {
+    labelSubmitBtn.addEventListener('click', async () => {
+      const fileInput = document.getElementById('label-file-input');
+      if (!fileInput || !fileInput.files[0]) {
+        alert('Please choose a label photo first.');
+        return;
+      }
       const loading = document.getElementById('label-loading');
       const uploadBtn = document.getElementById('label-upload-btn');
+      const nameDisplay = document.getElementById('label-name-display');
       if (loading) loading.hidden = false;
       if (uploadBtn) uploadBtn.disabled = true;
       labelSubmitBtn.disabled = true;
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+      try {
+        const compressed = await compressImageFile(fileInput.files[0]);
+        const fd = new FormData();
+        fd.append('label_photo', new File([compressed], 'label.jpg', {type: 'image/jpeg'}));
+        const res = await fetch('/api/ocr-label', {method: 'POST', body: fd});
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+        } else if (data.name) {
+          if (nameInput) nameInput.value = data.name;
+          if (nameHidden) nameHidden.value = data.name;
+          if (nameDisplay) nameDisplay.textContent = '';
+          setMode('name');
+        }
+      } catch(_) {
+        alert('Label reading failed — please try again.');
+      } finally {
+        if (loading) loading.hidden = true;
+        if (uploadBtn) uploadBtn.disabled = false;
+        labelSubmitBtn.disabled = false;
+        document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+      }
     });
   }
 
