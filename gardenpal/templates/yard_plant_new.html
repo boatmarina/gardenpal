@@ -19,7 +19,8 @@
     <input type="hidden" name="flowering_schedule" id="h-flowering"  value="{{ form_values.flowering_schedule }}" />
     <input type="hidden" name="watering_needs"     id="h-water"      value="{{ form_values.watering_needs }}" />
     <input type="hidden" name="spreads"            id="h-spreads"    value="{{ form_values.spreads }}" />
-    <input type="hidden" name="image_url"          id="h-image-url"  value="{{ form_values.image_url }}" />
+    <input type="hidden" name="image_url"          id="h-image-url"       value="{{ form_values.image_url }}" />
+    <input type="hidden" name="photo_urls_json"    id="h-photo-urls-json" value="" />
 
     <!-- Primary CTAs -->
     <div class="action-cards" style="margin-bottom:20px">
@@ -412,32 +413,40 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           }
           if (hName) hName.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
+          // Show zone selector + save button now that we have a plant name
+          if (selName) selName.textContent = data.name;
+          if (selPanel) selPanel.hidden = false;
+          if (common) common.hidden = false;
           const photoGrid = document.getElementById('yard-label-photo-grid');
+          const hPhotoUrlsJson = document.getElementById('h-photo-urls-json');
           const q = encodeURIComponent(data.name);
-          // Fetch photos and plant details in parallel
-          fetch('/api/plant-photos?q=' + q + '&count=3')
-            .then(r => r.json())
-            .then(d => {
-              const photos = d.photos || [];
-              if (photos.length && photoGrid) {
-                photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
-                photoGrid.hidden = false;
-                if (hImageUrl) hImageUrl.value = photos[0];
-              }
-            }).catch(() => {});
-          fetch('/api/plant-details?q=' + q)
-            .then(r => r.json())
-            .then(d => {
-              if (d.error) return;
+          // Keep save disabled until photos + details arrive
+          document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+          Promise.all([
+            fetch('/api/plant-photos?q=' + q + '&count=3').then(r => r.json()).catch(() => ({})),
+            fetch('/api/plant-details?q=' + q).then(r => r.json()).catch(() => ({}))
+          ]).then(([photoData, detailData]) => {
+            const photos = photoData.photos || [];
+            if (photos.length && photoGrid) {
+              photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
+              photoGrid.hidden = false;
+              if (hImageUrl) hImageUrl.value = photos[0];
+              if (hPhotoUrlsJson) hPhotoUrlsJson.value = JSON.stringify(photos);
+            }
+            if (!detailData.error) {
               const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-              set('h-sci',       d.scientific_name);
-              set('h-query',     d.scientific_name || data.name);
-              set('h-sun',       d.sun_needs);
-              set('h-lifecycle', d.lifecycle);
-              set('h-size',      d.size_info);
-              set('h-flowering', d.flowering_schedule);
-              set('h-water',     d.watering_needs);
-            }).catch(() => {});
+              set('h-sci',       detailData.scientific_name);
+              set('h-query',     detailData.scientific_name || data.name);
+              set('h-sun',       detailData.sun_needs);
+              set('h-lifecycle', detailData.lifecycle);
+              set('h-size',      detailData.size_info);
+              set('h-flowering', detailData.flowering_schedule);
+              set('h-water',     detailData.watering_needs);
+              if (selSci && detailData.scientific_name) selSci.textContent = detailData.scientific_name;
+            }
+          }).finally(() => {
+            document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+          });
         }
       } catch(_) {
         alert('Label reading failed — please try again.');
