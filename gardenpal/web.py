@@ -14,7 +14,7 @@ from flask import Flask, flash, g, jsonify, redirect, render_template, request, 
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos
+from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -1121,7 +1121,7 @@ def create_app() -> Flask:
         text, error = extract_text_from_image(request.files.get("label_photo"))
         if error:
             return jsonify(error=error), 200
-        name = infer_query_from_text(text)
+        name = extract_plant_name_from_text(text) or infer_query_from_text(text)
         if not name:
             return jsonify(error="Could not extract a plant name from that label."), 200
         return jsonify(name=name)
