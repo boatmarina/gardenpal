@@ -63,6 +63,7 @@
             <h3>{{ plant.plant_name }}</h3>
             <p>{{ plant.scientific_name or "" }}</p>
             <p class="muted">{{ plant.sun_needs or "" }}{% if plant.sun_needs and plant.lifecycle %} · {% endif %}{{ plant.lifecycle or "" }}</p>
+            {% if plant.notes %}<p class="muted" style="font-size:0.8rem;margin-top:4px">{{ plant.notes }}</p>{% endif %}
           </div>
           {% if plant.lib_plant_id %}
             </a>
