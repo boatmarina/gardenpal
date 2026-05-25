@@ -63,13 +63,20 @@
   <!-- ── Add photo ── -->
   <div class="panel stack">
     <h3>Add a photo</h3>
-    <form method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
-      <input type="file" name="photo" accept="image/*" capture="environment" id="garden-photo-input" style="display:none" required
-             onchange="document.getElementById('garden-photo-name').textContent = this.files[0]?.name || ''" />
-      <button type="button" class="button btn-upload" onclick="document.getElementById('garden-photo-input').click()">
+    <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
+      <input type="file" name="photo" accept="image/*" capture="environment" id="garden-photo-input"
+             style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" required />
+      <button type="button" class="button btn-upload" id="garden-photo-upload-btn"
+              onclick="document.getElementById('garden-photo-input').click()">
         Choose Photo
       </button>
-      <span id="garden-photo-name" style="font-size:0.8rem;color:var(--muted)"></span>
+      <div id="garden-photo-preview" hidden style="margin-top:4px">
+        <img id="garden-photo-thumb" src="" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r-md)" />
+      </div>
+      <div id="garden-photo-loading" hidden style="text-align:center;padding:10px 0 4px">
+        <div class="spinner"></div>
+        <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Uploading…</p>
+      </div>
       <label>
         Date taken
         <input type="date" name="photo_date" value="{{ today }}" />
@@ -78,7 +85,7 @@
         Notes
         <input type="text" name="photo_notes" placeholder="Height, flowers, any observations…" />
       </label>
-      <button type="submit">Add Photo</button>
+      <button type="submit" id="garden-photo-submit-btn">Add Photo</button>
     </form>
   </div>
 
@@ -105,5 +112,54 @@ function openLightbox(src) {
   box.addEventListener('click', () => box.remove());
   document.body.appendChild(box);
 }
+
+(function () {
+  async function compressImageFile(file) {
+    return new Promise(function(resolve) {
+      var img = new Image();
+      img.onload = function() {
+        var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
+        if (w > MAX || h > MAX) { var r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(img.src);
+        c.toBlob(function(b) { resolve(b || file); }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function() { resolve(file); };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  const input = document.getElementById('garden-photo-input');
+  const uploadBtn = document.getElementById('garden-photo-upload-btn');
+  const submitBtn = document.getElementById('garden-photo-submit-btn');
+  const preview = document.getElementById('garden-photo-preview');
+  const thumb = document.getElementById('garden-photo-thumb');
+
+  if (input) {
+    input.addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+      if (thumb) { thumb.src = URL.createObjectURL(file); }
+      if (preview) preview.hidden = false;
+      const compressed = await compressImageFile(file);
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+        input.files = dt.files;
+      } catch(e) {}
+    });
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function() {
+      const loading = document.getElementById('garden-photo-loading');
+      if (loading) loading.hidden = false;
+      if (uploadBtn) uploadBtn.disabled = true;
+      submitBtn.disabled = true;
+    });
+  }
+})();
 </script>
 {% endblock %}
