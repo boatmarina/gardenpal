@@ -1156,6 +1156,17 @@ def create_app() -> Flask:
             return jsonify(photos=[])
         return jsonify(photos=lookup_plant_photos(q, count))
 
+    @app.route("/api/plant-details")
+    @login_required
+    def api_plant_details():
+        q = request.args.get("q", "").strip()
+        if not q:
+            return jsonify(error="No query provided"), 400
+        result, error = lookup_plant_details(q)
+        if error:
+            return jsonify(error=error), 200
+        return jsonify(result)
+
     @app.route("/api/ocr-label", methods=["POST"])
     @login_required
     def api_ocr_label():

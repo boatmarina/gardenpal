@@ -310,7 +310,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           if (nameHidden) nameHidden.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
           const photoGrid = document.getElementById('label-photo-grid');
-          fetch('/api/plant-photos?q=' + encodeURIComponent(data.name) + '&count=3')
+          const q = encodeURIComponent(data.name);
+          fetch('/api/plant-photos?q=' + q + '&count=3')
             .then(r => r.json())
             .then(d => {
               const photos = d.photos || [];
@@ -319,6 +320,18 @@ async function compressAndIdentify(inputEl, submitBtnId) {
                 photoGrid.hidden = false;
                 if (imageUrlHidden) imageUrlHidden.value = photos[0];
               }
+            }).catch(() => {});
+          fetch('/api/plant-details?q=' + q)
+            .then(r => r.json())
+            .then(d => {
+              if (d.error) return;
+              const setField = (n, v) => { const el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
+              setField('scientific_name',    d.scientific_name);
+              setField('lookup_query',       d.scientific_name || data.name);
+              setField('sun_exposure',       d.sun_needs);
+              setField('lifecycle',          d.lifecycle);
+              setField('size_info',          d.size_info);
+              setField('flowering_schedule', d.flowering_schedule);
             }).catch(() => {});
         }
       } catch(_) {

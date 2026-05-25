@@ -413,7 +413,9 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           if (hName) hName.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
           const photoGrid = document.getElementById('yard-label-photo-grid');
-          fetch('/api/plant-photos?q=' + encodeURIComponent(data.name) + '&count=3')
+          const q = encodeURIComponent(data.name);
+          // Fetch photos and plant details in parallel
+          fetch('/api/plant-photos?q=' + q + '&count=3')
             .then(r => r.json())
             .then(d => {
               const photos = d.photos || [];
@@ -422,6 +424,19 @@ async function compressAndIdentify(inputEl, submitBtnId) {
                 photoGrid.hidden = false;
                 if (hImageUrl) hImageUrl.value = photos[0];
               }
+            }).catch(() => {});
+          fetch('/api/plant-details?q=' + q)
+            .then(r => r.json())
+            .then(d => {
+              if (d.error) return;
+              const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+              set('h-sci',       d.scientific_name);
+              set('h-query',     d.scientific_name || data.name);
+              set('h-sun',       d.sun_needs);
+              set('h-lifecycle', d.lifecycle);
+              set('h-size',      d.size_info);
+              set('h-flowering', d.flowering_schedule);
+              set('h-water',     d.watering_needs);
             }).catch(() => {});
         }
       } catch(_) {
