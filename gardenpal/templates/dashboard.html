@@ -8,7 +8,7 @@
     <p class="hero-sub">Track the plants you love. Plan the yard you want.</p>
   </div>
 
-  <div class="action-cards">
+  <div class="action-cards" style="grid-template-columns:repeat(3,1fr)">
     <a href="{{ url_for('new_idea') }}" class="action-card dark">
       <div class="action-card-icon">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -28,6 +28,17 @@
       </div>
       <span class="action-card-label">Add Zone</span>
     </a>
+    <a href="{{ url_for('garden_new') }}" class="action-card">
+      <div class="action-card-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22V12"/>
+          <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
+          <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
+          <path d="M6 22h12"/>
+        </svg>
+      </div>
+      <span class="action-card-label">Add Edible</span>
+    </a>
   </div>
 
   <div class="section-header" style="margin-top:24px">
@@ -43,8 +54,20 @@
     <span class="section-title">Yard Planner</span>
     <a href="{{ url_for('yard_index') }}" class="section-action">View all</a>
   </div>
-  <div class="card" style="padding:18px 20px">
+  <div class="card" style="padding:18px 20px;margin-bottom:12px">
     <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ zone_count }}</p>
     <p class="muted" style="font-size:0.85rem;font-style:normal">zones · {{ yard_plant_count }} planted</p>
+  </div>
+
+  <div class="section-header" style="margin-top:16px">
+    <span class="section-title">Edible Garden</span>
+    <a href="{{ url_for('garden_index') }}" class="section-action">View all</a>
+  </div>
+  <div class="card" style="padding:18px 20px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ garden_count }}</p>
+      <p class="muted" style="font-size:0.85rem;font-style:normal">plants tracked</p>
+    </div>
+    <a href="{{ url_for('garden_new') }}" class="button" style="flex-shrink:0">+ Add</a>
   </div>
 {% endblock %}

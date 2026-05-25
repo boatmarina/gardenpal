@@ -245,11 +245,16 @@ def create_app() -> Flask:
             "SELECT COUNT(*) AS count FROM yard_plants WHERE user_id = ?",
             (user_id,),
         ).fetchone()["count"]
+        garden_count = db.execute(
+            "SELECT COUNT(*) AS count FROM garden_entries WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()["count"]
         return render_template(
             "dashboard.html",
             idea_count=idea_count,
             zone_count=zone_count,
             yard_plant_count=yard_plant_count,
+            garden_count=garden_count,
         )
 
     @app.route("/ideas")
