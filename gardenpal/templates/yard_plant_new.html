@@ -140,7 +140,7 @@
           Choose a photo to identify
           <input type="file" name="photo" accept="image/*" id="yard-photo-input" style="display:none"
                onchange="document.getElementById('photo-id-btn').click()" />
-        <button type="button" class="button button-secondary" onclick="document.getElementById('yard-photo-input').click()">
+        <button type="button" class="button btn-upload" onclick="document.getElementById('yard-photo-input').click()">
           Choose Photo
         </button>
         <button type="submit" id="photo-id-btn" name="form_action" value="autofill_photo"
@@ -154,7 +154,7 @@
         {% endif %}
         <input type="file" name="label_photo" accept="image/*" capture="environment" id="yard-label-input" style="display:none"
                onchange="document.getElementById('yard-label-name').textContent = this.files[0]?.name || ''" />
-        <button type="button" class="button button-secondary" onclick="document.getElementById('yard-label-input').click()">
+        <button type="button" class="button btn-upload" onclick="document.getElementById('yard-label-input').click()">
           Choose Label Photo
         </button>
         <span id="yard-label-name" style="font-size:0.8rem;color:var(--muted)"></span>
@@ -185,6 +185,8 @@
         </div>
       {% endif %}
     </div>
+
+    <div style="margin-bottom:20px"></div>
 
     <!-- ── SELECTED PLANT INDICATOR ── -->
     <div id="selected-plant" {% if not form_values.plant_name %}hidden{% endif %}

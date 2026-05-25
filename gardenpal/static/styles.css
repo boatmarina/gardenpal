@@ -209,6 +209,12 @@ a.btn {
 .button-secondary { background: #E2DDD5; color: var(--fg); }
 .button-danger    { background: #C0392B; color: #fff; }
 .btn-full         { width: 100%; }
+.btn-upload {
+  background: var(--card);
+  color: var(--green-mid);
+  border: 2px dashed var(--green-mid);
+  width: 100%;
+}
 
 /* Plain submit buttons default to primary */
 button[type=submit] {
