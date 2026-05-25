@@ -492,6 +492,15 @@ def create_app() -> Flask:
             flash("Plant was not found.")
             return redirect(url_for("ideas_index"))
 
+        zone_id = request.args.get("zone_id", type=int)
+        yard_plant_id = request.args.get("yard_plant_id", type=int)
+        zone = None
+        if zone_id:
+            zone = db.execute(
+                "SELECT id, name FROM yard_zones WHERE id = ? AND user_id = ?",
+                (zone_id, g.user["id"]),
+            ).fetchone()
+
         categories = db.execute(
             """
             SELECT c.*
@@ -502,7 +511,8 @@ def create_app() -> Flask:
             """,
             (plant_id,),
         ).fetchall()
-        return render_template("idea_detail.html", plant=plant, categories=categories)
+        return render_template("idea_detail.html", plant=plant, categories=categories,
+                               zone=zone, yard_plant_id=yard_plant_id)
 
     @app.route("/yard")
     @login_required
@@ -802,6 +812,25 @@ def create_app() -> Flask:
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
         return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+
+    @app.route("/yard/plants/<int:yard_plant_id>/remove", methods=["POST"])
+    @login_required
+    def yard_plant_remove(yard_plant_id: int):
+        db = get_db()
+        row = db.execute(
+            "SELECT zone_id FROM yard_plants WHERE id = ? AND user_id = ?",
+            (yard_plant_id, g.user["id"]),
+        ).fetchone()
+        if row:
+            db.execute(
+                "DELETE FROM yard_plants WHERE id = ? AND user_id = ?",
+                (yard_plant_id, g.user["id"]),
+            )
+            db.commit()
+            flash("Plant removed from zone.")
+            return redirect(url_for("yard_zone_detail", zone_id=row["zone_id"]))
+        flash("Plant not found.")
+        return redirect(url_for("yard_index"))
 
     # ── Settings ────────────────────────────────────────────────────────────
 

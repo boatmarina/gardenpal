@@ -45,7 +45,7 @@
         {% set thumb = lib_thumb or (plant.lib_image_path | media_url if plant.lib_image_path else None) or plant.lib_image_url or (plant.image_path | media_url if plant.image_path else None) %}
         <article class="card">
           {% if plant.lib_plant_id %}
-            <a href="{{ url_for('idea_detail', plant_id=plant.lib_plant_id) }}" class="card-link">
+            <a href="{{ url_for('idea_detail', plant_id=plant.lib_plant_id, zone_id=zone.id, yard_plant_id=plant.id) }}" class="card-link">
           {% endif %}
           <div class="thumb">
             {% if thumb %}
