@@ -24,24 +24,27 @@
     </a>
   </div>
 
-  <!-- Year switcher -->
-  {% if years | length > 1 %}
-  <div class="year-tabs">
-    {% for yr in years %}
-      <a href="?year={{ yr }}" class="year-tab{% if yr == active_year %} active{% endif %}">{{ yr }}</a>
-    {% endfor %}
+  <!-- Year switcher (always visible) -->
+  <div class="year-nav">
+    <a href="?year={{ active_year - 1 }}" class="year-nav-arrow">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <span class="year-nav-label">{{ active_year }}</span>
+    <a href="?year={{ active_year + 1 }}" class="year-nav-arrow{% if active_year >= current_year %} muted{% endif %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
   </div>
-  {% endif %}
 
-  <!-- Visual month grid -->
-  <div class="month-grid">
+  <!-- Compact season strip: Mar–Sep highlighted, shoulder months dimmer -->
+  <div class="month-strip">
     {% for m in range(1, 13) %}
       {% set cnt = month_counts.get(m, 0) %}
+      {% set off_season = m < 3 or m > 9 %}
       {% if cnt == 0 %}{% set dot_cls = "dot-empty" %}
       {% elif cnt <= 2 %}{% set dot_cls = "dot-sm" %}
       {% elif cnt <= 5 %}{% set dot_cls = "dot-md" %}
       {% else %}{% set dot_cls = "dot-lg" %}{% endif %}
-      <a href="#month-{{ m }}" class="month-cell{% if cnt > 0 %} has-plants{% endif %}">
+      <a href="#month-{{ m }}" class="month-cell{% if cnt > 0 %} has-plants{% endif %}{% if off_season %} off-season{% endif %}">
         <span class="month-label">{{ month_abbrs[m] }}</span>
         <span class="month-dot {{ dot_cls }}"></span>
         <span class="month-count">{% if cnt > 0 %}{{ cnt }}{% endif %}</span>
