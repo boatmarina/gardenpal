@@ -1335,6 +1335,41 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _compress_image(stream, max_px: int = 1400, quality: int = 82) -> tuple:
+    """Return (compressed_bytes, content_type). Falls back to raw stream on error."""
+    try:
+        from PIL import Image, ExifTags
+        import io
+        stream.seek(0)
+        img = Image.open(stream)
+        # Auto-rotate based on EXIF orientation
+        try:
+            exif = img._getexif()
+            if exif:
+                orient_key = next((k for k, v in ExifTags.TAGS.items() if v == "Orientation"), None)
+                if orient_key and orient_key in exif:
+                    orient = exif[orient_key]
+                    rotations = {3: 180, 6: 270, 8: 90}
+                    if orient in rotations:
+                        img = img.rotate(rotations[orient], expand=True)
+        except Exception:
+            pass
+        # Resize if needed
+        w, h = img.size
+        if w > max_px or h > max_px:
+            ratio = min(max_px / w, max_px / h)
+            img = img.resize((round(w * ratio), round(h * ratio)), Image.LANCZOS)
+        # Convert to RGB for JPEG output (handles PNG/RGBA etc.)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        return buf.getvalue(), "image/jpeg"
+    except Exception:
+        stream.seek(0)
+        return stream.read(), None
+
+
 def save_upload(file_storage, upload_folder: str, user_id: int, kind: str):
     if file_storage is None or not file_storage.filename:
         return ""
@@ -1342,7 +1377,8 @@ def save_upload(file_storage, upload_folder: str, user_id: int, kind: str):
     if not filename or not allowed_file(filename):
         return ""
 
-    ext = filename.rsplit(".", 1)[1].lower()
+    data, content_type = _compress_image(file_storage.stream)
+    ext = "jpg" if content_type == "image/jpeg" else filename.rsplit(".", 1)[1].lower()
     unique_name = f"{user_id}/{kind}/{uuid.uuid4().hex}.{ext}"
 
     supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -1350,14 +1386,11 @@ def save_upload(file_storage, upload_folder: str, user_id: int, kind: str):
     bucket = os.environ.get("SUPABASE_STORAGE_BUCKET", "")
 
     if supabase_url and supabase_key and bucket:
-        file_storage.stream.seek(0)
-        data = file_storage.stream.read()
-        content_type = file_storage.mimetype or "image/jpeg"
         resp = requests.post(
             f"{supabase_url}/storage/v1/object/{bucket}/{unique_name}",
             headers={
                 "Authorization": f"Bearer {supabase_key}",
-                "Content-Type": content_type,
+                "Content-Type": content_type or "image/jpeg",
             },
             data=data,
             timeout=15,
@@ -1368,8 +1401,7 @@ def save_upload(file_storage, upload_folder: str, user_id: int, kind: str):
     # Local fallback
     unique_name_flat = unique_name.replace("/", "_")
     destination = Path(upload_folder) / unique_name_flat
-    file_storage.stream.seek(0)
-    file_storage.save(destination)
+    destination.write_bytes(data)
     return unique_name_flat
 
 
