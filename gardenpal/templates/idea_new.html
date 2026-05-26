@@ -287,11 +287,11 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       }
       const loading = document.getElementById('label-loading');
       const uploadBtn = document.getElementById('label-upload-btn');
-      const nameDisplay = document.getElementById('label-name-display');
       if (loading) loading.hidden = false;
       if (uploadBtn) uploadBtn.disabled = true;
       labelSubmitBtn.disabled = true;
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+      let waitingForPhotos = false;
       try {
         const compressed = await compressImageFile(fileInput.files[0]);
         const fd = new FormData();
@@ -311,28 +311,32 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           if (resultDiv) resultDiv.hidden = false;
           const photoGrid = document.getElementById('label-photo-grid');
           const q = encodeURIComponent(data.name);
-          fetch('/api/plant-photos?q=' + q + '&count=3')
-            .then(r => r.json())
-            .then(d => {
-              const photos = d.photos || [];
-              if (photos.length && photoGrid) {
-                photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
-                photoGrid.hidden = false;
-                if (imageUrlHidden) imageUrlHidden.value = photos[0];
-              }
-            }).catch(() => {});
-          fetch('/api/plant-details?q=' + q)
-            .then(r => r.json())
-            .then(d => {
-              if (d.error) return;
+          waitingForPhotos = true;
+          Promise.all([
+            fetch('/api/plant-photos?q=' + q + '&count=6').then(r => r.json()).catch(() => ({})),
+            fetch('/api/plant-details?q=' + q).then(r => r.json()).catch(() => ({}))
+          ]).then(([photoData, detailData]) => {
+            const photos = (photoData.photos || []).slice(0, 3);
+            if (photos.length && photoGrid) {
+              photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
+              photoGrid.hidden = false;
+              if (imageUrlHidden) imageUrlHidden.value = photos[0];
+              const photoUrlsHiddenEl = document.getElementById('photo-urls-hidden');
+              if (photoUrlsHiddenEl) photoUrlsHiddenEl.value = JSON.stringify(photos);
+            }
+            if (!detailData.error) {
               const setField = (n, v) => { const el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
-              setField('scientific_name',    d.scientific_name);
-              setField('lookup_query',       d.scientific_name || data.name);
-              setField('sun_exposure',       d.sun_needs);
-              setField('lifecycle',          d.lifecycle);
-              setField('size_info',          d.size_info);
-              setField('flowering_schedule', d.flowering_schedule);
-            }).catch(() => {});
+              setField('scientific_name',    detailData.scientific_name);
+              setField('lookup_query',       detailData.scientific_name || data.name);
+              setField('sun_exposure',       detailData.sun_needs);
+              setField('lifecycle',          detailData.lifecycle);
+              setField('size_info',          detailData.size_info);
+              setField('flowering_schedule', detailData.flowering_schedule);
+            }
+          }).finally(() => {
+            waitingForPhotos = false;
+            document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+          });
         }
       } catch(_) {
         alert('Label reading failed — please try again.');
@@ -340,7 +344,9 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         if (loading) loading.hidden = true;
         if (uploadBtn) uploadBtn.disabled = false;
         labelSubmitBtn.disabled = false;
-        document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+        if (!waitingForPhotos) {
+          document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+        }
       }
     });
   }
