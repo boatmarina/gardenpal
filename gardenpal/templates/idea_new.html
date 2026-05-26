@@ -157,6 +157,16 @@
         <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
 
+      <label>
+        Tags
+        <div class="tag-input-wrap" id="tag-input-wrap">
+          <div id="tag-chips-display" style="display:contents"></div>
+          <input type="text" id="tag-chip-text" class="tag-chip-input" placeholder="Type a tag and press Enter…" autocomplete="off" />
+          <ul id="tag-chip-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
+        </div>
+        <input type="hidden" name="tag_names" id="tag-names-hidden" value="" />
+      </label>
+
       <button type="submit" name="form_action" value="save">Save Idea</button>
     </form>
   </section>
@@ -416,6 +426,102 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       })
       .catch(() => {});
   }
+})();
+
+/* Tag chip input for new plant form */
+(function() {
+  var wrap = document.getElementById('tag-input-wrap');
+  var inp = document.getElementById('tag-chip-text');
+  var dropdown = document.getElementById('tag-chip-dropdown');
+  var chipsDisplay = document.getElementById('tag-chips-display');
+  var hidden = document.getElementById('tag-names-hidden');
+  if (!wrap || !inp) return;
+
+  var selected = [];
+  var timer;
+  var TAG_COLORS_JS = ["#5B8A5F","#8B6D9C","#C4765A","#4A7C95","#B5803A","#6B9E8A","#C26B7E","#7A8E5F"];
+
+  function colorFor(name) {
+    var h = 0;
+    var s = name.trim().toLowerCase();
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return TAG_COLORS_JS[Math.abs(h) % TAG_COLORS_JS.length];
+  }
+
+  function updateHidden() { hidden.value = selected.join(','); }
+
+  function addChip(name) {
+    name = name.trim().slice(0, 50);
+    if (!name || selected.includes(name.toLowerCase())) return;
+    selected.push(name.toLowerCase());
+    updateHidden();
+    var color = colorFor(name);
+    var span = document.createElement('span');
+    span.className = 'tag-chip';
+    span.style.cssText = 'background:' + color + '22;color:' + color + ';border:1px solid ' + color + '55';
+    span.setAttribute('data-name', name.toLowerCase());
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'tag-chip-close';
+    close.textContent = '×';
+    close.addEventListener('click', function() {
+      selected = selected.filter(function(t){ return t !== name.toLowerCase(); });
+      updateHidden();
+      span.remove();
+    });
+    span.appendChild(document.createTextNode(name));
+    span.appendChild(close);
+    chipsDisplay.appendChild(span);
+    inp.value = '';
+    dropdown.hidden = true;
+  }
+
+  function showDropdown(tags) {
+    var filtered = tags.filter(function(t){ return !selected.includes(t.name.toLowerCase()); });
+    if (!filtered.length) { dropdown.hidden = true; return; }
+    dropdown.innerHTML = '';
+    filtered.forEach(function(t) {
+      var li = document.createElement('li');
+      li.textContent = t.name;
+      li.addEventListener('click', function(){ addChip(t.name); });
+      dropdown.appendChild(li);
+    });
+    dropdown.hidden = false;
+  }
+
+  function fetchTags(q) {
+    clearTimeout(timer);
+    timer = setTimeout(function() {
+      fetch('/api/tags' + (q ? '?q=' + encodeURIComponent(q) : ''))
+        .then(function(r){ return r.json(); })
+        .then(function(d){ showDropdown(d.tags || []); })
+        .catch(function(){});
+    }, q ? 200 : 60);
+  }
+
+  inp.addEventListener('input', function() {
+    var val = inp.value;
+    if (val.includes(',')) {
+      val.split(',').slice(0, -1).forEach(function(p){ addChip(p); });
+      inp.value = val.split(',').pop();
+    }
+    fetchTags(inp.value.trim());
+  });
+
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); var q = inp.value.trim(); if (q) { addChip(q); dropdown.hidden = true; } }
+    if (e.key === 'Escape') dropdown.hidden = true;
+  });
+
+  inp.addEventListener('focus', function() { fetchTags(''); });
+
+  document.addEventListener('click', function(e) {
+    if (!wrap.contains(e.target)) dropdown.hidden = true;
+  });
+
+  wrap.addEventListener('click', function(e) {
+    if (e.target === wrap || e.target === chipsDisplay) inp.focus();
+  });
 })();
 </script>
 {% endblock %}

@@ -57,6 +57,27 @@
           <button type="submit" class="button button-danger">Delete from Library</button>
         </form>
       </div>
+
+      <div id="plant-tags-container" class="tag-pills" style="margin-top:10px">
+        {% for tag in plant_tags %}
+        <form method="post" action="{{ url_for('remove_plant_tag', plant_id=plant.id, tag_id=tag.id) }}"
+              style="display:inline-block"
+              onsubmit="return confirm('Remove tag “{{ tag.name | e }}”?')">
+          <button type="submit" class="tag-pill tag-pill-removable"
+                  style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55"
+                  title="Click to remove this tag">
+            {{ tag.name }} &times;
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+
+      <form method="post" action="{{ url_for('add_plant_tag', plant_id=plant.id) }}"
+            style="margin-top:8px;position:relative" id="tag-add-form">
+        <input type="text" name="tag_name" id="tag-add-input" class="tag-add-input"
+               placeholder="+ Add a tag…" autocomplete="off" />
+        <ul id="tag-add-autocomplete" class="tag-autocomplete-dropdown" hidden></ul>
+      </form>
     </div>
 
     {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.lookup_query %}
@@ -216,6 +237,47 @@
     .then(r => r.json())
     .then(d => renderPhotos(d.photos || []))
     .catch(() => {});
+})();
+
+/* Tag autocomplete on detail page */
+(function() {
+  var inp = document.getElementById('tag-add-input');
+  var dropdown = document.getElementById('tag-add-autocomplete');
+  if (!inp) return;
+  var timer;
+
+  function showDropdown(tags) {
+    if (!tags.length) { dropdown.hidden = true; return; }
+    dropdown.innerHTML = '';
+    tags.forEach(function(t) {
+      var li = document.createElement('li');
+      li.textContent = t.name;
+      li.addEventListener('click', function() {
+        inp.value = t.name;
+        dropdown.hidden = true;
+        inp.form.submit();
+      });
+      dropdown.appendChild(li);
+    });
+    dropdown.hidden = false;
+  }
+
+  function fetchTags(q) {
+    clearTimeout(timer);
+    timer = setTimeout(function() {
+      fetch('/api/tags' + (q ? '?q=' + encodeURIComponent(q) : ''))
+        .then(function(r){ return r.json(); })
+        .then(function(d){ showDropdown(d.tags || []); })
+        .catch(function(){});
+    }, q ? 200 : 60);
+  }
+
+  inp.addEventListener('input', function() { fetchTags(inp.value.trim()); });
+  inp.addEventListener('focus', function() { fetchTags(inp.value.trim()); });
+  inp.addEventListener('keydown', function(e) { if (e.key === 'Escape') dropdown.hidden = true; });
+  document.addEventListener('click', function(e) {
+    if (!inp.closest('form').contains(e.target)) dropdown.hidden = true;
+  });
 })();
 </script>
 {% endblock %}

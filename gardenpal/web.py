@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import secrets
@@ -18,6 +19,22 @@ from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_fr
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
+
+TAG_COLORS = [
+    "#5B8A5F",
+    "#8B6D9C",
+    "#C4765A",
+    "#4A7C95",
+    "#B5803A",
+    "#6B9E8A",
+    "#C26B7E",
+    "#7A8E5F",
+]
+
+
+def tag_color_for(name: str) -> str:
+    digest = hashlib.md5(name.strip().lower().encode()).hexdigest()
+    return TAG_COLORS[int(digest, 16) % len(TAG_COLORS)]
 
 
 class _Row:
@@ -286,6 +303,7 @@ def create_app() -> Flask:
         lifecycle = request.args.get("lifecycle", "").strip()
         evergreen = request.args.get("evergreen", "").strip()
         category_id = request.args.get("category", "").strip()
+        tag_id = request.args.get("tag", "").strip()
 
         query = """
             SELECT DISTINCT p.*
@@ -311,9 +329,43 @@ def create_app() -> Flask:
         if category_id:
             query += " AND pc.category_id = ?"
             params.append(category_id)
+        if tag_id:
+            query += " AND p.id IN (SELECT plant_id FROM plant_tags WHERE tag_id = ?)"
+            params.append(tag_id)
 
         query += " ORDER BY p.created_at DESC"
         plants = db.execute(query, params).fetchall()
+
+        # Build tags map: plant_id → list of tag dicts
+        tags_map = {}
+        if plants:
+            plant_ids = [p["id"] for p in plants]
+            placeholders = ",".join("?" * len(plant_ids))
+            tag_rows = db.execute(
+                f"SELECT pt.plant_id, t.id, t.name, t.color FROM plant_tags pt JOIN tags t ON t.id = pt.tag_id WHERE pt.plant_id IN ({placeholders}) ORDER BY t.name ASC",
+                plant_ids,
+            ).fetchall()
+            for row in tag_rows:
+                pid = row["plant_id"]
+                if pid not in tags_map:
+                    tags_map[pid] = []
+                tags_map[pid].append({"id": row["id"], "name": row["name"], "color": row["color"]})
+
+        # Tags that exist on at least one of this user's plants (for filter bar)
+        user_tags = [
+            {"id": t["id"], "name": t["name"], "color": t["color"]}
+            for t in db.execute(
+                """
+                SELECT DISTINCT t.id, t.name, t.color
+                FROM tags t
+                JOIN plant_tags pt ON pt.tag_id = t.id
+                JOIN plants p ON p.id = pt.plant_id
+                WHERE t.user_id = ?
+                ORDER BY t.name ASC
+                """,
+                (user_id,),
+            ).fetchall()
+        ]
 
         categories = db.execute(
             """
@@ -329,8 +381,10 @@ def create_app() -> Flask:
         return render_template(
             "ideas_index.html",
             plants=plants,
+            tags_map=tags_map,
+            user_tags=user_tags,
             categories=categories,
-            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "category": category_id},
+            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "category": category_id, "tag": tag_id},
         )
 
     @app.route("/ideas/new", methods=["GET", "POST"])
@@ -477,6 +531,26 @@ def create_app() -> Flask:
                 ),
             ).fetchone()["id"]
 
+            tag_names_raw = request.form.get("tag_names", "").strip()
+            if tag_names_raw:
+                for tn in [t.strip() for t in tag_names_raw.split(",") if t.strip()]:
+                    tn = tn[:50]
+                    color = tag_color_for(tn)
+                    et = db.execute(
+                        "SELECT id, name FROM tags WHERE user_id = ? AND lower(name) = lower(?)",
+                        (user_id, tn),
+                    ).fetchone()
+                    if et:
+                        tid = et["id"]
+                    else:
+                        tid = db.execute(
+                            "INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?) RETURNING id",
+                            (user_id, tn, color),
+                        ).fetchone()["id"]
+                    db.execute(
+                        "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                        (plant_id, tid),
+                    )
             db.commit()
             flash("Plant idea added.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
@@ -511,8 +585,28 @@ def create_app() -> Flask:
             """,
             (plant_id,),
         ).fetchall()
+        plant_tags = [
+            {"id": t["id"], "name": t["name"], "color": t["color"]}
+            for t in db.execute(
+                """
+                SELECT t.id, t.name, t.color
+                FROM tags t JOIN plant_tags pt ON pt.tag_id = t.id
+                WHERE pt.plant_id = ?
+                ORDER BY t.name ASC
+                """,
+                (plant_id,),
+            ).fetchall()
+        ]
+        user_tags = [
+            {"id": t["id"], "name": t["name"], "color": t["color"]}
+            for t in db.execute(
+                "SELECT id, name, color FROM tags WHERE user_id = ? ORDER BY name ASC",
+                (g.user["id"],),
+            ).fetchall()
+        ]
         return render_template("idea_detail.html", plant=plant, categories=categories,
-                               zone=zone, yard_plant_id=yard_plant_id)
+                               zone=zone, yard_plant_id=yard_plant_id,
+                               plant_tags=plant_tags, user_tags=user_tags)
 
     @app.route("/yard")
     @login_required
@@ -1237,11 +1331,77 @@ def create_app() -> Flask:
         if plant is None:
             flash("Plant not found.")
             return redirect(url_for("ideas_index"))
+        db.execute("DELETE FROM plant_tags WHERE plant_id = ?", (plant_id,))
         db.execute("DELETE FROM plant_categories WHERE plant_id = ?", (plant_id,))
         db.execute("DELETE FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"]))
         db.commit()
         flash("Plant idea deleted.")
         return redirect(url_for("ideas_index"))
+
+    @app.route("/ideas/<int:plant_id>/tags", methods=["POST"])
+    @login_required
+    def add_plant_tag(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        tag_name = request.form.get("tag_name", "").strip()[:50]
+        if not tag_name:
+            return redirect(url_for("idea_detail", plant_id=plant_id))
+        color = tag_color_for(tag_name)
+        existing_tag = db.execute(
+            "SELECT id, name, color FROM tags WHERE user_id = ? AND lower(name) = lower(?)",
+            (g.user["id"], tag_name),
+        ).fetchone()
+        if existing_tag:
+            tag_id = existing_tag["id"]
+            tag_name = existing_tag["name"]
+            color = existing_tag["color"]
+        else:
+            tag_id = db.execute(
+                "INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?) RETURNING id",
+                (g.user["id"], tag_name, color),
+            ).fetchone()["id"]
+        db.execute(
+            "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+            (plant_id, tag_id),
+        )
+        db.commit()
+        return redirect(url_for("idea_detail", plant_id=plant_id))
+
+    @app.route("/ideas/<int:plant_id>/tags/<int:tag_id>/remove", methods=["POST"])
+    @login_required
+    def remove_plant_tag(plant_id: int, tag_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        db.execute("DELETE FROM plant_tags WHERE plant_id = ? AND tag_id = ?", (plant_id, tag_id))
+        db.commit()
+        return redirect(url_for("idea_detail", plant_id=plant_id))
+
+    @app.route("/api/tags")
+    @login_required
+    def api_tags():
+        q = request.args.get("q", "").strip()
+        db = get_db()
+        if q:
+            tags = db.execute(
+                "SELECT id, name, color FROM tags WHERE user_id = ? AND lower(name) LIKE lower(?) ORDER BY name ASC LIMIT 10",
+                (g.user["id"], f"%{q}%"),
+            ).fetchall()
+        else:
+            tags = db.execute(
+                "SELECT id, name, color FROM tags WHERE user_id = ? ORDER BY name ASC LIMIT 20",
+                (g.user["id"],),
+            ).fetchall()
+        return jsonify(tags=[{"id": t["id"], "name": t["name"], "color": t["color"]} for t in tags])
 
     @app.route("/ideas/<int:plant_id>/update-photos", methods=["POST"])
     @login_required
@@ -1447,6 +1607,25 @@ _SCHEMA_STATEMENTS = [
         FOREIGN KEY (entry_id) REFERENCES garden_entries (id) ON DELETE CASCADE
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS tags (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#5B8A5F',
+        UNIQUE (user_id, name),
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS plant_tags (
+        plant_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (plant_id, tag_id),
+        FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+    )
+    """,
     # Indexes — safe to re-run, all use IF NOT EXISTS
     "CREATE INDEX IF NOT EXISTS idx_plants_user_id      ON plants(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_plants_user_name    ON plants(user_id, name)",
@@ -1456,6 +1635,9 @@ _SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_garden_entries_user ON garden_entries(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry ON garden_photos(entry_id)",
     "CREATE INDEX IF NOT EXISTS idx_plant_cats_plant    ON plant_categories(plant_id)",
+    "CREATE INDEX IF NOT EXISTS idx_tags_user_id        ON tags(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_plant_tags_plant_id ON plant_tags(plant_id)",
+    "CREATE INDEX IF NOT EXISTS idx_plant_tags_tag_id   ON plant_tags(tag_id)",
 ]
 
 
