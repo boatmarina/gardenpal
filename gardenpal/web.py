@@ -1447,6 +1447,15 @@ _SCHEMA_STATEMENTS = [
         FOREIGN KEY (entry_id) REFERENCES garden_entries (id) ON DELETE CASCADE
     )
     """,
+    # Indexes — safe to re-run, all use IF NOT EXISTS
+    "CREATE INDEX IF NOT EXISTS idx_plants_user_id      ON plants(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_plants_user_name    ON plants(user_id, name)",
+    "CREATE INDEX IF NOT EXISTS idx_yard_zones_user_id  ON yard_zones(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_yard_plants_user_id ON yard_plants(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_yard_plants_zone_id ON yard_plants(zone_id)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_entries_user ON garden_entries(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry ON garden_photos(entry_id)",
+    "CREATE INDEX IF NOT EXISTS idx_plant_cats_plant    ON plant_categories(plant_id)",
 ]
 
 
