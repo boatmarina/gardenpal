@@ -17,7 +17,7 @@
     </form>
   </section>
 
-  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <input type="hidden" name="q" value="{{ active_filters.q }}" />
     <select name="sun" style="flex:1;min-width:120px" onchange="this.form.submit()">
       <option value="">Any sun</option>
@@ -38,6 +38,32 @@
       <option value="semi-evergreen" {% if active_filters.evergreen == "semi-evergreen" %}selected{% endif %}>Semi-evergreen</option>
     </select>
   </form>
+
+  {% if user_tags %}
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+    <a href="#" class="tag-filter-pill {% if not active_filters.tag %}active{% endif %}" data-tag="">All</a>
+    {% for tag in user_tags %}
+    <a href="#" class="tag-filter-pill {% if active_filters.tag == tag.id|string %}active{% endif %}"
+       data-tag="{{ tag.id }}"
+       style="{% if active_filters.tag == tag.id|string %}background:{{ tag.color }}22;color:{{ tag.color }};border-color:{{ tag.color }}66{% endif %}">
+      {{ tag.name }}
+    </a>
+    {% endfor %}
+  </div>
+  <script>
+  (function(){
+    document.querySelectorAll('.tag-filter-pill').forEach(function(pill){
+      pill.addEventListener('click', function(e){
+        e.preventDefault();
+        var params = new URLSearchParams(window.location.search);
+        var tid = pill.dataset.tag;
+        if (tid) params.set('tag', tid); else params.delete('tag');
+        window.location.href = window.location.pathname + '?' + params.toString();
+      });
+    });
+  })();
+  </script>
+  {% endif %}
 
   <div class="section-header">
     <span class="section-title">Pinned specimens</span>
@@ -71,6 +97,17 @@
             <div class="card-content">
               <h3>{{ plant.name }}</h3>
               <p>{{ plant.scientific_name or "" }}</p>
+              {% set ptags = tags_map.get(plant.id, []) %}
+              {% if ptags %}
+              <div class="tag-pills" style="margin-top:6px;flex-wrap:nowrap;overflow:hidden">
+                {% for tag in ptags[:3] %}
+                <span class="tag-pill" style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55">{{ tag.name }}</span>
+                {% endfor %}
+                {% if ptags|length > 3 %}
+                <span class="tag-pill" style="background:#E5E2DC;color:var(--muted);border:1px solid var(--border)">+{{ ptags|length - 3 }}</span>
+                {% endif %}
+              </div>
+              {% endif %}
             </div>
           </a>
         </article>
