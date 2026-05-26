@@ -21,9 +21,13 @@
     <div class="title-row" style="margin-bottom:12px">
       <h3 style="margin:0">Zone Visual</h3>
       <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data">
-        <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none" />
-        <button type="button" class="button button-secondary" style="font-size:0.82rem"
-                onclick="document.getElementById('zone-photo-input').click()">Update Photo</button>
+        <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" style="display:none" />
+        <div style="display:flex;gap:8px">
+          <button type="button" class="button button-secondary" style="font-size:0.82rem"
+                  onclick="var i=document.getElementById('zone-photo-input');i.setAttribute('capture','environment');i.click()">Take Photo</button>
+          <button type="button" class="button button-secondary" style="font-size:0.82rem"
+                  onclick="var i=document.getElementById('zone-photo-input');i.removeAttribute('capture');i.click()">From Library</button>
+        </div>
       </form>
     </div>
     <div class="zone-map">
@@ -32,9 +36,13 @@
   </section>
   {% else %}
   <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data" style="margin-bottom:14px">
-    <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" capture="environment" style="display:none" />
-    <button type="button" class="button button-secondary" style="width:100%"
-            onclick="document.getElementById('zone-photo-input').click()">+ Add Zone Photo</button>
+    <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" style="display:none" />
+    <div style="display:flex;gap:8px">
+      <button type="button" class="button button-secondary" style="flex:1"
+              onclick="var i=document.getElementById('zone-photo-input');i.setAttribute('capture','environment');i.click()">+ Take Photo</button>
+      <button type="button" class="button button-secondary" style="flex:1"
+              onclick="var i=document.getElementById('zone-photo-input');i.removeAttribute('capture');i.click()">+ From Library</button>
+    </div>
   </form>
   {% endif %}
 

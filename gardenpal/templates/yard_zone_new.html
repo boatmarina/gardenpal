@@ -16,14 +16,20 @@
         Description
         <textarea name="description" rows="4" placeholder="Sun pattern, soil notes, dimensions..."></textarea>
       </label>
-      <input type="file" name="reference_photo" accept="image/*" capture="environment" id="zone-ref-input"
+      <input type="file" name="reference_photo" accept="image/*" id="zone-ref-input"
              style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
       <div class="stack" style="gap:6px">
         <label style="margin-bottom:0">Reference photo of this zone</label>
-        <button type="button" class="button btn-upload" id="zone-ref-upload-btn"
-                onclick="document.getElementById('zone-ref-input').click()">
-          Choose Photo
-        </button>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="button btn-upload" style="flex:1"
+                  onclick="var i=document.getElementById('zone-ref-input');i.setAttribute('capture','environment');i.click()">
+            Take Photo
+          </button>
+          <button type="button" class="button button-secondary btn-upload" style="flex:1"
+                  onclick="var i=document.getElementById('zone-ref-input');i.removeAttribute('capture');i.click()">
+            From Library
+          </button>
+        </div>
         <div id="zone-ref-preview" hidden>
           <img id="zone-ref-thumb" src="" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r-md)" />
         </div>
