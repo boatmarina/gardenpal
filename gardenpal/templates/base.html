@@ -95,7 +95,7 @@
   </nav>
   {% endif %}
 
-  <script src="{{ url_for('static', filename='garden.js') }}"></script>
+  <script src="{{ url_for('static', filename='garden.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

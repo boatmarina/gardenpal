@@ -37,7 +37,7 @@
           <a class="card-link" href="{{ url_for('yard_zone_detail', zone_id=zone.id) }}">
             <div class="thumb">
               {% if zone.reference_image_path %}
-                <img src="{{ zone.reference_image_path | media_url }}" alt="{{ zone.name }}" />
+                <img src="{{ zone.reference_image_path | media_url }}" alt="{{ zone.name }}" loading="lazy" />
               {% else %}
                 <div class="placeholder">
                   <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
