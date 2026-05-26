@@ -164,28 +164,6 @@
 
 {% block scripts %}
 <script>
-/* ── Image compression before upload (avoids Vercel 4.5 MB limit) ── */
-async function compressImageFile(file) {
-  return new Promise(function(resolve) {
-    var img = new Image();
-    img.onload = function() {
-      var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
-      if (w > MAX || h > MAX) { var r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
-      var c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(img.src);
-      c.toBlob(function(b) { resolve(b || file); }, 'image/jpeg', 0.82);
-    };
-    img.onerror = function() { resolve(file); };
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-function blobToDataURL(blob) {
-  return new Promise(function(r) { var fr = new FileReader(); fr.onload = function() { r(fr.result); }; fr.readAsDataURL(blob); });
-}
-
 async function compressAndIdentify(inputEl, submitBtnId) {
   var file = inputEl.files[0];
   if (!file) return;
@@ -199,8 +177,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   var uploadBtn = document.getElementById('photo-upload-btn');
   if (uploadBtn) uploadBtn.disabled = true;
   document.querySelectorAll('button[value="save"]').forEach(function(b) { b.disabled = true; });
-  var compressed = await compressImageFile(file);
-  try { sessionStorage.setItem('gpPhotoPreview', await blobToDataURL(compressed)); } catch(e) {}
+  var compressed = await GP.compressImage(file);
+  try { sessionStorage.setItem('gpPhotoPreview', await GP.blobToDataURL(compressed)); } catch(e) {}
   try {
     var dt = new DataTransfer();
     dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
@@ -293,7 +271,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
       let waitingForPhotos = false;
       try {
-        const compressed = await compressImageFile(fileInput.files[0]);
+        const compressed = await GP.compressImage(fileInput.files[0]);
         const fd = new FormData();
         fd.append('label_photo', new File([compressed], 'label.jpg', {type: 'image/jpeg'}));
         const res = await fetch('/api/ocr-label', {method: 'POST', body: fd});
@@ -312,11 +290,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           const photoGrid = document.getElementById('label-photo-grid');
           const q = encodeURIComponent(data.name);
           waitingForPhotos = true;
-          Promise.all([
-            fetch('/api/plant-photos?q=' + q + '&count=6').then(r => r.json()).catch(() => ({})),
-            fetch('/api/plant-details?q=' + q).then(r => r.json()).catch(() => ({}))
-          ]).then(([photoData, detailData]) => {
-            const photos = (photoData.photos || []).slice(0, 3);
+          GP.fetchPlantData(data.name).then(({photos, details}) => {
             if (photos.length && photoGrid) {
               photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
               photoGrid.hidden = false;
@@ -324,14 +298,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
               const photoUrlsHiddenEl = document.getElementById('photo-urls-hidden');
               if (photoUrlsHiddenEl) photoUrlsHiddenEl.value = JSON.stringify(photos);
             }
-            if (!detailData.error) {
+            if (details) {
               const setField = (n, v) => { const el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
-              setField('scientific_name',    detailData.scientific_name);
-              setField('lookup_query',       detailData.scientific_name || data.name);
-              setField('sun_exposure',       detailData.sun_needs);
-              setField('lifecycle',          detailData.lifecycle);
-              setField('size_info',          detailData.size_info);
-              setField('flowering_schedule', detailData.flowering_schedule);
+              setField('scientific_name',    details.scientific_name);
+              setField('lookup_query',       details.scientific_name || data.name);
+              setField('sun_exposure',       details.sun_needs);
+              setField('lifecycle',          details.lifecycle);
+              setField('size_info',          details.size_info);
+              setField('flowering_schedule', details.flowering_schedule);
             }
           }).finally(() => {
             waitingForPhotos = false;

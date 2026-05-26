@@ -86,23 +86,6 @@
 {% block scripts %}
 <script>
 (function() {
-  async function compressImageFile(file) {
-    return new Promise(function(resolve) {
-      var img = new Image();
-      img.onload = function() {
-        var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
-        if (w > MAX || h > MAX) { var r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
-        var c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(img.src);
-        c.toBlob(function(b) { resolve(b || file); }, 'image/jpeg', 0.82);
-      };
-      img.onerror = function() { resolve(file); };
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
   var inp = document.getElementById('zone-photo-input');
   var form = document.getElementById('zone-photo-form');
   var zoneImg = document.getElementById('zone-map-img');
@@ -112,7 +95,7 @@
       var file = this.files[0];
       if (!file) return;
       var previewUrl = URL.createObjectURL(file);
-      var compressed = await compressImageFile(file);
+      var compressed = await GP.compressImage(file);
       var fd = new FormData();
       fd.append('reference_photo', new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
       try {

@@ -254,27 +254,6 @@
 
 {% block scripts %}
 <script>
-async function compressImageFile(file) {
-  return new Promise(function(resolve) {
-    var img = new Image();
-    img.onload = function() {
-      var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
-      if (w > MAX || h > MAX) { var r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
-      var c = document.createElement('canvas');
-      c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(img.src);
-      c.toBlob(function(b) { resolve(b || file); }, 'image/jpeg', 0.82);
-    };
-    img.onerror = function() { resolve(file); };
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-function blobToDataURL(blob) {
-  return new Promise(function(r) { var fr = new FileReader(); fr.onload = function() { r(fr.result); }; fr.readAsDataURL(blob); });
-}
-
 async function compressAndIdentify(inputEl, submitBtnId) {
   var file = inputEl.files[0];
   if (!file) return;
@@ -288,8 +267,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   var uploadBtn = document.getElementById('photo-upload-btn');
   if (uploadBtn) uploadBtn.disabled = true;
   document.querySelectorAll('button[value="save"]').forEach(function(b) { b.disabled = true; });
-  var compressed = await compressImageFile(file);
-  try { sessionStorage.setItem('gpPhotoPreview', await blobToDataURL(compressed)); } catch(e) {}
+  var compressed = await GP.compressImage(file);
+  try { sessionStorage.setItem('gpPhotoPreview', await GP.blobToDataURL(compressed)); } catch(e) {}
   try {
     var dt = new DataTransfer();
     dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
@@ -397,7 +376,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
       let waitingForPhotos = false;
       try {
-        const compressed = await compressImageFile(fileInput.files[0]);
+        const compressed = await GP.compressImage(fileInput.files[0]);
         const fd = new FormData();
         fd.append('label_photo', new File([compressed], 'label.jpg', {type: 'image/jpeg'}));
         const res = await fetch('/api/ocr-label', {method: 'POST', body: fd});
@@ -420,27 +399,23 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           const hPhotoUrlsJson = document.getElementById('h-photo-urls-json');
           const q = encodeURIComponent(data.name);
           waitingForPhotos = true;
-          Promise.all([
-            fetch('/api/plant-photos?q=' + q + '&count=6').then(r => r.json()).catch(() => ({})),
-            fetch('/api/plant-details?q=' + q).then(r => r.json()).catch(() => ({}))
-          ]).then(([photoData, detailData]) => {
-            const photos = (photoData.photos || []).slice(0, 3);
+          GP.fetchPlantData(data.name).then(({photos, details}) => {
             if (photos.length && photoGrid) {
               photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
               photoGrid.hidden = false;
               if (hImageUrl) hImageUrl.value = photos[0];
               if (hPhotoUrlsJson) hPhotoUrlsJson.value = JSON.stringify(photos);
             }
-            if (!detailData.error) {
+            if (details) {
               const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-              set('h-sci',       detailData.scientific_name);
-              set('h-query',     detailData.scientific_name || data.name);
-              set('h-sun',       detailData.sun_needs);
-              set('h-lifecycle', detailData.lifecycle);
-              set('h-size',      detailData.size_info);
-              set('h-flowering', detailData.flowering_schedule);
-              set('h-water',     detailData.watering_needs);
-              if (selSci && detailData.scientific_name) selSci.textContent = detailData.scientific_name;
+              set('h-sci',       details.scientific_name);
+              set('h-query',     details.scientific_name || data.name);
+              set('h-sun',       details.sun_needs);
+              set('h-lifecycle', details.lifecycle);
+              set('h-size',      details.size_info);
+              set('h-flowering', details.flowering_schedule);
+              set('h-water',     details.watering_needs);
+              if (selSci && details.scientific_name) selSci.textContent = details.scientific_name;
             }
           }).finally(() => {
             waitingForPhotos = false;

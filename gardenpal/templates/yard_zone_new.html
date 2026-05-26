@@ -36,23 +36,6 @@
 {% block scripts %}
 <script>
 (function () {
-  async function compressImageFile(file) {
-    return new Promise(function(resolve) {
-      var img = new Image();
-      img.onload = function() {
-        var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
-        if (w > MAX || h > MAX) { var r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
-        var c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(img.src);
-        c.toBlob(function(b) { resolve(b || file); }, 'image/jpeg', 0.82);
-      };
-      img.onerror = function() { resolve(file); };
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
   const input = document.getElementById('zone-ref-input');
   const preview = document.getElementById('zone-ref-preview');
   const thumb = document.getElementById('zone-ref-thumb');
@@ -63,7 +46,7 @@
       if (!file) return;
       if (thumb) { thumb.src = URL.createObjectURL(file); }
       if (preview) preview.hidden = false;
-      const compressed = await compressImageFile(file);
+      const compressed = await GP.compressImage(file);
       try {
         const dt = new DataTransfer();
         dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
