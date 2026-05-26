@@ -391,11 +391,11 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       }
       const loading = document.getElementById('yard-label-loading');
       const uploadBtn = document.getElementById('yard-label-upload-btn');
-      const nameDisplay = document.getElementById('yard-label-name');
       if (loading) loading.hidden = false;
       if (uploadBtn) uploadBtn.disabled = true;
       yardLabelSubmitBtn.disabled = true;
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+      let waitingForPhotos = false;
       try {
         const compressed = await compressImageFile(fileInput.files[0]);
         const fd = new FormData();
@@ -413,20 +413,18 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           }
           if (hName) hName.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
-          // Show zone selector + save button now that we have a plant name
           if (selName) selName.textContent = data.name;
           if (selPanel) selPanel.hidden = false;
           if (common) common.hidden = false;
           const photoGrid = document.getElementById('yard-label-photo-grid');
           const hPhotoUrlsJson = document.getElementById('h-photo-urls-json');
           const q = encodeURIComponent(data.name);
-          // Keep save disabled until photos + details arrive
-          document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
+          waitingForPhotos = true;
           Promise.all([
-            fetch('/api/plant-photos?q=' + q + '&count=3').then(r => r.json()).catch(() => ({})),
+            fetch('/api/plant-photos?q=' + q + '&count=6').then(r => r.json()).catch(() => ({})),
             fetch('/api/plant-details?q=' + q).then(r => r.json()).catch(() => ({}))
           ]).then(([photoData, detailData]) => {
-            const photos = photoData.photos || [];
+            const photos = (photoData.photos || []).slice(0, 3);
             if (photos.length && photoGrid) {
               photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
               photoGrid.hidden = false;
@@ -445,6 +443,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
               if (selSci && detailData.scientific_name) selSci.textContent = detailData.scientific_name;
             }
           }).finally(() => {
+            waitingForPhotos = false;
             document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
           });
         }
@@ -454,7 +453,9 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         if (loading) loading.hidden = true;
         if (uploadBtn) uploadBtn.disabled = false;
         yardLabelSubmitBtn.disabled = false;
-        document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+        if (!waitingForPhotos) {
+          document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
+        }
       }
     });
   }
