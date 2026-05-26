@@ -606,7 +606,20 @@ def create_app() -> Flask:
         ]
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
-                               plant_tags=plant_tags, user_tags=user_tags)
+                               plant_tags=plant_tags, user_tags=user_tags,
+                               plant_zones=[
+                                   {"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "notes": r["notes"]}
+                                   for r in db.execute(
+                                       """
+                                       SELECT yp.id, yp.notes, z.id AS zone_id, z.name AS zone_name
+                                       FROM yard_plants yp
+                                       JOIN yard_zones z ON z.id = yp.zone_id
+                                       WHERE yp.user_id = ? AND lower(yp.plant_name) = lower(?)
+                                       ORDER BY z.name ASC
+                                       """,
+                                       (g.user["id"], plant["name"]),
+                                   ).fetchall()
+                               ])
 
     @app.route("/yard")
     @login_required
@@ -715,7 +728,16 @@ def create_app() -> Flask:
                ORDER BY yp.created_at DESC""",
             (zone_id, g.user["id"]),
         ).fetchall()
-        return render_template("yard_zone_detail.html", zone=zone, plants=plants)
+        lib_plant_ids = [p["lib_plant_id"] for p in plants if p["lib_plant_id"]]
+        tags_map = {}
+        if lib_plant_ids:
+            ph = ",".join("?" * len(lib_plant_ids))
+            for row in db.execute(
+                f"SELECT pt.plant_id, t.id, t.name, t.color FROM plant_tags pt JOIN tags t ON t.id = pt.tag_id WHERE pt.plant_id IN ({ph}) ORDER BY t.name ASC",
+                lib_plant_ids,
+            ).fetchall():
+                tags_map.setdefault(row["plant_id"], []).append({"id": row["id"], "name": row["name"], "color": row["color"]})
+        return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map)
 
     @app.route("/yard/plants/new", methods=["GET", "POST"])
     @login_required
@@ -731,9 +753,10 @@ def create_app() -> Flask:
             (g.user["id"],),
         ).fetchall()
 
+        prefill_name = request.args.get("plant_name", "").strip()
         form_values = {
             "zone_id": request.args.get("zone_id", ""),
-            "plant_name": "",
+            "plant_name": prefill_name,
             "scientific_name": "",
             "lookup_query": "",
             "watering_needs": "",
@@ -922,9 +945,34 @@ def create_app() -> Flask:
             )
             db.commit()
             flash("Plant removed from zone.")
+            back = request.args.get("back", type=int)
+            if back:
+                return redirect(url_for("idea_detail", plant_id=back))
             return redirect(url_for("yard_zone_detail", zone_id=row["zone_id"]))
         flash("Plant not found.")
         return redirect(url_for("yard_index"))
+
+    @app.route("/yard/plants/<int:yard_plant_id>/update-notes", methods=["POST"])
+    @login_required
+    def yard_plant_update_notes(yard_plant_id: int):
+        db = get_db()
+        row = db.execute(
+            "SELECT zone_id FROM yard_plants WHERE id = ? AND user_id = ?",
+            (yard_plant_id, g.user["id"]),
+        ).fetchone()
+        if row is None:
+            flash("Plant entry not found.")
+            return redirect(url_for("yard_index"))
+        notes = request.form.get("notes", "").strip() or None
+        db.execute(
+            "UPDATE yard_plants SET notes = ? WHERE id = ? AND user_id = ?",
+            (notes, yard_plant_id, g.user["id"]),
+        )
+        db.commit()
+        back = request.args.get("back", type=int)
+        if back:
+            return redirect(url_for("idea_detail", plant_id=back))
+        return redirect(url_for("yard_zone_detail", zone_id=row["zone_id"]))
 
     # ── Settings ────────────────────────────────────────────────────────────
 

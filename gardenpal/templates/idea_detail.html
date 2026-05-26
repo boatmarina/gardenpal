@@ -46,12 +46,6 @@
         <p class="native-badge" style="margin:10px 0 0">Native to the Pacific Northwest</p>
       {% endif %}
       <div class="detail-actions">
-        {% if zone and yard_plant_id %}
-        <form method="post" action="{{ url_for('yard_plant_remove', yard_plant_id=yard_plant_id) }}"
-              onsubmit="return confirm('Remove {{ plant.name | e }} from {{ zone.name | e }}?')">
-          <button type="submit" class="button button-secondary">Remove from Zone</button>
-        </form>
-        {% endif %}
         <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
               onsubmit="return confirm('Delete {{ plant.name | e }} from your library?')">
           <button type="submit" class="button button-danger">Delete from Library</button>
@@ -108,6 +102,47 @@
     {% endif %}
 
   </article>
+
+  {% if plant_zones %}
+  <section class="panel" style="margin-top:14px">
+    <div class="title-row" style="margin-bottom:4px">
+      <h3 style="margin:0;font-size:0.9rem">In your yard</h3>
+      <a href="{{ url_for('yard_plant_new') }}?plant_name={{ plant.name | urlencode }}"
+         class="button" style="font-size:0.65rem;padding:5px 12px">+ Add to zone</a>
+    </div>
+    {% for pz in plant_zones %}
+    <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <a href="{{ url_for('yard_zone_detail', zone_id=pz.zone_id) }}"
+           style="font-weight:600;color:var(--fg);text-decoration:none;font-size:0.9rem">
+          {{ pz.zone_name }}
+        </a>
+        <form method="post"
+              action="{{ url_for('yard_plant_remove', yard_plant_id=pz.id) }}?back={{ plant.id }}"
+              onsubmit="return confirm('Remove {{ plant.name | e }} from {{ pz.zone_name | e }}?')">
+          <button type="submit" class="button button-secondary"
+                  style="font-size:0.65rem;padding:3px 10px">Remove</button>
+        </form>
+      </div>
+      <form method="post"
+            action="{{ url_for('yard_plant_update_notes', yard_plant_id=pz.id) }}?back={{ plant.id }}">
+        <textarea name="notes" rows="2"
+                  placeholder="Notes — e.g. planted May 2025, south-facing corner…"
+                  style="font-size:0.85rem;resize:vertical;margin-bottom:6px">{{ pz.notes or '' }}</textarea>
+        <button type="submit" class="button button-secondary"
+                style="font-size:0.65rem;padding:4px 12px">Save notes</button>
+      </form>
+    </div>
+    {% endfor %}
+  </section>
+  {% else %}
+  <div style="margin-top:14px;background:var(--card);border-radius:var(--r-xl);padding:var(--pad);text-align:center">
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:10px">Not in any yard zone yet.</p>
+    <a href="{{ url_for('yard_plant_new') }}?plant_name={{ plant.name | urlencode }}"
+       class="button" style="font-size:0.7rem">+ Add to a zone</a>
+  </div>
+  {% endif %}
+
 {% endblock %}
 
 {% block scripts %}
