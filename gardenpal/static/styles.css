@@ -1084,6 +1084,36 @@ dd { margin: 0; }
   font-style: italic;
 }
 
+/* Cultivar / variety sub-items */
+.plant-search-dropdown button.dd-sub {
+  padding-left: 28px;
+  background: color-mix(in srgb, var(--card) 60%, var(--bg) 40%);
+}
+.dd-indent {
+  color: var(--muted);
+  margin-right: 5px;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.dd-name { flex: 1; min-width: 0; }
+
+/* "in library" badge on search results */
+.dd-saved {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--green-mid);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ================================================================
    ZONE MAP
    ================================================================ */
