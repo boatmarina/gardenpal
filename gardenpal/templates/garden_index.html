@@ -230,6 +230,20 @@
     {% endfor %}
   </div>
 
+  <!-- Search -->
+  <div style="position:relative;margin-bottom:14px">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+         stroke-linecap="round" stroke-linejoin="round"
+         style="position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:0.38;pointer-events:none">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input id="garden-search" type="search" placeholder="Search plants…"
+           style="width:100%;box-sizing:border-box;padding:8px 32px 8px 32px;font-size:0.83rem;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--text)" />
+    <button id="garden-search-clear" type="button"
+            style="display:none;position:absolute;right:9px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px 4px">×</button>
+  </div>
+  <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
+
   <!-- Timeline -->
   {% if grouped_entries %}
     {% for month_num, month_entries in grouped_entries %}
@@ -239,7 +253,8 @@
         </div>
         <div class="cards">
           {% for entry in month_entries %}
-            <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
+            <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
+               data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
               <div class="card-content" style="padding:16px 18px">
                 <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
                 {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
@@ -257,7 +272,7 @@
       </div>
     {% endfor %}
   {% else %}
-    <p class="empty">Nothing planted in {{ active_year }} yet.</p>
+    <p class="empty" id="garden-no-entries">Nothing planted in {{ active_year }} yet.</p>
   {% endif %}
 
   {% if unscheduled %}
@@ -265,7 +280,8 @@
       <div class="timeline-month-header"><span>No date</span></div>
       <div class="cards">
         {% for entry in unscheduled %}
-          <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
+          <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
+             data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
             <div class="card-content" style="padding:16px 18px">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                 <div style="flex:1;min-width:0">
@@ -285,4 +301,55 @@
       </div>
     </div>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var inp    = document.getElementById('garden-search');
+  var clear  = document.getElementById('garden-search-clear');
+  var noRes  = document.getElementById('garden-search-empty');
+  if (!inp) return;
+
+  function filter() {
+    var q = inp.value.trim().toLowerCase();
+    clear.style.display = q ? '' : 'none';
+
+    var cards = document.querySelectorAll('.card[data-search]');
+    var anyVisible = false;
+
+    cards.forEach(function (card) {
+      var match = !q || card.dataset.search.indexOf(q) !== -1;
+      card.style.display = match ? '' : 'none';
+      if (match) anyVisible = true;
+    });
+
+    document.querySelectorAll('.timeline-section').forEach(function (sec) {
+      var visible = sec.querySelectorAll('.card[data-search]:not([style*="display: none"])').length > 0
+                 || !q;
+      if (q) {
+        var hasMatch = Array.from(sec.querySelectorAll('.card[data-search]'))
+                           .some(function (c) { return c.style.display !== 'none'; });
+        sec.style.display = hasMatch ? '' : 'none';
+      } else {
+        sec.style.display = '';
+      }
+    });
+
+    if (noRes) noRes.style.display = (q && !anyVisible) ? '' : 'none';
+  }
+
+  var timer;
+  inp.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(filter, 150);
+  });
+
+  clear.addEventListener('click', function () {
+    inp.value = '';
+    filter();
+    inp.focus();
+  });
+})();
+</script>
 {% endblock %}
