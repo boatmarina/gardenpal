@@ -1,4 +1,6 @@
+import csv
 import hashlib
+import io
 import json
 import os
 import secrets
@@ -11,7 +13,7 @@ from urllib.parse import urlparse
 
 import pg8000
 import requests
-from flask import Flask, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -974,12 +976,112 @@ def create_app() -> Flask:
             return redirect(url_for("idea_detail", plant_id=back))
         return redirect(url_for("yard_zone_detail", zone_id=row["zone_id"]))
 
-    # ── Settings ────────────────────────────────────────────────────────────
+    # ── Tools (settings + exports) ───────────────────────────────────────────
 
     @app.route("/settings")
+    def settings_redirect():
+        return redirect(url_for("tools"))
+
+    @app.route("/tools")
     @login_required
-    def settings():
+    def tools():
         return render_template("settings.html", user=g.user)
+
+    @app.route("/export/library.csv")
+    @login_required
+    def export_library_csv():
+        db = get_db()
+        uid = g.user["id"]
+        plants = db.execute(
+            "SELECT * FROM plants WHERE user_id = ? ORDER BY name ASC", (uid,)
+        ).fetchall()
+        tags_map = {}
+        if plants:
+            pids = [p["id"] for p in plants]
+            ph = ",".join("?" * len(pids))
+            for row in db.execute(
+                f"SELECT pt.plant_id, t.name FROM plant_tags pt JOIN tags t ON t.id = pt.tag_id WHERE pt.plant_id IN ({ph}) ORDER BY t.name ASC",
+                pids,
+            ).fetchall():
+                tags_map.setdefault(row["plant_id"], []).append(row["name"])
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["Name", "Scientific Name", "Sun", "Lifecycle", "Evergreen Status",
+                    "Size", "Flowering Schedule", "Tags", "Notes", "Source", "Added Date"])
+        for p in plants:
+            w.writerow([
+                p["name"], p["scientific_name"] or "", p["sun_exposure"] or "",
+                p["lifecycle"] or "", p["evergreen_status"] or "", p["size_info"] or "",
+                p["flowering_schedule"] or "", ", ".join(tags_map.get(p["id"], [])),
+                p["notes"] or "", p["source_note"] or "",
+                str(p["created_at"])[:10] if p["created_at"] else "",
+            ])
+        return Response(
+            "﻿" + out.getvalue(), mimetype="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="gardenpal-library.csv"'},
+        )
+
+    @app.route("/export/yard.csv")
+    @login_required
+    def export_yard_csv():
+        db = get_db()
+        rows = db.execute(
+            """
+            SELECT z.name AS zone_name, z.description AS zone_desc,
+                   yp.plant_name, yp.scientific_name, yp.sun_needs, yp.lifecycle,
+                   yp.size_info, yp.notes, yp.created_at
+            FROM yard_plants yp
+            JOIN yard_zones z ON z.id = yp.zone_id
+            WHERE yp.user_id = ?
+            ORDER BY z.name ASC, yp.plant_name ASC
+            """,
+            (g.user["id"],),
+        ).fetchall()
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["Zone", "Zone Description", "Plant", "Scientific Name",
+                    "Sun", "Lifecycle", "Size", "Notes", "Added Date"])
+        for r in rows:
+            w.writerow([
+                r["zone_name"], r["zone_desc"] or "", r["plant_name"],
+                r["scientific_name"] or "", r["sun_needs"] or "", r["lifecycle"] or "",
+                r["size_info"] or "", r["notes"] or "",
+                str(r["created_at"])[:10] if r["created_at"] else "",
+            ])
+        return Response(
+            "﻿" + out.getvalue(), mimetype="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="gardenpal-yard.csv"'},
+        )
+
+    @app.route("/export/garden.csv")
+    @login_required
+    def export_garden_csv():
+        db = get_db()
+        entries = db.execute(
+            """
+            SELECT plant_name, variety, location_type, location_name,
+                   planted_date, notes, created_at
+            FROM garden_entries WHERE user_id = ?
+            ORDER BY planted_date ASC NULLS LAST, plant_name ASC
+            """,
+            (g.user["id"],),
+        ).fetchall()
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["Plant", "Variety", "Location Type", "Location Name",
+                    "Planted Date", "Notes", "Added Date"])
+        for e in entries:
+            w.writerow([
+                e["plant_name"], e["variety"] or "",
+                e["location_type"] or "", e["location_name"] or "",
+                str(e["planted_date"])[:10] if e["planted_date"] else "",
+                e["notes"] or "",
+                str(e["created_at"])[:10] if e["created_at"] else "",
+            ])
+        return Response(
+            "﻿" + out.getvalue(), mimetype="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="gardenpal-garden.csv"'},
+        )
 
     @app.route("/settings/generate-token", methods=["POST"])
     @login_required
