@@ -530,7 +530,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       try {
         const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q));
         const data = await res.json();
-        GP.renderPlantDropdown(dropdown, data.results || [], selectFromSearch);
+        GP.renderPlantDropdown(dropdown, data.results || [], selectFromSearch, q);
       } catch (_) { dropdown.hidden = true; }
     }
 
