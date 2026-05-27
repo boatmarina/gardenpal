@@ -264,6 +264,9 @@
 
 {% block scripts %}
 <script>
+window.LIBRARY_PLANTS = {{ library_plants_json | tojson }};
+</script>
+<script>
 async function compressAndIdentify(inputEl, submitBtnId) {
   var file = inputEl.files[0];
   if (!file) return;
@@ -527,11 +530,28 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     });
 
     async function search(q) {
+      const qL = q.toLowerCase();
+      const words = qL.split(/\s+/).filter(w => w.length >= 2);
+      // Instant client-side library match (any word order, no server round-trip)
+      const libMatches = (window.LIBRARY_PLANTS || [])
+        .filter(p => {
+          if (!words.length) return false;
+          const n = (p.name || '').toLowerCase();
+          const s = (p.sci || '').toLowerCase();
+          return words.every(w => n.includes(w) || s.includes(w));
+        })
+        .slice(0, 5)
+        .map(p => ({ common_name: p.name, scientific_name: p.sci, from_library: true, rank: 'species' }));
+      if (libMatches.length) GP.renderPlantDropdown(dropdown, libMatches, selectFromSearch, q);
       try {
         const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q));
         const data = await res.json();
-        GP.renderPlantDropdown(dropdown, data.results || [], selectFromSearch, q);
-      } catch (_) { dropdown.hidden = true; }
+        const libNameSet = new Set(libMatches.map(p => (p.common_name || '').toLowerCase()));
+        const apiResults = (data.results || []).filter(r => !libNameSet.has((r.common_name || '').toLowerCase()));
+        GP.renderPlantDropdown(dropdown, [...libMatches, ...apiResults], selectFromSearch, q);
+      } catch (_) {
+        if (!libMatches.length) dropdown.hidden = true;
+      }
     }
 
     function selectFromSearch(plant) {
