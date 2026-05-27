@@ -3,7 +3,7 @@
 {% block title %}Library · GardenPal{% endblock %}
 
 {% block content %}
-{% set has_filters = active_filters.q or active_filters.sun or active_filters.lifecycle or active_filters.evergreen %}
+{% set has_filters = active_filters.q or active_filters.sun or active_filters.lifecycle or active_filters.evergreen or active_filters.plant_form or active_filters.height_category %}
   <section class="panel" style="margin-bottom:16px">
     <div class="title-row">
       <h2>Plant Library</h2>
@@ -56,6 +56,30 @@
           <option value="evergreen"     {% if active_filters.evergreen == "evergreen"     %}selected{% endif %}>Evergreen</option>
           <option value="deciduous"     {% if active_filters.evergreen == "deciduous"     %}selected{% endif %}>Deciduous</option>
           <option value="semi-evergreen"{% if active_filters.evergreen == "semi-evergreen"%}selected{% endif %}>Semi-evergreen</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select name="plant_form" style="flex:1;min-width:130px;font-size:0.85rem" onchange="this.form.submit()">
+          <option value="">Any form</option>
+          <option value="tree"          {% if active_filters.plant_form == "tree"          %}selected{% endif %}>Tree</option>
+          <option value="shrub"         {% if active_filters.plant_form == "shrub"         %}selected{% endif %}>Shrub</option>
+          <option value="perennial"     {% if active_filters.plant_form == "perennial"     %}selected{% endif %}>Perennial</option>
+          <option value="annual"        {% if active_filters.plant_form == "annual"        %}selected{% endif %}>Annual</option>
+          <option value="climber"       {% if active_filters.plant_form == "climber"       %}selected{% endif %}>Climber / Vine</option>
+          <option value="ground-cover"  {% if active_filters.plant_form == "ground-cover"  %}selected{% endif %}>Ground cover</option>
+          <option value="grass"         {% if active_filters.plant_form == "grass"         %}selected{% endif %}>Grass / Ornamental grass</option>
+          <option value="fern"          {% if active_filters.plant_form == "fern"          %}selected{% endif %}>Fern</option>
+          <option value="bulb"          {% if active_filters.plant_form == "bulb"          %}selected{% endif %}>Bulb / Corm</option>
+          <option value="succulent"     {% if active_filters.plant_form == "succulent"     %}selected{% endif %}>Succulent / Cactus</option>
+          <option value="herb"          {% if active_filters.plant_form == "herb"          %}selected{% endif %}>Herb</option>
+          <option value="bamboo"        {% if active_filters.plant_form == "bamboo"        %}selected{% endif %}>Bamboo</option>
+        </select>
+        <select name="height_category" style="flex:1;min-width:130px;font-size:0.85rem" onchange="this.form.submit()">
+          <option value="">Any height</option>
+          <option value="low"    {% if active_filters.height_category == "low"    %}selected{% endif %}>Low (under 50 cm)</option>
+          <option value="medium" {% if active_filters.height_category == "medium" %}selected{% endif %}>Medium (50 cm – 1.5 m)</option>
+          <option value="tall"   {% if active_filters.height_category == "tall"   %}selected{% endif %}>Tall (1.5 – 4 m)</option>
+          <option value="large"  {% if active_filters.height_category == "large"  %}selected{% endif %}>Large (4 m+)</option>
         </select>
       </div>
       {% if has_filters %}

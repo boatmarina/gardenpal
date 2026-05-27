@@ -304,6 +304,8 @@ def create_app() -> Flask:
         sun = request.args.get("sun", "").strip()
         lifecycle = request.args.get("lifecycle", "").strip()
         evergreen = request.args.get("evergreen", "").strip()
+        plant_form = request.args.get("plant_form", "").strip()
+        height_category = request.args.get("height_category", "").strip()
         category_id = request.args.get("category", "").strip()
         tag_id = request.args.get("tag", "").strip()
 
@@ -328,6 +330,12 @@ def create_app() -> Flask:
         if evergreen:
             query += " AND p.evergreen_status = ?"
             params.append(evergreen)
+        if plant_form:
+            query += " AND p.plant_form = ?"
+            params.append(plant_form)
+        if height_category:
+            query += " AND p.height_category = ?"
+            params.append(height_category)
         if category_id:
             query += " AND pc.category_id = ?"
             params.append(category_id)
@@ -386,7 +394,7 @@ def create_app() -> Flask:
             tags_map=tags_map,
             user_tags=user_tags,
             categories=categories,
-            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "category": category_id, "tag": tag_id},
+            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "plant_form": plant_form, "height_category": height_category, "category": category_id, "tag": tag_id},
         )
 
     @app.route("/ideas/new", methods=["GET", "POST"])
@@ -417,6 +425,8 @@ def create_app() -> Flask:
             "pnw_native": None,
             "photo_urls": "",
             "evergreen_status": "",
+            "plant_form": "",
+            "height_category": "",
             "active_mode": "name",
         }
 
@@ -439,6 +449,8 @@ def create_app() -> Flask:
                 "pnw_native": True if pnw_raw == "1" else (False if pnw_raw == "0" else None),
                 "photo_urls": request.form.get("photo_urls", "").strip(),
                 "evergreen_status": request.form.get("evergreen_status", "").strip(),
+                "plant_form": request.form.get("plant_form", "").strip(),
+                "height_category": request.form.get("height_category", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
             }
 
@@ -507,8 +519,8 @@ def create_app() -> Flask:
                 """
                 INSERT INTO plants
                 (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
-                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
                 (
@@ -530,6 +542,8 @@ def create_app() -> Flask:
                     1 if form_values["pnw_native"] is True else (0 if form_values["pnw_native"] is False else None),
                     form_values["photo_urls"] or None,
                     form_values["evergreen_status"] or None,
+                    form_values["plant_form"] or None,
+                    form_values["height_category"] or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             ).fetchone()["id"]
@@ -942,8 +956,8 @@ def create_app() -> Flask:
                     INSERT INTO plants
                     (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path,
                      label_photo_path, image_url, size_info, flowering_schedule, sun_exposure, lifecycle,
-                     lookup_status, notes, pnw_native, photo_urls, evergreen_status, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         g.user["id"],
@@ -963,6 +977,8 @@ def create_app() -> Flask:
                         form_values["notes"],
                         None,
                         form_values.get("photo_urls_json") or None,
+                        None,
+                        None,
                         None,
                         datetime.utcnow().isoformat(timespec="seconds"),
                     ),
@@ -1715,6 +1731,8 @@ def init_db():
     ensure_column(db, "plants", "pnw_native", "INTEGER")
     ensure_column(db, "plants", "photo_urls", "TEXT")
     ensure_column(db, "plants", "evergreen_status", "TEXT")
+    ensure_column(db, "plants", "plant_form", "TEXT")
+    ensure_column(db, "plants", "height_category", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
