@@ -1490,10 +1490,24 @@ def create_app() -> Flask:
             results = []
             for t in taxa:
                 photo = t.get("default_photo") or {}
+                # Collect curated taxon photos (already in the response — free, no extra call)
+                taxon_photos = []
+                for tp in (t.get("taxon_photos") or [])[:6]:
+                    p = (tp.get("photo") or {})
+                    url = p.get("medium_url") or p.get("square_url") or ""
+                    if url:
+                        taxon_photos.append(url)
+                # Fall back: use default_photo if taxon_photos is empty
+                if not taxon_photos:
+                    default_url = photo.get("medium_url") or photo.get("square_url")
+                    if default_url:
+                        taxon_photos = [default_url]
                 results.append({
                     "common_name": t.get("preferred_common_name") or t.get("name") or "",
                     "scientific_name": t.get("name") or "",
                     "photo_url": photo.get("medium_url") or photo.get("square_url"),
+                    "taxon_photos": taxon_photos,
+                    "taxon_id": t.get("id"),
                     "rank": t.get("rank") or "species",
                     "from_library": False,
                 })
@@ -1514,9 +1528,11 @@ def create_app() -> Flask:
     def api_plant_photos():
         q = request.args.get("q", "").strip()
         count = min(int(request.args.get("count", "3")), 6)
-        if not q:
+        taxon_id_raw = request.args.get("taxon_id", "").strip()
+        taxon_id = int(taxon_id_raw) if taxon_id_raw.isdigit() else None
+        if not q and not taxon_id:
             return jsonify(photos=[])
-        return jsonify(photos=lookup_plant_photos(q, count))
+        return jsonify(photos=lookup_plant_photos(q, count, taxon_id=taxon_id))
 
     @app.route("/api/plant-details")
     @login_required
