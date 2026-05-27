@@ -53,6 +53,10 @@
             <img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" />
           {% endif %}
         </div>
+        <div id="name-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Loading plant info…</p>
+        </div>
       </div>
 
       <div class="mode-section" id="mode-photo">
@@ -368,7 +372,17 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     if (sciField) sciField.value = plant.scientific_name || '';
     if (queryField) queryField.value = plant.scientific_name || plant.common_name;
     dropdown.hidden = true;
-    showPhotoPreview(plant.photo_url, plant.common_name || plant.scientific_name);
+
+    // Show spinner while photos + details load
+    var loading = document.getElementById('name-loading');
+    if (loading) loading.hidden = false;
+    var pending = 2;
+    function onDone() { if (--pending === 0 && loading) loading.hidden = true; }
+
+    // Scientific name gives better photo API results than common name
+    var photoQ = plant.scientific_name || plant.common_name;
+    showPhotoPreview(plant.photo_url, photoQ, onDone);
+
     // Fetch full details (sun, lifecycle, size…) and show chips before save
     var detailQ = plant.scientific_name || plant.common_name;
     fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
@@ -383,7 +397,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           showAutofillPreview(d);
         }
       })
-      .catch(function() {});
+      .catch(function() {})
+      .finally(onDone);
   }
 
   let photoReserve = [];
@@ -417,14 +432,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     });
   }
 
-  function showPhotoPreview(inlineUrl, name) {
+  function showPhotoPreview(inlineUrl, name, onComplete) {
     const preview = document.getElementById('name-photo-preview');
-    if (!preview) return;
+    if (!preview) { if (onComplete) onComplete(); return; }
     photoReserve = [];
-    // Show inline photo immediately if search already gave us one
+    // Show inline photo immediately if the search result already has one
     if (inlineUrl) {
       preview.innerHTML = makePhotoItem(inlineUrl, name || '');
-      if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = inlineUrl;
+      if (imageUrlHidden) imageUrlHidden.value = inlineUrl;
       attachRemove(preview.querySelector('.photo-item'), preview, name || '');
       preview.hidden = false;
     }
@@ -436,12 +451,13 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         if (photos.length) {
           photoReserve = photos.slice(3);
           preview.innerHTML = photos.slice(0, 3).map(u => makePhotoItem(u, name || '')).join('');
-          if (imageUrlHidden && !imageUrlHidden.value) imageUrlHidden.value = photos[0];
+          if (imageUrlHidden) imageUrlHidden.value = photos[0];
           preview.querySelectorAll('.photo-item').forEach(item => attachRemove(item, preview, name || ''));
           preview.hidden = false;
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (onComplete) onComplete(); });
   }
 })();
 

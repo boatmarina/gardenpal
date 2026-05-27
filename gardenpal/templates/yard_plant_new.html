@@ -127,6 +127,10 @@
             <div class="photo-item"><img src="{{ form_values.image_url }}" alt="{{ form_values.plant_name }}" /></div>
           {% endif %}
         </div>
+        <div id="new-name-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Loading plant info…</p>
+        </div>
         <button type="submit" name="form_action" value="autofill_name" class="button button-secondary">
           Search &amp; auto-fill details
         </button>
@@ -541,7 +545,17 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       selThumb.style.display = 'none';
       selPanel.hidden = false;
       common.hidden   = false;
-      fetchPhotos(plant.photo_url, plant.common_name || plant.scientific_name);
+
+      // Show spinner while photos + details load
+      const loading = document.getElementById('new-name-loading');
+      if (loading) loading.hidden = false;
+      let pending = 2;
+      function onDone() { if (--pending === 0 && loading) loading.hidden = true; }
+
+      // Scientific name is more reliable for photo lookups than common name
+      const photoQ = plant.scientific_name || plant.common_name;
+      fetchPhotos(plant.photo_url, photoQ, onDone);
+
       // Fetch full details and show chips
       const detailQ = plant.scientific_name || plant.common_name;
       fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
@@ -557,11 +571,12 @@ async function compressAndIdentify(inputEl, submitBtnId) {
             showSelChips(d);
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(onDone);
     }
 
-    function fetchPhotos(inlineUrl, name) {
-      if (!newPreview) return;
+    function fetchPhotos(inlineUrl, name, onComplete) {
+      if (!newPreview) { if (onComplete) onComplete(); return; }
       newPreview.innerHTML = '';
       newPreview.hidden = true;
       if (inlineUrl) {
@@ -579,7 +594,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
             newPreview.hidden = false;
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => { if (onComplete) onComplete(); });
     }
   }
 
