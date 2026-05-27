@@ -95,6 +95,15 @@
   </nav>
   {% endif %}
 
+  <!-- Loading overlay — shown on POST form submits, hidden when next page renders -->
+  <div id="gp-loading-overlay"
+       style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(28,56,41,0.18);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;padding:24px 32px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.13)">
+      <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
+      <p style="font-size:0.82rem;color:var(--muted);margin:0" id="gp-loading-msg">Saving…</p>
+    </div>
+  </div>
+
   <script src="{{ url_for('static', filename='garden.js') }}" defer></script>
   {% block scripts %}{% endblock %}
   <script>
@@ -104,6 +113,43 @@
     if (t.tagName === 'TEXTAREA' || t.type === 'password' || t.tagName === 'BUTTON') return;
     if (t.tagName === 'INPUT') { e.preventDefault(); }
   });
+
+  (function () {
+    var overlay = document.getElementById('gp-loading-overlay');
+    var msg     = document.getElementById('gp-loading-msg');
+    if (!overlay) return;
+
+    function show(text) {
+      if (msg) msg.textContent = text || 'Saving…';
+      overlay.style.display = 'flex';
+    }
+
+    /* Map submit button values to friendlier messages */
+    var ACTION_MSGS = {
+      'save':            'Saving…',
+      'autofill_photo':  'Identifying plant…',
+      'autofill_label':  'Reading label…',
+      'autofill_name':   'Looking up plant…',
+      'delete':          'Deleting…',
+    };
+
+    document.addEventListener('submit', function (e) {
+      if (e.defaultPrevented) return;
+      var form = e.target;
+      if (!form || form.tagName !== 'FORM') return;
+      if ((form.method || '').toLowerCase() !== 'post') return;
+
+      /* Pick the message based on which submit button was clicked */
+      var active = document.activeElement;
+      var action = (active && active.name === 'form_action') ? active.value : '';
+      show(ACTION_MSGS[action] || 'Saving…');
+    });
+
+    /* Hide if user navigates back (bfcache restore) */
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) overlay.style.display = 'none';
+    });
+  })();
   </script>
 </body>
 </html>
