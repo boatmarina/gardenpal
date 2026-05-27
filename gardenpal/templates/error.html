@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · GardenPal{% endblock %}
+{% block page_label %}<span class="page-subtitle">{{ title }}</span>{% endblock %}
+{% block content %}
+<section class="panel" style="text-align:center;padding:32px 24px">
+  <div style="font-size:2.5rem;margin-bottom:12px">{{ icon }}</div>
+  <h2 style="margin-bottom:8px">{{ title }}</h2>
+  <p style="color:var(--muted);font-size:0.9rem;max-width:340px;margin:0 auto 24px">{{ message }}</p>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+    <button type="button" class="button button-secondary"
+            onclick="history.length > 1 ? history.back() : (window.location='/')">
+      ← Go back
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="button">Home</a>
+  </div>
+  {% if show_report %}
+  <p style="margin-top:24px;font-size:0.78rem;color:var(--muted)">
+    If this keeps happening, please
+    <a href="mailto:boatmarina@hotmail.com?subject=GardenPal+error+{{ code }}&body={{ report_body | urlencode }}"
+       style="color:var(--green-dark)">send a report</a>.
+  </p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1699,6 +1699,45 @@ def create_app() -> Flask:
         if db is not None:
             db.close()
 
+    @app.errorhandler(404)
+    def not_found(_e):
+        return render_template(
+            "error.html",
+            code=404,
+            icon="🌿",
+            title="Page not found",
+            message="That page doesn't exist — it may have been moved or deleted.",
+            show_report=False,
+            report_body="",
+        ), 404
+
+    @app.errorhandler(413)
+    def payload_too_large(_e):
+        return render_template(
+            "error.html",
+            code=413,
+            icon="📷",
+            title="Photo too large",
+            message="The photo you uploaded is too large to process. Try a smaller image or one taken at a lower resolution.",
+            show_report=False,
+            report_body="",
+        ), 413
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        import traceback
+        tb = traceback.format_exc()
+        report = f"Error: {e}\n\nTraceback:\n{tb}"
+        return render_template(
+            "error.html",
+            code=500,
+            icon="🪴",
+            title="Something went wrong",
+            message="An unexpected error occurred. Your data is safe — please go back and try again.",
+            show_report=True,
+            report_body=report[:800],
+        ), 500
+
     return app
 
 
