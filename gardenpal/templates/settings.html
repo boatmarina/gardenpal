@@ -37,6 +37,7 @@
     </div>
   </section>
 
+  {% if current_user and current_user['is_admin'] %}
   <section class="panel" style="margin-bottom:16px" id="services-panel">
     <h2 style="margin-bottom:4px">Connected services</h2>
     <p class="muted" style="font-size:0.83rem;margin-bottom:14px">API integrations used by the app and their usage limits.</p>
@@ -46,6 +47,7 @@
       </p>
     </div>
   </section>
+  {% endif %}
 
   <section class="panel stack" style="margin-bottom:16px">
     <h2 style="margin-bottom:4px">Claude MCP access</h2>
@@ -125,6 +127,7 @@
 {% endblock %}
 
 {% block scripts %}
+{% if current_user and current_user['is_admin'] %}
 <script>
 (function () {
   fetch('/api/service-status')
@@ -179,4 +182,5 @@
     });
 })();
 </script>
+{% endif %}
 {% endblock %}

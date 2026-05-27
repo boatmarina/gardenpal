@@ -192,7 +192,7 @@ def create_app() -> Flask:
         user_id = session.get("user_id")
         g.user = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username, api_token FROM users WHERE id = ?", (user_id,)).fetchone()
+            g.user = get_db().execute("SELECT id, username, api_token, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
@@ -1603,6 +1603,8 @@ def create_app() -> Flask:
     @app.route("/api/service-status")
     @login_required
     def api_service_status():
+        if not g.user.get("is_admin"):
+            return jsonify(error="Forbidden"), 403
         services = []
 
         # Anthropic
@@ -1884,6 +1886,9 @@ def init_db():
     db._conn.autocommit = False
 
     ensure_column(db, "users", "api_token", "TEXT")
+    ensure_column(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0")
+    db.execute("UPDATE users SET is_admin = 1 WHERE lower(username) = lower('boatmarina')")
+    db.commit()
     ensure_column(db, "plants", "user_id", "INTEGER")
     ensure_column(db, "plants", "scientific_name", "TEXT")
     ensure_column(db, "plants", "lookup_query", "TEXT")
