@@ -64,26 +64,33 @@
       </div>
 
       <div class="mode-section" id="mode-photo">
-        <div id="photo-id-preview" class="photos-grid" style="margin-bottom:12px"
-             {% if not (form_values.active_mode == 'photo' and form_values.image_url) %}hidden{% endif %}>
-          {% if form_values.active_mode == 'photo' and form_values.image_url %}
-            <div class="photo-item"><img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" /></div>
-          {% endif %}
-        </div>
-        {% if form_values.name and form_values.active_mode == 'photo' %}
-          <p class="identified-name">Identified: <strong>{{ form_values.name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
-        {% endif %}
+        <div id="photo-id-preview" class="photos-grid" style="margin-bottom:12px" hidden></div>
         <div id="photo-loading" hidden style="text-align:center;padding:10px 0 4px">
           <div class="spinner"></div>
           <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Identifying plant…</p>
         </div>
-        <input type="file" name="photo" accept="image/*" id="photo-file-input" style="display:none"
-               onchange="compressAndIdentify(this,'photo-submit-btn')" />
-        <button type="button" class="button btn-upload" id="photo-upload-btn" onclick="document.getElementById('photo-file-input').click()">
-          {% if form_values.name and form_values.active_mode == 'photo' %}Re-take Photo{% else %}Choose Photo{% endif %}
-        </button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button type="button" class="button btn-upload" id="photo-upload-btn"
+                  onclick="document.getElementById('photo-file-input').click()">Choose Photo</button>
+          <button type="button" class="button button-secondary" id="identify-btn"
+                  style="display:none;font-size:0.8rem">Identify Plant</button>
+        </div>
+        <input type="file" name="photo" accept="image/*" id="photo-file-input"
+               style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;overflow:hidden" />
+        <div id="photo-name-row" {% if not (form_values.active_mode == 'photo' and form_values.name) %}hidden{% endif %}
+             style="margin-top:10px">
+          <label>
+            Plant name
+            <input id="photo-name-input" type="text" placeholder="Type plant name…"
+                   value="{{ form_values.name if form_values.active_mode == 'photo' else '' }}"
+                   autocomplete="off" />
+          </label>
+          {% if form_values.active_mode == 'photo' and form_values.scientific_name %}
+            <p class="muted" style="font-size:0.82rem;font-style:italic;margin-top:2px">{{ form_values.scientific_name }}</p>
+          {% endif %}
+        </div>
         <button type="submit" id="photo-submit-btn" name="form_action" value="autofill_photo"
-                style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden">Identify</button>
+                style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;overflow:hidden">Identify</button>
       </div>
 
       <div class="mode-section" id="mode-label">
@@ -144,13 +151,15 @@
       <!-- Populated by JS after label scan or name-search selection -->
       <div id="autofill-preview" class="autofill-summary" hidden></div>
 
-      {% if form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info %}
+      {% if form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info or form_values.plant_form or form_values.height_category %}
         <div class="autofill-summary">
           {% if form_values.image_url %}
             <img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" class="autofill-thumb" />
           {% endif %}
           <div class="autofill-chips">
             {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
+            {% if form_values.plant_form %}<span class="chip">{{ form_values.plant_form | replace("-", " ") | capitalize }}</span>{% endif %}
+            {% if form_values.height_category %}<span class="chip">{{ form_values.height_category | capitalize }}</span>{% endif %}
             {% if form_values.sun_exposure %}<span class="chip">{{ form_values.sun_exposure }}</span>{% endif %}
             {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
             {% if form_values.size_info %}<span class="chip">{{ form_values.size_info }}</span>{% endif %}
@@ -169,37 +178,6 @@
         Notes
         <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
-
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <label style="flex:1;min-width:130px">
-          Plant form
-          <select name="plant_form_vis" id="plant-form-vis" onchange="document.getElementById('plant-form-hidden').value=this.value">
-            <option value="">— choose —</option>
-            <option value="tree"         {% if form_values.plant_form == "tree"         %}selected{% endif %}>Tree</option>
-            <option value="shrub"        {% if form_values.plant_form == "shrub"        %}selected{% endif %}>Shrub</option>
-            <option value="perennial"    {% if form_values.plant_form == "perennial"    %}selected{% endif %}>Perennial</option>
-            <option value="annual"       {% if form_values.plant_form == "annual"       %}selected{% endif %}>Annual</option>
-            <option value="climber"      {% if form_values.plant_form == "climber"      %}selected{% endif %}>Climber / Vine</option>
-            <option value="ground-cover" {% if form_values.plant_form == "ground-cover" %}selected{% endif %}>Ground cover</option>
-            <option value="grass"        {% if form_values.plant_form == "grass"        %}selected{% endif %}>Grass / Ornamental grass</option>
-            <option value="fern"         {% if form_values.plant_form == "fern"         %}selected{% endif %}>Fern</option>
-            <option value="bulb"         {% if form_values.plant_form == "bulb"         %}selected{% endif %}>Bulb / Corm</option>
-            <option value="succulent"    {% if form_values.plant_form == "succulent"    %}selected{% endif %}>Succulent / Cactus</option>
-            <option value="herb"         {% if form_values.plant_form == "herb"         %}selected{% endif %}>Herb</option>
-            <option value="bamboo"       {% if form_values.plant_form == "bamboo"       %}selected{% endif %}>Bamboo</option>
-          </select>
-        </label>
-        <label style="flex:1;min-width:130px">
-          Height
-          <select name="height_category_vis" id="height-category-vis" onchange="document.getElementById('height-category-hidden').value=this.value">
-            <option value="">— choose —</option>
-            <option value="low"    {% if form_values.height_category == "low"    %}selected{% endif %}>Low (under 2 ft)</option>
-            <option value="medium" {% if form_values.height_category == "medium" %}selected{% endif %}>Medium (2 – 5 ft)</option>
-            <option value="tall"   {% if form_values.height_category == "tall"   %}selected{% endif %}>Tall (5 – 13 ft)</option>
-            <option value="large"  {% if form_values.height_category == "large"  %}selected{% endif %}>Large (13 ft+)</option>
-          </select>
-        </label>
-      </div>
 
       <label>
         Tags
@@ -221,40 +199,68 @@
 window.LIBRARY_PLANTS = {{ library_plants | tojson }};
 </script>
 <script>
-async function compressAndIdentify(inputEl, submitBtnId) {
-  var file = inputEl.files[0];
-  if (!file) return;
-  var preview = document.getElementById('photo-id-preview');
-  if (preview) {
-    preview.innerHTML = '<div class="photo-item"><img src="' + URL.createObjectURL(file) + '" /></div>';
-    preview.hidden = false;
-  }
-  var loading = document.getElementById('photo-loading');
-  if (loading) loading.hidden = false;
-  var uploadBtn = document.getElementById('photo-upload-btn');
-  if (uploadBtn) uploadBtn.disabled = true;
-  document.querySelectorAll('button[value="save"]').forEach(function(b) { b.disabled = true; });
-  var compressed = await GP.compressImage(file);
-  try { sessionStorage.setItem('gpPhotoPreview', await GP.blobToDataURL(compressed)); } catch(e) {}
-  try {
-    var dt = new DataTransfer();
-    dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
-    inputEl.files = dt.files;
-  } catch(e) {}
-  var btn = document.getElementById(submitBtnId);
-  var f = inputEl.form;
-  if (f.requestSubmit) f.requestSubmit(btn); else btn.click();
-}
+/* Photo mode: preview on select, identify on button click */
+(function () {
+  var fileInput   = document.getElementById('photo-file-input');
+  var identifyBtn = document.getElementById('identify-btn');
+  var uploadBtn   = document.getElementById('photo-upload-btn');
+  var preview     = document.getElementById('photo-id-preview');
+  var nameRow     = document.getElementById('photo-name-row');
+  var photoNameInput = document.getElementById('photo-name-input');
 
-/* Restore photo preview after page reload (covers both success and failure) */
-(function() {
+  /* Restore preview from sessionStorage after server round-trip */
   var saved; try { saved = sessionStorage.getItem('gpPhotoPreview'); } catch(e) {}
-  if (!saved) return;
-  try { sessionStorage.removeItem('gpPhotoPreview'); } catch(e) {}
-  var preview = document.getElementById('photo-id-preview');
-  if (preview && preview.hidden) {
-    preview.innerHTML = '<div class="photo-item"><img src="' + saved + '" /></div>';
-    preview.hidden = false;
+  if (saved) {
+    try { sessionStorage.removeItem('gpPhotoPreview'); } catch(e) {}
+    if (preview) {
+      preview.innerHTML = '<div class="photo-item"><img src="' + saved + '" /></div>';
+      preview.hidden = false;
+    }
+    if (uploadBtn) uploadBtn.textContent = 'Change Photo';
+  }
+
+  /* Show photo-name-row if the server has already identified a name */
+  if (photoNameInput && photoNameInput.value && nameRow) nameRow.hidden = false;
+
+  if (fileInput) {
+    fileInput.addEventListener('change', function () {
+      var file = fileInput.files[0];
+      if (!file) return;
+      if (preview) {
+        preview.innerHTML = '<div class="photo-item"><img src="' + URL.createObjectURL(file) + '" /></div>';
+        preview.hidden = false;
+      }
+      if (identifyBtn) identifyBtn.style.display = '';
+      if (uploadBtn)   uploadBtn.textContent = 'Change Photo';
+      if (nameRow)     nameRow.hidden = false;
+    });
+  }
+
+  if (photoNameInput) {
+    photoNameInput.addEventListener('input', function () {
+      var nameHidden = document.getElementById('name-hidden');
+      if (nameHidden) nameHidden.value = photoNameInput.value;
+    });
+  }
+
+  if (identifyBtn) {
+    identifyBtn.addEventListener('click', async function () {
+      if (!fileInput || !fileInput.files[0]) { alert('Please choose a photo first.'); return; }
+      var loading = document.getElementById('photo-loading');
+      if (loading) loading.hidden = false;
+      identifyBtn.disabled = true;
+      document.querySelectorAll('button[value="save"]').forEach(function(b) { b.disabled = true; });
+      var compressed = await GP.compressImage(fileInput.files[0]);
+      try { sessionStorage.setItem('gpPhotoPreview', await GP.blobToDataURL(compressed)); } catch(e) {}
+      try {
+        var dt = new DataTransfer();
+        dt.items.add(new File([compressed], 'photo.jpg', { type: 'image/jpeg' }));
+        fileInput.files = dt.files;
+      } catch(e) {}
+      var btn = document.getElementById('photo-submit-btn');
+      var f = fileInput.form;
+      if (f.requestSubmit) f.requestSubmit(btn); else btn.click();
+    });
   }
 })();
 
@@ -466,6 +472,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           set('lifecycle',          d.lifecycle);
           set('size_info',          d.size_info);
           set('flowering_schedule', d.flowering_schedule);
+          set('plant_form',         d.plant_form);
+          set('height_category',    d.height_category);
           showAutofillPreview(d);
         }
       })
@@ -490,7 +498,9 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   function showAutofillPreview(details) {
     var el = document.getElementById('autofill-preview');
     if (!el || !details) return;
-    var chips = [details.scientific_name, details.sun_needs, details.lifecycle,
+    var formLabel = details.plant_form ? details.plant_form.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : '';
+    var htLabel   = details.height_category ? details.height_category.charAt(0).toUpperCase()+details.height_category.slice(1) : '';
+    var chips = [details.scientific_name, formLabel, htLabel, details.sun_needs, details.lifecycle,
                  details.size_info, details.flowering_schedule].filter(Boolean);
     if (!chips.length) return;
     function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }

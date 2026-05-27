@@ -498,6 +498,7 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                         flash("Used photo match to autofill details.")
+                form_values["image_url"] = ""  # keep user's own photo, not API images
                 return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if not form_values["name"]:
@@ -2022,6 +2023,13 @@ def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool
         form_values["pnw_native"] = details["pnw_native"]
     if details.get("evergreen_status"):
         form_values["evergreen_status"] = details["evergreen_status"]
+    _VALID_PLANT_FORMS = {"tree","shrub","perennial","annual","climber","ground-cover","grass","fern","bulb","succulent","herb","bamboo"}
+    pf = (details.get("plant_form") or "").strip().lower()
+    if pf in _VALID_PLANT_FORMS:
+        form_values["plant_form"] = pf
+    hc = (details.get("height_category") or "").strip().lower()
+    if hc in {"low","medium","tall","large"}:
+        form_values["height_category"] = hc
     form_values["lookup_status"] = "draft"
 
 
