@@ -76,10 +76,10 @@
         </select>
         <select name="height_category" style="flex:1;min-width:130px;font-size:0.85rem" onchange="this.form.submit()">
           <option value="">Any height</option>
-          <option value="low"    {% if active_filters.height_category == "low"    %}selected{% endif %}>Low (under 50 cm)</option>
-          <option value="medium" {% if active_filters.height_category == "medium" %}selected{% endif %}>Medium (50 cm – 1.5 m)</option>
-          <option value="tall"   {% if active_filters.height_category == "tall"   %}selected{% endif %}>Tall (1.5 – 4 m)</option>
-          <option value="large"  {% if active_filters.height_category == "large"  %}selected{% endif %}>Large (4 m+)</option>
+          <option value="low"    {% if active_filters.height_category == "low"    %}selected{% endif %}>Low (under 2 ft)</option>
+          <option value="medium" {% if active_filters.height_category == "medium" %}selected{% endif %}>Medium (2 – 5 ft)</option>
+          <option value="tall"   {% if active_filters.height_category == "tall"   %}selected{% endif %}>Tall (5 – 13 ft)</option>
+          <option value="large"  {% if active_filters.height_category == "large"  %}selected{% endif %}>Large (13 ft+)</option>
         </select>
       </div>
       {% if has_filters %}
@@ -164,6 +164,18 @@
     toggle.addEventListener('click', function () {
       panel.hidden = !panel.hidden;
       if (!panel.hidden) panel.querySelector('input[name="q"]').focus();
+    });
+  }
+
+  /* Live search — submit after brief pause while typing */
+  var searchInput = panel && panel.querySelector('input[name="q"]');
+  if (searchInput) {
+    var searchTimer;
+    searchInput.addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        searchInput.form.submit();
+      }, 350);
     });
   }
 
