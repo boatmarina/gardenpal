@@ -461,7 +461,7 @@ def create_app() -> Flask:
                 else:
                     apply_lookup_to_form(form_values, details, use_common_name=True)
                     flash("Plant details autofilled.")
-                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if form_action == "autofill_label":
                 text, error = extract_text_from_image(request.files.get("label_photo"))
@@ -477,10 +477,14 @@ def create_app() -> Flask:
                         flash(f"Label read: \"{guessed}\" — review the name then save.")
                     else:
                         flash("Could not extract a plant name from that label.")
-                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if form_action == "autofill_photo":
-                suggestion, error = identify_plant_from_image(request.files.get("photo"))
+                photo_file = request.files.get("photo")
+                if not photo_file or not photo_file.filename:
+                    flash("Please choose a photo first.")
+                    return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+                suggestion, error = identify_plant_from_image(photo_file)
                 if error:
                     flash(error)
                 else:
@@ -494,11 +498,11 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                         flash("Used photo match to autofill details.")
-                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if not form_values["name"]:
                 flash("Plant name is required.")
-                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
+                return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             # Auto-fill details on save if not already done via an explicit autofill action
             if form_values["lookup_status"] != "draft":

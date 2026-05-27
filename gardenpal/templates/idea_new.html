@@ -8,6 +8,10 @@
   <section class="panel">
     <h2>Add Plant Idea</h2>
     <form method="post" enctype="multipart/form-data" class="stack">
+      <!-- must be first submit so Enter key → save, not autofill_photo -->
+      <button type="submit" name="form_action" value="save"
+              style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;overflow:hidden"
+              aria-hidden="true" tabindex="-1">Save</button>
 
       <input type="hidden" name="active_mode" id="active-mode-field" value="{{ form_values.active_mode or 'name' }}" />
 
