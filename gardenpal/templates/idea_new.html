@@ -131,6 +131,9 @@
       <input type="hidden" name="photo_urls"         id="photo-urls-hidden" value="" />
       <input type="hidden" name="source_type"        value="world" />
 
+      <!-- Populated by JS after label scan or name-search selection -->
+      <div id="autofill-preview" class="autofill-summary" hidden></div>
+
       {% if form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info %}
         <div class="autofill-summary">
           {% if form_values.image_url %}
@@ -316,6 +319,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
               setField('lifecycle',          details.lifecycle);
               setField('size_info',          details.size_info);
               setField('flowering_schedule', details.flowering_schedule);
+              showAutofillPreview(details);
             }
           }).finally(() => {
             waitingForPhotos = false;
@@ -379,9 +383,36 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     if (queryField) queryField.value = plant.scientific_name || plant.common_name;
     dropdown.hidden = true;
     showPhotoPreview(plant.photo_url, plant.common_name || plant.scientific_name);
+    // Fetch full details (sun, lifecycle, size…) and show chips before save
+    var detailQ = plant.scientific_name || plant.common_name;
+    fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.error) {
+          var set = function(n, v) { var el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
+          set('sun_exposure',       d.sun_needs);
+          set('lifecycle',          d.lifecycle);
+          set('size_info',          d.size_info);
+          set('flowering_schedule', d.flowering_schedule);
+          showAutofillPreview(d);
+        }
+      })
+      .catch(function() {});
   }
 
   let photoReserve = [];
+
+  /* Show scraped detail chips in the autofill-preview div */
+  function showAutofillPreview(details) {
+    var el = document.getElementById('autofill-preview');
+    if (!el || !details) return;
+    var chips = [details.scientific_name, details.sun_needs, details.lifecycle,
+                 details.size_info, details.flowering_schedule].filter(Boolean);
+    if (!chips.length) return;
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    el.innerHTML = '<div class="autofill-chips">' + chips.map(function(c){ return '<span class="chip">'+esc(c)+'</span>'; }).join('') + '</div>';
+    el.hidden = false;
+  }
 
   function makePhotoItem(url, altText) {
     return `<div class="photo-item"><img src="${url}" alt="${altText || ''}" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
