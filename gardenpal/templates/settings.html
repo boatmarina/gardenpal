@@ -175,11 +175,21 @@
         if (s.credits_remaining != null) {
           var pct = s.credits_total ? Math.round((s.credits_remaining / s.credits_total) * 100) : null;
           var barColor = pct == null ? 'var(--green-mid)' : pct > 30 ? 'var(--green-mid)' : pct > 10 ? '#B5803A' : '#C26B7E';
+          var checkedLabel = '';
+          if (s.checked_ago_secs != null) {
+            var secs = s.checked_ago_secs;
+            if (secs < 120)          checkedLabel = 'just now';
+            else if (secs < 3600)    checkedLabel = Math.round(secs / 60) + ' min ago';
+            else if (secs < 86400)   checkedLabel = Math.round(secs / 3600) + ' hr ago';
+            else                     checkedLabel = Math.round(secs / 86400) + ' days ago';
+          }
           creditHtml = '<div style="margin-top:8px">'
             + '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-bottom:3px">'
-            + '<span>Credits remaining</span><span style="font-weight:600;color:var(--text)">' + s.credits_remaining
+            + '<span>Credits remaining</span>'
+            + '<span style="font-weight:600;color:var(--text)">' + s.credits_remaining
             + (s.credits_total ? ' / ' + s.credits_total : '') + '</span></div>'
             + (pct != null ? '<div style="height:4px;background:var(--border);border-radius:2px"><div style="height:4px;border-radius:2px;width:' + pct + '%;background:' + barColor + '"></div></div>' : '')
+            + (checkedLabel ? '<p style="font-size:0.72rem;color:var(--muted);margin:4px 0 0;text-align:right">Updated ' + checkedLabel + ' · refreshes every 24 h</p>' : '')
             + '</div>';
         }
 

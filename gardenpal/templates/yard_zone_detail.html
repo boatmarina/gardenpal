@@ -6,27 +6,25 @@
     Yard
   </a>
   <section class="panel">
-    <div class="title-row">
-      <div style="display:flex;align-items:center;gap:8px">
-        <h2 style="margin:0">{{ zone.name }}</h2>
-        <button type="button" id="zone-edit-toggle" title="Edit name and description"
-                style="background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex;align-items:center">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-          </svg>
-        </button>
-      </div>
-      <a href="{{ url_for('yard_plant_new') }}?zone_id={{ zone.id }}" class="button"
-         style="display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <h2 style="margin:0">{{ zone.name }}</h2>
+      <button type="button" id="zone-edit-toggle" title="Edit name and description"
+              style="background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;display:flex;align-items:center">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
-        Add Plant
-      </a>
+      </button>
     </div>
-    {% if zone.description %}<p style="margin-top:6px;color:var(--muted);font-size:0.85rem">{{ zone.description }}</p>{% endif %}
+    {% if zone.description %}<p style="color:var(--muted);font-size:0.85rem;margin-bottom:12px">{{ zone.description }}</p>{% endif %}
+    <a href="{{ url_for('yard_plant_new') }}?zone_id={{ zone.id }}" class="button"
+       style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+      </svg>
+      Add Plant
+    </a>
 
     <div id="zone-edit-form" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
       <form method="post" action="{{ url_for('yard_zone_edit', zone_id=zone.id) }}" class="stack" style="gap:10px">

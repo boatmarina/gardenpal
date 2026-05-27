@@ -1636,9 +1636,34 @@ def create_app() -> Flask:
     def api_service_status():
         if not g.user.get("is_admin"):
             return jsonify(error="Forbidden"), 403
+
+        db = get_db()
+        now = datetime.utcnow()
+        _24h = 86400  # seconds
+
+        def _cache_get(key):
+            row = db.execute(
+                "SELECT value_json, updated_at FROM service_cache WHERE key = ?", (key,)
+            ).fetchone()
+            if row is None:
+                return None, None
+            try:
+                age = (now - datetime.fromisoformat(row["updated_at"])).total_seconds()
+                return json.loads(row["value_json"]), age
+            except Exception:
+                return None, None
+
+        def _cache_set(key, value):
+            db.execute(
+                "INSERT INTO service_cache (key, value_json, updated_at) VALUES (?, ?, ?)"
+                " ON CONFLICT (key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+                (key, json.dumps(value), now.isoformat(timespec="seconds")),
+            )
+            db.commit()
+
         services = []
 
-        # Anthropic
+        # Anthropic — no programmatic usage API on a standard key
         services.append({
             "id": "anthropic",
             "name": "Claude (Anthropic)",
@@ -1649,24 +1674,38 @@ def create_app() -> Flask:
             "dashboard_url": "https://console.anthropic.com/settings/billing",
         })
 
-        # Plant.id — try to fetch remaining credits from their usage endpoint
+        # Plant.id — usage API available; cache for 24 h
         plant_id_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
         plant_id_credits = None
         plant_id_limit = None
+        plant_id_checked_ago = None
         if plant_id_key:
-            try:
-                r = requests.get(
-                    "https://plant.id/api/v3/usage_info",
-                    headers={"Api-Key": plant_id_key},
-                    timeout=5,
-                )
-                if r.ok:
-                    usage = r.json()
-                    credit = usage.get("credit") or {}
-                    plant_id_credits = credit.get("remaining")
-                    plant_id_limit = credit.get("total")
-            except Exception:
-                pass
+            cached, age_secs = _cache_get("plant_id_usage")
+            if cached is not None and age_secs is not None and age_secs < _24h:
+                credit = cached.get("credit") or {}
+                plant_id_credits = credit.get("remaining")
+                plant_id_limit = credit.get("total")
+                plant_id_checked_ago = int(age_secs)
+            else:
+                try:
+                    r = requests.get(
+                        "https://plant.id/api/v3/usage_info",
+                        headers={"Api-Key": plant_id_key},
+                        timeout=5,
+                    )
+                    if r.ok:
+                        usage = r.json()
+                        _cache_set("plant_id_usage", usage)
+                        credit = usage.get("credit") or {}
+                        plant_id_credits = credit.get("remaining")
+                        plant_id_limit = credit.get("total")
+                        plant_id_checked_ago = 0
+                except Exception:
+                    if cached:
+                        credit = cached.get("credit") or {}
+                        plant_id_credits = credit.get("remaining")
+                        plant_id_limit = credit.get("total")
+                        plant_id_checked_ago = int(age_secs) if age_secs else None
         services.append({
             "id": "plant_id",
             "name": "Plant.id",
@@ -1677,16 +1716,17 @@ def create_app() -> Flask:
             "dashboard_url": "https://plant.id/api",
             "credits_remaining": plant_id_credits,
             "credits_total": plant_id_limit,
+            "checked_ago_secs": plant_id_checked_ago,
         })
 
-        # OCR Space
+        # OCR Space — no programmatic usage API
         services.append({
             "id": "ocr_space",
             "name": "OCR Space",
             "configured": bool(os.environ.get("OCR_SPACE_API_KEY", "").strip()),
             "used_for": "Reading text from plant label photos",
             "free_tier": "25,000 pages / month",
-            "limit_note": "Free plan resets monthly",
+            "limit_note": "Free plan resets monthly — check dashboard for current use",
             "dashboard_url": "https://ocr.space/ocrapi",
         })
 
@@ -1702,7 +1742,7 @@ def create_app() -> Flask:
             "dashboard_url": "https://www.inaturalist.org/pages/api+reference",
         })
 
-        # Perenual (optional)
+        # Perenual (optional) — no programmatic usage API
         services.append({
             "id": "perenual",
             "name": "Perenual",
@@ -2088,6 +2128,13 @@ _SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_tags_user_id        ON tags(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_plant_tags_plant_id ON plant_tags(plant_id)",
     "CREATE INDEX IF NOT EXISTS idx_plant_tags_tag_id   ON plant_tags(tag_id)",
+    """
+    CREATE TABLE IF NOT EXISTS service_cache (
+        key TEXT PRIMARY KEY,
+        value_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
 ]
 
 
