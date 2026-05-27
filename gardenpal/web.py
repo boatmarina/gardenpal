@@ -607,9 +607,14 @@ def create_app() -> Flask:
                 (g.user["id"],),
             ).fetchall()
         ]
+        all_zones = db.execute(
+            "SELECT id, name FROM yard_zones WHERE user_id = ? ORDER BY name ASC",
+            (g.user["id"],),
+        ).fetchall()
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
                                plant_tags=plant_tags, user_tags=user_tags,
+                               all_zones=all_zones,
                                plant_zones=[
                                    {"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "notes": r["notes"]}
                                    for r in db.execute(
@@ -623,6 +628,58 @@ def create_app() -> Flask:
                                        (g.user["id"], plant["name"]),
                                    ).fetchall()
                                ])
+
+    @app.route("/ideas/<int:plant_id>/add-to-zone", methods=["POST"])
+    @login_required
+    def idea_add_to_zone(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT * FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        zone_id = request.form.get("zone_id", "").strip()
+        if not zone_id:
+            flash("Please choose a zone.")
+            return redirect(url_for("idea_detail", plant_id=plant_id))
+        zone = db.execute(
+            "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
+            (zone_id, g.user["id"]),
+        ).fetchone()
+        if zone is None:
+            flash("Zone not found.")
+            return redirect(url_for("idea_detail", plant_id=plant_id))
+        db.execute(
+            """
+            INSERT INTO yard_plants
+            (user_id, zone_id, plant_name, scientific_name, lookup_query, image_path, location_x, location_y,
+             size_info, watering_needs, sun_needs, flowering_schedule, lifecycle, spreads, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                g.user["id"],
+                int(zone_id),
+                plant["name"],
+                plant["scientific_name"] or "",
+                plant["lookup_query"] or plant["name"],
+                plant["image_path"],
+                50,
+                50,
+                plant["size_info"] or "",
+                "",
+                plant["sun_exposure"] or "",
+                plant["flowering_schedule"] or "",
+                plant["lifecycle"] or "",
+                "",
+                "",
+                datetime.utcnow().isoformat(timespec="seconds"),
+            ),
+        )
+        db.commit()
+        flash("Added to zone.")
+        return redirect(url_for("idea_detail", plant_id=plant_id))
 
     @app.route("/yard")
     @login_required
