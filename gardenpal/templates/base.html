@@ -97,5 +97,13 @@
 
   <script src="{{ url_for('static', filename='garden.js') }}" defer></script>
   {% block scripts %}{% endblock %}
+  <script>
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    var t = e.target;
+    if (t.tagName === 'TEXTAREA' || t.type === 'password' || t.tagName === 'BUTTON') return;
+    if (t.tagName === 'INPUT') { e.preventDefault(); }
+  });
+  </script>
 </body>
 </html>
