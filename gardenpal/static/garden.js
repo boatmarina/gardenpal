@@ -49,36 +49,63 @@
   };
 
   /*
-   * Render a grouped plant-search dropdown.
-   * Results from the same genus are clustered; cultivars/varieties are indented
-   * below their parent species. Library-saved plants float to the top.
+   * Render a grouped, scored plant-search dropdown.
+   *
+   * Ordering priority (highest wins):
+   *   4 — exact match on common or scientific name
+   *   3 — plant is already in the user's library
+   *   2 — name starts with the query (prefix match)
+   *   1 — everything else (preserves iNaturalist's relevance order within tier)
+   *
+   * Results are sorted by score before genus-grouping, so the genus of the
+   * best result appears first. Within each genus group cultivars/varieties are
+   * indented below their parent species.
+   *
+   * query  — the raw search string typed by the user (used for scoring)
    * onSelect(plant) is called when a result is clicked.
    */
-  G.renderPlantDropdown = function renderPlantDropdown(dropdown, results, onSelect) {
+  G.renderPlantDropdown = function renderPlantDropdown(dropdown, results, onSelect, query) {
     dropdown.innerHTML = '';
     if (!results.length) { dropdown.hidden = true; return; }
 
     var subRanks = { variety: 1, cultivar: 1, subspecies: 1, form: 1, hybrid: 1, infrahybrid: 1 };
+    var qL = (query || '').toLowerCase().trim();
 
-    /* Group by genus (first word of scientific name) */
-    var groups = Object.create(null);
-    var genusOrder = [];
-    results.forEach(function(p) {
-      var genus = (p.scientific_name || '').split(' ')[0] || '';
-      if (!groups[genus]) { groups[genus] = []; genusOrder.push(genus); }
-      groups[genus].push(p);
-    });
+    function scoreResult(plant) {
+      var n = (plant.common_name    || '').toLowerCase().trim();
+      var s = (plant.scientific_name || '').toLowerCase().trim();
+      if (qL && (n === qL || s === qL))            return 4;  // exact match
+      if (plant.from_library)                       return 3;  // in user's library
+      if (qL && (n.startsWith(qL) || s.startsWith(qL))) return 2;  // prefix match
+      return 1;                                                // general API match
+    }
 
     function esc(s) {
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    /* Sort by score before grouping so the best-matching genus appears first.
+       Stable: same-score results keep their original (iNaturalist relevance) order. */
+    var scored = results.map(function(p, i) { return { p: p, s: scoreResult(p), i: i }; });
+    scored.sort(function(a, b) { return b.s !== a.s ? b.s - a.s : a.i - b.i; });
+    var sorted = scored.map(function(x) { return x.p; });
+
+    /* Group by genus (first word of scientific name), preserving score order */
+    var groups = Object.create(null);
+    var genusOrder = [];
+    sorted.forEach(function(p) {
+      var genus = (p.scientific_name || '').split(' ')[0] || '';
+      if (!groups[genus]) { groups[genus] = []; genusOrder.push(genus); }
+      groups[genus].push(p);
+    });
+
     genusOrder.forEach(function(genus) {
       var group = groups[genus];
 
-      /* Library items first; then species before cultivars/varieties; then alpha */
+      /* Within a group: score first, then species before cultivars, then alpha */
       group.sort(function(a, b) {
-        if (!!a.from_library !== !!b.from_library) return a.from_library ? -1 : 1;
+        var sa = scoreResult(a), sb = scoreResult(b);
+        if (sa !== sb) return sb - sa;
         var aS = !!subRanks[a.rank || ''], bS = !!subRanks[b.rank || ''];
         if (aS !== bS) return aS ? 1 : -1;
         return (a.scientific_name || '').localeCompare(b.scientific_name || '');
