@@ -1482,7 +1482,7 @@ def create_app() -> Flask:
         try:
             resp = requests.get(
                 "https://api.inaturalist.org/v1/taxa",
-                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 15},
+                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 8},
                 timeout=8,
             )
             resp.raise_for_status()
