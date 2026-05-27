@@ -566,15 +566,21 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       selPanel.hidden = false;
       common.hidden   = false;
 
-      // Show spinner while photos + details load
+      // Show spinner while details load (photos may be instant)
       const loading = document.getElementById('new-name-loading');
       if (loading) loading.hidden = false;
-      let pending = 2;
+      let pending = 1; // only details; photos are synchronous or have own counter
       function onDone() { if (--pending === 0 && loading) loading.hidden = true; }
 
-      // Scientific name is more reliable for photo lookups than common name
       const photoQ = plant.scientific_name || plant.common_name;
-      fetchPhotos(plant.photo_url, photoQ, onDone);
+      const preloaded = plant.taxon_photos || [];
+      if (preloaded.length) {
+        // Photos already in the search result — show instantly
+        showPhotoList(preloaded, photoQ);
+      } else {
+        pending++;
+        fetchPhotos(plant.photo_url, photoQ, onDone);
+      }
 
       // Fetch full details and show chips
       const detailQ = plant.scientific_name || plant.common_name;
@@ -593,6 +599,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         })
         .catch(() => {})
         .finally(onDone);
+    }
+
+    /* Show a pre-loaded list of photo URLs in the name-mode preview grid */
+    function showPhotoList(photos, name) {
+      if (!newPreview || !photos.length) return;
+      newPreview.innerHTML = photos.slice(0, 3).map(u => `<div class="photo-item"><img src="${u}" alt="${name||''}" /></div>`).join('');
+      hImageUrl.value = photos[0];
+      newPreview.hidden = false;
     }
 
     function fetchPhotos(inlineUrl, name, onComplete) {

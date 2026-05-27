@@ -130,47 +130,67 @@ def lookup_plant_image(query: str) -> Optional[str]:
     return photo_url
 
 
-def lookup_plant_photos(query: str, count: int = 3) -> List[str]:
-    """Return up to `count` iNaturalist community photo URLs for the plant."""
-    try:
-        # Find taxon ID first
-        taxa_resp = requests.get(
-            "https://api.inaturalist.org/v1/taxa",
-            params={"q": query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 1},
-            timeout=12,
-        )
-        taxa_resp.raise_for_status()
-        taxa = taxa_resp.json().get("results", [])
-        if not taxa:
-            return []
+def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = None) -> List[str]:
+    """Return up to `count` iNaturalist photo URLs for the plant.
 
-        taxon_id = taxa[0].get("id")
+    If taxon_id is provided the taxa lookup is skipped (saves one API call).
+    Photos come from iNaturalist observations (includes cultivated/garden plants).
+    """
+    try:
+        if not taxon_id:
+            if not query:
+                return []
+            taxa_resp = requests.get(
+                "https://api.inaturalist.org/v1/taxa",
+                params={"q": query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 1},
+                timeout=8,
+            )
+            taxa_resp.raise_for_status()
+            taxa = taxa_resp.json().get("results", [])
+            if not taxa:
+                return []
+            taxon = taxa[0]
+            taxon_id = taxon.get("id")
+            # Also try taxon_photos from the taxa response (curated, already fetched)
+            taxon_photos: List[str] = []
+            for tp in (taxon.get("taxon_photos") or [])[:count]:
+                p = (tp.get("photo") or {})
+                url = p.get("medium_url") or p.get("square_url") or ""
+                if url:
+                    taxon_photos.append(url)
+            if not taxon_photos:
+                default_url = (taxon.get("default_photo") or {}).get("medium_url") or \
+                              (taxon.get("default_photo") or {}).get("square_url")
+                if default_url:
+                    taxon_photos = [default_url]
+            if taxon_photos:
+                return taxon_photos[:count]
+
         if not taxon_id:
             return []
 
-        # Fetch high-quality, varied observations with photos
+        # Fetch observations (no quality_grade filter — includes garden/cultivated plants)
         obs_resp = requests.get(
             "https://api.inaturalist.org/v1/observations",
             params={
                 "taxon_id": taxon_id,
                 "has[]": "photos",
-                "quality_grade": "research",
                 "per_page": count * 3,
                 "order_by": "votes",
                 "order": "desc",
             },
-            timeout=12,
+            timeout=8,
         )
         obs_resp.raise_for_status()
         observations = obs_resp.json().get("results", [])
 
-        photos = []
+        photos: List[str] = []
         for obs in observations:
             obs_photos = obs.get("photos", [])
             if obs_photos:
                 raw_url = obs_photos[0].get("url", "")
                 if raw_url:
-                    # iNaturalist photo URLs end in /square.jpg etc; swap to medium
+                    # iNaturalist URLs use /square.jpg; swap to medium for better quality
                     medium_url = raw_url.replace("/square.", "/medium.")
                     photos.append(medium_url)
             if len(photos) >= count:
