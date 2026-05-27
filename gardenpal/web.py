@@ -1450,12 +1450,12 @@ def create_app() -> Flask:
             except Exception:
                 pass
 
-        # ── 3. iNaturalist autocomplete (free; handles any-word-order queries) ──
+        # ── 3. iNaturalist taxa search (free fallback) ──
         if not external_results:
             try:
                 resp = requests.get(
-                    "https://api.inaturalist.org/v1/taxa/autocomplete",
-                    params={"q": q, "is_active": "true", "taxon_id": "47126", "per_page": 15},
+                    "https://api.inaturalist.org/v1/taxa",
+                    params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 15},
                     timeout=10,
                 )
                 resp.raise_for_status()
