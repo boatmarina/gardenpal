@@ -21,7 +21,7 @@
          class="photos-grid"
          style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
          data-plant-id="{{ plant.id }}"
-         data-query="{{ plant.name | e }}"
+         data-query="{{ (plant.scientific_name or plant.name) | e }}"
          data-stored="{{ plant.photo_urls or '' }}">
       {% if plant.image_path %}
         <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" />
