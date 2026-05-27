@@ -1600,6 +1600,89 @@ def create_app() -> Flask:
             return jsonify(error=error), 200
         return jsonify(result)
 
+    @app.route("/api/service-status")
+    @login_required
+    def api_service_status():
+        services = []
+
+        # Anthropic
+        services.append({
+            "id": "anthropic",
+            "name": "Claude (Anthropic)",
+            "configured": bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()),
+            "used_for": "Plant name lookup, care details, label text extraction",
+            "free_tier": None,
+            "limit_note": "Pay-as-you-go — ~$0.25 per million tokens (Haiku model)",
+            "dashboard_url": "https://console.anthropic.com/settings/billing",
+        })
+
+        # Plant.id — try to fetch remaining credits from their usage endpoint
+        plant_id_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
+        plant_id_credits = None
+        plant_id_limit = None
+        if plant_id_key:
+            try:
+                r = requests.get(
+                    "https://plant.id/api/v3/usage_info",
+                    headers={"Api-Key": plant_id_key},
+                    timeout=5,
+                )
+                if r.ok:
+                    usage = r.json()
+                    credit = usage.get("credit") or {}
+                    plant_id_credits = credit.get("remaining")
+                    plant_id_limit = credit.get("total")
+            except Exception:
+                pass
+        services.append({
+            "id": "plant_id",
+            "name": "Plant.id",
+            "configured": bool(plant_id_key),
+            "used_for": "Photo-based plant identification",
+            "free_tier": "100 identifications",
+            "limit_note": "Starter plan: 100 free, then paid",
+            "dashboard_url": "https://plant.id/api",
+            "credits_remaining": plant_id_credits,
+            "credits_total": plant_id_limit,
+        })
+
+        # OCR Space
+        services.append({
+            "id": "ocr_space",
+            "name": "OCR Space",
+            "configured": bool(os.environ.get("OCR_SPACE_API_KEY", "").strip()),
+            "used_for": "Reading text from plant label photos",
+            "free_tier": "25,000 pages / month",
+            "limit_note": "Free plan resets monthly",
+            "dashboard_url": "https://ocr.space/ocrapi",
+        })
+
+        # iNaturalist — always available, no key
+        services.append({
+            "id": "inaturalist",
+            "name": "iNaturalist",
+            "configured": True,
+            "always_free": True,
+            "used_for": "Plant search autocomplete and photos",
+            "free_tier": "Unlimited",
+            "limit_note": "Free public API — no key required",
+            "dashboard_url": "https://www.inaturalist.org/pages/api+reference",
+        })
+
+        # Perenual (optional)
+        services.append({
+            "id": "perenual",
+            "name": "Perenual",
+            "configured": bool(os.environ.get("PERENUAL_API_KEY", "").strip()),
+            "optional": True,
+            "used_for": "Enhanced plant search autocomplete (optional)",
+            "free_tier": "100 requests / day",
+            "limit_note": "Free plan: 100 req/day, resets daily",
+            "dashboard_url": "https://perenual.com/docs/api",
+        })
+
+        return jsonify(services=services)
+
     @app.route("/api/ocr-label", methods=["POST"])
     @login_required
     def api_ocr_label():

@@ -37,6 +37,16 @@
     </div>
   </section>
 
+  <section class="panel" style="margin-bottom:16px" id="services-panel">
+    <h2 style="margin-bottom:4px">Connected services</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">API integrations used by the app and their usage limits.</p>
+    <div id="services-list" style="display:flex;flex-direction:column;gap:10px">
+      <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:12px 0">
+        <span class="spinner" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>Checking services…
+      </p>
+    </div>
+  </section>
+
   <section class="panel stack" style="margin-bottom:16px">
     <h2 style="margin-bottom:4px">Claude MCP access</h2>
     <p class="muted" style="font-size:0.85rem">
@@ -112,4 +122,61 @@
       </div>
     </div>
   </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  fetch('/api/service-status')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var list = document.getElementById('services-list');
+      if (!list) return;
+      var html = '';
+      (data.services || []).forEach(function (s) {
+        var dot, dotLabel;
+        if (s.always_free) {
+          dot = 'background:#4A7C95'; dotLabel = 'Free';
+        } else if (s.configured) {
+          dot = 'background:var(--green-mid)'; dotLabel = 'Connected';
+        } else {
+          dot = 'background:#aaa'; dotLabel = s.optional ? 'Not set (optional)' : 'Not configured';
+        }
+
+        var creditHtml = '';
+        if (s.credits_remaining != null) {
+          var pct = s.credits_total ? Math.round((s.credits_remaining / s.credits_total) * 100) : null;
+          var barColor = pct == null ? 'var(--green-mid)' : pct > 30 ? 'var(--green-mid)' : pct > 10 ? '#B5803A' : '#C26B7E';
+          creditHtml = '<div style="margin-top:8px">'
+            + '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-bottom:3px">'
+            + '<span>Credits remaining</span><span style="font-weight:600;color:var(--text)">' + s.credits_remaining
+            + (s.credits_total ? ' / ' + s.credits_total : '') + '</span></div>'
+            + (pct != null ? '<div style="height:4px;background:var(--border);border-radius:2px"><div style="height:4px;border-radius:2px;width:' + pct + '%;background:' + barColor + '"></div></div>' : '')
+            + '</div>';
+        }
+
+        html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:13px 15px">'
+          + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">'
+          + '<div style="display:flex;align-items:center;gap:7px">'
+          + '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;' + dot + '"></span>'
+          + '<span style="font-size:0.85rem;font-weight:600">' + s.name + '</span>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:8px">'
+          + '<span style="font-size:0.72rem;color:var(--muted)">' + dotLabel + '</span>'
+          + '<a href="' + s.dashboard_url + '" target="_blank" rel="noopener" '
+          + 'style="font-size:0.72rem;color:var(--green-dark);white-space:nowrap">Dashboard ↗</a>'
+          + '</div></div>'
+          + '<p style="font-size:0.78rem;color:var(--muted);margin:0 0 2px">' + s.used_for + '</p>'
+          + '<p style="font-size:0.75rem;color:var(--muted);margin:0">' + (s.limit_note || '') + '</p>'
+          + creditHtml
+          + '</div>';
+      });
+      list.innerHTML = html;
+    })
+    .catch(function () {
+      var list = document.getElementById('services-list');
+      if (list) list.innerHTML = '<p style="font-size:0.83rem;color:var(--muted)">Could not load service status.</p>';
+    });
+})();
+</script>
 {% endblock %}
