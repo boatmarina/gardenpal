@@ -1065,7 +1065,38 @@ def create_app() -> Flask:
     @app.route("/tools")
     @login_required
     def tools():
-        return render_template("settings.html", user=g.user)
+        users = []
+        if g.user.get("is_admin"):
+            users = get_db().execute(
+                "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at ASC"
+            ).fetchall()
+        return render_template("settings.html", user=g.user, all_users=users)
+
+    @app.route("/admin/reset-password", methods=["POST"])
+    @login_required
+    def admin_reset_password():
+        if not g.user.get("is_admin"):
+            return jsonify(error="Forbidden"), 403
+        user_id = request.form.get("user_id", "").strip()
+        new_password = request.form.get("new_password", "").strip()
+        if not user_id or not new_password:
+            flash("User and new password are required.")
+            return redirect(url_for("tools"))
+        if len(new_password) < 8:
+            flash("Password must be at least 8 characters.")
+            return redirect(url_for("tools"))
+        db = get_db()
+        target = db.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
+        if target is None:
+            flash("User not found.")
+            return redirect(url_for("tools"))
+        db.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (generate_password_hash(new_password), user_id),
+        )
+        db.commit()
+        flash(f"Password reset for {target['username']}.")
+        return redirect(url_for("tools"))
 
     @app.route("/export/library.csv")
     @login_required
