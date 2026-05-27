@@ -3,44 +3,62 @@
 {% block title %}Library · GardenPal{% endblock %}
 
 {% block content %}
-  <section class="panel" style="margin-bottom:20px">
-    <div class="title-row" style="margin-bottom:14px">
+{% set has_filters = active_filters.q or active_filters.sun or active_filters.lifecycle or active_filters.evergreen %}
+  <section class="panel" style="margin-bottom:16px">
+    <div class="title-row">
       <h2>Plant Library</h2>
-      <a href="{{ url_for('new_idea') }}" class="button">+ Add Plant</a>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" id="filter-toggle"
+                style="position:relative;background:none;border:1px solid var(--border);border-radius:var(--r-md);padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;color:{% if has_filters %}var(--green-dark){% else %}var(--muted){% endif %};{% if has_filters %}border-color:var(--green-dark);background:var(--green-light){% endif %}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
+          </svg>
+          {% if has_filters %}<span style="font-size:0.72rem;font-weight:600;letter-spacing:0.04em">Filtered</span>{% endif %}
+        </button>
+        <a href="{{ url_for('new_idea') }}" class="button">+ Add Plant</a>
+      </div>
     </div>
-    <form class="library-search" method="get">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      <input type="text" name="q" placeholder="Search by name" value="{{ active_filters.q }}" />
-      <button type="submit" style="display:none"></button>
-    </form>
   </section>
 
-  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <input type="hidden" name="q" value="{{ active_filters.q }}" />
-    <select name="sun" style="flex:1;min-width:120px" onchange="this.form.submit()">
-      <option value="">Any sun</option>
-      <option value="shade"    {% if active_filters.sun == "shade"    %}selected{% endif %}>Shade</option>
-      <option value="part-sun" {% if active_filters.sun == "part-sun" %}selected{% endif %}>Part sun</option>
-      <option value="full-sun" {% if active_filters.sun == "full-sun" %}selected{% endif %}>Full sun</option>
-    </select>
-    <select name="lifecycle" style="flex:1;min-width:120px" onchange="this.form.submit()">
-      <option value="">Any lifecycle</option>
-      <option value="annual"    {% if active_filters.lifecycle == "annual"    %}selected{% endif %}>Annual</option>
-      <option value="perennial" {% if active_filters.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
-      <option value="biennial"  {% if active_filters.lifecycle == "biennial"  %}selected{% endif %}>Biennial</option>
-    </select>
-    <select name="evergreen" style="flex:1;min-width:120px" onchange="this.form.submit()">
-      <option value="">Evergreen or deciduous</option>
-      <option value="evergreen"  {% if active_filters.evergreen == "evergreen"  %}selected{% endif %}>Evergreen</option>
-      <option value="deciduous"  {% if active_filters.evergreen == "deciduous"  %}selected{% endif %}>Deciduous</option>
-      <option value="semi-evergreen" {% if active_filters.evergreen == "semi-evergreen" %}selected{% endif %}>Semi-evergreen</option>
-    </select>
-  </form>
+  <!-- Expandable filter panel -->
+  <div id="filter-panel" {% if not has_filters %}hidden{% endif %}
+       style="background:var(--card);border-radius:var(--r-xl);padding:14px 16px;margin-bottom:14px">
+    <form method="get" style="display:flex;flex-direction:column;gap:10px">
+      <div class="library-search" style="margin-bottom:0">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" name="q" placeholder="Search by name" value="{{ active_filters.q }}" />
+        <button type="submit" style="display:none"></button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select name="sun" style="flex:1;min-width:110px;font-size:0.85rem" onchange="this.form.submit()">
+          <option value="">Any sun</option>
+          <option value="shade"    {% if active_filters.sun == "shade"    %}selected{% endif %}>Shade</option>
+          <option value="part-sun" {% if active_filters.sun == "part-sun" %}selected{% endif %}>Part sun</option>
+          <option value="full-sun" {% if active_filters.sun == "full-sun" %}selected{% endif %}>Full sun</option>
+        </select>
+        <select name="lifecycle" style="flex:1;min-width:110px;font-size:0.85rem" onchange="this.form.submit()">
+          <option value="">Any lifecycle</option>
+          <option value="annual"    {% if active_filters.lifecycle == "annual"    %}selected{% endif %}>Annual</option>
+          <option value="perennial" {% if active_filters.lifecycle == "perennial" %}selected{% endif %}>Perennial</option>
+          <option value="biennial"  {% if active_filters.lifecycle == "biennial"  %}selected{% endif %}>Biennial</option>
+        </select>
+        <select name="evergreen" style="flex:1;min-width:110px;font-size:0.85rem" onchange="this.form.submit()">
+          <option value="">Any type</option>
+          <option value="evergreen"     {% if active_filters.evergreen == "evergreen"     %}selected{% endif %}>Evergreen</option>
+          <option value="deciduous"     {% if active_filters.evergreen == "deciduous"     %}selected{% endif %}>Deciduous</option>
+          <option value="semi-evergreen"{% if active_filters.evergreen == "semi-evergreen"%}selected{% endif %}>Semi-evergreen</option>
+        </select>
+      </div>
+      {% if has_filters %}
+      <a href="{{ url_for('ideas_index') }}" style="font-size:0.78rem;color:var(--muted);text-align:right">Clear filters</a>
+      {% endif %}
+    </form>
+  </div>
 
   {% if user_tags %}
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
     <a href="#" class="tag-filter-pill {% if not active_filters.tag %}active{% endif %}" data-tag="">All</a>
     {% for tag in user_tags %}
     <a href="#" class="tag-filter-pill {% if active_filters.tag == tag.id|string %}active{% endif %}"
@@ -50,19 +68,6 @@
     </a>
     {% endfor %}
   </div>
-  <script>
-  (function(){
-    document.querySelectorAll('.tag-filter-pill').forEach(function(pill){
-      pill.addEventListener('click', function(e){
-        e.preventDefault();
-        var params = new URLSearchParams(window.location.search);
-        var tid = pill.dataset.tag;
-        if (tid) params.set('tag', tid); else params.delete('tag');
-        window.location.href = window.location.pathname + '?' + params.toString();
-      });
-    });
-  })();
-  </script>
   {% endif %}
 
   <div class="section-header">
@@ -116,4 +121,31 @@
   {% else %}
     <p class="empty">No plants yet — tap the leaf button to add one.</p>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  /* Filter panel toggle */
+  var toggle = document.getElementById('filter-toggle');
+  var panel  = document.getElementById('filter-panel');
+  if (toggle && panel) {
+    toggle.addEventListener('click', function () {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) panel.querySelector('input[name="q"]').focus();
+    });
+  }
+
+  /* Tag filter pills — preserve other active params */
+  document.querySelectorAll('.tag-filter-pill').forEach(function (pill) {
+    pill.addEventListener('click', function (e) {
+      e.preventDefault();
+      var params = new URLSearchParams(window.location.search);
+      var tid = pill.dataset.tag;
+      if (tid) params.set('tag', tid); else params.delete('tag');
+      window.location.href = window.location.pathname + '?' + params.toString();
+    });
+  });
+})();
+</script>
 {% endblock %}
