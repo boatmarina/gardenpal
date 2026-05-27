@@ -643,6 +643,14 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
 
   inp.addEventListener('focus', function() { fetchTags(''); });
 
+  var tagForm = inp.form;
+  if (tagForm) {
+    tagForm.addEventListener('submit', function() {
+      var pending = inp.value.trim();
+      if (pending) addChip(pending);
+    });
+  }
+
   document.addEventListener('click', function(e) {
     if (!wrap.contains(e.target)) dropdown.hidden = true;
   });
