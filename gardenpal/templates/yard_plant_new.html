@@ -529,7 +529,13 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       if (!visibleName.contains(e.target) && !dropdown.contains(e.target)) dropdown.hidden = true;
     });
 
+    let _searchCtrl = null;
+
     async function search(q) {
+      // Cancel any previous in-flight request (prevents stale results overwriting current)
+      if (_searchCtrl) _searchCtrl.abort();
+      _searchCtrl = new AbortController();
+
       const qL = q.toLowerCase();
       const words = qL.split(/\s+/).filter(w => w.length >= 2);
       // Instant client-side library match (any word order, no server round-trip)
@@ -544,12 +550,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         .map(p => ({ common_name: p.name, scientific_name: p.sci, from_library: true, rank: 'species' }));
       if (libMatches.length) GP.renderPlantDropdown(dropdown, libMatches, selectFromSearch, q);
       try {
-        const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q));
+        const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q),
+                                {signal: _searchCtrl.signal});
         const data = await res.json();
         const libNameSet = new Set(libMatches.map(p => (p.common_name || '').toLowerCase()));
         const apiResults = (data.results || []).filter(r => !libNameSet.has((r.common_name || '').toLowerCase()));
         GP.renderPlantDropdown(dropdown, [...libMatches, ...apiResults], selectFromSearch, q);
-      } catch (_) {
+      } catch (err) {
+        if (err.name === 'AbortError') return; // stale — a newer search is already running
         if (!libMatches.length) dropdown.hidden = true;
       }
     }
