@@ -17,7 +17,7 @@ from flask import Flask, Response, flash, g, jsonify, redirect, render_template,
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos
+from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -1532,6 +1532,40 @@ def create_app() -> Flask:
                     "rank": t.get("rank") or "species",
                     "from_library": False,
                 })
+            if results:
+                return jsonify(results=results)
+
+            # iNaturalist found nothing — the query may be a regional/informal common name.
+            # Ask Claude to resolve it to a scientific name and retry once.
+            sci = resolve_scientific_name(q)
+            if sci and sci.lower() != q.lower():
+                resp2 = requests.get(
+                    "https://api.inaturalist.org/v1/taxa",
+                    params={"q": sci, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 8},
+                    timeout=8,
+                )
+                resp2.raise_for_status()
+                for t in resp2.json().get("results", []):
+                    photo = t.get("default_photo") or {}
+                    taxon_photos = []
+                    for tp in (t.get("taxon_photos") or [])[:6]:
+                        p = (tp.get("photo") or {})
+                        url = p.get("medium_url") or p.get("square_url") or ""
+                        if url:
+                            taxon_photos.append(url)
+                    if not taxon_photos:
+                        default_url = photo.get("medium_url") or photo.get("square_url")
+                        if default_url:
+                            taxon_photos = [default_url]
+                    results.append({
+                        "common_name": t.get("preferred_common_name") or t.get("name") or "",
+                        "scientific_name": t.get("name") or "",
+                        "photo_url": photo.get("medium_url") or photo.get("square_url"),
+                        "taxon_photos": taxon_photos,
+                        "taxon_id": t.get("id"),
+                        "rank": t.get("rank") or "species",
+                        "from_library": False,
+                    })
             return jsonify(results=results)
         except Exception:
             return jsonify(results=[])

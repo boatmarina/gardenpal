@@ -7,6 +7,37 @@ import anthropic
 import requests
 
 
+def resolve_scientific_name(common_name: str) -> Optional[str]:
+    """Ask Claude for the scientific name of a plant given an informal or regional common name.
+    Returns the scientific name string, or None if unavailable or unrecognised."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key or not common_name.strip():
+        return None
+    client = anthropic.Anthropic(api_key=api_key, timeout=7.0)
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=64,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "What is the scientific name (Genus species) of the plant known as "
+                    f'"{common_name.strip()}"? '
+                    "Reply with ONLY the scientific name (e.g. Cotinus coggygria). "
+                    "If the name is not a recognisable plant, reply with an empty string."
+                ),
+            }],
+        )
+        name = next((b.text for b in response.content if b.type == "text"), "").strip()
+        # Sanity-check: expect at least two words that look like a binomial
+        parts = name.split()
+        if len(parts) >= 2 and parts[0][0].isupper() and parts[1][0].islower():
+            return name
+        return None
+    except Exception:
+        return None
+
+
 def extract_plant_name_from_text(raw_text: str) -> Optional[str]:
     """Use Claude to pull the plant name out of raw OCR text. Returns None if unavailable."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
