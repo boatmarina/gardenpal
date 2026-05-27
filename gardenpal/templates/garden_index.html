@@ -6,23 +6,18 @@
 {% set month_abbrs = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] %}
 {% set month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
 
-  <section class="panel">
+  <section class="panel" style="margin-bottom:16px">
     <div class="title-row">
       <h2>Edible Garden Diary</h2>
-    </div>
-    <p>Track what you've planted this season.</p>
-  </section>
-
-  <div class="action-cards" style="margin-bottom:20px">
-    <a href="{{ url_for('garden_new') }}" class="action-card dark">
-      <div class="action-card-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <a href="{{ url_for('garden_new') }}" class="button" style="display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-      </div>
-      <span class="action-card-label">Add Plant</span>
-    </a>
-  </div>
+        Add Plant
+      </a>
+    </div>
+    <p>Track the veggies and fruits you've planted across the season.</p>
+  </section>
 
   <!-- Year switcher (always visible) -->
   <div class="year-nav">
