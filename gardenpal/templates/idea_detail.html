@@ -86,7 +86,7 @@
         {% endif %}
         {% if plant.height_category %}
           <dt>Height</dt>
-          <dd>{% if plant.height_category == "low" %}Low (under 50 cm){% elif plant.height_category == "medium" %}Medium (50 cm – 1.5 m){% elif plant.height_category == "tall" %}Tall (1.5 – 4 m){% elif plant.height_category == "large" %}Large (4 m+){% else %}{{ plant.height_category }}{% endif %}</dd>
+          <dd>{% if plant.height_category == "low" %}Low (under 2 ft){% elif plant.height_category == "medium" %}Medium (2 – 5 ft){% elif plant.height_category == "tall" %}Tall (5 – 13 ft){% elif plant.height_category == "large" %}Large (13 ft+){% else %}{{ plant.height_category }}{% endif %}</dd>
         {% endif %}
         {% if plant.size_info %}
           <dt>Size</dt>

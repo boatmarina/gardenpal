@@ -189,10 +189,10 @@
           Height
           <select name="height_category_vis" id="height-category-vis" onchange="document.getElementById('height-category-hidden').value=this.value">
             <option value="">— choose —</option>
-            <option value="low"    {% if form_values.height_category == "low"    %}selected{% endif %}>Low (under 50 cm)</option>
-            <option value="medium" {% if form_values.height_category == "medium" %}selected{% endif %}>Medium (50 cm – 1.5 m)</option>
-            <option value="tall"   {% if form_values.height_category == "tall"   %}selected{% endif %}>Tall (1.5 – 4 m)</option>
-            <option value="large"  {% if form_values.height_category == "large"  %}selected{% endif %}>Large (4 m+)</option>
+            <option value="low"    {% if form_values.height_category == "low"    %}selected{% endif %}>Low (under 2 ft)</option>
+            <option value="medium" {% if form_values.height_category == "medium" %}selected{% endif %}>Medium (2 – 5 ft)</option>
+            <option value="tall"   {% if form_values.height_category == "tall"   %}selected{% endif %}>Tall (5 – 13 ft)</option>
+            <option value="large"  {% if form_values.height_category == "large"  %}selected{% endif %}>Large (13 ft+)</option>
           </select>
         </label>
       </div>
