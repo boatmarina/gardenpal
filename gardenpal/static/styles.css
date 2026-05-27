@@ -498,14 +498,14 @@ label {
   gap: 8px;
   background: var(--bg);
   border-radius: var(--r-md);
-  padding: 9px 12px;
+  padding: 6px 10px;
 }
 
 .library-search input {
   flex: 1;
   border: none;
   background: none;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   color: var(--fg);
   width: auto;
 }
@@ -594,8 +594,11 @@ label {
 .year-nav-arrow.muted { opacity: 0.35; pointer-events: none; }
 
 .month-strip {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   gap: 4px;
   background: var(--card);
   border-radius: var(--r-xl);
@@ -603,11 +606,14 @@ label {
   box-shadow: var(--shadow);
   margin-bottom: 24px;
 }
+.month-strip::-webkit-scrollbar { display: none; }
 
 .month-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex-shrink: 0;
+  min-width: 52px;
   gap: 4px;
   padding: 8px 2px 6px;
   border-radius: var(--r-sm);
