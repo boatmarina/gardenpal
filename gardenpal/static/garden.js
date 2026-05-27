@@ -1,18 +1,20 @@
 /* GardenPal shared client utilities — loaded globally via base.html */
 (function (G) {
 
-  /* Compress a File/Blob to JPEG, max 1400px on the long edge, quality 0.82 */
-  G.compressImage = async function compressImage(file) {
+  /* Compress a File/Blob to JPEG. maxPx defaults to 1400, quality to 0.82 */
+  G.compressImage = async function compressImage(file, maxPx, quality) {
+    maxPx = maxPx || 1400;
+    quality = quality != null ? quality : 0.82;
     return new Promise(function (resolve) {
       var img = new Image();
       img.onload = function () {
-        var MAX = 1400, w = img.naturalWidth, h = img.naturalHeight;
+        var MAX = maxPx, w = img.naturalWidth, h = img.naturalHeight;
         if (w > MAX || h > MAX) { var r = Math.min(MAX / w, MAX / h); w = Math.round(w * r); h = Math.round(h * r); }
         var c = document.createElement('canvas');
         c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
         URL.revokeObjectURL(img.src);
-        c.toBlob(function (b) { resolve(b || file); }, 'image/jpeg', 0.82);
+        c.toBlob(function (b) { resolve(b || file); }, 'image/jpeg', quality);
       };
       img.onerror = function () { resolve(file); };
       img.src = URL.createObjectURL(file);
