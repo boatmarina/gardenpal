@@ -5,7 +5,7 @@
 {% block content %}
 {% set has_filters = active_filters.q or active_filters.sun or active_filters.lifecycle or active_filters.evergreen or active_filters.plant_form or active_filters.height_category %}
   <section class="panel" style="margin-bottom:16px">
-    <div class="title-row">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <h2>Plant Library</h2>
       <button type="button" id="filter-toggle"
               style="position:relative;background:none;border:1px solid var(--border);border-radius:var(--r-md);padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;color:{% if has_filters %}var(--green-dark){% else %}var(--muted){% endif %};{% if has_filters %}border-color:var(--green-dark);background:var(--green-light){% endif %}">
@@ -15,16 +15,14 @@
         {% if has_filters %}<span style="font-size:0.72rem;font-weight:600;letter-spacing:0.04em">Filtered</span>{% endif %}
       </button>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-      <p style="color:var(--muted);font-size:0.85rem;margin:0">Track plants you love, plan to plant, or have planted</p>
-      <a href="{{ url_for('new_idea') }}" class="button" style="display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem;flex-shrink:0;margin-left:12px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-        </svg>
-        Add Plant
-      </a>
-    </div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px;margin-bottom:12px">Track plants you love, plan to plant, or have planted</p>
+    <a href="{{ url_for('new_idea') }}" class="button" style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+      </svg>
+      Add Plant
+    </a>
   </section>
 
   <!-- Expandable filter panel -->
