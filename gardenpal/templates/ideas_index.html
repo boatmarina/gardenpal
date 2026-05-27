@@ -7,24 +7,24 @@
   <section class="panel" style="margin-bottom:16px">
     <div class="title-row">
       <h2>Plant Library</h2>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button type="button" id="filter-toggle"
-                style="position:relative;background:none;border:1px solid var(--border);border-radius:var(--r-md);padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;color:{% if has_filters %}var(--green-dark){% else %}var(--muted){% endif %};{% if has_filters %}border-color:var(--green-dark);background:var(--green-light){% endif %}">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
-          </svg>
-          {% if has_filters %}<span style="font-size:0.72rem;font-weight:600;letter-spacing:0.04em">Filtered</span>{% endif %}
-        </button>
-        <a href="{{ url_for('new_idea') }}" class="button" style="display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-          </svg>
-          Add Plant
-        </a>
-      </div>
+      <button type="button" id="filter-toggle"
+              style="position:relative;background:none;border:1px solid var(--border);border-radius:var(--r-md);padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;color:{% if has_filters %}var(--green-dark){% else %}var(--muted){% endif %};{% if has_filters %}border-color:var(--green-dark);background:var(--green-light){% endif %}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
+        </svg>
+        {% if has_filters %}<span style="font-size:0.72rem;font-weight:600;letter-spacing:0.04em">Filtered</span>{% endif %}
+      </button>
     </div>
-    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px">Track plants you love, plan to plant, or have planted</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+      <p style="color:var(--muted);font-size:0.85rem;margin:0">Track plants you love, plan to plant, or have planted</p>
+      <a href="{{ url_for('new_idea') }}" class="button" style="display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem;flex-shrink:0;margin-left:12px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+        </svg>
+        Add Plant
+      </a>
+    </div>
   </section>
 
   <!-- Expandable filter panel -->
