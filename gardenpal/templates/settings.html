@@ -7,7 +7,37 @@
     <h1 class="hero-title">Tools.</h1>
   </div>
 
-  <section class="panel stack">
+  <section class="panel" style="margin-bottom:16px">
+    <h2 style="margin-bottom:8px">Export data</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
+      Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Plant Library</p>
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">All your saved plants with tags and notes</p>
+        </div>
+        <a href="{{ url_for('export_library_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Yard Zones</p>
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">Plants per zone with per-zone notes</p>
+        </div>
+        <a href="{{ url_for('export_yard_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Edible Garden Diary</p>
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">All garden entries with planted dates and locations</p>
+        </div>
+        <a href="{{ url_for('export_garden_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel stack" style="margin-bottom:16px">
     <h2 style="margin-bottom:4px">Claude MCP access</h2>
     <p class="muted" style="font-size:0.85rem">
       Generate a personal token, then add the MCP server to Claude Desktop so Claude can read and
@@ -61,7 +91,7 @@
     {% endif %}
   </section>
 
-  <section class="panel" style="margin-top:16px">
+  <section class="panel">
     <h2 style="margin-bottom:8px">MCP tools</h2>
     <p class="muted" style="font-size:0.83rem;margin-bottom:12px">
       The MCP server exposes these tools to Claude. You can also call the REST API directly
@@ -79,36 +109,6 @@
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
         <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">update_garden_entry</p>
         <code style="font-size:0.78rem;color:var(--muted)">entry_id (required) + any fields to update</code>
-      </div>
-    </div>
-  </section>
-
-  <section class="panel" style="margin-top:16px">
-    <h2 style="margin-bottom:8px">Export data</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
-      Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.
-    </p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Plant Library</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">All your saved plants with tags and notes</p>
-        </div>
-        <a href="{{ url_for('export_library_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Yard Zones</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Plants per zone with per-zone notes</p>
-        </div>
-        <a href="{{ url_for('export_yard_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Edible Garden Diary</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">All garden entries with planted dates and locations</p>
-        </div>
-        <a href="{{ url_for('export_garden_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
       </div>
     </div>
   </section>
