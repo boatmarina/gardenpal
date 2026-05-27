@@ -276,13 +276,15 @@ input:focus, select:focus, textarea:focus {
 }
 
 label {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.35rem;
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--muted);
+  cursor: pointer;
 }
 
 .stack { display: grid; gap: 0.9rem; }
