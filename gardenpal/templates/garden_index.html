@@ -58,17 +58,10 @@
           {% for entry in month_entries %}
             <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
               <div class="card-content" style="padding:16px 18px">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-                  <div>
-                    <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
-                    {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
-                  </div>
-                  {% if entry.location_type %}
-                    <span class="chip" style="white-space:nowrap;flex-shrink:0">{{ entry.location_type | replace("_", " ") }}</span>
-                  {% endif %}
-                </div>
+                <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+                {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
                 {% if entry.location_name %}
-                  <p class="muted" style="font-size:0.82rem;margin-top:6px">{{ entry.location_name }}</p>
+                  <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
                 {% endif %}
                 {% if entry.planted_date %}
                   <p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ entry.planted_date | planted_date }}</p>
@@ -90,17 +83,10 @@
         {% for entry in unscheduled %}
           <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link">
             <div class="card-content" style="padding:16px 18px">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-                <div>
-                  <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
-                  {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
-                </div>
-                {% if entry.location_type %}
-                  <span class="chip" style="white-space:nowrap;flex-shrink:0">{{ entry.location_type | replace("_", " ") }}</span>
-                {% endif %}
-              </div>
+              <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+              {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
               {% if entry.location_name %}
-                <p class="muted" style="font-size:0.82rem;margin-top:6px">{{ entry.location_name }}</p>
+                <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
               {% endif %}
             </div>
           </a>

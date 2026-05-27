@@ -133,6 +133,8 @@
       <input type="hidden" name="size_info"          value="{{ form_values.size_info }}" />
       <input type="hidden" name="flowering_schedule" value="{{ form_values.flowering_schedule }}" />
       <input type="hidden" name="photo_urls"         id="photo-urls-hidden" value="" />
+      <input type="hidden" name="plant_form"         id="plant-form-hidden"     value="{{ form_values.plant_form }}" />
+      <input type="hidden" name="height_category"    id="height-category-hidden" value="{{ form_values.height_category }}" />
       <input type="hidden" name="source_type"        value="world" />
 
       <!-- Populated by JS after label scan or name-search selection -->
@@ -163,6 +165,37 @@
         Notes
         <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <label style="flex:1;min-width:130px">
+          Plant form
+          <select name="plant_form_vis" id="plant-form-vis" onchange="document.getElementById('plant-form-hidden').value=this.value">
+            <option value="">— choose —</option>
+            <option value="tree"         {% if form_values.plant_form == "tree"         %}selected{% endif %}>Tree</option>
+            <option value="shrub"        {% if form_values.plant_form == "shrub"        %}selected{% endif %}>Shrub</option>
+            <option value="perennial"    {% if form_values.plant_form == "perennial"    %}selected{% endif %}>Perennial</option>
+            <option value="annual"       {% if form_values.plant_form == "annual"       %}selected{% endif %}>Annual</option>
+            <option value="climber"      {% if form_values.plant_form == "climber"      %}selected{% endif %}>Climber / Vine</option>
+            <option value="ground-cover" {% if form_values.plant_form == "ground-cover" %}selected{% endif %}>Ground cover</option>
+            <option value="grass"        {% if form_values.plant_form == "grass"        %}selected{% endif %}>Grass / Ornamental grass</option>
+            <option value="fern"         {% if form_values.plant_form == "fern"         %}selected{% endif %}>Fern</option>
+            <option value="bulb"         {% if form_values.plant_form == "bulb"         %}selected{% endif %}>Bulb / Corm</option>
+            <option value="succulent"    {% if form_values.plant_form == "succulent"    %}selected{% endif %}>Succulent / Cactus</option>
+            <option value="herb"         {% if form_values.plant_form == "herb"         %}selected{% endif %}>Herb</option>
+            <option value="bamboo"       {% if form_values.plant_form == "bamboo"       %}selected{% endif %}>Bamboo</option>
+          </select>
+        </label>
+        <label style="flex:1;min-width:130px">
+          Height
+          <select name="height_category_vis" id="height-category-vis" onchange="document.getElementById('height-category-hidden').value=this.value">
+            <option value="">— choose —</option>
+            <option value="low"    {% if form_values.height_category == "low"    %}selected{% endif %}>Low (under 50 cm)</option>
+            <option value="medium" {% if form_values.height_category == "medium" %}selected{% endif %}>Medium (50 cm – 1.5 m)</option>
+            <option value="tall"   {% if form_values.height_category == "tall"   %}selected{% endif %}>Tall (1.5 – 4 m)</option>
+            <option value="large"  {% if form_values.height_category == "large"  %}selected{% endif %}>Large (4 m+)</option>
+          </select>
+        </label>
+      </div>
 
       <label>
         Tags
