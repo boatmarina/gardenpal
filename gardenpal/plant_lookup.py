@@ -226,7 +226,9 @@ Return a JSON object with these fields:
   "size_info": "typical height and spread, e.g. '2–4 ft tall, 1–2 ft wide'",
   "flowering_schedule": "when it blooms in the PNW, e.g. 'June to August'",
   "pnw_native": true or false or null (true only if native to the Pacific Northwest of North America; null if uncertain),
-  "evergreen_status": "evergreen or deciduous or semi-evergreen as it behaves in PNW conditions; empty string if unknown or not applicable (e.g. annual)"
+  "evergreen_status": "evergreen or deciduous or semi-evergreen as it behaves in PNW conditions; empty string if unknown or not applicable (e.g. annual)",
+  "plant_form": "one of: tree, shrub, perennial, annual, climber, ground-cover, grass, fern, bulb, succulent, herb, bamboo — empty string if unknown",
+  "height_category": "low (under 2 ft) or medium (2–5 ft) or tall (5–13 ft) or large (13 ft+) — respond with just the key word: low, medium, tall, or large; empty string if unknown"
 }}"""
 
 
@@ -265,6 +267,8 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
             "size_info":          data.get("size_info") or "",
             "pnw_native":         data.get("pnw_native"),
             "evergreen_status":   data.get("evergreen_status") or "",
+            "plant_form":         data.get("plant_form") or "",
+            "height_category":    data.get("height_category") or "",
             "spreads":            "",
             "photo_url":          None,
         }, None
