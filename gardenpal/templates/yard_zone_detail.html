@@ -16,34 +16,31 @@
     {% if zone.description %}<p>{{ zone.description }}</p>{% endif %}
   </section>
 
-  {% if zone.reference_image_path %}
-  <section class="panel">
-    <div class="title-row" style="margin-bottom:12px">
-      <h3 style="margin:0">Zone Visual</h3>
-      <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data">
-        <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" style="display:none" />
-        <div style="display:flex;gap:8px">
-          <button type="button" class="button button-secondary" style="font-size:0.82rem"
-                  onclick="var i=document.getElementById('zone-photo-input');i.setAttribute('capture','environment');i.click()">Take Photo</button>
-          <button type="button" class="button button-secondary" style="font-size:0.82rem"
-                  onclick="var i=document.getElementById('zone-photo-input');i.removeAttribute('capture');i.click()">From Library</button>
-        </div>
-      </form>
-    </div>
-    <div class="zone-map">
-      <img id="zone-map-img" src="{{ zone.reference_image_path | media_url }}" alt="{{ zone.name }}" />
-    </div>
-  </section>
-  {% else %}
-  <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data" style="margin-bottom:14px">
+  <form id="zone-photo-form" method="post" action="{{ url_for('yard_zone_update_photo', zone_id=zone.id) }}" enctype="multipart/form-data">
     <input id="zone-photo-input" type="file" name="reference_photo" accept="image/*" style="display:none" />
-    <div style="display:flex;gap:8px">
-      <button type="button" class="button button-secondary" style="flex:1"
-              onclick="var i=document.getElementById('zone-photo-input');i.setAttribute('capture','environment');i.click()">+ Take Photo</button>
-      <button type="button" class="button button-secondary" style="flex:1"
-              onclick="var i=document.getElementById('zone-photo-input');i.removeAttribute('capture');i.click()">+ From Library</button>
-    </div>
   </form>
+
+  {% if zone.reference_image_path %}
+  <div class="zone-map" style="margin-bottom:14px">
+    <img id="zone-map-img" src="{{ zone.reference_image_path | media_url }}" alt="{{ zone.name }}" />
+    <button type="button" onclick="document.getElementById('zone-photo-input').click()"
+            title="Change photo"
+            style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.45);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </button>
+  </div>
+  {% else %}
+  <button type="button" onclick="document.getElementById('zone-photo-input').click()"
+          style="width:100%;background:var(--card);border:1.5px dashed var(--border);border-radius:var(--r-xl);padding:28px 0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted);margin-bottom:14px;font-family:inherit">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+    <span style="font-size:0.83rem">Add a zone photo</span>
+  </button>
   {% endif %}
 
   <section class="cards">
