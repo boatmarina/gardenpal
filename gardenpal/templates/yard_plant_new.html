@@ -526,49 +526,38 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       try {
         const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q));
         const data = await res.json();
-        renderDropdown(data.results || []);
+        GP.renderPlantDropdown(dropdown, data.results || [], selectFromSearch);
       } catch (_) { dropdown.hidden = true; }
     }
 
-    function renderDropdown(results) {
-      dropdown.innerHTML = '';
-      if (!results.length) { dropdown.hidden = true; return; }
-      for (const plant of results) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.innerHTML = plant.common_name + (plant.scientific_name ? '<br><small>' + plant.scientific_name + '</small>' : '');
-        btn.addEventListener('click', () => {
-          visibleName.value = plant.common_name;
-          hName.value  = plant.common_name;
-          hSci.value   = plant.scientific_name || '';
-          hQuery.value = plant.scientific_name || plant.common_name;
-          dropdown.hidden = true;
-          selName.textContent = plant.common_name;
-          selSci.textContent  = plant.scientific_name || '';
-          selThumb.style.display = 'none';
-          selPanel.hidden = false;
-          common.hidden   = false;
-          fetchPhotos(plant.photo_url, plant.common_name || plant.scientific_name);
-          // Fetch full details and show chips
-          const detailQ = plant.scientific_name || plant.common_name;
-          fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
-            .then(r => r.json())
-            .then(d => {
-              if (!d.error) {
-                hSun.value       = d.sun_needs       || hSun.value;
-                hLifecycle.value = d.lifecycle       || hLifecycle.value;
-                hSize.value      = d.size_info       || hSize.value;
-                hFlowering.value = d.flowering_schedule || hFlowering.value;
-                hWater.value     = d.watering_needs  || hWater.value;
-                hQuery.value     = d.scientific_name || hQuery.value;
-                showSelChips(d);
-              }
-            })
-            .catch(() => {});
-        });
-        dropdown.appendChild(btn);
-      }
-      dropdown.hidden = false;
+    function selectFromSearch(plant) {
+      visibleName.value = plant.common_name;
+      hName.value  = plant.common_name;
+      hSci.value   = plant.scientific_name || '';
+      hQuery.value = plant.scientific_name || plant.common_name;
+      dropdown.hidden = true;
+      selName.textContent = plant.common_name;
+      selSci.textContent  = plant.scientific_name || '';
+      selThumb.style.display = 'none';
+      selPanel.hidden = false;
+      common.hidden   = false;
+      fetchPhotos(plant.photo_url, plant.common_name || plant.scientific_name);
+      // Fetch full details and show chips
+      const detailQ = plant.scientific_name || plant.common_name;
+      fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
+        .then(r => r.json())
+        .then(d => {
+          if (!d.error) {
+            hSun.value       = d.sun_needs       || hSun.value;
+            hLifecycle.value = d.lifecycle       || hLifecycle.value;
+            hSize.value      = d.size_info       || hSize.value;
+            hFlowering.value = d.flowering_schedule || hFlowering.value;
+            hWater.value     = d.watering_needs  || hWater.value;
+            hQuery.value     = d.scientific_name || hQuery.value;
+            showSelChips(d);
+          }
+        })
+        .catch(() => {});
     }
 
     function fetchPhotos(inlineUrl, name) {

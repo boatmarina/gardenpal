@@ -1390,7 +1390,40 @@ def create_app() -> Flask:
         q = request.args.get("q", "").strip()
         if len(q) < 2:
             return jsonify(results=[])
+
+        user_id = g.user["id"]
+
+        # ── 1. User's own library (any word order, case-insensitive) ──
+        local_results = []
+        try:
+            words = [w for w in q.lower().split() if len(w) >= 2]
+            if words:
+                cond = " AND ".join(
+                    "(LOWER(name) LIKE ? OR LOWER(COALESCE(scientific_name,'')) LIKE ?)"
+                    for _ in words
+                )
+                params = [user_id] + [v for w in words for v in ("%" + w + "%", "%" + w + "%")]
+                rows = db.execute(
+                    "SELECT name, scientific_name FROM plants WHERE user_id = ? AND "
+                    + cond + " ORDER BY name LIMIT 5",
+                    params,
+                ).fetchall()
+                for r in rows:
+                    local_results.append({
+                        "common_name": r["name"],
+                        "scientific_name": r["scientific_name"] or "",
+                        "rank": "species",
+                        "from_library": True,
+                    })
+        except Exception:
+            pass
+
+        local_names = {r["common_name"].lower() for r in local_results}
+        local_sci   = {r["scientific_name"].lower() for r in local_results if r["scientific_name"]}
+
+        # ── 2. Perenual (if API key configured) ──
         api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
+        external_results = []
         if api_key:
             try:
                 resp = requests.get(
@@ -1400,37 +1433,50 @@ def create_app() -> Flask:
                 )
                 resp.raise_for_status()
                 data = resp.json().get("data", [])
-                results = []
                 for plant in data[:12]:
-                    sci = plant.get("scientific_name") or []
-                    results.append({
-                        "common_name": plant.get("common_name") or "",
-                        "scientific_name": sci[0] if sci else "",
+                    sci_list = plant.get("scientific_name") or []
+                    sci = sci_list[0] if sci_list else ""
+                    cn  = plant.get("common_name") or ""
+                    if cn.lower() in local_names or sci.lower() in local_sci:
+                        continue
+                    external_results.append({
+                        "common_name": cn,
+                        "scientific_name": sci,
+                        "rank": "species",
+                        "from_library": False,
                     })
-                if results:
-                    return jsonify(results=results)
+                if external_results:
+                    return jsonify(results=(local_results + external_results)[:15])
             except Exception:
                 pass
-        # Fall back to iNaturalist (free, no API key needed)
-        try:
-            resp = requests.get(
-                "https://api.inaturalist.org/v1/taxa",
-                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 12},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            taxa = resp.json().get("results", [])
-            results = []
-            for t in taxa:
-                photo = t.get("default_photo") or {}
-                results.append({
-                    "common_name": t.get("preferred_common_name") or t.get("name") or "",
-                    "scientific_name": t.get("name") or "",
-                    "photo_url": photo.get("medium_url") or photo.get("square_url"),
-                })
-            return jsonify(results=results)
-        except Exception:
-            return jsonify(results=[])
+
+        # ── 3. iNaturalist autocomplete (free; handles any-word-order queries) ──
+        if not external_results:
+            try:
+                resp = requests.get(
+                    "https://api.inaturalist.org/v1/taxa/autocomplete",
+                    params={"q": q, "is_active": "true", "taxon_id": "47126", "per_page": 15},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                taxa = resp.json().get("results", [])
+                for t in taxa:
+                    cn  = t.get("preferred_common_name") or t.get("name") or ""
+                    sci = t.get("name") or ""
+                    if cn.lower() in local_names or sci.lower() in local_sci:
+                        continue
+                    photo = t.get("default_photo") or {}
+                    external_results.append({
+                        "common_name": cn,
+                        "scientific_name": sci,
+                        "photo_url": photo.get("medium_url") or photo.get("square_url"),
+                        "rank": t.get("rank") or "species",
+                        "from_library": False,
+                    })
+            except Exception:
+                pass
+
+        return jsonify(results=(local_results + external_results)[:15])
 
     @app.route("/api/plant-photo")
     @login_required

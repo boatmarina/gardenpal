@@ -48,4 +48,65 @@
     };
   };
 
+  /*
+   * Render a grouped plant-search dropdown.
+   * Results from the same genus are clustered; cultivars/varieties are indented
+   * below their parent species. Library-saved plants float to the top.
+   * onSelect(plant) is called when a result is clicked.
+   */
+  G.renderPlantDropdown = function renderPlantDropdown(dropdown, results, onSelect) {
+    dropdown.innerHTML = '';
+    if (!results.length) { dropdown.hidden = true; return; }
+
+    var subRanks = { variety: 1, cultivar: 1, subspecies: 1, form: 1, hybrid: 1, infrahybrid: 1 };
+
+    /* Group by genus (first word of scientific name) */
+    var groups = Object.create(null);
+    var genusOrder = [];
+    results.forEach(function(p) {
+      var genus = (p.scientific_name || '').split(' ')[0] || '';
+      if (!groups[genus]) { groups[genus] = []; genusOrder.push(genus); }
+      groups[genus].push(p);
+    });
+
+    function esc(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    genusOrder.forEach(function(genus) {
+      var group = groups[genus];
+
+      /* Library items first; then species before cultivars/varieties; then alpha */
+      group.sort(function(a, b) {
+        if (!!a.from_library !== !!b.from_library) return a.from_library ? -1 : 1;
+        var aS = !!subRanks[a.rank || ''], bS = !!subRanks[b.rank || ''];
+        if (aS !== bS) return aS ? 1 : -1;
+        return (a.scientific_name || '').localeCompare(b.scientific_name || '');
+      });
+
+      /* Only indent sub-rank entries when a species-level result is also in the group */
+      var hasSpecies = group.some(function(p) { return !subRanks[p.rank || '']; });
+
+      group.forEach(function(plant) {
+        var isSub = !!subRanks[plant.rank || ''] && hasSpecies && group.length > 1;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        var name = plant.common_name || plant.scientific_name || '';
+        var sci  = plant.scientific_name || '';
+        var html = (isSub ? '<span class="dd-indent">↳</span>' : '')
+          + '<span class="dd-name">' + esc(name) + '</span>';
+        if (sci && sci.toLowerCase() !== name.toLowerCase()) {
+          html += '<small>' + esc(sci) + '</small>';
+        }
+        if (plant.from_library) html += '<span class="dd-saved">in library</span>';
+        btn.innerHTML = html;
+        if (isSub) btn.className = 'dd-sub';
+        btn.addEventListener('click', function() { onSelect(plant); });
+        dropdown.appendChild(btn);
+      });
+    });
+
+    dropdown.hidden = false;
+  };
+
 }(window.GP = window.GP || {}));

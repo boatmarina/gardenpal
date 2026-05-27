@@ -358,22 +358,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     try {
       const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q));
       const data = await res.json();
-      render(data.results || []);
+      GP.renderPlantDropdown(dropdown, data.results || [], select);
     } catch (_) { dropdown.hidden = true; }
-  }
-
-  function render(results) {
-    dropdown.innerHTML = '';
-    if (!results.length) { dropdown.hidden = true; return; }
-    for (const plant of results) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.innerHTML = plant.common_name +
-        (plant.scientific_name ? '<br><small>' + plant.scientific_name + '</small>' : '');
-      btn.addEventListener('click', () => select(plant));
-      dropdown.appendChild(btn);
-    }
-    dropdown.hidden = false;
   }
 
   function select(plant) {
