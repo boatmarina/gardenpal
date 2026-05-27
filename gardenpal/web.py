@@ -394,11 +394,12 @@ def create_app() -> Flask:
     def new_idea():
         db = get_db()
         user_id = g.user["id"]
-        plant_names = [
-            r["name"] for r in db.execute(
-                "SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (user_id,)
-            ).fetchall()
-        ]
+        _lib_rows = db.execute(
+            "SELECT DISTINCT name, scientific_name FROM plants WHERE user_id = ? ORDER BY name ASC",
+            (user_id,),
+        ).fetchall()
+        plant_names    = [r["name"] for r in _lib_rows]
+        library_plants = [{"name": r["name"], "sci": r["scientific_name"] or ""} for r in _lib_rows]
 
         form_values = {
             "name": "",
@@ -557,7 +558,7 @@ def create_app() -> Flask:
             flash("Plant idea added.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
 
-        return render_template("idea_new.html", form_values=form_values, plant_names=plant_names)
+        return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
     @app.route("/ideas/<int:plant_id>")
     @login_required
@@ -754,6 +755,7 @@ def create_app() -> Flask:
             "SELECT id, name, scientific_name, image_path, image_url, photo_urls, sun_exposure, lifecycle, size_info, flowering_schedule FROM plants WHERE user_id = ? ORDER BY name ASC",
             (g.user["id"],),
         ).fetchall()
+        library_plants_json = [{"name": r["name"], "sci": r["scientific_name"] or ""} for r in library_plants]
 
         prefill_name = request.args.get("plant_name", "").strip()
         form_values = {
@@ -800,7 +802,7 @@ def create_app() -> Flask:
                 else:
                     apply_lookup_to_yard_form(form_values, details)
                     flash("Planted item details autofilled from name lookup.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_photo":
                 suggestion, error = identify_plant_from_image(request.files.get("photo"))
@@ -816,7 +818,7 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
                     flash(f"Photo-based suggestion confidence: {suggestion.get('confidence') or 'unknown'}")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_label":
                 text, error = extract_text_from_image(request.files.get("label_photo"))
@@ -831,11 +833,11 @@ def create_app() -> Flask:
                         flash(f"Label read: \"{query}\" — review the name then save.")
                     else:
                         flash("Could not extract a plant name from that label.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if not form_values["zone_id"] or not form_values["plant_name"]:
                 flash("Zone and plant name are required.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             zone = db.execute(
                 "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
@@ -843,7 +845,7 @@ def create_app() -> Flask:
             ).fetchone()
             if zone is None:
                 flash("Please choose a valid zone.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "yardplant")
             db.execute(
@@ -930,7 +932,7 @@ def create_app() -> Flask:
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
-        return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants)
+        return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
     @app.route("/yard/plants/<int:yard_plant_id>/remove", methods=["POST"])
     @login_required
@@ -1391,92 +1393,56 @@ def create_app() -> Flask:
         if len(q) < 2:
             return jsonify(results=[])
 
-        user_id = g.user["id"]
+        # Library matching is done client-side (data already in page).
+        # This endpoint only handles external API lookup.
 
-        # ── 1. User's own library (any word order, case-insensitive) ──
-        local_results = []
-        try:
-            words = [w for w in q.lower().split() if len(w) >= 2]
-            if words:
-                cond = " AND ".join(
-                    "(LOWER(name) LIKE ? OR LOWER(COALESCE(scientific_name,'')) LIKE ?)"
-                    for _ in words
-                )
-                params = [user_id] + [v for w in words for v in ("%" + w + "%", "%" + w + "%")]
-                rows = db.execute(
-                    "SELECT name, scientific_name FROM plants WHERE user_id = ? AND "
-                    + cond + " ORDER BY name LIMIT 5",
-                    params,
-                ).fetchall()
-                for r in rows:
-                    local_results.append({
-                        "common_name": r["name"],
-                        "scientific_name": r["scientific_name"] or "",
-                        "rank": "species",
-                        "from_library": True,
-                    })
-        except Exception:
-            pass
-
-        local_names = {r["common_name"].lower() for r in local_results}
-        local_sci   = {r["scientific_name"].lower() for r in local_results if r["scientific_name"]}
-
-        # ── 2. Perenual (if API key configured) ──
+        # ── Perenual (if API key configured) ──
         api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
-        external_results = []
         if api_key:
             try:
                 resp = requests.get(
                     "https://perenual.com/api/species-list",
                     params={"key": api_key, "q": q},
-                    timeout=10,
+                    timeout=8,
                 )
                 resp.raise_for_status()
                 data = resp.json().get("data", [])
+                results = []
                 for plant in data[:12]:
                     sci_list = plant.get("scientific_name") or []
-                    sci = sci_list[0] if sci_list else ""
-                    cn  = plant.get("common_name") or ""
-                    if cn.lower() in local_names or sci.lower() in local_sci:
-                        continue
-                    external_results.append({
-                        "common_name": cn,
-                        "scientific_name": sci,
+                    results.append({
+                        "common_name": plant.get("common_name") or "",
+                        "scientific_name": sci_list[0] if sci_list else "",
                         "rank": "species",
                         "from_library": False,
                     })
-                if external_results:
-                    return jsonify(results=(local_results + external_results)[:15])
+                if results:
+                    return jsonify(results=results)
             except Exception:
                 pass
 
-        # ── 3. iNaturalist taxa search (free fallback) ──
-        if not external_results:
-            try:
-                resp = requests.get(
-                    "https://api.inaturalist.org/v1/taxa",
-                    params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 15},
-                    timeout=10,
-                )
-                resp.raise_for_status()
-                taxa = resp.json().get("results", [])
-                for t in taxa:
-                    cn  = t.get("preferred_common_name") or t.get("name") or ""
-                    sci = t.get("name") or ""
-                    if cn.lower() in local_names or sci.lower() in local_sci:
-                        continue
-                    photo = t.get("default_photo") or {}
-                    external_results.append({
-                        "common_name": cn,
-                        "scientific_name": sci,
-                        "photo_url": photo.get("medium_url") or photo.get("square_url"),
-                        "rank": t.get("rank") or "species",
-                        "from_library": False,
-                    })
-            except Exception:
-                pass
-
-        return jsonify(results=(local_results + external_results)[:15])
+        # ── iNaturalist (free fallback) ──
+        try:
+            resp = requests.get(
+                "https://api.inaturalist.org/v1/taxa",
+                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 15},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            taxa = resp.json().get("results", [])
+            results = []
+            for t in taxa:
+                photo = t.get("default_photo") or {}
+                results.append({
+                    "common_name": t.get("preferred_common_name") or t.get("name") or "",
+                    "scientific_name": t.get("name") or "",
+                    "photo_url": photo.get("medium_url") or photo.get("square_url"),
+                    "rank": t.get("rank") or "species",
+                    "from_library": False,
+                })
+            return jsonify(results=results)
+        except Exception:
+            return jsonify(results=[])
 
     @app.route("/api/plant-photo")
     @login_required
