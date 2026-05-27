@@ -220,9 +220,15 @@
       <div style="display:flex;gap:12px;align-items:center">
         <img id="sel-thumb" src="{{ '' }}" alt=""
              style="width:56px;height:56px;object-fit:cover;border-radius:var(--r-sm);{% if not form_values.plant_name %}display:none{% endif %}" />
-        <div>
+        <div style="min-width:0">
           <strong id="sel-name" style="display:block">{{ form_values.plant_name }}</strong>
           <span id="sel-sci" class="muted" style="font-size:0.82rem;font-style:italic">{{ form_values.scientific_name }}</span>
+          <div id="sel-chips" class="autofill-chips" style="margin-top:6px">
+            {% if form_values.sun_needs %}<span class="chip">{{ form_values.sun_needs }}</span>{% endif %}
+            {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
+            {% if form_values.size_info %}<span class="chip">{{ form_values.size_info }}</span>{% endif %}
+            {% if form_values.flowering_schedule %}<span class="chip">{{ form_values.flowering_schedule }}</span>{% endif %}
+          </div>
         </div>
       </div>
       <button type="button" id="btn-clear"
@@ -291,6 +297,16 @@ async function compressAndIdentify(inputEl, submitBtnId) {
 })();
 
 (function () {
+  /* Render detail chips inside the selected-plant card */
+  function showSelChips(details) {
+    var el = document.getElementById('sel-chips');
+    if (!el || !details) return;
+    var chips = [details.scientific_name, details.sun_needs, details.lifecycle,
+                 details.size_info, details.flowering_schedule].filter(Boolean);
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    el.innerHTML = chips.map(function(c){ return '<span class="chip">'+esc(c)+'</span>'; }).join('');
+  }
+
   const hMode      = document.getElementById('h-mode');
   const hYardMode  = document.getElementById('h-yard-mode');
   const hName      = document.getElementById('h-plant-name');
@@ -416,6 +432,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
               set('h-flowering', details.flowering_schedule);
               set('h-water',     details.watering_needs);
               if (selSci && details.scientific_name) selSci.textContent = details.scientific_name;
+              showSelChips(details);
             }
           }).finally(() => {
             waitingForPhotos = false;
@@ -472,6 +489,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     if (thumb) { selThumb.src = thumb; selThumb.style.display = ''; }
     else { selThumb.style.display = 'none'; }
 
+    // Show whatever details the library card already has
+    const selChipsEl = document.getElementById('sel-chips');
+    if (selChipsEl) {
+      const chips = [sun, lifecycle, size, flowering].filter(Boolean);
+      function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      selChipsEl.innerHTML = chips.map(c => '<span class="chip">'+esc(c)+'</span>').join('');
+    }
+
     selPanel.hidden = false;
     common.hidden   = false;
     sectionLib.hidden = true;
@@ -524,6 +549,22 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           selPanel.hidden = false;
           common.hidden   = false;
           fetchPhotos(plant.photo_url, plant.common_name || plant.scientific_name);
+          // Fetch full details and show chips
+          const detailQ = plant.scientific_name || plant.common_name;
+          fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
+            .then(r => r.json())
+            .then(d => {
+              if (!d.error) {
+                hSun.value       = d.sun_needs       || hSun.value;
+                hLifecycle.value = d.lifecycle       || hLifecycle.value;
+                hSize.value      = d.size_info       || hSize.value;
+                hFlowering.value = d.flowering_schedule || hFlowering.value;
+                hWater.value     = d.watering_needs  || hWater.value;
+                hQuery.value     = d.scientific_name || hQuery.value;
+                showSelChips(d);
+              }
+            })
+            .catch(() => {});
         });
         dropdown.appendChild(btn);
       }

@@ -105,11 +105,7 @@
 
   {% if plant_zones %}
   <section class="panel" style="margin-top:14px">
-    <div class="title-row" style="margin-bottom:4px">
-      <h3 style="margin:0;font-size:0.9rem">In your yard</h3>
-      <a href="{{ url_for('yard_plant_new') }}?plant_name={{ plant.name | urlencode }}"
-         class="button" style="font-size:0.65rem;padding:5px 12px">+ Add to zone</a>
-    </div>
+    <h3 style="margin:0 0 4px;font-size:0.9rem">In your yard</h3>
     {% for pz in plant_zones %}
     <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -134,6 +130,10 @@
       </form>
     </div>
     {% endfor %}
+    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <a href="{{ url_for('yard_plant_new') }}?plant_name={{ plant.name | urlencode }}"
+         class="button button-secondary" style="font-size:0.7rem">+ Add to another zone</a>
+    </div>
   </section>
   {% else %}
   <div style="margin-top:14px;background:var(--card);border-radius:var(--r-xl);padding:var(--pad);text-align:center">
