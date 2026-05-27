@@ -252,7 +252,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       if (loading) loading.hidden = false;
       identifyBtn.disabled = true;
       document.querySelectorAll('button[value="save"]').forEach(function(b) { b.disabled = true; });
-      var compressed = await GP.compressImage(fileInput.files[0]);
+      var compressed = await GP.compressImage(fileInput.files[0], 1100, 0.78);
       try { sessionStorage.setItem('gpPhotoPreview', await GP.blobToDataURL(compressed)); } catch(e) {}
       try {
         var dt = new DataTransfer();
@@ -336,7 +336,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
       let waitingForPhotos = false;
       try {
-        const compressed = await GP.compressImage(fileInput.files[0]);
+        const compressed = await GP.compressImage(fileInput.files[0], 900, 0.70);
         const fd = new FormData();
         fd.append('label_photo', new File([compressed], 'label.jpg', {type: 'image/jpeg'}));
         const res = await fetch('/api/ocr-label', {method: 'POST', body: fd});
