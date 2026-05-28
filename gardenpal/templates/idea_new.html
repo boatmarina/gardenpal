@@ -454,15 +454,18 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     var pending = 1; // only details count; photos are synchronous or have own counter
     function onDone() { if (--pending === 0 && loading) loading.hidden = true; }
 
-    var photoQ = plant.scientific_name || plant.common_name;
+    // Build a photo query: strip cultivar names (in quotes) and hybrid × markers
+    // so iNaturalist searches get "Iris germanica" not "Iris × germanica 'America's Cup'"
+    var rawPhotoQ = plant.scientific_name || plant.common_name;
+    var photoQ = rawPhotoQ.replace(/×/g, '').replace(/'[^']*'/g, '').replace(/\s+/g, ' ').trim();
     var preloaded = plant.taxon_photos || [];
     if (preloaded.length) {
       // Photos already in the search result — show instantly, no extra API call
       showPhotoList(preloaded, photoQ);
     } else {
-      // Fall back to fetching photos by name
+      // Fall back to fetching photos by name; don't show inline Perenual URL (often broken/upgrade-required)
       pending++;
-      showPhotoPreview(plant.photo_url, photoQ, onDone);
+      showPhotoPreview(null, photoQ, onDone, plant.common_name);
     }
 
     // Fetch full details (sun, lifecycle, size…) and show chips before save
@@ -529,7 +532,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     });
   }
 
-  function showPhotoPreview(inlineUrl, name, onComplete) {
+  function showPhotoPreview(inlineUrl, name, onComplete, altName) {
     const preview = document.getElementById('name-photo-preview');
     if (!preview) { if (onComplete) onComplete(); return; }
     photoReserve = [];
@@ -550,6 +553,17 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       return true;
     }
 
+    function inatLookup(q) {
+      return fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(q) +
+                   '&is_active=true&iconic_taxa=Plantae&per_page=1')
+        .then(r2 => r2.json())
+        .then(d2 => {
+          const taxon = (d2.results || [])[0] || {};
+          const photo = taxon.default_photo || {};
+          return photo.medium_url || photo.square_url || null;
+        });
+    }
+
     var showedPhotos = false;
 
     // Try server first; on any failure or empty result, fall back to iNaturalist directly from browser
@@ -560,15 +574,10 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       // Runs after server call regardless of success/failure
       .then(() => {
         if (showedPhotos) return;
-        return fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(name || '') +
-                     '&is_active=true&iconic_taxa=Plantae&per_page=1')
-          .then(r2 => r2.json())
-          .then(d2 => {
-            const taxon = (d2.results || [])[0] || {};
-            const photo = taxon.default_photo || {};
-            const url = photo.medium_url || photo.square_url;
-            if (url) applyPhotos([url]);
-          })
+        // Try scientific name query, then fall back to common name if no result
+        return inatLookup(name || '')
+          .then(url => url || (altName && altName !== name ? inatLookup(altName) : null))
+          .then(url => { if (url) applyPhotos([url]); })
           .catch(() => {});
       })
       .finally(() => { if (onComplete) onComplete(); });
