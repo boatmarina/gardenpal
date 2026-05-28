@@ -51,24 +51,23 @@
 
   {% if current_user and current_user['is_admin'] %}
   <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">User management</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Reset a user's password. Give the new password to them directly.</p>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      {% for u in all_users %}
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-          <span style="font-size:0.85rem;font-weight:600">{{ u.username }}</span>
-          {% if u.is_admin %}<span style="font-size:0.7rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600">admin</span>{% endif %}
+    <h2 style="margin-bottom:4px">Users</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Click a user to view their activity and manage their account.</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      {% for row in all_users %}
+      {% set u = row.user %}
+      {% set s = row.stats %}
+      <a href="{{ url_for('admin_user_detail', target_id=u.id) }}"
+         style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;color:inherit">
+        <div style="display:flex;align-items:center;gap:7px;min-width:0">
+          <span style="font-size:0.85rem;font-weight:600;white-space:nowrap">{{ u.username }}</span>
+          {% if u.is_admin %}<span style="font-size:0.7rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600;white-space:nowrap">admin</span>{% endif %}
         </div>
-        <form method="post" action="{{ url_for('admin_reset_password') }}"
-              style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"
-              onsubmit="return confirm('Reset password for {{ u.username }}?')">
-          <input type="hidden" name="user_id" value="{{ u.id }}" />
-          <input type="password" name="new_password" placeholder="New password (min 8 chars)"
-                 style="flex:1;min-width:180px;font-size:0.83rem" autocomplete="new-password" />
-          <button type="submit" class="button button-secondary" style="font-size:0.82rem;white-space:nowrap">Reset password</button>
-        </form>
-      </div>
+        <div style="display:flex;gap:14px;align-items:center;flex-shrink:0">
+          <span style="font-size:0.78rem;color:var(--muted)">{{ s.plants }} plants · {{ s.zones }} zones · {{ s.garden }} edibles</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.35"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </a>
       {% endfor %}
     </div>
   </section>

@@ -258,6 +258,11 @@ def create_app() -> Flask:
 
             session.clear()
             session["user_id"] = user["id"]
+            db.execute(
+                "INSERT INTO login_log (user_id, logged_in_at) VALUES (?, ?)",
+                (user["id"], datetime.utcnow().isoformat(timespec="seconds")),
+            )
+            db.commit()
             flash("Welcome back.")
             return redirect(url_for("dashboard"))
 
@@ -1062,15 +1067,70 @@ def create_app() -> Flask:
     def settings_redirect():
         return redirect(url_for("tools"))
 
+    def _user_stats(db, user_id, created_at_str):
+        plants  = db.execute("SELECT COUNT(*) AS n FROM plants WHERE user_id = ?",        (user_id,)).fetchone()["n"]
+        zones   = db.execute("SELECT COUNT(*) AS n FROM yard_zones WHERE user_id = ?",    (user_id,)).fetchone()["n"]
+        garden  = db.execute("SELECT COUNT(*) AS n FROM garden_entries WHERE user_id = ?",(user_id,)).fetchone()["n"]
+        log_row = db.execute(
+            "SELECT COUNT(*) AS n, MAX(logged_in_at) AS last FROM login_log WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        login_count = log_row["n"] or 0
+        last_login  = log_row["last"]
+        try:
+            created = datetime.fromisoformat(created_at_str)
+            weeks   = max(1.0, (datetime.utcnow() - created).days / 7.0)
+        except Exception:
+            weeks = 1.0
+        avg_per_week = round(login_count / weeks, 1)
+        return {
+            "plants": plants, "zones": zones, "garden": garden,
+            "login_count": login_count, "last_login": last_login,
+            "avg_per_week": avg_per_week,
+        }
+
     @app.route("/tools")
     @login_required
     def tools():
-        users = []
+        users_with_stats = []
         if g.user.get("is_admin"):
-            users = get_db().execute(
+            db = get_db()
+            rows = db.execute(
                 "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at ASC"
             ).fetchall()
-        return render_template("settings.html", user=g.user, all_users=users)
+            for u in rows:
+                stats = _user_stats(db, u["id"], u["created_at"])
+                users_with_stats.append({"user": u, "stats": stats})
+        return render_template("settings.html", user=g.user, all_users=users_with_stats)
+
+    @app.route("/admin/users/<int:target_id>", methods=["GET", "POST"])
+    @login_required
+    def admin_user_detail(target_id):
+        if not g.user.get("is_admin"):
+            return redirect(url_for("tools"))
+        db = get_db()
+        target = db.execute(
+            "SELECT id, username, is_admin, created_at FROM users WHERE id = ?", (target_id,)
+        ).fetchone()
+        if target is None:
+            flash("User not found.")
+            return redirect(url_for("tools"))
+        if request.method == "POST":
+            new_password = request.form.get("new_password", "").strip()
+            if not new_password:
+                flash("New password is required.")
+            elif len(new_password) < 8:
+                flash("Password must be at least 8 characters.")
+            else:
+                db.execute(
+                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    (generate_password_hash(new_password), target_id),
+                )
+                db.commit()
+                flash(f"Password reset for {target['username']}.")
+            return redirect(url_for("admin_user_detail", target_id=target_id))
+        stats = _user_stats(db, target_id, target["created_at"])
+        return render_template("admin_user_detail.html", target=target, stats=stats)
 
     @app.route("/admin/reset-password", methods=["POST"])
     @login_required
@@ -2164,6 +2224,14 @@ _SCHEMA_STATEMENTS = [
         key TEXT PRIMARY KEY,
         value_json TEXT NOT NULL,
         updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS login_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        logged_in_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
     """,
 ]

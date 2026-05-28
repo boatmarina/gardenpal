@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">{{ target.username }}</span>{% endblock %}
+{% block title %}{{ target.username }} · Admin · GardenPal{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('tools') }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Tools
+  </a>
+
+  <section class="panel" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <h2 style="margin:0">{{ target.username }}</h2>
+      {% if target.is_admin %}<span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:2px 7px;font-weight:600">admin</span>{% endif %}
+    </div>
+
+    <!-- Stats grid -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;text-align:center">
+        <p style="font-size:1.4rem;font-weight:700;color:var(--green-dark);margin:0 0 2px">{{ stats.plants }}</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.06em">Plants</p>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;text-align:center">
+        <p style="font-size:1.4rem;font-weight:700;color:var(--green-dark);margin:0 0 2px">{{ stats.zones }}</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.06em">Zones</p>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;text-align:center">
+        <p style="font-size:1.4rem;font-weight:700;color:var(--green-dark);margin:0 0 2px">{{ stats.garden }}</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.06em">Edibles</p>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;text-align:center">
+        <p style="font-size:1.4rem;font-weight:700;color:var(--green-dark);margin:0 0 2px">{{ stats.login_count }}</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.06em">Logins</p>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;text-align:center">
+        <p style="font-size:1.4rem;font-weight:700;color:var(--green-dark);margin:0 0 2px">{{ stats.avg_per_week }}</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.06em">/ week</p>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;text-align:center">
+        {% if stats.last_login %}
+          <p style="font-size:0.88rem;font-weight:700;color:var(--green-dark);margin:0 0 2px" id="last-login-val" data-iso="{{ stats.last_login }}">—</p>
+        {% else %}
+          <p style="font-size:0.88rem;font-weight:700;color:var(--muted);margin:0 0 2px">Never</p>
+        {% endif %}
+        <p style="font-size:0.72rem;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.06em">Last login</p>
+      </div>
+    </div>
+
+    {% if target.created_at %}
+    <p style="font-size:0.75rem;color:var(--muted);margin-top:12px;margin-bottom:0">
+      Member since {{ target.created_at[:10] }}
+    </p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2 style="margin-bottom:4px">Reset password</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Set a new password and give it to {{ target.username }} directly.</p>
+    <form method="post"
+          style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"
+          onsubmit="return confirm('Reset password for {{ target.username }}?')">
+      <input type="password" name="new_password" placeholder="New password (min 8 chars)"
+             style="flex:1;min-width:200px;font-size:0.85rem" autocomplete="new-password" required />
+      <button type="submit" class="button button-secondary" style="white-space:nowrap;font-size:0.83rem">Reset password</button>
+    </form>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var el = document.getElementById('last-login-val');
+  if (!el) return;
+  var iso = el.dataset.iso;
+  if (!iso) return;
+  var d = new Date(iso.replace(' ', 'T') + 'Z');
+  if (isNaN(d)) return;
+  var now = new Date();
+  var diffMs = now - d;
+  var diffDays = Math.floor(diffMs / 86400000);
+  var label;
+  if (diffDays === 0)      label = 'Today';
+  else if (diffDays === 1) label = 'Yesterday';
+  else if (diffDays < 7)  label = diffDays + 'd ago';
+  else if (diffDays < 30) label = Math.floor(diffDays / 7) + 'w ago';
+  else                    label = Math.floor(diffDays / 30) + 'mo ago';
+  el.textContent = label;
+})();
+</script>
+{% endblock %}
