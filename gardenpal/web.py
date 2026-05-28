@@ -1418,6 +1418,37 @@ def create_app() -> Flask:
         flash("Entry deleted.")
         return redirect(url_for("garden_index"))
 
+    @app.route("/garden/<int:entry_id>/duplicate", methods=["POST"])
+    @login_required
+    def garden_duplicate(entry_id):
+        db = get_db()
+        src = db.execute(
+            "SELECT * FROM garden_entries WHERE id = ? AND user_id = ?",
+            (entry_id, g.user["id"]),
+        ).fetchone()
+        if src is None:
+            flash("Entry not found.")
+            return redirect(url_for("garden_index"))
+        now = datetime.utcnow().isoformat(timespec="seconds")
+        cur = db.execute(
+            """INSERT INTO garden_entries
+               (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                g.user["id"],
+                src["plant_name"],
+                src["variety"],
+                src["location_type"],
+                src["location_name"],
+                src["planted_date"],
+                src["notes"],
+                now,
+                now,
+            ),
+        )
+        db.commit()
+        return redirect(url_for("garden_edit", entry_id=cur.lastrowid))
+
     # ── Garden API (token-authenticated) ────────────────────────────────────
 
     def token_required(view):
