@@ -188,7 +188,8 @@
   /* ── photo item factory ── */
   function makePhotoItem(url, idx) {
     return `<div class="photo-item">
-      <img src="${url}" alt="${query}" loading="lazy" style="cursor:zoom-in" />
+      <img src="${url}" alt="${query}" loading="lazy" style="cursor:zoom-in"
+           onerror="(function(item){item.remove();updateBadges();})(this.closest('.photo-item'))" />
       <span class="photo-badge">${idx + 1}</span>
       <button class="photo-remove" title="Remove" aria-label="Remove photo">×</button>
       <div class="drag-handle" title="Drag to reorder">
