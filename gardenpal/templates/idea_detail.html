@@ -22,6 +22,7 @@
          style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
          data-plant-id="{{ plant.id }}"
          data-query="{{ (plant.scientific_name or plant.name) | e }}"
+         data-image-path="{{ plant.image_path | media_url if plant.image_path else '' }}"
          data-stored="{{ plant.photo_urls or '' }}">
       {% if plant.image_path %}
         <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" />
@@ -294,7 +295,15 @@
     grid.querySelectorAll('.photo-item').forEach(attachControls);
   }
 
+  const userPhoto = grid.dataset.imagePath;
   const stored = grid.dataset.stored;
+  if (userPhoto) {
+    // Always show the user's own uploaded photo first; community photos come after
+    let extras = [];
+    if (stored) { try { extras = JSON.parse(stored); } catch (_) {} }
+    renderPhotos([userPhoto, ...extras.filter(u => u !== userPhoto)]);
+    return;
+  }
   if (stored) {
     try { renderPhotos(JSON.parse(stored)); return; } catch (_) {}
   }

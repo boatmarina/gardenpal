@@ -149,6 +149,7 @@
       <input type="hidden" name="plant_form"         id="plant-form-hidden"     value="{{ form_values.plant_form }}" />
       <input type="hidden" name="height_category"    id="height-category-hidden" value="{{ form_values.height_category }}" />
       <input type="hidden" name="source_type"        value="world" />
+      <input type="hidden" name="pre_uploaded_image_path" value="{{ form_values.pre_uploaded_image_path or '' }}" />
 
       <!-- Populated by JS after label scan or name-search selection -->
       <div id="autofill-preview" class="autofill-summary" hidden></div>
