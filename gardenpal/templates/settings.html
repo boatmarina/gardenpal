@@ -61,6 +61,51 @@
     </div>
   </section>
 
+  {% if current_user and current_user['is_admin'] and perenual_log is defined %}
+  <section class="panel" style="margin-bottom:16px">
+    <h2 style="margin-bottom:4px">Perenual usage log</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+      Every search query that hit the Perenual API — last 200 entries.
+      <strong>Hit</strong> = Perenual returned results; <strong>Miss</strong> = fell through to iNaturalist.
+    </p>
+    {% if perenual_log %}
+      {% set hits = perenual_log | selectattr('result_count', 'gt', 0) | list | length %}
+      {% set total = perenual_log | length %}
+      <div style="display:flex;gap:16px;margin-bottom:12px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
+          <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ total }}</p>
+          <p style="font-size:0.75rem;color:var(--muted);margin:0">searches logged</p>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
+          <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ hits }}</p>
+          <p style="font-size:0.75rem;color:var(--muted);margin:0">Perenual hits</p>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
+          <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ total - hits }}</p>
+          <p style="font-size:0.75rem;color:var(--muted);margin:0">iNat fallbacks</p>
+        </div>
+      </div>
+      <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+        {% for row in perenual_log %}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+          <span style="font-size:0.83rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.query }}</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            {% if row.result_count > 0 %}
+            <span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600">Hit · {{ row.result_count }}</span>
+            {% else %}
+            <span style="font-size:0.72rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">Miss</span>
+            {% endif %}
+            <span style="font-size:0.72rem;color:var(--muted)">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No searches logged yet.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if current_user and current_user['is_admin'] %}
   <section class="panel" style="margin-bottom:16px" id="services-panel">
     <h2 style="margin-bottom:4px">Connected services</h2>
