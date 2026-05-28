@@ -553,7 +553,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
   }
 
   function makePhotoItem(url, altText) {
-    return `<div class="photo-item"><img src="${url}" alt="${altText || ''}" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
+    return `<div class="photo-item"><img src="${url}" alt="${altText || ''}" onerror="this.closest('.photo-item').remove()" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
   }
 
   function attachRemove(item, preview, altText) {
