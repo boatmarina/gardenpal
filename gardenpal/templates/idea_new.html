@@ -533,7 +533,6 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     const preview = document.getElementById('name-photo-preview');
     if (!preview) { if (onComplete) onComplete(); return; }
     photoReserve = [];
-    // Show inline photo immediately if the search result already has one
     if (inlineUrl) {
       preview.innerHTML = makePhotoItem(inlineUrl, name || '');
       if (imageUrlHidden) imageUrlHidden.value = inlineUrl;
@@ -551,13 +550,16 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       return true;
     }
 
-    // Fetch up to 6 community photos via server; if server returns none, try iNaturalist directly
+    var showedPhotos = false;
+
+    // Try server first; on any failure or empty result, fall back to iNaturalist directly from browser
     fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=6')
       .then(r => r.json())
-      .then(d => {
-        if (applyPhotos(d.photos || [])) return;
-        if (inlineUrl) return; // already showing something
-        // Server returned no photos — fall back to a direct iNaturalist taxa lookup
+      .then(d => { showedPhotos = applyPhotos(d.photos || []); })
+      .catch(() => {})
+      // Runs after server call regardless of success/failure
+      .then(() => {
+        if (showedPhotos) return;
         return fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(name || '') +
                      '&is_active=true&iconic_taxa=Plantae&per_page=1')
           .then(r2 => r2.json())
@@ -569,7 +571,6 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
           })
           .catch(() => {});
       })
-      .catch(() => {})
       .finally(() => { if (onComplete) onComplete(); });
   }
 })();

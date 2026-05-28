@@ -1610,11 +1610,15 @@ def create_app() -> Flask:
                 results = []
                 for plant in data[:12]:
                     sci_list = plant.get("scientific_name") or []
+                    img = plant.get("default_image") or {}
+                    photo_url = (img.get("medium_url") or img.get("regular_url")
+                                 or img.get("original_url") or None)
                     results.append({
                         "common_name": plant.get("common_name") or "",
                         "scientific_name": sci_list[0] if sci_list else "",
                         "rank": "species",
                         "from_library": False,
+                        "photo_url": photo_url,
                     })
                 if results:
                     return jsonify(results=results)
