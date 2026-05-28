@@ -113,7 +113,19 @@
 
   {% if plant_zones %}
   <section class="panel" style="margin-top:14px">
-    <h3 style="margin:0 0 4px;font-size:0.9rem">In your yard</h3>
+    <h3 style="margin:0 0 12px;font-size:1rem;font-weight:700">In your yard</h3>
+    {% if all_zones %}
+    <form method="post" action="{{ url_for('idea_add_to_zone', plant_id=plant.id) }}"
+          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <select name="zone_id" required style="flex:1;min-width:0;font-size:0.85rem">
+        <option value="">Add to another zone…</option>
+        {% for z in all_zones %}
+          <option value="{{ z.id }}">{{ z.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="button button-secondary" style="font-size:0.75rem;flex-shrink:0">+ Add</button>
+    </form>
+    {% endif %}
     {% for pz in plant_zones %}
     <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -124,8 +136,8 @@
         <form method="post"
               action="{{ url_for('yard_plant_remove', yard_plant_id=pz.id) }}?back={{ plant.id }}"
               onsubmit="return confirm('Remove {{ plant.name | e }} from {{ pz.zone_name | e }}?')">
-          <button type="submit" class="button button-secondary"
-                  style="font-size:0.65rem;padding:3px 10px">Remove</button>
+          <button type="submit" title="Remove from this zone"
+                  style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;font-family:inherit">×</button>
         </form>
       </div>
       <form method="post"
@@ -138,18 +150,6 @@
       </form>
     </div>
     {% endfor %}
-    {% if all_zones %}
-    <form method="post" action="{{ url_for('idea_add_to_zone', plant_id=plant.id) }}"
-          style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select name="zone_id" required style="flex:1;min-width:0;font-size:0.85rem">
-        <option value="">Choose a zone…</option>
-        {% for z in all_zones %}
-          <option value="{{ z.id }}">{{ z.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="button button-secondary" style="font-size:0.75rem;flex-shrink:0">+ Add to zone</button>
-    </form>
-    {% endif %}
   </section>
   {% else %}
   <div style="margin-top:14px;background:var(--card);border-radius:var(--r-xl);padding:var(--pad)">
@@ -339,7 +339,21 @@
 
   inp.addEventListener('input', function() { fetchTags(inp.value.trim()); });
   inp.addEventListener('focus', function() { fetchTags(inp.value.trim()); });
-  inp.addEventListener('keydown', function(e) { if (e.key === 'Escape') dropdown.hidden = true; });
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { dropdown.hidden = true; return; }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      dropdown.hidden = true;
+      if (inp.value.trim()) inp.form.requestSubmit();
+    }
+  });
+  inp.addEventListener('blur', function() {
+    setTimeout(function() {
+      dropdown.hidden = true;
+      if (inp.value.trim()) inp.form.requestSubmit();
+    }, 150);
+  });
   document.addEventListener('click', function(e) {
     if (!inp.closest('form').contains(e.target)) dropdown.hidden = true;
   });
