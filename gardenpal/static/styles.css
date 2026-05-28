@@ -69,6 +69,7 @@ p  { line-height: 1.55; }
   font-style: italic;
   padding: 2.5rem 0;
   font-size: 0.95rem;
+  grid-column: 1 / -1;
 }
 
 /* ================================================================
