@@ -194,13 +194,16 @@
       <!-- URL mode -->
       <div class="mode-section" id="yard-mode-url">
         <label>
-          Image URL
-          <input id="url-image-input-yard" type="url" placeholder="https://…" value="{{ form_values.image_url }}" />
+          Plant name
+          <div class="plant-search-wrap">
+            <input id="url-name-input-yard" type="text" placeholder="Start typing a plant name…"
+                   autocomplete="off" value="{{ form_values.plant_name }}" />
+            <div id="url-name-dropdown" class="plant-search-dropdown" hidden></div>
+          </div>
         </label>
         <label>
-          Plant name
-          <input id="url-name-input-yard" type="text" placeholder="Enter the plant name…"
-                 autocomplete="off" value="{{ form_values.plant_name }}" />
+          Image URL
+          <input id="url-image-input-yard" type="url" placeholder="https://…" value="{{ form_values.image_url }}" />
         </label>
       </div>
 
@@ -379,8 +382,81 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   /* ── URL mode inputs ── */
   const urlNameInput  = document.getElementById('url-name-input-yard');
   const urlImageInput = document.getElementById('url-image-input-yard');
-  if (urlNameInput)  urlNameInput.addEventListener('input',  () => { hName.value     = urlNameInput.value; });
   if (urlImageInput) urlImageInput.addEventListener('input', () => { hImageUrl.value = urlImageInput.value; });
+
+  if (urlNameInput) {
+    const urlDropdown = document.getElementById('url-name-dropdown');
+    let urlTimer = null, urlCtrl = null;
+
+    urlNameInput.addEventListener('input', () => {
+      const val = urlNameInput.value.trim();
+      hName.value = urlNameInput.value;
+      // Show/hide the save panel as the user types
+      if (val) {
+        if (selName) selName.textContent = val;
+        if (selSci)  selSci.textContent  = '';
+        if (selThumb) selThumb.style.display = 'none';
+        if (selPanel) selPanel.hidden = false;
+        if (common)   common.hidden   = false;
+      } else {
+        if (selPanel) selPanel.hidden = true;
+        if (common)   common.hidden   = true;
+      }
+      // Autocomplete
+      if (!urlDropdown) return;
+      clearTimeout(urlTimer);
+      if (val.length < 2) { urlDropdown.hidden = true; return; }
+      urlTimer = setTimeout(() => urlSearch(val), 320);
+    });
+
+    if (urlDropdown) {
+      urlNameInput.addEventListener('keydown', e => { if (e.key === 'Escape') urlDropdown.hidden = true; });
+      document.addEventListener('click', e => {
+        if (!urlNameInput.contains(e.target) && !urlDropdown.contains(e.target)) urlDropdown.hidden = true;
+      });
+    }
+
+    let _urlCtrl = null;
+    async function urlSearch(q) {
+      if (_urlCtrl) _urlCtrl.abort();
+      _urlCtrl = new AbortController();
+      const qL = q.toLowerCase();
+      const words = qL.split(/\s+/).filter(w => w.length >= 2);
+      const libMatches = (window.LIBRARY_PLANTS || [])
+        .filter(p => {
+          if (!words.length) return false;
+          const n = (p.name || '').toLowerCase();
+          const s = (p.sci || '').toLowerCase();
+          return words.every(w => n.includes(w) || s.includes(w));
+        })
+        .slice(0, 5)
+        .map(p => ({ common_name: p.name, scientific_name: p.sci, from_library: true, rank: 'species' }));
+      if (libMatches.length) GP.renderPlantDropdown(urlDropdown, libMatches, urlSelectPlant, q);
+      try {
+        const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q), {signal: _urlCtrl.signal});
+        const data = await res.json();
+        const libNameSet = new Set(libMatches.map(p => (p.common_name || '').toLowerCase()));
+        const apiResults = (data.results || []).filter(r => !libNameSet.has((r.common_name || '').toLowerCase()));
+        GP.renderPlantDropdown(urlDropdown, [...libMatches, ...apiResults], urlSelectPlant, q);
+      } catch(err) {
+        if (err.name === 'AbortError') return;
+        if (!libMatches.length && urlDropdown) urlDropdown.hidden = true;
+      }
+    }
+
+    function urlSelectPlant(plant) {
+      urlNameInput.value  = plant.common_name;
+      hName.value         = plant.common_name;
+      hSci.value          = plant.scientific_name || '';
+      hQuery.value        = plant.scientific_name || plant.common_name;
+      if (urlDropdown) urlDropdown.hidden = true;
+      if (selName)  selName.textContent = plant.common_name;
+      if (selSci)   selSci.textContent  = plant.scientific_name || '';
+      if (selThumb) selThumb.style.display = 'none';
+      if (selPanel) selPanel.hidden = false;
+      if (common)   common.hidden   = false;
+    }
+  }
 
   /* ── Label mode spinner ── */
   const yardLabelSubmitBtn = document.getElementById('yard-label-submit-btn');
