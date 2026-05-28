@@ -1430,10 +1430,10 @@ def create_app() -> Flask:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
         now = datetime.utcnow().isoformat(timespec="seconds")
-        cur = db.execute(
+        row = db.execute(
             """INSERT INTO garden_entries
                (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
             (
                 g.user["id"],
                 src["plant_name"],
@@ -1445,9 +1445,9 @@ def create_app() -> Flask:
                 now,
                 now,
             ),
-        )
+        ).fetchone()
         db.commit()
-        return redirect(url_for("garden_edit", entry_id=cur.lastrowid))
+        return redirect(url_for("garden_edit", entry_id=row["id"]))
 
     # ── Garden API (token-authenticated) ────────────────────────────────────
 
