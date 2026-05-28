@@ -1,6 +1,10 @@
 /* ================================================================
    TOKENS
    ================================================================ */
+
+/* Normalize hidden attribute — prevents CSS display rules from overriding it */
+[hidden] { display: none !important; }
+
 :root {
   --bg:        #EAE5DA;
   --card:      #FFFFFF;
