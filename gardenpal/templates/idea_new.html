@@ -440,6 +440,8 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
   }
 
   function select(plant) {
+    // Cancel any in-flight search so the dropdown doesn't reopen after selection
+    if (_searchCtrl) { _searchCtrl.abort(); _searchCtrl = null; }
     if (nameInput) nameInput.value = plant.common_name;
     nameHidden.value = plant.common_name;
     if (sciField) sciField.value = plant.scientific_name || '';
@@ -538,18 +540,34 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       attachRemove(preview.querySelector('.photo-item'), preview, name || '');
       preview.hidden = false;
     }
-    // Fetch up to 6 community photos; show first 3 and keep rest in reserve
+
+    function applyPhotos(photos) {
+      if (!photos.length) return false;
+      photoReserve = photos.slice(3);
+      preview.innerHTML = photos.slice(0, 3).map(u => makePhotoItem(u, name || '')).join('');
+      if (imageUrlHidden) imageUrlHidden.value = photos[0];
+      preview.querySelectorAll('.photo-item').forEach(item => attachRemove(item, preview, name || ''));
+      preview.hidden = false;
+      return true;
+    }
+
+    // Fetch up to 6 community photos via server; if server returns none, try iNaturalist directly
     fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=6')
       .then(r => r.json())
       .then(d => {
-        const photos = d.photos || [];
-        if (photos.length) {
-          photoReserve = photos.slice(3);
-          preview.innerHTML = photos.slice(0, 3).map(u => makePhotoItem(u, name || '')).join('');
-          if (imageUrlHidden) imageUrlHidden.value = photos[0];
-          preview.querySelectorAll('.photo-item').forEach(item => attachRemove(item, preview, name || ''));
-          preview.hidden = false;
-        }
+        if (applyPhotos(d.photos || [])) return;
+        if (inlineUrl) return; // already showing something
+        // Server returned no photos — fall back to a direct iNaturalist taxa lookup
+        return fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(name || '') +
+                     '&is_active=true&iconic_taxa=Plantae&per_page=1')
+          .then(r2 => r2.json())
+          .then(d2 => {
+            const taxon = (d2.results || [])[0] || {};
+            const photo = taxon.default_photo || {};
+            const url = photo.medium_url || photo.square_url;
+            if (url) applyPhotos([url]);
+          })
+          .catch(() => {});
       })
       .catch(() => {})
       .finally(() => { if (onComplete) onComplete(); });
