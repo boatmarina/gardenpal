@@ -77,13 +77,15 @@
         </div>
         <input type="file" name="photo" accept="image/*" id="photo-file-input"
                style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;overflow:hidden" />
-        <div id="photo-name-row" {% if form_values.active_mode != 'photo' %}hidden{% endif %}
-             style="margin-top:10px">
+        <div id="photo-name-row" style="margin-top:10px">
           <label>
             Plant name
-            <input id="photo-name-input" type="text" placeholder="Type plant name…"
-                   value="{{ form_values.name if form_values.active_mode == 'photo' else '' }}"
-                   autocomplete="off" />
+            <div class="plant-search-wrap">
+              <input id="photo-name-input" type="text" placeholder="Type plant name…"
+                     value="{{ form_values.name if form_values.active_mode == 'photo' else '' }}"
+                     autocomplete="off" />
+              <div id="photo-search-dropdown" class="plant-search-dropdown" hidden></div>
+            </div>
           </label>
           {% if form_values.active_mode == 'photo' and form_values.scientific_name %}
             <p class="muted" style="font-size:0.82rem;font-style:italic;margin-top:2px">{{ form_values.scientific_name }}</p>
@@ -279,17 +281,32 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
   const urlNameInput = document.getElementById('url-name-input');
   const urlImageInput = document.getElementById('url-image-input');
   const dropdown = document.getElementById('plant-search-dropdown');
+  const photoDropdown = document.getElementById('photo-search-dropdown');
+  const photoNameInputEl = document.getElementById('photo-name-input');
   const sciField = document.querySelector('[name=scientific_name]');
   const queryField = document.querySelector('[name=lookup_query]');
 
-  function setMode(mode) {
+  function setMode(mode, reset) {
     cards.forEach(c => c.classList.toggle('active', c.dataset.mode === mode));
     sections.forEach(s => s.classList.toggle('active', s.id === 'mode-' + mode));
     if (activeModeField) activeModeField.value = mode;
+    if (!reset) return;
+    const autofillEl = document.getElementById('autofill-preview');
+    if (autofillEl) { autofillEl.hidden = true; autofillEl.innerHTML = ''; }
+    const photoPreview = document.getElementById('name-photo-preview');
+    if (photoPreview) { photoPreview.hidden = true; photoPreview.innerHTML = ''; }
+    const nameLoadingEl = document.getElementById('name-loading');
+    if (nameLoadingEl) nameLoadingEl.hidden = true;
+    if (sciField) sciField.value = '';
+    if (queryField) queryField.value = '';
+    ['sun_exposure','lifecycle','size_info','flowering_schedule','plant_form','height_category'].forEach(n => {
+      const el = document.querySelector('[name="' + n + '"]');
+      if (el) el.value = '';
+    });
   }
 
   cards.forEach(card => {
-    card.addEventListener('click', () => setMode(card.dataset.mode));
+    card.addEventListener('click', () => setMode(card.dataset.mode, true));
   });
 
   setMode((activeModeField && activeModeField.value) || 'name');
@@ -316,6 +333,22 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
 
   if (urlImageInput) {
     urlImageInput.addEventListener('input', () => { imageUrlHidden.value = urlImageInput.value; });
+  }
+
+  if (photoNameInputEl && photoDropdown) {
+    photoNameInputEl.addEventListener('input', () => {
+      nameHidden.value = photoNameInputEl.value;
+      clearTimeout(timer);
+      const q = photoNameInputEl.value.trim();
+      if (q.length < 2) { photoDropdown.hidden = true; return; }
+      timer = setTimeout(() => search(q, photoDropdown), 320);
+    });
+    photoNameInputEl.addEventListener('keydown', e => {
+      if (e.key === 'Escape') photoDropdown.hidden = true;
+    });
+    document.addEventListener('click', e => {
+      if (!photoNameInputEl.contains(e.target) && !photoDropdown.contains(e.target)) photoDropdown.hidden = true;
+    });
   }
 
   const photoUrlsHidden = document.getElementById('photo-urls-hidden');
@@ -408,7 +441,8 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
 
   let _searchCtrl = null;
 
-  async function search(q) {
+  async function search(q, targetDropdown) {
+    targetDropdown = targetDropdown || dropdown;
     // Cancel any previous in-flight request (prevents stale results overwriting current)
     if (_searchCtrl) _searchCtrl.abort();
     _searchCtrl = new AbortController();
@@ -425,17 +459,17 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       })
       .slice(0, 5)
       .map(p => ({ common_name: p.name, scientific_name: p.sci, from_library: true, rank: 'species' }));
-    if (libMatches.length) GP.renderPlantDropdown(dropdown, libMatches, select, q);
+    if (libMatches.length) GP.renderPlantDropdown(targetDropdown, libMatches, select, q);
     try {
       const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q),
                               {signal: _searchCtrl.signal});
       const data = await res.json();
       const libNameSet = new Set(libMatches.map(p => (p.common_name || '').toLowerCase()));
       const apiResults = (data.results || []).filter(r => !libNameSet.has((r.common_name || '').toLowerCase()));
-      GP.renderPlantDropdown(dropdown, [...libMatches, ...apiResults], select, q);
+      GP.renderPlantDropdown(targetDropdown, [...libMatches, ...apiResults], select, q);
     } catch (err) {
       if (err.name === 'AbortError') return; // stale — a newer search is already running
-      if (!libMatches.length) dropdown.hidden = true;
+      if (!libMatches.length) targetDropdown.hidden = true;
     }
   }
 
@@ -443,10 +477,12 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     // Cancel any in-flight search so the dropdown doesn't reopen after selection
     if (_searchCtrl) { _searchCtrl.abort(); _searchCtrl = null; }
     if (nameInput) nameInput.value = plant.common_name;
+    if (photoNameInputEl) photoNameInputEl.value = plant.common_name;
     nameHidden.value = plant.common_name;
     if (sciField) sciField.value = plant.scientific_name || '';
     if (queryField) queryField.value = plant.scientific_name || plant.common_name;
     dropdown.hidden = true;
+    if (photoDropdown) photoDropdown.hidden = true;
 
     // Show spinner while details load (photos may be instant)
     var loading = document.getElementById('name-loading');
