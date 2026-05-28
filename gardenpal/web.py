@@ -457,6 +457,7 @@ def create_app() -> Flask:
                 "plant_form": request.form.get("plant_form", "").strip(),
                 "height_category": request.form.get("height_category", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
+                "pre_uploaded_image_path": request.form.get("pre_uploaded_image_path", "").strip(),
             }
 
             if form_action == "autofill_name":
@@ -503,6 +504,11 @@ def create_app() -> Flask:
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                         flash("Used photo match to autofill details.")
+                # Save photo now so it survives the round-trip (identify already seeked stream back to 0)
+                if not form_values["pre_uploaded_image_path"]:
+                    saved_path = save_upload(photo_file, app.config["UPLOAD_FOLDER"], user_id, "idea")
+                    if saved_path:
+                        form_values["pre_uploaded_image_path"] = saved_path
                 form_values["image_url"] = ""  # keep user's own photo, not API images
                 return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
@@ -519,6 +525,8 @@ def create_app() -> Flask:
                     flash(f"Plant details could not be fetched: {lookup_err}")
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], user_id, "idea")
+            if not image_path:
+                image_path = form_values.get("pre_uploaded_image_path", "")
             label_photo_path = save_upload(
                 request.files.get("label_photo"),
                 app.config["UPLOAD_FOLDER"],

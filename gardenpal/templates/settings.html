@@ -22,7 +22,7 @@
           {% if u.is_admin %}<span style="font-size:0.7rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600;white-space:nowrap">admin</span>{% endif %}
         </div>
         <div style="display:flex;gap:14px;align-items:center;flex-shrink:0">
-          <span style="font-size:0.78rem;color:var(--muted)">{{ s.plants }} plants · {{ s.zones }} zones · {{ s.garden }} edibles</span>
+          <span style="font-size:0.78rem;color:var(--muted)">{{ s.plants }} plants · {{ s.zones }} zones · last seen {{ s.last_login[:10] if s.last_login else 'never' }}</span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.35"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       </a>
