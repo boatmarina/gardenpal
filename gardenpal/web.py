@@ -1093,6 +1093,7 @@ def create_app() -> Flask:
     @login_required
     def tools():
         users_with_stats = []
+        perenual_log = []
         if g.user.get("is_admin"):
             db = get_db()
             rows = db.execute(
@@ -1101,7 +1102,12 @@ def create_app() -> Flask:
             for u in rows:
                 stats = _user_stats(db, u["id"], u["created_at"])
                 users_with_stats.append({"user": u, "stats": stats})
-        return render_template("settings.html", user=g.user, all_users=users_with_stats)
+            perenual_log = db.execute(
+                "SELECT query, result_count, logged_at FROM perenual_log"
+                " ORDER BY logged_at DESC LIMIT 200"
+            ).fetchall()
+        return render_template("settings.html", user=g.user, all_users=users_with_stats,
+                               perenual_log=perenual_log)
 
     @app.route("/admin/users/<int:target_id>", methods=["GET", "POST"])
     @login_required
@@ -1620,6 +1626,15 @@ def create_app() -> Flask:
                         "from_library": False,
                         "photo_url": photo_url,
                     })
+                try:
+                    _db = get_db()
+                    _db.execute(
+                        "INSERT INTO perenual_log (query, result_count, logged_at) VALUES (?, ?, ?)",
+                        (q, len(results), datetime.utcnow().isoformat(timespec="seconds")),
+                    )
+                    _db.commit()
+                except Exception:
+                    pass
                 if results:
                     return jsonify(results=results)
             except Exception:
@@ -2236,6 +2251,14 @@ _SCHEMA_STATEMENTS = [
         user_id INTEGER NOT NULL,
         logged_in_at TEXT NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS perenual_log (
+        id SERIAL PRIMARY KEY,
+        query TEXT NOT NULL,
+        result_count INTEGER NOT NULL DEFAULT 0,
+        logged_at TEXT NOT NULL
     )
     """,
 ]
