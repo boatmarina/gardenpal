@@ -455,11 +455,11 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
       .filter(p => {
         if (!words.length) return false;
         const n = (p.name || '').toLowerCase();
-        const s = (p.sci || '').toLowerCase();
+        const s = (p.scientific_name || '').toLowerCase();
         return words.every(w => n.includes(w) || s.includes(w));
       })
       .slice(0, 5)
-      .map(p => ({ common_name: p.name, scientific_name: p.sci, from_library: true, rank: 'species' }));
+      .map(p => ({ common_name: p.name, scientific_name: p.scientific_name, from_library: true, rank: 'species' }));
     if (libMatches.length) GP.renderPlantDropdown(targetDropdown, libMatches, select, q);
     try {
       const res = await fetch('/api/plant-search?q=' + encodeURIComponent(q),

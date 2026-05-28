@@ -25,9 +25,9 @@
          data-image-path="{{ plant.image_path | media_url if plant.image_path else '' }}"
          data-stored="{{ plant.photo_urls or '' }}">
       {% if plant.image_path %}
-        <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" />
+        <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" onerror="this.style.display='none'" />
       {% elif plant.image_url %}
-        <img src="{{ plant.image_url }}" alt="{{ plant.name }}" />
+        <img src="{{ plant.image_url }}" alt="{{ plant.name }}" onerror="this.style.display='none'" />
       {% else %}
         <div class="photos-grid-placeholder" style="aspect-ratio:2;border-radius:var(--r-xl) var(--r-xl) 0 0;display:flex;align-items:center;justify-content:center">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.25">
@@ -310,8 +310,20 @@
   }
   fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
     .then(r => r.json())
-    .then(d => renderPhotos(d.photos || []))
-    .catch(() => {});
+    .then(d => { if ((d.photos || []).length) renderPhotos(d.photos); })
+    .catch(() => {})
+    .then(() => {
+      if (grid.querySelector('.photo-item')) return; // already have photos
+      fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(query) +
+            '&is_active=true&iconic_taxa=Plantae&per_page=1')
+        .then(r2 => r2.json())
+        .then(d2 => {
+          const photo = ((d2.results || [])[0] || {}).default_photo || {};
+          const url = photo.medium_url || photo.square_url;
+          if (url) renderPhotos([url]);
+        })
+        .catch(() => {});
+    });
 })();
 
 /* Tag autocomplete on detail page */
