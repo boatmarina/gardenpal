@@ -127,10 +127,7 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
     file_storage.stream.seek(0)
 
     encoded = base64.b64encode(raw).decode("ascii")
-    payload = {
-        "images": [encoded],
-        "details": ["common_names", "taxonomy"],
-    }
+    payload = {"images": [encoded]}
     headers = {"Api-Key": api_key, "Content-Type": "application/json"}
 
     try:
