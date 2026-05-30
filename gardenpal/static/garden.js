@@ -122,12 +122,16 @@
         btn.type = 'button';
         var name = plant.common_name || plant.scientific_name || '';
         var sci  = plant.scientific_name || '';
-        var html = (isSub ? '<span class="dd-indent">↳</span>' : '')
-          + '<span class="dd-name">' + esc(name) + '</span>';
+        var photoUrl = (plant.taxon_photos && plant.taxon_photos[0]) || plant.photo_url || '';
+        var textHtml = '<span class="dd-name">' + esc(name) + '</span>';
         if (sci && sci.toLowerCase() !== name.toLowerCase()) {
-          html += '<small>' + esc(sci) + '</small>';
+          textHtml += '<small>' + esc(sci) + '</small>';
         }
-        if (plant.from_library) html += '<span class="dd-saved">in library</span>';
+        if (plant.from_library) textHtml += '<span class="dd-saved">in library</span>';
+        var html = '';
+        if (photoUrl) html += '<img class="dd-thumb" src="' + esc(photoUrl) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />';
+        if (isSub) html += '<span class="dd-indent">↳</span>';
+        html += '<span class="dd-text">' + textHtml + '</span>';
         btn.innerHTML = html;
         if (isSub) btn.className = 'dd-sub';
         btn.addEventListener('click', function() { onSelect(plant); });
