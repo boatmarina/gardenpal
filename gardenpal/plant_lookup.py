@@ -259,7 +259,8 @@ Return a JSON object with these fields:
   "pnw_native": true or false or null (true only if native to the Pacific Northwest of North America; null if uncertain),
   "evergreen_status": "evergreen or deciduous or semi-evergreen as it behaves in PNW conditions; empty string if unknown or not applicable (e.g. annual)",
   "plant_form": "one of: tree, shrub, perennial, annual, climber, ground-cover, grass, fern, bulb, succulent, herb, bamboo — empty string if unknown",
-  "height_category": "low (under 2 ft) or medium (2–5 ft) or tall (5–13 ft) or large (13 ft+) — respond with just the key word: low, medium, tall, or large; empty string if unknown"
+  "height_category": "low (under 2 ft) or medium (2–5 ft) or tall (5–13 ft) or large (13 ft+) — respond with just the key word: low, medium, tall, or large; empty string if unknown",
+  "description": "1–2 sentence plain-English description: what it looks like, what it's known for, and any notable PNW growing tips. No markdown."
 }}"""
 
 
@@ -272,7 +273,7 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
-            max_tokens=512,
+            max_tokens=700,
             system=_CLAUDE_SYSTEM,
             messages=[{"role": "user", "content": _CLAUDE_PROMPT.format(query=query.strip())}],
         )
@@ -302,6 +303,7 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
             "height_category":    data.get("height_category") or "",
             "spreads":            "",
             "photo_url":          None,
+            "description":        data.get("description") or "",
         }, None
     except json.JSONDecodeError as exc:
         return None, f"Claude response was not valid JSON: {exc}"

@@ -976,6 +976,7 @@ dd { margin: 0; }
 }
 
 .autofill-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.autofill-description { margin: 0 0 10px; font-size: 0.88rem; line-height: 1.5; color: var(--text); }
 
 .autofill-thumb {
   width: 64px;

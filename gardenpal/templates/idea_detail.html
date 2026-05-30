@@ -43,6 +43,9 @@
       <p class="muted" style="font-style:italic;font-size:0.9rem;margin-bottom:0">
         {{ plant.scientific_name or "Scientific name not set" }}
       </p>
+      {% if plant.description %}
+      <p style="margin:10px 0 0;font-size:0.9rem;line-height:1.5;color:var(--text)">{{ plant.description }}</p>
+      {% endif %}
       {% if plant.pnw_native %}
         <p class="native-badge" style="margin:10px 0 0">Native to the Pacific Northwest</p>
       {% endif %}
