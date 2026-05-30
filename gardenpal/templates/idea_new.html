@@ -315,6 +315,55 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
 
   setMode((activeModeField && activeModeField.value) || 'name');
 
+  // After photo ID server round-trip: mode is already 'photo' and plant name is pre-filled.
+  // Fetch community photos and show them alongside the user's uploaded photo.
+  (function () {
+    if ((activeModeField && activeModeField.value) !== 'photo') return;
+    if (!photoNameInputEl || !photoNameInputEl.value.trim()) return;
+    var _q = (sciField && sciField.value.trim()) || photoNameInputEl.value.trim();
+    if (!_q) return;
+    var photoIdPreview = document.getElementById('photo-id-preview');
+    var photoUrlsEl = document.getElementById('photo-urls-hidden');
+
+    function _applyCommuityPhotos(photos) {
+      if (!photos || !photos.length) return;
+      if (photoIdPreview) {
+        photos.forEach(function(url) {
+          var div = document.createElement('div');
+          div.className = 'photo-item';
+          div.innerHTML = '<img src="' + url + '" alt="" onerror="this.closest(\'.photo-item\').remove()" />';
+          photoIdPreview.appendChild(div);
+        });
+        photoIdPreview.hidden = false;
+      }
+      if (photoUrlsEl && !photoUrlsEl.value) photoUrlsEl.value = JSON.stringify(photos);
+    }
+
+    fetch('/api/plant-photos?q=' + encodeURIComponent(_q) + '&count=6')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var photos = d.photos || [];
+        if (photos.length) { _applyCommuityPhotos(photos); return; }
+        // iNat fallback
+        return fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(_q) +
+                     '&is_active=true&iconic_taxa=Plantae&per_page=1')
+          .then(function(r2) { return r2.json(); })
+          .then(function(d2) {
+            var taxon = (d2.results || [])[0] || {};
+            var taxonPhotos = (taxon.taxon_photos || []).slice(0, 6)
+              .map(function(tp) { return (tp.photo || {}).medium_url || (tp.photo || {}).square_url; })
+              .filter(Boolean);
+            if (!taxonPhotos.length) {
+              var dp = taxon.default_photo || {};
+              var u = dp.medium_url || dp.square_url;
+              if (u) taxonPhotos = [u];
+            }
+            _applyCommuityPhotos(taxonPhotos);
+          });
+      })
+      .catch(function() {});
+  }());
+
   if (nameInput) {
     nameInput.addEventListener('input', () => {
       nameHidden.value = nameInput.value;
@@ -625,8 +674,13 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
         .then(r2 => r2.json())
         .then(d2 => {
           const taxon = (d2.results || [])[0] || {};
+          const taxonPhotos = (taxon.taxon_photos || []).slice(0, 6)
+            .map(tp => (tp.photo || {}).medium_url || (tp.photo || {}).square_url)
+            .filter(Boolean);
+          if (taxonPhotos.length) return taxonPhotos;
           const photo = taxon.default_photo || {};
-          return photo.medium_url || photo.square_url || null;
+          const url = photo.medium_url || photo.square_url;
+          return url ? [url] : [];
         });
     }
 
@@ -642,8 +696,8 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
         if (showedPhotos) return;
         // Try scientific name query, then fall back to common name if no result
         return inatLookup(name || '')
-          .then(url => url || (altName && altName !== name ? inatLookup(altName) : null))
-          .then(url => { if (url) applyPhotos([url]); })
+          .then(urls => urls.length ? urls : (altName && altName !== name ? inatLookup(altName) : []))
+          .then(urls => { if (urls.length) applyPhotos(urls); })
           .catch(() => {});
       })
       .finally(() => { if (onComplete) onComplete(); });
