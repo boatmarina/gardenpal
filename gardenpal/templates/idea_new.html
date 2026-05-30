@@ -698,6 +698,10 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     dropdown.hidden = true;
   }
 
+  // Prevent mousedown on the dropdown from moving focus away from inp (and
+  // from triggering the parent <label>'s activation behavior).
+  if (dropdown) dropdown.addEventListener('mousedown', function(e){ e.preventDefault(); });
+
   function showDropdown(tags) {
     var filtered = tags.filter(function(t){ return !selected.includes(t.name.toLowerCase()); });
     if (!filtered.length) { dropdown.hidden = true; return; }
