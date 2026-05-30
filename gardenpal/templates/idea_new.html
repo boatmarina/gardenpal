@@ -567,13 +567,13 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     var rawPhotoQ = plant.scientific_name || plant.common_name;
     var photoQ = rawPhotoQ.replace(/×/g, '').replace(/'[^']*'/g, '').replace(/\s+/g, ' ').trim();
     var preloaded = plant.taxon_photos || [];
-    if (preloaded.length) {
-      // Photos already in the search result — show instantly, no extra API call
+    if (preloaded.length >= 3) {
+      // Already have enough curated photos from the search result — show instantly
       showPhotoList(preloaded, photoQ);
     } else {
-      // Fall back to fetching photos by name; don't show inline Perenual URL (often broken/upgrade-required)
+      // Fetch photos from server/iNat; use first preloaded URL as an immediate placeholder
       pending++;
-      showPhotoPreview(null, photoQ, onDone, plant.common_name);
+      showPhotoPreview(preloaded[0] || null, photoQ, onDone, plant.common_name);
     }
 
     // Fetch full details (sun, lifecycle, size…) and show chips before save
@@ -700,10 +700,14 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
 
     var showedPhotos = false;
 
-    // Try server first; on any failure or empty result, fall back to iNaturalist directly from browser
+    // Try server first; on any failure or fewer than 3 photos, also try iNaturalist
     fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=6')
       .then(r => r.json())
-      .then(d => { showedPhotos = applyPhotos(d.photos || []); })
+      .then(d => {
+        const photos = d.photos || [];
+        if (photos.length) applyPhotos(photos);
+        showedPhotos = photos.length >= 3; // only skip iNat fallback when we have enough
+      })
       .catch(() => {})
       // Runs after server call regardless of success/failure
       .then(() => {
