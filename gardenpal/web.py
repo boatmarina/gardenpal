@@ -432,6 +432,7 @@ def create_app() -> Flask:
             "evergreen_status": "",
             "plant_form": "",
             "height_category": "",
+            "description": "",
             "active_mode": "name",
         }
 
@@ -456,6 +457,7 @@ def create_app() -> Flask:
                 "evergreen_status": request.form.get("evergreen_status", "").strip(),
                 "plant_form": request.form.get("plant_form", "").strip(),
                 "height_category": request.form.get("height_category", "").strip(),
+                "description": request.form.get("description", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
                 "pre_uploaded_image_path": request.form.get("pre_uploaded_image_path", "").strip(),
             }
@@ -537,8 +539,8 @@ def create_app() -> Flask:
                 """
                 INSERT INTO plants
                 (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
-                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
                 (
@@ -562,6 +564,7 @@ def create_app() -> Flask:
                     form_values["evergreen_status"] or None,
                     form_values["plant_form"] or None,
                     form_values["height_category"] or None,
+                    form_values["description"] or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             ).fetchone()["id"]
@@ -2088,6 +2091,7 @@ def init_db():
     ensure_column(db, "plants", "evergreen_status", "TEXT")
     ensure_column(db, "plants", "plant_form", "TEXT")
     ensure_column(db, "plants", "height_category", "TEXT")
+    ensure_column(db, "plants", "description", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
@@ -2403,6 +2407,8 @@ def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool
     hc = (details.get("height_category") or "").strip().lower()
     if hc in {"low","medium","tall","large"}:
         form_values["height_category"] = hc
+    if details.get("description"):
+        form_values["description"] = details["description"]
     form_values["lookup_status"] = "draft"
 
 

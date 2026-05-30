@@ -37,6 +37,7 @@
       <!-- Hidden carriers — only these are submitted with name/image_url -->
       <input type="hidden" name="name" id="name-hidden" value="{{ form_values.name }}" />
       <input type="hidden" name="image_url" id="image-url-hidden" value="{{ form_values.image_url }}" />
+      <input type="hidden" name="description" id="description-hidden" value="{{ form_values.description or '' }}" />
 
       <div class="mode-section" id="mode-name">
         <label>
@@ -300,6 +301,8 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     if (nameLoadingEl) nameLoadingEl.hidden = true;
     if (sciField) sciField.value = '';
     if (queryField) queryField.value = '';
+    const descHidden = document.getElementById('description-hidden');
+    if (descHidden) descHidden.value = '';
     ['sun_exposure','lifecycle','size_info','flowering_schedule','plant_form','height_category'].forEach(n => {
       const el = document.querySelector('[name="' + n + '"]');
       if (el) el.value = '';
@@ -563,9 +566,18 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     var htLabel   = details.height_category ? details.height_category.charAt(0).toUpperCase()+details.height_category.slice(1) : '';
     var chips = [details.scientific_name, formLabel, htLabel, details.sun_needs, details.lifecycle,
                  details.size_info, details.flowering_schedule].filter(Boolean);
-    if (!chips.length) return;
     function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    el.innerHTML = '<div class="autofill-chips">' + chips.map(function(c){ return '<span class="chip">'+esc(c)+'</span>'; }).join('') + '</div>';
+    var html = '';
+    if (details.description) {
+      var descHidden = document.getElementById('description-hidden');
+      if (descHidden) descHidden.value = details.description;
+      html += '<p class="autofill-description">' + esc(details.description) + '</p>';
+    }
+    if (chips.length) {
+      html += '<div class="autofill-chips">' + chips.map(function(c){ return '<span class="chip">'+esc(c)+'</span>'; }).join('') + '</div>';
+    }
+    if (!html) return;
+    el.innerHTML = html;
     el.hidden = false;
   }
 
