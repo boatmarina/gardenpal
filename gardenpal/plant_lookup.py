@@ -104,6 +104,17 @@ def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[
     return _identify_via_plantid(file_storage)
 
 
+# Location context shared across all ID services.
+# Coordinates are a central PNW point (approx. mid-Willamette Valley / Puget Sound region).
+_PNW_LAT = 47.5
+_PNW_LON = -122.4
+_PNW_PROMPT_HINT = (
+    "The photo was taken in the Pacific Northwest of North America "
+    "(Oregon/Washington state, USDA zones 7b–9b: mild wet winters, dry summers). "
+    "Prefer species common to this region when confidence is similar."
+)
+
+
 def _api_error_msg(service: str, response) -> str:
     status = response.status_code
     if status == 429:
@@ -127,7 +138,7 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
     file_storage.stream.seek(0)
 
     encoded = base64.b64encode(raw).decode("ascii")
-    payload = {"images": [encoded]}
+    payload = {"images": [encoded], "latitude": _PNW_LAT, "longitude": _PNW_LON}
     headers = {"Api-Key": api_key, "Content-Type": "application/json"}
 
     try:
@@ -186,6 +197,7 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
     encoded = base64.b64encode(raw).decode("ascii")
     prompt = (
         "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
+        f"{_PNW_PROMPT_HINT}\n"
         "Respond ONLY with valid JSON, no markdown:\n"
         '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
         'If no plant is visible or recognizable, respond: {"recognized": false, "suggestions": []}'
@@ -272,6 +284,7 @@ def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Option
                         "type": "text",
                         "text": (
                             "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
+                            f"{_PNW_PROMPT_HINT}\n"
                             "Respond ONLY with valid JSON, no markdown:\n"
                             '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
                             'If no plant is visible or recognizable: {"recognized": false, "suggestions": []}'
