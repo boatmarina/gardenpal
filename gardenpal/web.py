@@ -1140,7 +1140,8 @@ def create_app() -> Flask:
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
                                perenual_log=perenual_log,
                                plantid_configured=bool(os.environ.get("PLANT_ID_API_KEY", "").strip()),
-                               gemini_configured=bool(os.environ.get("GEMINI_API_KEY", "").strip()))
+                               gemini_configured=bool(os.environ.get("GEMINI_API_KEY", "").strip()),
+                               claude_configured=bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()))
 
     @app.route("/admin/users/<int:target_id>", methods=["GET", "POST"])
     @login_required
@@ -1297,7 +1298,7 @@ def create_app() -> Flask:
     @login_required
     def set_photo_id_provider():
         provider = request.form.get("provider", "plantid").strip()
-        if provider not in ("plantid", "gemini"):
+        if provider not in ("plantid", "gemini", "claude"):
             provider = "plantid"
         db = get_db()
         db.execute("UPDATE users SET photo_id_provider = ? WHERE id = ?", (provider, g.user["id"]))
