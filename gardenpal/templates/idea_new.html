@@ -66,6 +66,7 @@
       </div>
 
       <div class="mode-section" id="mode-photo">
+        <div id="user-photo-preview" class="photos-grid" style="margin-bottom:12px" hidden></div>
         {% if form_values.photo_id_suggestions %}
         <div id="photo-id-suggestions-panel"
              style="background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-bottom:12px">
@@ -225,7 +226,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
   var fileInput   = document.getElementById('photo-file-input');
   var identifyBtn = document.getElementById('identify-btn');
   var uploadBtn   = document.getElementById('photo-upload-btn');
-  var preview     = document.getElementById('photo-id-preview');
+  var preview     = document.getElementById('user-photo-preview');
   var nameRow     = document.getElementById('photo-name-row');
   var photoNameInput = document.getElementById('photo-name-input');
 
@@ -919,8 +920,13 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     btn.innerHTML = '<span style="font-weight:' + (i === 0 ? '600' : '400') + '">' + label + '</span>' + confHtml + sciHtml;
     btn.style.cssText = 'text-align:left;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);cursor:pointer;font-size:0.88rem;width:100%';
     btn.addEventListener('click', function () {
+      container.querySelectorAll('button').forEach(function (b) {
+        b.style.borderColor = 'var(--border)';
+        b.style.background = 'var(--bg)';
+      });
+      btn.style.borderColor = 'var(--green-mid)';
+      btn.style.background = 'var(--green-light)';
       applySuggestion(sg);
-      dismissPanel();
     });
     container.appendChild(btn);
   });
