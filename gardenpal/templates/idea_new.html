@@ -662,27 +662,53 @@ function applyDetails(details) {
     dropdown.hidden = true;
     if (photoDropdown) photoDropdown.hidden = true;
 
-    // Show spinner while details load (photos may be instant)
+    var activeMode = activeModeField ? activeModeField.value : 'name';
+
+    if (activeMode === 'photo') {
+      // In photo mode, show photos in photo-id-preview with the community loading spinner
+      var photoIdPreview = document.getElementById('photo-id-preview');
+      var commLoading = document.getElementById('photo-community-loading');
+      if (photoIdPreview) { photoIdPreview.innerHTML = ''; photoIdPreview.hidden = true; }
+      if (commLoading) commLoading.hidden = false;
+      var q = plant.scientific_name || plant.common_name;
+      GP.fetchPlantData(q, 6).then(function (result) {
+        var photos = result.photos || [];
+        if (photos.length && photoIdPreview) {
+          photos.forEach(function (url) {
+            var div = document.createElement('div');
+            div.className = 'photo-item';
+            div.innerHTML = '<img src="' + url + '" alt="" style="cursor:zoom-in" onerror="this.closest(\'.photo-item\').remove()" />';
+            var img = div.querySelector('img');
+            if (img) img.addEventListener('click', function (e) { GP.openLightbox && GP.openLightbox(e.target.src); });
+            photoIdPreview.appendChild(div);
+          });
+          photoIdPreview.hidden = false;
+          if (imageUrlHidden) imageUrlHidden.value = photos[0] || '';
+          if (photoUrlsHidden) photoUrlsHidden.value = JSON.stringify(photos);
+        }
+        if (result.details) applyDetails(result.details);
+      }).catch(function () {})
+        .finally(function () { if (commLoading) commLoading.hidden = true; });
+      return;
+    }
+
+    // Name/other modes: show photos in name-photo-preview
     var loading = document.getElementById('name-loading');
     if (loading) loading.hidden = false;
-    var pending = 1; // only details count; photos are synchronous or have own counter
+    var pending = 1;
     function onDone() { if (--pending === 0 && loading) loading.hidden = true; }
 
-    // Build a photo query: strip cultivar names (in quotes) and hybrid × markers
-    // so iNaturalist searches get "Iris germanica" not "Iris × germanica 'America's Cup'"
+    // Strip cultivar names (in quotes) and hybrid × markers before iNat photo search
     var rawPhotoQ = plant.scientific_name || plant.common_name;
     var photoQ = rawPhotoQ.replace(/×/g, '').replace(/'[^']*'/g, '').replace(/\s+/g, ' ').trim();
     var preloaded = plant.taxon_photos || [];
     if (preloaded.length >= 3) {
-      // Already have enough curated photos from the search result — show instantly
       showPhotoList(preloaded, photoQ);
     } else {
-      // Fetch photos from server/iNat; use first preloaded URL as an immediate placeholder
       pending++;
       showPhotoPreview(preloaded[0] || null, photoQ, onDone, plant.common_name);
     }
 
-    // Fetch full details (sun, lifecycle, size…) and show chips before save
     var detailQ = plant.scientific_name || plant.common_name;
     fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
       .then(function(r) { return r.json(); })
@@ -994,6 +1020,12 @@ function applyDetails(details) {
   function dismissPanel() {
     if (hiddenInput) hiddenInput.value = '';
     if (panel) panel.remove();
+    var photoIdPreview = document.getElementById('photo-id-preview');
+    if (photoIdPreview) { photoIdPreview.innerHTML = ''; photoIdPreview.hidden = true; }
+    var photoUrlsEl = document.getElementById('photo-urls-hidden');
+    if (photoUrlsEl) photoUrlsEl.value = '';
+    var imageUrlEl = document.getElementById('image-url-hidden');
+    if (imageUrlEl) imageUrlEl.value = '';
   }
 })();
 </script>
