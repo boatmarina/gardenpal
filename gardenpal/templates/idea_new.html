@@ -140,6 +140,20 @@
         </label>
       </div>
 
+      {% if form_values.photo_id_suggestions %}
+      <div id="photo-id-suggestions-panel"
+           style="background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+        <p style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin:0 0 8px">Photo match — pick the right plant</p>
+        <div id="photo-sg-btns" style="display:flex;flex-direction:column;gap:6px"></div>
+        <button type="button" id="photo-sg-dismiss"
+                style="margin-top:8px;font-size:0.82rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">
+          None of these — I'll type manually
+        </button>
+        <input type="hidden" name="photo_id_suggestions" id="photo-id-sgs-input"
+               value="{{ form_values.photo_id_suggestions | e }}" />
+      </div>
+      {% endif %}
+
       <!-- Hidden fields preserve auto-filled values across form round-trips -->
       <input type="hidden" name="scientific_name"    value="{{ form_values.scientific_name }}" />
       <input type="hidden" name="lookup_query"       value="{{ form_values.lookup_query }}" />
@@ -878,6 +892,46 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
   wrap.addEventListener('click', function(e) {
     if (e.target === wrap || e.target === chipsDisplay) inp.focus();
   });
+})();
+
+/* ── Photo ID suggestion panel ── */
+(function () {
+  var panel = document.getElementById('photo-id-suggestions-panel');
+  if (!panel) return;
+  var hiddenInput = document.getElementById('photo-id-sgs-input');
+  var raw = hiddenInput ? hiddenInput.value : '';
+  var suggestions;
+  try { suggestions = JSON.parse(raw); } catch (e) { return; }
+  if (!suggestions || !suggestions.length) { panel.remove(); return; }
+
+  var container = document.getElementById('photo-sg-btns');
+  suggestions.forEach(function (sg, i) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    var label = sg.common_name || sg.scientific_name || 'Unknown';
+    var sciHtml = (sg.scientific_name && sg.scientific_name !== label)
+      ? '<span style="display:block;font-size:0.78rem;color:var(--muted);font-style:italic">' + sg.scientific_name + '</span>' : '';
+    var confHtml = sg.confidence
+      ? '<span style="font-size:0.72rem;color:var(--muted);margin-left:6px">(' + sg.confidence + ')</span>' : '';
+    btn.innerHTML = '<span style="font-weight:' + (i === 0 ? '600' : '400') + '">' + label + '</span>' + confHtml + sciHtml;
+    btn.style.cssText = 'text-align:left;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);cursor:pointer;font-size:0.88rem;width:100%';
+    btn.addEventListener('click', function () {
+      select({ common_name: sg.common_name || '', scientific_name: sg.scientific_name || '' });
+      dismissPanel();
+    });
+    container.appendChild(btn);
+  });
+
+  document.getElementById('photo-sg-dismiss').addEventListener('click', function () {
+    dismissPanel();
+    var nameInput = document.getElementById('plant-name-input') || document.getElementById('photo-name-input');
+    if (nameInput) nameInput.focus();
+  });
+
+  function dismissPanel() {
+    if (hiddenInput) hiddenInput.value = '';
+    panel.remove();
+  }
 })();
 </script>
 {% endblock %}

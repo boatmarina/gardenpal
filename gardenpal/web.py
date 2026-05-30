@@ -481,6 +481,7 @@ def create_app() -> Flask:
                 "description": request.form.get("description", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
                 "pre_uploaded_image_path": request.form.get("pre_uploaded_image_path", "").strip(),
+                "photo_id_suggestions": request.form.get("photo_id_suggestions", "").strip(),
             }
 
             if form_action == "autofill_name":
@@ -513,20 +514,20 @@ def create_app() -> Flask:
                 if not photo_file or not photo_file.filename:
                     flash("Please choose a photo first.")
                     return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
-                suggestion, error = identify_plant_from_image(photo_file, provider=g.user.get("photo_id_provider") or "plantid")
+                suggestions, error = identify_plant_from_image(photo_file, provider=g.user.get("photo_id_provider") or "plantid")
                 if error:
                     flash(error)
-                else:
-                    if suggestion.get("common_name") and not form_values["name"]:
-                        form_values["name"] = suggestion["common_name"]
-                    if suggestion.get("scientific_name"):
-                        form_values["scientific_name"] = suggestion["scientific_name"]
-                        form_values["lookup_query"] = suggestion["scientific_name"]
-                    flash(f"Top photo match confidence: {suggestion.get('confidence') or 'unknown'}")
+                elif suggestions:
+                    top = suggestions[0]
+                    if top.get("common_name") and not form_values["name"]:
+                        form_values["name"] = top["common_name"]
+                    if top.get("scientific_name"):
+                        form_values["scientific_name"] = top["scientific_name"]
+                        form_values["lookup_query"] = top["scientific_name"]
+                    form_values["photo_id_suggestions"] = json.dumps(suggestions)
                     details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
-                        flash("Used photo match to autofill details.")
                 # Save photo now so it survives the round-trip (identify already seeked stream back to 0)
                 if not form_values["pre_uploaded_image_path"]:
                     saved_path = save_upload(photo_file, app.config["UPLOAD_FOLDER"], user_id, "idea")
@@ -909,6 +910,7 @@ def create_app() -> Flask:
                 "photo_urls_json": request.form.get("photo_urls_json", "").strip(),
                 "active_mode": request.form.get("active_mode", "library"),
                 "yard_input_mode": request.form.get("yard_input_mode", "name"),
+                "photo_id_suggestions": request.form.get("photo_id_suggestions", "").strip(),
             }
 
             if form_action == "autofill_name":
@@ -921,19 +923,20 @@ def create_app() -> Flask:
                 return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_photo":
-                suggestion, error = identify_plant_from_image(request.files.get("photo"))
+                suggestions, error = identify_plant_from_image(request.files.get("photo"), provider=g.user.get("photo_id_provider") or "plantid")
                 if error:
                     flash(error)
-                else:
-                    if suggestion.get("common_name") and not form_values["plant_name"]:
-                        form_values["plant_name"] = suggestion["common_name"]
-                    if suggestion.get("scientific_name"):
-                        form_values["scientific_name"] = suggestion["scientific_name"]
-                        form_values["lookup_query"] = suggestion["scientific_name"]
+                elif suggestions:
+                    top = suggestions[0]
+                    if top.get("common_name") and not form_values["plant_name"]:
+                        form_values["plant_name"] = top["common_name"]
+                    if top.get("scientific_name"):
+                        form_values["scientific_name"] = top["scientific_name"]
+                        form_values["lookup_query"] = top["scientific_name"]
                     details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["plant_name"])
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
-                    flash(f"Photo-based suggestion confidence: {suggestion.get('confidence') or 'unknown'}")
+                    form_values["photo_id_suggestions"] = json.dumps(suggestions)
                 return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_label":
@@ -1897,7 +1900,7 @@ def create_app() -> Flask:
             "used_for": "Photo-based plant identification",
             "free_tier": "100 identifications",
             "limit_note": "Starter plan: 100 free, then paid",
-            "dashboard_url": "https://plant.id/api",
+            "dashboard_url": "https://admin.kindwise.com/",
             "credits_remaining": plant_id_credits,
             "credits_total": plant_id_limit,
             "checked_ago_secs": plant_id_checked_ago,
