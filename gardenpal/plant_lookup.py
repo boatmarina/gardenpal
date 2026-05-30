@@ -93,9 +93,10 @@ def extract_text_from_image(file_storage) -> Tuple[Optional[str], Optional[str]]
     return text, None
 
 
-def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[List[Dict[str, str]], Optional[str]]:
+    """Returns (suggestions_list, error). suggestions_list is [] on error."""
     if file_storage is None or not file_storage.filename:
-        return None, "Please attach a plant photo first."
+        return [], "Please attach a plant photo first."
     if provider == "gemini":
         return _identify_via_gemini(file_storage)
     if provider == "claude":
@@ -106,11 +107,15 @@ def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[
 def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     api_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
     if not api_key:
-        return None, "Plant.id is not configured — add PLANT_ID_API_KEY or switch to Google AI in Tools."
+        return None, "Plant.id is not configured — add PLANT_ID_API_KEY in Vercel environment variables."
 
     file_storage.stream.seek(0)
-    encoded = base64.b64encode(file_storage.stream.read()).decode("ascii")
+    raw = file_storage.stream.read()
     file_storage.stream.seek(0)
+
+    fname = (file_storage.filename or "").lower()
+    mime = "image/png" if fname.endswith(".png") else ("image/webp" if fname.endswith(".webp") else "image/jpeg")
+    encoded = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
     payload = {"images": [encoded], "similar_images": False}
     headers = {"Api-Key": api_key, "Content-Type": "application/json"}
 
@@ -121,22 +126,31 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
             headers=headers,
             timeout=8,
         )
-        response.raise_for_status()
+    except requests.RequestException as exc:
+        return None, f"Couldn't reach plant.id ({type(exc).__name__}) — check your network or try again."
+
+    if not response.ok:
+        return None, f"plant.id rejected the request (HTTP {response.status_code}) — check your PLANT_ID_API_KEY."
+
+    try:
         data = response.json()
-    except requests.RequestException:
-        return None, "Couldn't reach plant.id — try a clearer shot or switch to Google AI in Tools."
+    except ValueError:
+        return None, "plant.id returned an unexpected response — try again."
 
-    suggestions = data.get("result", {}).get("classification", {}).get("suggestions", [])
-    if not suggestions:
-        return None, "No plant suggestions found from that photo."
+    raw_suggestions = data.get("result", {}).get("classification", {}).get("suggestions", [])
+    if not raw_suggestions:
+        return [], "No plant suggestions found from that photo."
 
-    top = suggestions[0]
-    scientific = top.get("name", "")
-    common_names = top.get("details", {}).get("common_names", [])
-    common = common_names[0] if common_names else ""
-    probability = top.get("probability")
-    confidence = f"{round(probability * 100)}%" if isinstance(probability, (float, int)) else ""
-    return {"scientific_name": scientific, "common_name": common, "confidence": confidence}, None
+    out = []
+    for s in raw_suggestions[:3]:
+        scientific = s.get("name", "")
+        common_names = s.get("details", {}).get("common_names", [])
+        common = common_names[0] if common_names else ""
+        probability = s.get("probability")
+        pct = round(probability * 100) if isinstance(probability, (float, int)) else None
+        confidence = f"{pct}%" if pct is not None else ""
+        out.append({"scientific_name": scientific, "common_name": common, "confidence": confidence})
+    return out, None
 
 
 def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
@@ -160,28 +174,35 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
 
     encoded = base64.b64encode(raw).decode("ascii")
     prompt = (
-        "Identify the plant in this photo. Respond ONLY with valid JSON, no markdown:\n"
-        '{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high or medium or low", "recognized": true}\n'
-        'If no plant is visible or recognizable, respond: {"recognized": false}'
+        "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
+        "Respond ONLY with valid JSON, no markdown:\n"
+        '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
+        'If no plant is visible or recognizable, respond: {"recognized": false, "suggestions": []}'
     )
     payload = {
         "contents": [{"parts": [
             {"text": prompt},
             {"inline_data": {"mime_type": mime, "data": encoded}},
         ]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 200},
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 300},
     }
 
     try:
         resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
             json=payload,
-            timeout=15,
+            timeout=8,
         )
-        resp.raise_for_status()
+    except requests.RequestException as exc:
+        return [], f"Couldn't reach Google AI ({type(exc).__name__}) — check your network or try again."
+
+    if not resp.ok:
+        return [], f"Google AI rejected the request (HTTP {resp.status_code}) — check your GEMINI_API_KEY."
+
+    try:
         data = resp.json()
-    except requests.RequestException:
-        return None, "Couldn't reach Google AI — check your GEMINI_API_KEY or try again."
+    except ValueError:
+        return [], "Google AI returned an unexpected response — try again."
 
     try:
         text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -192,16 +213,16 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
             text = text.strip()
         result = json.loads(text)
     except (KeyError, IndexError, json.JSONDecodeError):
-        return None, "Couldn't parse the Google AI response — try again."
+        return [], "Couldn't parse the Google AI response — try again."
 
     if not result.get("recognized", True):
-        return None, "No plant recognized in that photo — try a clearer shot."
+        return [], "No plant recognized in that photo — try a clearer shot."
 
-    return {
-        "scientific_name": result.get("scientific_name", ""),
-        "common_name": result.get("common_name", ""),
-        "confidence": result.get("confidence", ""),
-    }, None
+    sgs = result.get("suggestions") or []
+    if not sgs and result.get("scientific_name"):
+        sgs = [{"scientific_name": result["scientific_name"], "common_name": result.get("common_name", ""), "confidence": result.get("confidence", "")}]
+    out = [{"scientific_name": s.get("scientific_name", ""), "common_name": s.get("common_name", ""), "confidence": s.get("confidence", "")} for s in sgs[:3]]
+    return (out if out else []), (None if out else "No plant recognized in that photo — try a clearer shot.")
 
 
 def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
@@ -224,11 +245,11 @@ def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Option
         media_type = "image/jpeg"
 
     encoded = base64.b64encode(raw).decode("ascii")
-    client = anthropic.Anthropic(api_key=api_key, timeout=15.0)
+    client = anthropic.Anthropic(api_key=api_key, timeout=8.0)
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
-            max_tokens=200,
+            max_tokens=300,
             messages=[{
                 "role": "user",
                 "content": [
@@ -239,9 +260,10 @@ def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Option
                     {
                         "type": "text",
                         "text": (
-                            "Identify the plant in this photo. Respond ONLY with valid JSON, no markdown:\n"
-                            '{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high or medium or low", "recognized": true}\n'
-                            'If no plant is visible or recognizable, respond: {"recognized": false}'
+                            "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
+                            "Respond ONLY with valid JSON, no markdown:\n"
+                            '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
+                            'If no plant is visible or recognizable: {"recognized": false, "suggestions": []}'
                         ),
                     },
                 ],
@@ -255,20 +277,20 @@ def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Option
             text = text.strip()
         result = json.loads(text)
     except json.JSONDecodeError:
-        return None, "Couldn't parse the Claude response — try again."
+        return [], "Couldn't parse the Claude response — try again."
     except anthropic.APIError as exc:
-        return None, f"Claude API error: {exc}"
+        return [], f"Claude API error: {exc}"
     except Exception as exc:
-        return None, f"Claude Vision error: {exc}"
+        return [], f"Claude Vision error: {exc}"
 
     if not result.get("recognized", True):
-        return None, "No plant recognized in that photo — try a clearer shot."
+        return [], "No plant recognized in that photo — try a clearer shot."
 
-    return {
-        "scientific_name": result.get("scientific_name", ""),
-        "common_name": result.get("common_name", ""),
-        "confidence": result.get("confidence", ""),
-    }, None
+    sgs = result.get("suggestions") or []
+    if not sgs and result.get("scientific_name"):
+        sgs = [{"scientific_name": result["scientific_name"], "common_name": result.get("common_name", ""), "confidence": result.get("confidence", "")}]
+    out = [{"scientific_name": s.get("scientific_name", ""), "common_name": s.get("common_name", ""), "confidence": s.get("confidence", "")} for s in sgs[:3]]
+    return (out if out else []), (None if out else "No plant recognized in that photo — try a clearer shot.")
 
 
 # ---------------------------------------------------------------------------
