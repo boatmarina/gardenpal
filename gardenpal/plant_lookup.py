@@ -329,12 +329,9 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
                 url = p.get("medium_url") or p.get("square_url") or ""
                 if url:
                     taxon_photos.append(url)
-            if not taxon_photos:
-                default_url = (taxon.get("default_photo") or {}).get("medium_url") or \
-                              (taxon.get("default_photo") or {}).get("square_url")
-                if default_url:
-                    taxon_photos = [default_url]
-            if taxon_photos:
+            # Only use curated taxon_photos if we already have enough; otherwise
+            # fall through to the observation-based lookup which gives diverse photos.
+            if len(taxon_photos) >= count:
                 return taxon_photos[:count]
 
         if not taxon_id:

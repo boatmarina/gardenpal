@@ -316,7 +316,7 @@
     .then(d => { if ((d.photos || []).length) renderPhotos(d.photos); })
     .catch(() => {})
     .then(() => {
-      if (grid.querySelector('.photo-item')) return; // already have photos
+      if (grid.querySelectorAll('.photo-item').length >= 3) return; // already have enough
       fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(query) +
             '&is_active=true&iconic_taxa=Plantae&per_page=1')
         .then(r2 => r2.json())
