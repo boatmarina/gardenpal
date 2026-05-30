@@ -538,7 +538,28 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
             from_library: false
           };
         });
-      GP.renderPlantDropdown(targetDropdown, [...libMatches, ...apiResults], select, q);
+      if (apiResults.length || libMatches.length) {
+        GP.renderPlantDropdown(targetDropdown, [...libMatches, ...apiResults], select, q);
+      } else {
+        // iNat returned nothing — fall back to server search which also tries Perenual
+        // (better coverage of garden trade names like "whirling butterfly")
+        const svrRes = await fetch('/api/plant-search?q=' + encodeURIComponent(q), {signal: _searchCtrl.signal});
+        const svrData = await svrRes.json();
+        const svrResults = (svrData.results || []).map(r => ({
+          common_name: r.common_name || '',
+          scientific_name: r.scientific_name || '',
+          photo_url: r.photo_url || null,
+          taxon_photos: r.taxon_photos || (r.photo_url ? [r.photo_url] : []),
+          taxon_id: r.taxon_id || null,
+          rank: r.rank || 'species',
+          from_library: false
+        }));
+        if (svrResults.length) {
+          GP.renderPlantDropdown(targetDropdown, [...libMatches, ...svrResults], select, q);
+        } else if (!libMatches.length) {
+          targetDropdown.hidden = true;
+        }
+      }
     } catch (err) {
       if (err.name === 'AbortError') return;
       if (!libMatches.length) targetDropdown.hidden = true;
