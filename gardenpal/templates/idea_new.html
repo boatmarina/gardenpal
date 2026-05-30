@@ -331,7 +331,9 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
         photos.forEach(function(url) {
           var div = document.createElement('div');
           div.className = 'photo-item';
-          div.innerHTML = '<img src="' + url + '" alt="" onerror="this.closest(\'.photo-item\').remove()" />';
+          div.innerHTML = '<img src="' + url + '" alt="" style="cursor:zoom-in" onerror="this.closest(\'.photo-item\').remove()" />';
+          var img = div.querySelector('img');
+          if (img) img.addEventListener('click', function(e) { openLightbox(e.target.src); });
           photoIdPreview.appendChild(div);
         });
         photoIdPreview.hidden = false;
@@ -630,8 +632,18 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     el.hidden = false;
   }
 
+  function openLightbox(src) {
+    const box = document.createElement('div');
+    box.className = 'lightbox';
+    box.innerHTML = `<button class="lightbox-close" aria-label="Close">×</button><img src="${src}" alt="" />`;
+    const close = () => box.remove();
+    box.addEventListener('click', e => { if (e.target === box || e.target.classList.contains('lightbox-close')) close(); });
+    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+    document.body.appendChild(box);
+  }
+
   function makePhotoItem(url, altText) {
-    return `<div class="photo-item"><img src="${url}" alt="${altText || ''}" onerror="this.closest('.photo-item').remove()" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
+    return `<div class="photo-item"><img src="${url}" alt="${altText || ''}" style="cursor:zoom-in" onerror="this.closest('.photo-item').remove()" /><button class="photo-remove" title="Remove photo" aria-label="Remove photo">×</button></div>`;
   }
 
   function attachRemove(item, preview, altText) {
@@ -645,6 +657,8 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
         preview.appendChild(newItem);
       }
     });
+    const img = item.querySelector('img');
+    if (img) img.addEventListener('click', e => openLightbox(e.target.src));
   }
 
   function showPhotoPreview(inlineUrl, name, onComplete, altName) {
