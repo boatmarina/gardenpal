@@ -962,10 +962,12 @@ function applyDetails(details) {
 
     /* Replace photo-id-preview with photos for the chosen plant */
     var photoIdPreview = document.getElementById('photo-id-preview');
+    var commLoading = document.getElementById('photo-community-loading');
     if (photoIdPreview) {
       photoIdPreview.innerHTML = '';
       photoIdPreview.hidden = true;
     }
+    if (commLoading) commLoading.hidden = false;
     var q = sciName || commonName;
     GP.fetchPlantData(q, 6).then(function (result) {
       var photos = result.photos || [];
@@ -985,7 +987,8 @@ function applyDetails(details) {
         if (imageUrlHidden) imageUrlHidden.value = photos[0] || '';
       }
       if (result.details) applyDetails(result.details);
-    }).catch(function () {});
+    }).catch(function () {})
+      .finally(function () { if (commLoading) commLoading.hidden = true; });
   }
 
   function dismissPanel() {
