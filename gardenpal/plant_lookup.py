@@ -104,6 +104,19 @@ def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[
     return _identify_via_plantid(file_storage)
 
 
+def _api_error_msg(service: str, response) -> str:
+    status = response.status_code
+    if status == 429:
+        return f"{service} rate limit reached — wait a minute and try again, or switch to a different ID service in Tools."
+    if status in (401, 403):
+        return f"{service} rejected the API key (HTTP {status}) — check the key in your Vercel environment variables."
+    try:
+        detail = str(response.json())[:200]
+    except Exception:
+        detail = (response.text or "")[:200]
+    return f"{service} error (HTTP {status}): {detail}"
+
+
 def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     api_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
     if not api_key:
@@ -132,12 +145,7 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
         return [], f"Couldn't reach plant.id ({type(exc).__name__}) — check your network or try again."
 
     if not response.ok:
-        try:
-            err_body = response.json()
-            detail = str(err_body)[:300]
-        except Exception:
-            detail = (response.text or "")[:300]
-        return [], f"plant.id error (HTTP {response.status_code}): {detail}"
+        return [], _api_error_msg("plant.id", response)
 
     try:
         data = response.json()
@@ -163,7 +171,7 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
 def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        return None, "Google AI is not configured — add GEMINI_API_KEY in Vercel environment variables."
+        return [], "Google AI is not configured — add GEMINI_API_KEY in Vercel environment variables."
 
     file_storage.stream.seek(0)
     raw = file_storage.stream.read()
@@ -204,7 +212,7 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
         return [], f"Couldn't reach Google AI ({type(exc).__name__}) — check your network or try again."
 
     if not resp.ok:
-        return [], f"Google AI rejected the request (HTTP {resp.status_code}) — check your GEMINI_API_KEY."
+        return [], _api_error_msg("Google AI", resp)
 
     try:
         data = resp.json()
