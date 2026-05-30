@@ -223,6 +223,46 @@
 {% block scripts %}
 <script>
 window.LIBRARY_PLANTS = {{ library_plants | tojson }};
+
+/* ── Page-level helpers: hoisted so every IIFE below can call them ── */
+function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showAutofillPreview(details) {
+  var el = document.getElementById('autofill-preview');
+  if (!el || !details) return;
+  var formLabel = details.plant_form ? details.plant_form.replace(/-/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }) : '';
+  var htLabel   = details.height_category ? details.height_category.charAt(0).toUpperCase() + details.height_category.slice(1) : '';
+  var chips = [details.scientific_name, formLabel, htLabel, details.sun_needs, details.lifecycle,
+               details.size_info, details.flowering_schedule].filter(Boolean);
+  var html = '';
+  if (details.description) {
+    var descHidden = document.getElementById('description-hidden');
+    if (descHidden) descHidden.value = details.description;
+    html += '<p class="autofill-description">' + _esc(details.description) + '</p>';
+  }
+  if (chips.length) {
+    html += '<div class="autofill-chips">' + chips.map(function(c){ return '<span class="chip">' + _esc(c) + '</span>'; }).join('') + '</div>';
+  }
+  if (!html) return;
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
+/* Single source of truth for populating every detail field + preview.
+   All add-plant mechanisms (name search, label, photo, suggestions) call this. */
+function applyDetails(details) {
+  if (!details) return;
+  var set = function(n, v) { var el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
+  set('scientific_name',    details.scientific_name);
+  set('lookup_query',       details.scientific_name || '');
+  set('sun_exposure',       details.sun_needs);
+  set('lifecycle',          details.lifecycle);
+  set('size_info',          details.size_info);
+  set('flowering_schedule', details.flowering_schedule);
+  set('plant_form',         details.plant_form);
+  set('height_category',    details.height_category);
+  showAutofillPreview(details);
+}
 </script>
 <script>
 /* Photo mode: preview on select, identify on button click */
@@ -476,16 +516,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
               const photoUrlsHiddenEl = document.getElementById('photo-urls-hidden');
               if (photoUrlsHiddenEl) photoUrlsHiddenEl.value = JSON.stringify(photos);
             }
-            if (details) {
-              const setField = (n, v) => { const el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
-              setField('scientific_name',    details.scientific_name);
-              setField('lookup_query',       details.scientific_name || data.name);
-              setField('sun_exposure',       details.sun_needs);
-              setField('lifecycle',          details.lifecycle);
-              setField('size_info',          details.size_info);
-              setField('flowering_schedule', details.flowering_schedule);
-              showAutofillPreview(details);
-            }
+            if (details) applyDetails(details);
           }).finally(() => {
             waitingForPhotos = false;
             document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
@@ -655,18 +686,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     var detailQ = plant.scientific_name || plant.common_name;
     fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
       .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (!d.error) {
-          var set = function(n, v) { var el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
-          set('sun_exposure',       d.sun_needs);
-          set('lifecycle',          d.lifecycle);
-          set('size_info',          d.size_info);
-          set('flowering_schedule', d.flowering_schedule);
-          set('plant_form',         d.plant_form);
-          set('height_category',    d.height_category);
-          showAutofillPreview(d);
-        }
-      })
+      .then(function(d) { if (!d.error) applyDetails(d); })
       .catch(function() {})
       .finally(onDone);
   }
@@ -683,29 +703,6 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
   }
 
   let photoReserve = [];
-
-  /* Show scraped detail chips in the autofill-preview div */
-  function showAutofillPreview(details) {
-    var el = document.getElementById('autofill-preview');
-    if (!el || !details) return;
-    var formLabel = details.plant_form ? details.plant_form.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : '';
-    var htLabel   = details.height_category ? details.height_category.charAt(0).toUpperCase()+details.height_category.slice(1) : '';
-    var chips = [details.scientific_name, formLabel, htLabel, details.sun_needs, details.lifecycle,
-                 details.size_info, details.flowering_schedule].filter(Boolean);
-    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    var html = '';
-    if (details.description) {
-      var descHidden = document.getElementById('description-hidden');
-      if (descHidden) descHidden.value = details.description;
-      html += '<p class="autofill-description">' + esc(details.description) + '</p>';
-    }
-    if (chips.length) {
-      html += '<div class="autofill-chips">' + chips.map(function(c){ return '<span class="chip">'+esc(c)+'</span>'; }).join('') + '</div>';
-    }
-    if (!html) return;
-    el.innerHTML = html;
-    el.hidden = false;
-  }
 
   function openLightbox(src) {
     const box = document.createElement('div');
@@ -987,18 +984,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
         if (photoUrlsEl) photoUrlsEl.value = JSON.stringify(photos);
         if (imageUrlHidden) imageUrlHidden.value = photos[0] || '';
       }
-      /* Also update detail chips */
-      var details = result.details;
-      if (details) {
-        var set = function (n, v) { var el = document.querySelector('[name="' + n + '"]'); if (el && v) el.value = v; };
-        set('sun_exposure', details.sun_needs);
-        set('lifecycle', details.lifecycle);
-        set('size_info', details.size_info);
-        set('flowering_schedule', details.flowering_schedule);
-        set('plant_form', details.plant_form);
-        set('height_category', details.height_category);
-        showAutofillPreview(details);
-      }
+      if (result.details) applyDetails(result.details);
     }).catch(function () {});
   }
 
