@@ -107,7 +107,7 @@ def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[
 def _api_error_msg(service: str, response) -> str:
     status = response.status_code
     if status == 429:
-        return f"{service} rate limit reached — wait a minute and try again, or switch to a different ID service in Tools."
+        return f"{service} quota reached — wait 30 seconds and try again, or switch to a different ID service in Tools."
     if status in (401, 403):
         return f"{service} rejected the API key (HTTP {status}) — check the key in your Vercel environment variables."
     try:
@@ -200,7 +200,7 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
 
     try:
         resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
             json=payload,
             timeout=8,
         )
