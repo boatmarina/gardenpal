@@ -556,8 +556,35 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
         }));
         if (svrResults.length) {
           GP.renderPlantDropdown(targetDropdown, [...libMatches, ...svrResults], select, q);
-        } else if (!libMatches.length) {
-          targetDropdown.hidden = true;
+        } else {
+          // Still nothing — retry iNat without is_active to catch reclassified taxa
+          // (e.g. "Gaura lindheimeri" → now "Oenothera lindheimeri")
+          const syn = await fetch(
+            'https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(q) +
+            '&iconic_taxa=Plantae&per_page=8',
+            {signal: _searchCtrl.signal}
+          );
+          const synData = await syn.json();
+          const synResults = (synData.results || []).map(t => {
+            const photo = t.default_photo || {};
+            const taxonPhotos = (t.taxon_photos || []).slice(0, 6)
+              .map(tp => (tp.photo || {}).medium_url || (tp.photo || {}).square_url)
+              .filter(Boolean);
+            return {
+              common_name: t.preferred_common_name || t.name || '',
+              scientific_name: t.name || '',
+              photo_url: photo.medium_url || photo.square_url,
+              taxon_photos: taxonPhotos.length ? taxonPhotos : (photo.medium_url ? [photo.medium_url] : []),
+              taxon_id: t.id,
+              rank: t.rank || 'species',
+              from_library: false
+            };
+          });
+          if (synResults.length) {
+            GP.renderPlantDropdown(targetDropdown, [...libMatches, ...synResults], select, q);
+          } else if (!libMatches.length) {
+            targetDropdown.hidden = true;
+          }
         }
       }
     } catch (err) {
