@@ -514,7 +514,7 @@ def create_app() -> Flask:
                 if not photo_file or not photo_file.filename:
                     flash("Please choose a photo first.")
                     return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
-                suggestions, error = identify_plant_from_image(photo_file, provider=g.user.get("photo_id_provider") or "plantid")
+                suggestions, error = identify_plant_from_image(photo_file, provider=g.user.get("photo_id_provider") or "claude")
                 if error:
                     flash(error)
                 elif suggestions:
@@ -923,7 +923,7 @@ def create_app() -> Flask:
                 return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_photo":
-                suggestions, error = identify_plant_from_image(request.files.get("photo"), provider=g.user.get("photo_id_provider") or "plantid")
+                suggestions, error = identify_plant_from_image(request.files.get("photo"), provider=g.user.get("photo_id_provider") or "claude")
                 if error:
                     flash(error)
                 elif suggestions:
