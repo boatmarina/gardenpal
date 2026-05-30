@@ -93,12 +93,18 @@ def extract_text_from_image(file_storage) -> Tuple[Optional[str], Optional[str]]
     return text, None
 
 
-def identify_plant_from_image(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
-    api_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
-    if not api_key:
-        return None, "Photo identification is not configured. Add PLANT_ID_API_KEY."
+def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     if file_storage is None or not file_storage.filename:
         return None, "Please attach a plant photo first."
+    if provider == "gemini":
+        return _identify_via_gemini(file_storage)
+    return _identify_via_plantid(file_storage)
+
+
+def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+    api_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
+    if not api_key:
+        return None, "Plant.id is not configured — add PLANT_ID_API_KEY or switch to Google AI in Tools."
 
     file_storage.stream.seek(0)
     encoded = base64.b64encode(file_storage.stream.read()).decode("ascii")
@@ -116,7 +122,7 @@ def identify_plant_from_image(file_storage) -> Tuple[Optional[Dict[str, str]], O
         response.raise_for_status()
         data = response.json()
     except requests.RequestException:
-        return None, "Couldn't identify the plant from that photo — try a clearer shot or use a different method."
+        return None, "Couldn't reach plant.id — try a clearer shot or switch to Google AI in Tools."
 
     suggestions = data.get("result", {}).get("classification", {}).get("suggestions", [])
     if not suggestions:
@@ -129,6 +135,71 @@ def identify_plant_from_image(file_storage) -> Tuple[Optional[Dict[str, str]], O
     probability = top.get("probability")
     confidence = f"{round(probability * 100)}%" if isinstance(probability, (float, int)) else ""
     return {"scientific_name": scientific, "common_name": common, "confidence": confidence}, None
+
+
+def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return None, "Google AI is not configured — add GEMINI_API_KEY in Vercel environment variables."
+
+    file_storage.stream.seek(0)
+    raw = file_storage.stream.read()
+    file_storage.stream.seek(0)
+
+    fname = (file_storage.filename or "").lower()
+    if fname.endswith(".png"):
+        mime = "image/png"
+    elif fname.endswith(".webp"):
+        mime = "image/webp"
+    elif fname.endswith(".gif"):
+        mime = "image/gif"
+    else:
+        mime = "image/jpeg"
+
+    encoded = base64.b64encode(raw).decode("ascii")
+    prompt = (
+        "Identify the plant in this photo. Respond ONLY with valid JSON, no markdown:\n"
+        '{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high or medium or low", "recognized": true}\n'
+        'If no plant is visible or recognizable, respond: {"recognized": false}'
+    )
+    payload = {
+        "contents": [{"parts": [
+            {"text": prompt},
+            {"inline_data": {"mime_type": mime, "data": encoded}},
+        ]}],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 200},
+    }
+
+    try:
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+            json=payload,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException:
+        return None, "Couldn't reach Google AI — check your GEMINI_API_KEY or try again."
+
+    try:
+        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        result = json.loads(text)
+    except (KeyError, IndexError, json.JSONDecodeError):
+        return None, "Couldn't parse the Google AI response — try again."
+
+    if not result.get("recognized", True):
+        return None, "No plant recognized in that photo — try a clearer shot."
+
+    return {
+        "scientific_name": result.get("scientific_name", ""),
+        "common_name": result.get("common_name", ""),
+        "confidence": result.get("confidence", ""),
+    }, None
 
 
 # ---------------------------------------------------------------------------

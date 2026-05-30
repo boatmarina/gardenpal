@@ -212,7 +212,7 @@ def create_app() -> Flask:
         user_id = session.get("user_id")
         g.user = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username, api_token, is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+            g.user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider FROM users WHERE id = ?", (user_id,)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
@@ -512,7 +512,7 @@ def create_app() -> Flask:
                 if not photo_file or not photo_file.filename:
                     flash("Please choose a photo first.")
                     return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
-                suggestion, error = identify_plant_from_image(photo_file)
+                suggestion, error = identify_plant_from_image(photo_file, provider=g.user.get("photo_id_provider") or "plantid")
                 if error:
                     flash(error)
                 else:
@@ -1138,7 +1138,9 @@ def create_app() -> Flask:
                 " ORDER BY logged_at DESC LIMIT 200"
             ).fetchall()
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
-                               perenual_log=perenual_log)
+                               perenual_log=perenual_log,
+                               plantid_configured=bool(os.environ.get("PLANT_ID_API_KEY", "").strip()),
+                               gemini_configured=bool(os.environ.get("GEMINI_API_KEY", "").strip()))
 
     @app.route("/admin/users/<int:target_id>", methods=["GET", "POST"])
     @login_required
@@ -1290,6 +1292,18 @@ def create_app() -> Flask:
             "﻿" + out.getvalue(), mimetype="text/csv",
             headers={"Content-Disposition": 'attachment; filename="gardenpal-garden.csv"'},
         )
+
+    @app.route("/settings/photo-id-provider", methods=["POST"])
+    @login_required
+    def set_photo_id_provider():
+        provider = request.form.get("provider", "plantid").strip()
+        if provider not in ("plantid", "gemini"):
+            provider = "plantid"
+        db = get_db()
+        db.execute("UPDATE users SET photo_id_provider = ? WHERE id = ?", (provider, g.user["id"]))
+        db.commit()
+        flash("Plant photo identification method updated.")
+        return redirect(url_for("tools"))
 
     @app.route("/settings/generate-token", methods=["POST"])
     @login_required
@@ -2112,6 +2126,7 @@ def init_db():
     ensure_column(db, "plants", "plant_form", "TEXT")
     ensure_column(db, "plants", "height_category", "TEXT")
     ensure_column(db, "plants", "description", "TEXT")
+    ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
