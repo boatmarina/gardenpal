@@ -172,15 +172,15 @@
         </div>
       {% endif %}
 
-      <label>
-        Tags
+      <div style="display:flex;flex-direction:column;gap:0.35rem">
+        <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted)">Tags</span>
         <div class="tag-input-wrap" id="tag-input-wrap">
           <div id="tag-chips-display" style="display:contents"></div>
           <input type="text" id="tag-chip-text" class="tag-chip-input" placeholder="Type a tag and press Enter…" autocomplete="off" />
           <ul id="tag-chip-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
         </div>
         <input type="hidden" name="tag_names" id="tag-names-hidden" value="" />
-      </label>
+      </div>
 
       <label>
         Where did you see it?
@@ -698,10 +698,6 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     dropdown.hidden = true;
   }
 
-  // Prevent mousedown on the dropdown from moving focus away from inp (and
-  // from triggering the parent <label>'s activation behavior).
-  if (dropdown) dropdown.addEventListener('mousedown', function(e){ e.preventDefault(); });
-
   function showDropdown(tags) {
     var filtered = tags.filter(function(t){ return !selected.includes(t.name.toLowerCase()); });
     if (!filtered.length) { dropdown.hidden = true; return; }
@@ -709,7 +705,9 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     filtered.forEach(function(t) {
       var li = document.createElement('li');
       li.textContent = t.name;
-      li.addEventListener('click', function(){ addChip(t.name); });
+      // Use mousedown so the chip is added before any focus change can occur.
+      // preventDefault keeps focus on inp; addChip is idempotent if click also fires.
+      li.addEventListener('mousedown', function(e){ e.preventDefault(); addChip(t.name); });
       dropdown.appendChild(li);
     });
     dropdown.hidden = false;
