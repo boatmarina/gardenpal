@@ -98,6 +98,8 @@ def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[
         return None, "Please attach a plant photo first."
     if provider == "gemini":
         return _identify_via_gemini(file_storage)
+    if provider == "claude":
+        return _identify_via_claude(file_storage)
     return _identify_via_plantid(file_storage)
 
 
@@ -191,6 +193,73 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
         result = json.loads(text)
     except (KeyError, IndexError, json.JSONDecodeError):
         return None, "Couldn't parse the Google AI response — try again."
+
+    if not result.get("recognized", True):
+        return None, "No plant recognized in that photo — try a clearer shot."
+
+    return {
+        "scientific_name": result.get("scientific_name", ""),
+        "common_name": result.get("common_name", ""),
+        "confidence": result.get("confidence", ""),
+    }, None
+
+
+def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return None, "Claude Vision is not configured — add ANTHROPIC_API_KEY."
+
+    file_storage.stream.seek(0)
+    raw = file_storage.stream.read()
+    file_storage.stream.seek(0)
+
+    fname = (file_storage.filename or "").lower()
+    if fname.endswith(".png"):
+        media_type = "image/png"
+    elif fname.endswith(".webp"):
+        media_type = "image/webp"
+    elif fname.endswith(".gif"):
+        media_type = "image/gif"
+    else:
+        media_type = "image/jpeg"
+
+    encoded = base64.b64encode(raw).decode("ascii")
+    client = anthropic.Anthropic(api_key=api_key, timeout=15.0)
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=200,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": media_type, "data": encoded},
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "Identify the plant in this photo. Respond ONLY with valid JSON, no markdown:\n"
+                            '{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high or medium or low", "recognized": true}\n'
+                            'If no plant is visible or recognizable, respond: {"recognized": false}'
+                        ),
+                    },
+                ],
+            }],
+        )
+        text = next((b.text for b in response.content if b.type == "text"), "").strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        result = json.loads(text)
+    except json.JSONDecodeError:
+        return None, "Couldn't parse the Claude response — try again."
+    except anthropic.APIError as exc:
+        return None, f"Claude API error: {exc}"
+    except Exception as exc:
+        return None, f"Claude Vision error: {exc}"
 
     if not result.get("recognized", True):
         return None, "No plant recognized in that photo — try a clearer shot."
