@@ -56,6 +56,44 @@
     {% endif %}
   </section>
 
+  <section class="panel" style="margin-bottom:16px">
+    <h2 style="margin-bottom:12px">Last session</h2>
+    {% set ls = stats.last_session %}
+    {% if not ls %}
+      <p style="font-size:0.85rem;color:var(--muted);margin:0">No activity recorded yet — tracking starts from the user's next login.</p>
+    {% else %}
+      <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+        {% if ls.plant_added %}
+        <li style="font-size:0.88rem">
+          <span style="font-weight:600;color:var(--green-dark)">Added {{ ls.plant_added | length }} plant{{ 's' if ls.plant_added | length != 1 else '' }}</span>
+          <span style="color:var(--muted)"> — {{ ls.plant_added | join(', ') }}</span>
+        </li>
+        {% endif %}
+        {% if ls.yard_plant_added %}
+        <li style="font-size:0.88rem">
+          <span style="font-weight:600;color:var(--green-dark)">Planted {{ ls.yard_plant_added | length }} in yard</span>
+          <span style="color:var(--muted)"> — {{ ls.yard_plant_added | join(', ') }}</span>
+        </li>
+        {% endif %}
+        {% if ls.zone_added %}
+        <li style="font-size:0.88rem">
+          <span style="font-weight:600;color:var(--green-dark)">Created {{ ls.zone_added | length }} zone{{ 's' if ls.zone_added | length != 1 else '' }}</span>
+          <span style="color:var(--muted)"> — {{ ls.zone_added | join(', ') }}</span>
+        </li>
+        {% endif %}
+        {% if ls.garden_entry_added %}
+        <li style="font-size:0.88rem">
+          <span style="font-weight:600;color:var(--green-dark)">Logged {{ ls.garden_entry_added | length }} garden entr{{ 'ies' if ls.garden_entry_added | length != 1 else 'y' }}</span>
+          <span style="color:var(--muted)"> — {{ ls.garden_entry_added | join(', ') }}</span>
+        </li>
+        {% endif %}
+        {% if not ls.plant_added and not ls.yard_plant_added and not ls.zone_added and not ls.garden_entry_added %}
+          <li style="font-size:0.85rem;color:var(--muted)">Logged in but made no changes.</li>
+        {% endif %}
+      </ul>
+    {% endif %}
+  </section>
+
   <section class="panel">
     <h2 style="margin-bottom:4px">Reset password</h2>
     <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Set a new password and give it to {{ target.username }} directly.</p>
