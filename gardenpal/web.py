@@ -282,6 +282,7 @@ def create_app() -> Flask:
                 "INSERT INTO login_log (user_id, logged_in_at) VALUES (?, ?)",
                 (user["id"], datetime.utcnow().isoformat(timespec="seconds")),
             )
+            db.execute("DELETE FROM activity_log WHERE user_id = ?", (user["id"],))
             db.commit()
             flash("Welcome back.")
             return redirect(url_for("dashboard"))
@@ -609,6 +610,7 @@ def create_app() -> Flask:
                         "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                         (plant_id, tid),
                     )
+            _log_activity(db, user_id, "plant_added", form_values["name"])
             db.commit()
             flash("Plant idea added.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
@@ -732,6 +734,7 @@ def create_app() -> Flask:
                 datetime.utcnow().isoformat(timespec="seconds"),
             ),
         )
+        _log_activity(db, g.user["id"], "yard_plant_added", plant["name"])
         db.commit()
         flash("Added to zone.")
         return redirect(url_for("idea_detail", plant_id=plant_id))
@@ -771,6 +774,7 @@ def create_app() -> Flask:
                 """,
                 (g.user["id"], name, description, ref_image, datetime.utcnow().isoformat(timespec="seconds")),
             )
+            _log_activity(db, g.user["id"], "zone_added", name)
             db.commit()
             flash("Yard zone created.")
             return redirect(url_for("yard_index"))
@@ -1043,6 +1047,7 @@ def create_app() -> Flask:
                         f"UPDATE plants SET {set_clause} WHERE id = ?",
                         [*updates.values(), existing["id"]],
                     )
+            _log_activity(db, g.user["id"], "yard_plant_added", form_values["plant_name"])
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
@@ -1098,6 +1103,12 @@ def create_app() -> Flask:
     def settings_redirect():
         return redirect(url_for("tools"))
 
+    def _log_activity(db, user_id, action, item_name):
+        db.execute(
+            "INSERT INTO activity_log (user_id, action, item_name, logged_at) VALUES (?, ?, ?, ?)",
+            (user_id, action, item_name, datetime.utcnow().isoformat(timespec="seconds")),
+        )
+
     def _user_stats(db, user_id, created_at_str):
         plants  = db.execute("SELECT COUNT(*) AS n FROM plants WHERE user_id = ?",        (user_id,)).fetchone()["n"]
         zones   = db.execute("SELECT COUNT(*) AS n FROM yard_zones WHERE user_id = ?",    (user_id,)).fetchone()["n"]
@@ -1114,10 +1125,24 @@ def create_app() -> Flask:
         except Exception:
             weeks = 1.0
         avg_per_week = round(login_count / weeks, 1)
+        activity_rows = db.execute(
+            "SELECT action, item_name FROM activity_log WHERE user_id = ? ORDER BY logged_at ASC",
+            (user_id,),
+        ).fetchall()
+        # Group by action, collecting ordered unique names
+        activity: dict = {}
+        for row in activity_rows:
+            act = row["action"]
+            name = (row["item_name"] or "").strip()
+            if act not in activity:
+                activity[act] = []
+            if name and name not in activity[act]:
+                activity[act].append(name)
         return {
             "plants": plants, "zones": zones, "garden": garden,
             "login_count": login_count, "last_login": last_login,
             "avg_per_week": avg_per_week,
+            "last_session": activity,
         }
 
     @app.route("/tools")
@@ -1422,6 +1447,7 @@ def create_app() -> Flask:
                     now, now,
                 ),
             ).fetchone()["id"]
+            _log_activity(db, g.user["id"], "garden_entry_added", plant_name)
             db.commit()
             flash("Entry added to your garden tracker.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
@@ -2311,6 +2337,17 @@ _SCHEMA_STATEMENTS = [
         logged_at TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS activity_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        item_name TEXT,
+        logged_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id)",
 ]
 
 
