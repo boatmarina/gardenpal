@@ -1713,6 +1713,7 @@ def create_app() -> Flask:
                 results.append({
                     "common_name": t.get("preferred_common_name") or t.get("name") or "",
                     "scientific_name": t.get("name") or "",
+                    "matched_term": t.get("matched_term") or "",
                     "photo_url": photo.get("medium_url") or photo.get("square_url"),
                     "taxon_photos": taxon_photos,
                     "taxon_id": t.get("id"),
@@ -1747,6 +1748,7 @@ def create_app() -> Flask:
                     results.append({
                         "common_name": t.get("preferred_common_name") or t.get("name") or "",
                         "scientific_name": t.get("name") or "",
+                        "matched_term": q,  # query was resolved via Claude to this taxon
                         "photo_url": photo.get("medium_url") or photo.get("square_url"),
                         "taxon_photos": taxon_photos,
                         "taxon_id": t.get("id"),

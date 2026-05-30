@@ -127,6 +127,10 @@
         if (sci && sci.toLowerCase() !== name.toLowerCase()) {
           textHtml += '<small>' + esc(sci) + '</small>';
         }
+        var aka = (plant.matched_term || '').trim();
+        if (aka && aka.toLowerCase() !== name.toLowerCase() && aka.toLowerCase() !== sci.toLowerCase()) {
+          textHtml += '<span class="dd-aka">also known as ' + esc(aka) + '</span>';
+        }
         if (plant.from_library) textHtml += '<span class="dd-saved">in library</span>';
         var html = '';
         if (photoUrl) html += '<img class="dd-thumb" src="' + esc(photoUrl) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'" />';

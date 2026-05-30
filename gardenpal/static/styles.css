@@ -1123,6 +1123,16 @@ dd { margin: 0; }
 }
 .dd-name { flex: 1; min-width: 0; }
 
+/* "also known as" line in search results */
+.dd-aka {
+  font-size: 0.72rem;
+  color: var(--text-muted, #888);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* "in library" badge on search results */
 .dd-saved {
   display: inline-flex;
