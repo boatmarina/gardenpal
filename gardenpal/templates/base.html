@@ -139,9 +139,17 @@
       if (!form || form.tagName !== 'FORM') return;
       if ((form.method || '').toLowerCase() !== 'post') return;
 
-      /* Pick the message based on which submit button was clicked */
+      /* e.submitter is the button that triggered the submit (works with requestSubmit) */
+      var submitter = e.submitter;
       var active = document.activeElement;
-      var action = (active && active.name === 'form_action') ? active.value : '';
+      var action = '';
+      if (submitter && submitter.name === 'form_action') {
+        action = submitter.value;
+      } else if (active && active.name === 'form_action') {
+        action = active.value;
+      }
+      /* Photo ID has its own in-page spinner — skip the full-screen overlay */
+      if (action === 'autofill_photo') return;
       show(ACTION_MSGS[action] || 'Saving…');
     });
 

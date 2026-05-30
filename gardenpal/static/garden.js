@@ -146,4 +146,19 @@
     dropdown.hidden = false;
   };
 
+  /* Open a full-screen lightbox for an image */
+  G.openLightbox = function openLightbox(src) {
+    var box = document.createElement('div');
+    box.className = 'lightbox';
+    box.innerHTML = '<button class="lightbox-close" aria-label="Close">\xd7</button><img src="' + src + '" alt="" />';
+    function close() { box.remove(); }
+    box.addEventListener('click', function (e) {
+      if (e.target === box || e.target.classList.contains('lightbox-close')) close();
+    });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+    document.body.appendChild(box);
+  };
+
 }(window.GP = window.GP || {}));
