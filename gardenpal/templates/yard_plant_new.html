@@ -118,7 +118,8 @@
           Plant name
           <div class="plant-search-wrap">
             <input id="plant-name-visible" type="text" placeholder="Start typing a plant name…"
-                   autocomplete="off" value="{{ form_values.plant_name }}" />
+                   autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                   value="{{ form_values.plant_name }}" />
             <div id="plant-search-dropdown" class="plant-search-dropdown" hidden></div>
           </div>
         </label>
@@ -197,7 +198,8 @@
           Plant name
           <div class="plant-search-wrap">
             <input id="url-name-input-yard" type="text" placeholder="Start typing a plant name…"
-                   autocomplete="off" value="{{ form_values.plant_name }}" />
+                   autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                   value="{{ form_values.plant_name }}" />
             <div id="url-name-dropdown" class="plant-search-dropdown" hidden></div>
           </div>
         </label>

@@ -44,7 +44,8 @@
           Plant name
           <div class="plant-search-wrap">
             <input id="plant-name-input" type="text" placeholder="Start typing a plant name…"
-                   autocomplete="off" value="{{ form_values.name }}" />
+                   autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                   value="{{ form_values.name }}" />
             <div id="plant-search-dropdown" class="plant-search-dropdown" hidden></div>
           </div>
           <datalist id="plant-names-list">
@@ -84,7 +85,7 @@
             <div class="plant-search-wrap">
               <input id="photo-name-input" type="text" placeholder="Type plant name…"
                      value="{{ form_values.name if form_values.active_mode == 'photo' else '' }}"
-                     autocomplete="off" />
+                     autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" />
               <div id="photo-search-dropdown" class="plant-search-dropdown" hidden></div>
             </div>
           </label>
@@ -134,7 +135,8 @@
         <label>
           Plant name
           <input id="url-name-input" type="text" placeholder="Enter the plant name…"
-                 autocomplete="off" value="{{ form_values.name }}" />
+                 autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                 value="{{ form_values.name }}" />
         </label>
       </div>
 
@@ -531,6 +533,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
           return {
             common_name: t.preferred_common_name || t.name || '',
             scientific_name: t.name || '',
+            matched_term: t.matched_term || '',
             photo_url: photo.medium_url || photo.square_url,
             taxon_photos: taxonPhotos.length ? taxonPhotos : (photo.medium_url ? [photo.medium_url] : []),
             taxon_id: t.id,
@@ -573,6 +576,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
             return {
               common_name: t.preferred_common_name || t.name || '',
               scientific_name: t.name || '',
+              matched_term: t.matched_term || '',
               photo_url: photo.medium_url || photo.square_url,
               taxon_photos: taxonPhotos.length ? taxonPhotos : (photo.medium_url ? [photo.medium_url] : []),
               taxon_id: t.id,
