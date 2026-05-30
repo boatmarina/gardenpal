@@ -287,6 +287,27 @@
 {% block scripts %}
 <script>
 window.LIBRARY_PLANTS = {{ library_plants_json | tojson }};
+
+/* ── Page-level helper: single source of truth for yard plant detail fields ── */
+function applyYardDetails(details) {
+  if (!details) return;
+  var setId = function(id, v) { var el = document.getElementById(id); if (el && v) el.value = v; };
+  setId('h-sci',       details.scientific_name);
+  setId('h-query',     details.scientific_name || '');
+  setId('h-sun',       details.sun_needs);
+  setId('h-lifecycle', details.lifecycle);
+  setId('h-size',      details.size_info);
+  setId('h-flowering', details.flowering_schedule);
+  setId('h-water',     details.watering_needs);
+  var selSciEl = document.getElementById('sel-sci');
+  if (selSciEl && details.scientific_name) selSciEl.textContent = details.scientific_name;
+  var chipsEl = document.getElementById('sel-chips');
+  if (chipsEl) {
+    var vals = [details.sun_needs, details.lifecycle, details.size_info, details.flowering_schedule].filter(Boolean);
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    chipsEl.innerHTML = vals.map(function(c){ return '<span class="chip">' + esc(c) + '</span>'; }).join('');
+  }
+}
 </script>
 <script>
 async function compressAndIdentify(inputEl, submitBtnId) {
@@ -474,6 +495,11 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       if (selThumb) selThumb.style.display = 'none';
       if (selPanel) selPanel.hidden = false;
       if (common)   common.hidden   = false;
+      var dq = plant.scientific_name || plant.common_name;
+      fetch('/api/plant-details?q=' + encodeURIComponent(dq))
+        .then(function(r) { return r.json(); })
+        .then(function(d) { if (!d.error) applyYardDetails(d); })
+        .catch(function() {});
     }
   }
 
@@ -524,18 +550,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
               if (hImageUrl) hImageUrl.value = photos[0];
               if (hPhotoUrlsJson) hPhotoUrlsJson.value = JSON.stringify(photos);
             }
-            if (details) {
-              const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-              set('h-sci',       details.scientific_name);
-              set('h-query',     details.scientific_name || data.name);
-              set('h-sun',       details.sun_needs);
-              set('h-lifecycle', details.lifecycle);
-              set('h-size',      details.size_info);
-              set('h-flowering', details.flowering_schedule);
-              set('h-water',     details.watering_needs);
-              if (selSci && details.scientific_name) selSci.textContent = details.scientific_name;
-              showSelChips(details);
-            }
+            if (details) applyYardDetails(details);
           }).finally(() => {
             waitingForPhotos = false;
             document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
@@ -689,17 +704,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       const detailQ = plant.scientific_name || plant.common_name;
       fetch('/api/plant-details?q=' + encodeURIComponent(detailQ))
         .then(r => r.json())
-        .then(d => {
-          if (!d.error) {
-            hSun.value       = d.sun_needs       || hSun.value;
-            hLifecycle.value = d.lifecycle       || hLifecycle.value;
-            hSize.value      = d.size_info       || hSize.value;
-            hFlowering.value = d.flowering_schedule || hFlowering.value;
-            hWater.value     = d.watering_needs  || hWater.value;
-            hQuery.value     = d.scientific_name || hQuery.value;
-            showSelChips(d);
-          }
-        })
+        .then(d => { if (!d.error) applyYardDetails(d); })
         .catch(() => {})
         .finally(onDone);
     }
@@ -819,6 +824,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           if (hImgUrl) hImgUrl.value = photos[0] || '';
           if (hPhotoUrls) hPhotoUrls.value = JSON.stringify(photos);
         }
+        if (result.details) applyYardDetails(result.details);
       }).catch(function () {})
         .finally(function () { if (commLoading) commLoading.hidden = true; });
     });
