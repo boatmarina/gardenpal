@@ -175,6 +175,26 @@ def create_app() -> Flask:
         except Exception:
             return date_str
 
+    @app.template_filter("relative_login")
+    def relative_login_filter(dt_str):
+        if not dt_str:
+            return "never"
+        try:
+            dt = datetime.fromisoformat(str(dt_str)[:19])
+            days = (datetime.utcnow() - dt).days
+            if days < 0:
+                return "today"
+            if days < 7:
+                return dt.strftime("%A")
+            if days < 14:
+                return "last week"
+            weeks = days // 7
+            if weeks < 5:
+                return f"{weeks} weeks ago"
+            return "over a month ago"
+        except Exception:
+            return str(dt_str)[:10]
+
     @app.before_request
     def ensure_db_ready():
         if not app.config["_DB_READY"]:

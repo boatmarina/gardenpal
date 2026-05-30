@@ -161,7 +161,7 @@
   if (toggle && panel) {
     toggle.addEventListener('click', function () {
       panel.hidden = !panel.hidden;
-      if (!panel.hidden) panel.querySelector('input[name="q"]').focus();
+      // No auto-focus — prevents mobile browsers from zooming into the input
     });
   }
 
