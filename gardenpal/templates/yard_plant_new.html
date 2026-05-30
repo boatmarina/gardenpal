@@ -152,6 +152,10 @@
           </button>
         </div>
         {% endif %}
+        <div id="photo-community-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Loading photos…</p>
+        </div>
         <div id="photo-id-preview" class="photos-grid" style="margin-bottom:12px"
              {% if not (form_values.yard_input_mode == 'photo' and form_values.image_url) %}hidden{% endif %}>
           {% if form_values.yard_input_mode == 'photo' and form_values.image_url %}
@@ -741,6 +745,16 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   }
 })();
 
+/* Attach lightbox to any server-rendered photos in photo-id-preview */
+(function () {
+  var preview = document.getElementById('photo-id-preview');
+  if (!preview) return;
+  preview.querySelectorAll('img').forEach(function (img) {
+    img.style.cursor = 'zoom-in';
+    img.addEventListener('click', function (e) { GP.openLightbox && GP.openLightbox(e.target.src); });
+  });
+})();
+
 /* ── Photo ID suggestion panel ── */
 (function () {
   var panel = document.getElementById('photo-id-suggestions-panel');
@@ -784,20 +798,29 @@ async function compressAndIdentify(inputEl, submitBtnId) {
 
       /* Refresh community photo preview */
       var preview = document.getElementById('photo-id-preview');
+      var commLoading = document.getElementById('photo-community-loading');
       if (preview) { preview.innerHTML = ''; preview.hidden = true; }
+      if (commLoading) commLoading.hidden = false;
       GP.fetchPlantData(sciName || commonName, 6).then(function (result) {
         var photos = result.photos || [];
         if (photos.length && preview) {
-          preview.innerHTML = photos.map(function (u) {
-            return '<div class="photo-item"><img src="' + u + '" alt="' + commonName + '" /></div>';
-          }).join('');
+          preview.innerHTML = '';
+          photos.forEach(function (u) {
+            var div = document.createElement('div');
+            div.className = 'photo-item';
+            div.innerHTML = '<img src="' + u + '" alt="' + commonName + '" style="cursor:zoom-in" onerror="this.closest(\'.photo-item\').remove()" />';
+            var img = div.querySelector('img');
+            if (img) img.addEventListener('click', function (e) { GP.openLightbox && GP.openLightbox(e.target.src); });
+            preview.appendChild(div);
+          });
           preview.hidden = false;
           var hImgUrl = document.getElementById('h-image-url');
           var hPhotoUrls = document.getElementById('h-photo-urls-json');
           if (hImgUrl) hImgUrl.value = photos[0] || '';
           if (hPhotoUrls) hPhotoUrls.value = JSON.stringify(photos);
         }
-      }).catch(function () {});
+      }).catch(function () {})
+        .finally(function () { if (commLoading) commLoading.hidden = true; });
     });
     container.appendChild(btn);
   });

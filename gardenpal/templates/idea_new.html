@@ -78,6 +78,10 @@
           </button>
         </div>
         {% endif %}
+        <div id="photo-community-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Loading photos…</p>
+        </div>
         <div id="photo-id-preview" class="photos-grid" style="margin-bottom:12px" hidden></div>
         <div id="photo-loading" hidden style="text-align:center;padding:10px 0 4px">
           <div class="spinner"></div>
@@ -342,6 +346,8 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
     if (!_q) return;
     var photoIdPreview = document.getElementById('photo-id-preview');
     var photoUrlsEl = document.getElementById('photo-urls-hidden');
+    var photoCommLoading = document.getElementById('photo-community-loading');
+    if (photoCommLoading) photoCommLoading.hidden = false;
 
     function _applyCommuityPhotos(photos) {
       if (!photos || !photos.length) return;
@@ -381,7 +387,8 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
             _applyCommuityPhotos(taxonPhotos);
           });
       })
-      .catch(function() {});
+      .catch(function() {})
+      .finally(function() { if (photoCommLoading) photoCommLoading.hidden = true; });
   }());
 
   if (nameInput) {
@@ -971,7 +978,7 @@ window.LIBRARY_PLANTS = {{ library_plants | tojson }};
           div.className = 'photo-item';
           div.innerHTML = '<img src="' + url + '" alt="' + commonName + '" style="cursor:zoom-in" onerror="this.closest(\'.photo-item\').remove()" />';
           var img = div.querySelector('img');
-          if (img) img.addEventListener('click', function (e) { openLightbox(e.target.src); });
+          if (img) img.addEventListener('click', function (e) { GP.openLightbox && GP.openLightbox(e.target.src); });
           photoIdPreview.appendChild(div);
         });
         photoIdPreview.hidden = false;
