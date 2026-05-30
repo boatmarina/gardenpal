@@ -107,16 +107,18 @@ def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[
 def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     api_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
     if not api_key:
-        return None, "Plant.id is not configured — add PLANT_ID_API_KEY in Vercel environment variables."
+        return [], "Plant.id is not configured — add PLANT_ID_API_KEY in Vercel environment variables."
 
     file_storage.stream.seek(0)
     raw = file_storage.stream.read()
     file_storage.stream.seek(0)
 
-    fname = (file_storage.filename or "").lower()
-    mime = "image/png" if fname.endswith(".png") else ("image/webp" if fname.endswith(".webp") else "image/jpeg")
-    encoded = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
-    payload = {"images": [encoded], "similar_images": False}
+    encoded = base64.b64encode(raw).decode("ascii")
+    payload = {
+        "images": [encoded],
+        "similar_images": False,
+        "details": ["common_names", "taxonomy"],
+    }
     headers = {"Api-Key": api_key, "Content-Type": "application/json"}
 
     try:
@@ -127,10 +129,15 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
             timeout=8,
         )
     except requests.RequestException as exc:
-        return None, f"Couldn't reach plant.id ({type(exc).__name__}) — check your network or try again."
+        return [], f"Couldn't reach plant.id ({type(exc).__name__}) — check your network or try again."
 
     if not response.ok:
-        return None, f"plant.id rejected the request (HTTP {response.status_code}) — check your PLANT_ID_API_KEY."
+        try:
+            err_body = response.json()
+            detail = str(err_body)[:300]
+        except Exception:
+            detail = (response.text or "")[:300]
+        return [], f"plant.id error (HTTP {response.status_code}): {detail}"
 
     try:
         data = response.json()
