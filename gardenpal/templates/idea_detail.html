@@ -48,7 +48,7 @@
       <p style="margin:10px 0 0;font-size:0.9rem;line-height:1.5;color:var(--text)">{{ plant.description }}</p>
       {% endif %}
       {% if plant.pnw_native %}
-        <p class="native-badge" style="margin:10px 0 0">Native to the Pacific Northwest</p>
+        <p class="native-badge" style="margin:10px 0 0">Native to {{ current_user.location if current_user and current_user.location else 'your region' }}</p>
       {% endif %}
       <div class="detail-actions">
         <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
