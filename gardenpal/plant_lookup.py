@@ -104,10 +104,15 @@ def identify_plant_from_image(file_storage, provider: str = "plantid", location:
     return _identify_via_plantid(file_storage, location)
 
 
+_DEFAULT_LOCATION = "Pacific Northwest"
+
+
+def _effective_location(location: Optional[str]) -> str:
+    return (location or "").strip() or _DEFAULT_LOCATION
+
+
 def _location_hint(location: Optional[str]) -> str:
-    loc = (location or "").strip()
-    if not loc:
-        return ""
+    loc = _effective_location(location)
     return (
         f"The photo was taken in {loc}. "
         "Prefer species common to this region when confidence is similar."
@@ -115,27 +120,20 @@ def _location_hint(location: Optional[str]) -> str:
 
 
 def _claude_system(location: Optional[str]) -> str:
-    loc = (location or "").strip()
-    expertise = f"specializing in plants as grown in {loc}" if loc else "with worldwide plant expertise"
+    loc = _effective_location(location)
     return (
-        f"You are a plant encyclopedia {expertise}. "
+        f"You are a plant encyclopedia specializing in plants as grown in {loc}. "
         "Respond ONLY with a valid JSON object — no markdown, no explanation, nothing else. "
         "If the plant name is completely unrecognizable, respond with exactly: {\"recognized\": false}"
     )
 
 
 def _make_details_prompt(query: str, location: Optional[str]) -> str:
-    loc = (location or "").strip()
-    if loc:
-        bloom_hint = f"when it blooms in {loc}, e.g. 'June to August'"
-        native_note = f"true only if native to {loc}; null if uncertain"
-        evergreen_note = f"as it behaves in {loc} conditions; empty string if unknown or not applicable (e.g. annual)"
-        desc_note = f"what it looks like, what it's known for, and any notable growing tips for {loc}. No markdown."
-    else:
-        bloom_hint = "when it blooms, e.g. 'June to August'"
-        native_note = "true only if locally native; null if uncertain"
-        evergreen_note = "empty string if unknown or not applicable (e.g. annual)"
-        desc_note = "what it looks like and what it's known for. No markdown."
+    loc = _effective_location(location)
+    bloom_hint = f"when it blooms in {loc}, e.g. 'June to August'"
+    native_note = f"true only if native to {loc}; null if uncertain"
+    evergreen_note = f"as it behaves in {loc} conditions; empty string if unknown or not applicable (e.g. annual)"
+    desc_note = f"what it looks like, what it's known for, and any notable growing tips for {loc}. No markdown."
     return (
         f"Plant: {query}\n\n"
         "Return a JSON object with these fields:\n"
@@ -237,11 +235,10 @@ def _identify_via_gemini(file_storage, location: Optional[str] = None) -> Tuple[
         mime = "image/jpeg"
 
     encoded = base64.b64encode(raw).decode("ascii")
-    hint = _location_hint(location)
     prompt = (
         "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
-        + (f"{hint}\n" if hint else "")
-        + "Respond ONLY with valid JSON, no markdown:\n"
+        f"{_location_hint(location)}\n"
+        "Respond ONLY with valid JSON, no markdown:\n"
         '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
         'If no plant is visible or recognizable, respond: {"recognized": false, "suggestions": []}'
     )
@@ -327,7 +324,7 @@ def _identify_via_claude(file_storage, location: Optional[str] = None) -> Tuple[
                         "type": "text",
                         "text": (
                             "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
-                            + (_location_hint(location) + "\n" if _location_hint(location) else "")
+                            + f"{_location_hint(location)}\n"
                             + "Respond ONLY with valid JSON, no markdown:\n"
                             '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
                             'If no plant is visible or recognizable: {"recognized": false, "suggestions": []}'
