@@ -506,11 +506,16 @@ function applyDetails(details) {
           if (nameHidden) nameHidden.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
           const photoGrid = document.getElementById('label-photo-grid');
-          const q = encodeURIComponent(data.name);
           waitingForPhotos = true;
+          if (loading) { loading.querySelector('p').textContent = 'Loading photos…'; loading.hidden = false; }
           GP.fetchPlantData(data.name).then(({photos, details}) => {
             if (photos.length && photoGrid) {
-              photoGrid.innerHTML = photos.map(u => `<div class="photo-item"><img src="${u}" alt="${data.name}" /></div>`).join('');
+              photoGrid.innerHTML = photos.map(u =>
+                `<div class="photo-item"><img src="${u}" alt="${data.name}" style="cursor:zoom-in" onerror="this.closest('.photo-item').remove()" /></div>`
+              ).join('');
+              photoGrid.querySelectorAll('img').forEach(img => {
+                img.addEventListener('click', e => GP.openLightbox && GP.openLightbox(e.target.src));
+              });
               photoGrid.hidden = false;
               if (imageUrlHidden) imageUrlHidden.value = photos[0];
               const photoUrlsHiddenEl = document.getElementById('photo-urls-hidden');
@@ -519,13 +524,14 @@ function applyDetails(details) {
             if (details) applyDetails(details);
           }).finally(() => {
             waitingForPhotos = false;
+            if (loading) { loading.hidden = true; loading.querySelector('p').textContent = 'Reading label…'; }
             document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = false; });
           });
         }
       } catch(_) {
         alert('Label reading failed — please try again.');
       } finally {
-        if (loading) loading.hidden = true;
+        if (loading && !waitingForPhotos) loading.hidden = true;
         if (uploadBtn) uploadBtn.disabled = false;
         labelSubmitBtn.disabled = false;
         if (!waitingForPhotos) {
