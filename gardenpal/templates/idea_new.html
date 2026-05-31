@@ -391,17 +391,7 @@ function applyDetails(details) {
 
     function _applyCommuityPhotos(photos) {
       if (!photos || !photos.length) return;
-      if (photoIdPreview) {
-        photos.forEach(function(url) {
-          var div = document.createElement('div');
-          div.className = 'photo-item';
-          div.innerHTML = '<img src="' + url + '" alt="" style="cursor:zoom-in" onerror="this.closest(\'.photo-item\').remove()" />';
-          var img = div.querySelector('img');
-          if (img) img.addEventListener('click', function(e) { openLightbox(e.target.src); });
-          photoIdPreview.appendChild(div);
-        });
-        photoIdPreview.hidden = false;
-      }
+      GP.renderPhotosInGrid(photoIdPreview, photos, '');
       if (photoUrlsEl && !photoUrlsEl.value) photoUrlsEl.value = JSON.stringify(photos);
     }
 
@@ -509,14 +499,7 @@ function applyDetails(details) {
           waitingForPhotos = true;
           if (loading) { loading.querySelector('p').textContent = 'Loading photos…'; loading.hidden = false; }
           GP.fetchPlantData(data.name).then(({photos, details}) => {
-            if (photos.length && photoGrid) {
-              photoGrid.innerHTML = photos.map(u =>
-                `<div class="photo-item"><img src="${u}" alt="${data.name}" style="cursor:zoom-in" onerror="this.closest('.photo-item').remove()" /></div>`
-              ).join('');
-              photoGrid.querySelectorAll('img').forEach(img => {
-                img.addEventListener('click', e => GP.openLightbox && GP.openLightbox(e.target.src));
-              });
-              photoGrid.hidden = false;
+            if (GP.renderPhotosInGrid(photoGrid, photos, data.name)) {
               if (imageUrlHidden) imageUrlHidden.value = photos[0];
               const photoUrlsHiddenEl = document.getElementById('photo-urls-hidden');
               if (photoUrlsHiddenEl) photoUrlsHiddenEl.value = JSON.stringify(photos);
@@ -679,16 +662,7 @@ function applyDetails(details) {
       var q = plant.scientific_name || plant.common_name;
       GP.fetchPlantData(q, 6).then(function (result) {
         var photos = result.photos || [];
-        if (photos.length && photoIdPreview) {
-          photos.forEach(function (url) {
-            var div = document.createElement('div');
-            div.className = 'photo-item';
-            div.innerHTML = '<img src="' + url + '" alt="" style="cursor:zoom-in" onerror="this.closest(\'.photo-item\').remove()" />';
-            var img = div.querySelector('img');
-            if (img) img.addEventListener('click', function (e) { GP.openLightbox && GP.openLightbox(e.target.src); });
-            photoIdPreview.appendChild(div);
-          });
-          photoIdPreview.hidden = false;
+        if (GP.renderPhotosInGrid(photoIdPreview, photos, '')) {
           if (imageUrlHidden) imageUrlHidden.value = photos[0] || '';
           if (photoUrlsHidden) photoUrlsHidden.value = JSON.stringify(photos);
         }
@@ -1003,16 +977,7 @@ function applyDetails(details) {
     var q = sciName || commonName;
     GP.fetchPlantData(q, 6).then(function (result) {
       var photos = result.photos || [];
-      if (photos.length && photoIdPreview) {
-        photos.forEach(function (url) {
-          var div = document.createElement('div');
-          div.className = 'photo-item';
-          div.innerHTML = '<img src="' + url + '" alt="' + commonName + '" style="cursor:zoom-in" onerror="this.closest(\'.photo-item\').remove()" />';
-          var img = div.querySelector('img');
-          if (img) img.addEventListener('click', function (e) { GP.openLightbox && GP.openLightbox(e.target.src); });
-          photoIdPreview.appendChild(div);
-        });
-        photoIdPreview.hidden = false;
+      if (GP.renderPhotosInGrid(photoIdPreview, photos, commonName)) {
         var photoUrlsEl = document.getElementById('photo-urls-hidden');
         var imageUrlHidden = document.getElementById('image-url-hidden');
         if (photoUrlsEl) photoUrlsEl.value = JSON.stringify(photos);
