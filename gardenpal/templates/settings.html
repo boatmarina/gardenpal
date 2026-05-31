@@ -67,6 +67,33 @@
   </section>
 
   <section class="panel" style="margin-bottom:16px">
+    <h2 style="margin-bottom:4px">Shared garden</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+      Share your Yard zones, plants, and Garden diary with another GardenPal account. Both of you will see and be able to edit all entries.
+    </p>
+    {% if garden_shares %}
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        {% for share in garden_shares %}
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font-size:0.88rem;font-weight:600">{{ share.partner_name }}</span>
+          <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
+            <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Remove</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('share_garden') }}" style="display:flex;gap:8px;align-items:flex-end">
+      <label style="flex:1;margin:0">
+        <span style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Partner's username</span>
+        <input type="text" name="partner_username" placeholder="Enter username…" required
+               style="display:block;width:100%;margin-top:4px" autocomplete="off" autocorrect="off" autocapitalize="none" />
+      </label>
+      <button type="submit" class="button" style="white-space:nowrap">Share garden</button>
+    </form>
+  </section>
+
+  <section class="panel" style="margin-bottom:16px">
     <h2 style="margin-bottom:8px">Export data</h2>
     <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
       Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.

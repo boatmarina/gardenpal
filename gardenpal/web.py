@@ -744,16 +744,18 @@ def create_app() -> Flask:
     @login_required
     def yard_index():
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         zones = db.execute(
-            """
+            f"""
             SELECT z.*, COUNT(yp.id) AS plant_count
             FROM yard_zones z
             LEFT JOIN yard_plants yp ON yp.zone_id = z.id
-            WHERE z.user_id = ?
+            WHERE z.user_id IN {ph}
             GROUP BY z.id
             ORDER BY z.created_at DESC
             """,
-            (g.user["id"],),
+            id_args,
         ).fetchall()
         return render_template("yard_index.html", zones=zones)
 
@@ -786,7 +788,9 @@ def create_app() -> Flask:
     def yard_zone_update_photo(zone_id: int):
         is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
         db = get_db()
-        zone = db.execute("SELECT id FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        zone = db.execute(f"SELECT id FROM yard_zones WHERE id = ? AND user_id IN {ph}", [zone_id] + id_args).fetchone()
         if zone is None:
             if is_ajax:
                 return jsonify(error="Yard zone not found."), 404
@@ -798,7 +802,7 @@ def create_app() -> Flask:
                 return jsonify(error="Please select a photo."), 400
             flash("Please select a photo.")
             return redirect(url_for("yard_zone_detail", zone_id=zone_id))
-        db.execute("UPDATE yard_zones SET reference_image_path = ? WHERE id = ? AND user_id = ?", (image_path, zone_id, g.user["id"]))
+        db.execute(f"UPDATE yard_zones SET reference_image_path = ? WHERE id = ? AND user_id IN {ph}", [image_path, zone_id] + id_args)
         db.commit()
         if is_ajax:
             return jsonify(ok=True, url=image_path)
@@ -809,7 +813,9 @@ def create_app() -> Flask:
     @login_required
     def yard_zone_edit(zone_id: int):
         db = get_db()
-        zone = db.execute("SELECT * FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        zone = db.execute(f"SELECT * FROM yard_zones WHERE id = ? AND user_id IN {ph}", [zone_id] + id_args).fetchone()
         if zone is None:
             flash("Yard zone not found.")
             return redirect(url_for("yard_index"))
@@ -820,8 +826,8 @@ def create_app() -> Flask:
                 flash("Zone name is required.")
             else:
                 db.execute(
-                    "UPDATE yard_zones SET name = ?, description = ? WHERE id = ? AND user_id = ?",
-                    (name, description, zone_id, g.user["id"]),
+                    f"UPDATE yard_zones SET name = ?, description = ? WHERE id = ? AND user_id IN {ph}",
+                    [name, description, zone_id] + id_args,
                 )
                 db.commit()
                 flash("Zone updated.")
@@ -832,21 +838,23 @@ def create_app() -> Flask:
     @login_required
     def yard_zone_detail(zone_id: int):
         db = get_db()
-        zone = db.execute("SELECT * FROM yard_zones WHERE id = ? AND user_id = ?", (zone_id, g.user["id"])).fetchone()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        zone = db.execute(f"SELECT * FROM yard_zones WHERE id = ? AND user_id IN {ph}", [zone_id] + id_args).fetchone()
         if zone is None:
             flash("Yard zone not found.")
             return redirect(url_for("yard_index"))
         plants = db.execute(
-            """SELECT yp.*,
+            f"""SELECT yp.*,
                       p.id          AS lib_plant_id,
                       p.photo_urls  AS lib_photo_urls,
                       p.image_path  AS lib_image_path,
                       p.image_url   AS lib_image_url
                FROM yard_plants yp
                LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
-               WHERE yp.zone_id = ? AND yp.user_id = ?
+               WHERE yp.zone_id = ? AND yp.user_id IN {ph}
                ORDER BY yp.created_at DESC""",
-            (zone_id, g.user["id"]),
+            [zone_id] + id_args,
         ).fetchall()
         lib_plant_ids = [p["lib_plant_id"] for p in plants if p["lib_plant_id"]]
         tags_map = {}
@@ -863,14 +871,16 @@ def create_app() -> Flask:
     @login_required
     def yard_plant_new():
         db = get_db()
-        zones = db.execute("SELECT * FROM yard_zones WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        zones = db.execute(f"SELECT * FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC", id_args).fetchall()
         plant_names = sorted(set(
-            [r["name"] for r in db.execute("SELECT DISTINCT name FROM plants WHERE user_id = ? ORDER BY name ASC", (g.user["id"],)).fetchall()]
-            + [r["plant_name"] for r in db.execute("SELECT DISTINCT plant_name FROM yard_plants WHERE user_id = ? ORDER BY plant_name ASC", (g.user["id"],)).fetchall()]
+            [r["name"] for r in db.execute(f"SELECT DISTINCT name FROM plants WHERE user_id IN {ph} ORDER BY name ASC", id_args).fetchall()]
+            + [r["plant_name"] for r in db.execute(f"SELECT DISTINCT plant_name FROM yard_plants WHERE user_id IN {ph} ORDER BY plant_name ASC", id_args).fetchall()]
         ))
         library_plants = db.execute(
-            "SELECT id, name, scientific_name, image_path, image_url, photo_urls, sun_exposure, lifecycle, size_info, flowering_schedule FROM plants WHERE user_id = ? ORDER BY name ASC",
-            (g.user["id"],),
+            f"SELECT id, name, scientific_name, image_path, image_url, photo_urls, sun_exposure, lifecycle, size_info, flowering_schedule FROM plants WHERE user_id IN {ph} ORDER BY name ASC",
+            id_args,
         ).fetchall()
         library_plants_json = [{"name": r["name"], "sci": r["scientific_name"] or ""} for r in library_plants]
 
@@ -959,8 +969,8 @@ def create_app() -> Flask:
                 return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             zone = db.execute(
-                "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
-                (form_values["zone_id"], g.user["id"]),
+                f"SELECT id FROM yard_zones WHERE id = ? AND user_id IN {ph}",
+                [form_values["zone_id"]] + id_args,
             ).fetchone()
             if zone is None:
                 flash("Please choose a valid zone.")
@@ -1060,14 +1070,16 @@ def create_app() -> Flask:
     @login_required
     def yard_plant_remove(yard_plant_id: int):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         row = db.execute(
-            "SELECT zone_id FROM yard_plants WHERE id = ? AND user_id = ?",
-            (yard_plant_id, g.user["id"]),
+            f"SELECT zone_id FROM yard_plants WHERE id = ? AND user_id IN {ph}",
+            [yard_plant_id] + id_args,
         ).fetchone()
         if row:
             db.execute(
-                "DELETE FROM yard_plants WHERE id = ? AND user_id = ?",
-                (yard_plant_id, g.user["id"]),
+                f"DELETE FROM yard_plants WHERE id = ? AND user_id IN {ph}",
+                [yard_plant_id] + id_args,
             )
             db.commit()
             flash("Plant removed from zone.")
@@ -1082,17 +1094,19 @@ def create_app() -> Flask:
     @login_required
     def yard_plant_update_notes(yard_plant_id: int):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         row = db.execute(
-            "SELECT zone_id FROM yard_plants WHERE id = ? AND user_id = ?",
-            (yard_plant_id, g.user["id"]),
+            f"SELECT zone_id FROM yard_plants WHERE id = ? AND user_id IN {ph}",
+            [yard_plant_id] + id_args,
         ).fetchone()
         if row is None:
             flash("Plant entry not found.")
             return redirect(url_for("yard_index"))
         notes = request.form.get("notes", "").strip() or None
         db.execute(
-            "UPDATE yard_plants SET notes = ? WHERE id = ? AND user_id = ?",
-            (notes, yard_plant_id, g.user["id"]),
+            f"UPDATE yard_plants SET notes = ? WHERE id = ? AND user_id IN {ph}",
+            [notes, yard_plant_id] + id_args,
         )
         db.commit()
         back = request.args.get("back", type=int)
@@ -1111,6 +1125,17 @@ def create_app() -> Flask:
             "INSERT INTO activity_log (user_id, action, item_name, logged_at) VALUES (?, ?, ?, ?)",
             (user_id, action, item_name, datetime.utcnow().isoformat(timespec="seconds")),
         )
+
+    def _shared_user_ids(db, user_id):
+        rows = db.execute(
+            "SELECT CASE WHEN user_a_id = ? THEN user_b_id ELSE user_a_id END AS pid "
+            "FROM garden_shares WHERE user_a_id = ? OR user_b_id = ?",
+            (user_id, user_id, user_id),
+        ).fetchall()
+        return [user_id] + [r["pid"] for r in rows]
+
+    def _in_ids(ids):
+        return "({})".format(",".join("?" * len(ids))), ids
 
     def _user_stats(db, user_id, created_at_str):
         plants  = db.execute("SELECT COUNT(*) AS n FROM plants WHERE user_id = ?",        (user_id,)).fetchone()["n"]
@@ -1153,8 +1178,8 @@ def create_app() -> Flask:
     def tools():
         users_with_stats = []
         perenual_log = []
+        db = get_db()
         if g.user.get("is_admin"):
-            db = get_db()
             rows = db.execute(
                 "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at ASC"
             ).fetchall()
@@ -1165,8 +1190,17 @@ def create_app() -> Flask:
                 "SELECT query, result_count, logged_at FROM perenual_log"
                 " ORDER BY logged_at DESC LIMIT 200"
             ).fetchall()
+        share_rows = db.execute(
+            "SELECT gs.id, u.username AS partner_name "
+            "FROM garden_shares gs "
+            "JOIN users u ON u.id = CASE WHEN gs.user_a_id = ? THEN gs.user_b_id ELSE gs.user_a_id END "
+            "WHERE gs.user_a_id = ? OR gs.user_b_id = ?",
+            (g.user["id"], g.user["id"], g.user["id"]),
+        ).fetchall()
+        garden_shares = [{"id": r["id"], "partner_name": r["partner_name"]} for r in share_rows]
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
                                perenual_log=perenual_log,
+                               garden_shares=garden_shares,
                                plantid_configured=bool(os.environ.get("PLANT_ID_API_KEY", "").strip()),
                                gemini_configured=bool(os.environ.get("GEMINI_API_KEY", "").strip()),
                                claude_configured=bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()))
@@ -1264,17 +1298,19 @@ def create_app() -> Flask:
     @login_required
     def export_yard_csv():
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         rows = db.execute(
-            """
+            f"""
             SELECT z.name AS zone_name, z.description AS zone_desc,
                    yp.plant_name, yp.scientific_name, yp.sun_needs, yp.lifecycle,
                    yp.size_info, yp.notes, yp.created_at
             FROM yard_plants yp
             JOIN yard_zones z ON z.id = yp.zone_id
-            WHERE yp.user_id = ?
+            WHERE yp.user_id IN {ph}
             ORDER BY z.name ASC, yp.plant_name ASC
             """,
-            (g.user["id"],),
+            id_args,
         ).fetchall()
         out = io.StringIO()
         w = csv.writer(out)
@@ -1296,14 +1332,16 @@ def create_app() -> Flask:
     @login_required
     def export_garden_csv():
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         entries = db.execute(
-            """
+            f"""
             SELECT plant_name, variety, location_type, location_name,
                    planted_date, notes, created_at
-            FROM garden_entries WHERE user_id = ?
+            FROM garden_entries WHERE user_id IN {ph}
             ORDER BY planted_date ASC NULLS LAST, plant_name ASC
             """,
-            (g.user["id"],),
+            id_args,
         ).fetchall()
         out = io.StringIO()
         w = csv.writer(out)
@@ -1334,6 +1372,50 @@ def create_app() -> Flask:
         flash("Plant photo identification method updated.")
         return redirect(url_for("tools"))
 
+    @app.route("/settings/share-garden", methods=["POST"])
+    @login_required
+    def share_garden():
+        partner_username = request.form.get("partner_username", "").strip()
+        db = get_db()
+        partner = db.execute(
+            "SELECT id, username FROM users WHERE lower(username) = lower(?)",
+            (partner_username,),
+        ).fetchone()
+        if partner is None:
+            flash("No account found with that username.")
+            return redirect(url_for("tools"))
+        if partner["id"] == g.user["id"]:
+            flash("You can't share a garden with yourself.")
+            return redirect(url_for("tools"))
+        a_id = min(g.user["id"], partner["id"])
+        b_id = max(g.user["id"], partner["id"])
+        existing = db.execute(
+            "SELECT id FROM garden_shares WHERE user_a_id = ? AND user_b_id = ?",
+            (a_id, b_id),
+        ).fetchone()
+        if existing:
+            flash(f"You're already sharing a garden with {partner['username']}.")
+            return redirect(url_for("tools"))
+        db.execute(
+            "INSERT INTO garden_shares (user_a_id, user_b_id, created_at) VALUES (?, ?, ?)",
+            (a_id, b_id, datetime.utcnow().isoformat(timespec="seconds")),
+        )
+        db.commit()
+        flash(f"Garden shared with {partner['username']}.")
+        return redirect(url_for("tools"))
+
+    @app.route("/settings/unshare-garden/<int:share_id>", methods=["POST"])
+    @login_required
+    def unshare_garden(share_id):
+        db = get_db()
+        db.execute(
+            "DELETE FROM garden_shares WHERE id = ? AND (user_a_id = ? OR user_b_id = ?)",
+            (share_id, g.user["id"], g.user["id"]),
+        )
+        db.commit()
+        flash("Garden sharing removed.")
+        return redirect(url_for("tools"))
+
     @app.route("/settings/generate-token", methods=["POST"])
     @login_required
     def generate_api_token():
@@ -1362,13 +1444,15 @@ def create_app() -> Flask:
         from collections import defaultdict
         db = get_db()
         uid = g.user["id"]
+        ids = _shared_user_ids(db, uid)
+        ph, id_args = _in_ids(ids)
         today = date.today()
         current_year = today.year
 
         # Derive available years from planted dates
         all_dated = db.execute(
-            "SELECT planted_date FROM garden_entries WHERE user_id = ? AND planted_date IS NOT NULL",
-            (uid,),
+            f"SELECT planted_date FROM garden_entries WHERE user_id IN {ph} AND planted_date IS NOT NULL",
+            id_args,
         ).fetchall()
         years_set = set()
         for r in all_dated:
@@ -1390,19 +1474,19 @@ def create_app() -> Flask:
         year_start = f"{active_year}-01-01"
         year_end   = f"{active_year + 1}-01-01"
         entries = db.execute(
-            "SELECT * FROM garden_entries WHERE user_id = ?"
+            f"SELECT * FROM garden_entries WHERE user_id IN {ph}"
             " AND planted_date >= ? AND planted_date < ?"
             " ORDER BY planted_date ASC, plant_name ASC",
-            (uid, year_start, year_end),
+            id_args + [year_start, year_end],
         ).fetchall()
 
         # Undated entries shown only on current-year view
         unscheduled = []
         if active_year == current_year:
             unscheduled = db.execute(
-                "SELECT * FROM garden_entries WHERE user_id = ? AND planted_date IS NULL"
+                f"SELECT * FROM garden_entries WHERE user_id IN {ph} AND planted_date IS NULL"
                 " ORDER BY plant_name ASC",
-                (uid,),
+                id_args,
             ).fetchall()
 
         # Group by month
@@ -1461,9 +1545,11 @@ def create_app() -> Flask:
     @login_required
     def garden_detail(entry_id):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         entry = db.execute(
-            "SELECT * FROM garden_entries WHERE id = ? AND user_id = ?",
-            (entry_id, g.user["id"]),
+            f"SELECT * FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
         ).fetchone()
         if entry is None:
             flash("Entry not found.")
@@ -1480,9 +1566,11 @@ def create_app() -> Flask:
     def garden_add_photo(entry_id):
         is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         entry = db.execute(
-            "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
-            (entry_id, g.user["id"]),
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
         ).fetchone()
         if entry is None:
             if is_ajax:
@@ -1516,9 +1604,11 @@ def create_app() -> Flask:
     @login_required
     def garden_edit(entry_id):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         entry = db.execute(
-            "SELECT * FROM garden_entries WHERE id = ? AND user_id = ?",
-            (entry_id, g.user["id"]),
+            f"SELECT * FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
         ).fetchone()
         if entry is None:
             flash("Entry not found.")
@@ -1529,11 +1619,11 @@ def create_app() -> Flask:
                 flash("Plant name is required.")
                 return render_template("garden_entry_edit.html", entry=entry, form_values=request.form)
             db.execute(
-                """UPDATE garden_entries
+                f"""UPDATE garden_entries
                    SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
                        planted_date = ?, notes = ?, updated_at = ?
-                   WHERE id = ? AND user_id = ?""",
-                (
+                   WHERE id = ? AND user_id IN {ph}""",
+                [
                     plant_name,
                     request.form.get("variety", "").strip() or None,
                     request.form.get("location_type", "").strip() or None,
@@ -1542,8 +1632,7 @@ def create_app() -> Flask:
                     request.form.get("notes", "").strip() or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                     entry_id,
-                    g.user["id"],
-                ),
+                ] + id_args,
             )
             db.commit()
             flash("Entry updated.")
@@ -1554,7 +1643,9 @@ def create_app() -> Flask:
     @login_required
     def garden_delete(entry_id):
         db = get_db()
-        db.execute("DELETE FROM garden_entries WHERE id = ? AND user_id = ?", (entry_id, g.user["id"]))
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        db.execute(f"DELETE FROM garden_entries WHERE id = ? AND user_id IN {ph}", [entry_id] + id_args)
         db.commit()
         flash("Entry deleted.")
         return redirect(url_for("garden_index"))
@@ -1563,9 +1654,11 @@ def create_app() -> Flask:
     @login_required
     def garden_duplicate(entry_id):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         src = db.execute(
-            "SELECT * FROM garden_entries WHERE id = ? AND user_id = ?",
-            (entry_id, g.user["id"]),
+            f"SELECT * FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
         ).fetchone()
         if src is None:
             flash("Entry not found.")
@@ -2351,6 +2444,19 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id)",
+    """
+    CREATE TABLE IF NOT EXISTS garden_shares (
+        id SERIAL PRIMARY KEY,
+        user_a_id INTEGER NOT NULL,
+        user_b_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_a_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_b_id) REFERENCES users (id) ON DELETE CASCADE,
+        UNIQUE (user_a_id, user_b_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_garden_shares_a ON garden_shares(user_a_id)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_shares_b ON garden_shares(user_b_id)",
 ]
 
 
