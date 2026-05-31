@@ -611,7 +611,8 @@ def create_app() -> Flask:
                         "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                         (plant_id, tid),
                     )
-            _log_activity(db, user_id, "plant_added", form_values["name"])
+            _add_method = form_values.get("active_mode", "name") or "name"
+            _log_activity(db, user_id, f"plant_added_{_add_method}", form_values["name"])
             db.commit()
             flash("Plant idea added.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
@@ -1060,7 +1061,8 @@ def create_app() -> Flask:
                         f"UPDATE plants SET {set_clause} WHERE id = ?",
                         [*updates.values(), existing["id"]],
                     )
-            _log_activity(db, g.user["id"], "yard_plant_added", form_values["plant_name"])
+            _yard_method = "library" if form_values.get("active_mode") == "library" else (form_values.get("yard_input_mode") or "name")
+            _log_activity(db, g.user["id"], f"yard_plant_added_{_yard_method}", form_values["plant_name"])
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
@@ -1157,20 +1159,44 @@ def create_app() -> Flask:
             "SELECT action, item_name FROM activity_log WHERE user_id = ? ORDER BY logged_at ASC",
             (user_id,),
         ).fetchall()
-        # Group by action, collecting ordered unique names
+        _METHOD_LABELS = {
+            "name": "by name", "photo": "from photo", "label": "from label",
+            "url": "by URL", "library": "from library",
+        }
+        plant_entries = []      # [{"name": str, "method_label": str}, ...]
+        yard_entries = []
+        seen_plants = set()
+        seen_yard = set()
         activity: dict = {}
         for row in activity_rows:
             act = row["action"]
             name = (row["item_name"] or "").strip()
-            if act not in activity:
-                activity[act] = []
-            if name and name not in activity[act]:
-                activity[act].append(name)
+            if not name:
+                continue
+            if act.startswith("plant_added"):
+                suffix = act[len("plant_added"):].lstrip("_")
+                label = _METHOD_LABELS.get(suffix, "")
+                if name not in seen_plants:
+                    seen_plants.add(name)
+                    plant_entries.append({"name": name, "method_label": label})
+            elif act.startswith("yard_plant_added"):
+                suffix = act[len("yard_plant_added"):].lstrip("_")
+                label = _METHOD_LABELS.get(suffix, "")
+                if name not in seen_yard:
+                    seen_yard.add(name)
+                    yard_entries.append({"name": name, "method_label": label})
+            else:
+                if act not in activity:
+                    activity[act] = []
+                if name not in activity[act]:
+                    activity[act].append(name)
         return {
             "plants": plants, "zones": zones, "garden": garden,
             "login_count": login_count, "last_login": last_login,
             "avg_per_week": avg_per_week,
             "last_session": activity,
+            "plant_entries": plant_entries,
+            "yard_entries": yard_entries,
         }
 
     @app.route("/tools")
