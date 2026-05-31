@@ -59,20 +59,40 @@
   <section class="panel" style="margin-bottom:16px">
     <h2 style="margin-bottom:12px">Last session</h2>
     {% set ls = stats.last_session %}
-    {% if not ls %}
+    {% set pe = stats.plant_entries %}
+    {% set ye = stats.yard_entries %}
+    {% if not ls and not pe and not ye %}
       <p style="font-size:0.85rem;color:var(--muted);margin:0">No activity recorded yet — tracking starts from the user's next login.</p>
     {% else %}
       <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
-        {% if ls.plant_added %}
+        {% if pe %}
         <li style="font-size:0.88rem">
-          <span style="font-weight:600;color:var(--green-dark)">Added {{ ls.plant_added | length }} plant{{ 's' if ls.plant_added | length != 1 else '' }}</span>
-          <span style="color:var(--muted)"> — {{ ls.plant_added | join(', ') }}</span>
+          <span style="font-weight:600;color:var(--green-dark)">Added {{ pe | length }} plant{{ 's' if pe | length != 1 else '' }} to library</span>
+          <div style="margin-top:4px;display:flex;flex-direction:column;gap:3px">
+            {% for e in pe %}
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="color:var(--muted)">{{ e.name }}</span>
+              {% if e.method_label %}
+              <span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600;white-space:nowrap">{{ e.method_label }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
         </li>
         {% endif %}
-        {% if ls.yard_plant_added %}
+        {% if ye %}
         <li style="font-size:0.88rem">
-          <span style="font-weight:600;color:var(--green-dark)">Planted {{ ls.yard_plant_added | length }} in yard</span>
-          <span style="color:var(--muted)"> — {{ ls.yard_plant_added | join(', ') }}</span>
+          <span style="font-weight:600;color:var(--green-dark)">Planted {{ ye | length }} in yard</span>
+          <div style="margin-top:4px;display:flex;flex-direction:column;gap:3px">
+            {% for e in ye %}
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="color:var(--muted)">{{ e.name }}</span>
+              {% if e.method_label %}
+              <span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600;white-space:nowrap">{{ e.method_label }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
         </li>
         {% endif %}
         {% if ls.zone_added %}
@@ -87,7 +107,7 @@
           <span style="color:var(--muted)"> — {{ ls.garden_entry_added | join(', ') }}</span>
         </li>
         {% endif %}
-        {% if not ls.plant_added and not ls.yard_plant_added and not ls.zone_added and not ls.garden_entry_added %}
+        {% if not pe and not ye and not ls.zone_added and not ls.garden_entry_added %}
           <li style="font-size:0.85rem;color:var(--muted)">Logged in but made no changes.</li>
         {% endif %}
       </ul>
