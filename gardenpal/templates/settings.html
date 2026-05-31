@@ -99,8 +99,8 @@
       <p style="font-size:0.78rem;font-weight:700;color:var(--text);margin:0 0 6px">How to set it up</p>
       <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
         <li style="font-size:0.78rem;color:var(--muted)">Both people need a GardenPal account.</li>
-        <li style="font-size:0.78rem;color:var(--muted)">You enter their username below and send an invite.</li>
-        <li style="font-size:0.78rem;color:var(--muted)">They come here and enter <em>your</em> username too.</li>
+        <li style="font-size:0.78rem;color:var(--muted)">Enter their username below and click <strong>Add partner</strong>.</li>
+        <li style="font-size:0.78rem;color:var(--muted)">Tell them to come here and enter your username: <strong style="color:var(--text);font-family:monospace">{{ current_user.username }}</strong></li>
         <li style="font-size:0.78rem;color:var(--muted)">Once both sides have added each other the garden is shared.</li>
       </ol>
     </div>
@@ -159,7 +159,7 @@
         <input type="text" name="partner_username" placeholder="Enter username…" required
                style="display:block;width:100%;margin-top:4px" autocomplete="off" autocorrect="off" autocapitalize="none" />
       </label>
-      <button type="submit" class="button" style="white-space:nowrap">Send invite</button>
+      <button type="submit" class="button" style="white-space:nowrap">Add partner</button>
     </form>
   </section>
 
