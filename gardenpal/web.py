@@ -1131,7 +1131,7 @@ def create_app() -> Flask:
     def _shared_user_ids(db, user_id):
         rows = db.execute(
             "SELECT CASE WHEN user_a_id = ? THEN user_b_id ELSE user_a_id END AS pid "
-            "FROM garden_shares WHERE user_a_id = ? OR user_b_id = ?",
+            "FROM garden_shares WHERE (user_a_id = ? OR user_b_id = ?) AND confirmed = 1",
             (user_id, user_id, user_id),
         ).fetchall()
         return [user_id] + [r["pid"] for r in rows]
@@ -1216,17 +1216,22 @@ def create_app() -> Flask:
                 "SELECT query, result_count, logged_at FROM perenual_log"
                 " ORDER BY logged_at DESC LIMIT 200"
             ).fetchall()
+        uid = g.user["id"]
         share_rows = db.execute(
-            "SELECT gs.id, u.username AS partner_name "
+            "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
             "FROM garden_shares gs "
             "JOIN users u ON u.id = CASE WHEN gs.user_a_id = ? THEN gs.user_b_id ELSE gs.user_a_id END "
             "WHERE gs.user_a_id = ? OR gs.user_b_id = ?",
-            (g.user["id"], g.user["id"], g.user["id"]),
+            (uid, uid, uid),
         ).fetchall()
-        garden_shares = [{"id": r["id"], "partner_name": r["partner_name"]} for r in share_rows]
+        garden_shares        = [{"id": r["id"], "partner_name": r["partner_name"]} for r in share_rows if r["confirmed"]]
+        garden_shares_in     = [{"id": r["id"], "partner_name": r["partner_name"]} for r in share_rows if not r["confirmed"] and r["requested_by"] != uid]
+        garden_shares_out    = [{"id": r["id"], "partner_name": r["partner_name"]} for r in share_rows if not r["confirmed"] and r["requested_by"] == uid]
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
                                perenual_log=perenual_log,
                                garden_shares=garden_shares,
+                               garden_shares_in=garden_shares_in,
+                               garden_shares_out=garden_shares_out,
                                plantid_configured=bool(os.environ.get("PLANT_ID_API_KEY", "").strip()),
                                gemini_configured=bool(os.environ.get("GEMINI_API_KEY", "").strip()),
                                claude_configured=bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()))
@@ -1426,30 +1431,40 @@ def create_app() -> Flask:
         a_id = min(g.user["id"], partner["id"])
         b_id = max(g.user["id"], partner["id"])
         existing = db.execute(
-            "SELECT id FROM garden_shares WHERE user_a_id = ? AND user_b_id = ?",
+            "SELECT id, confirmed, requested_by FROM garden_shares WHERE user_a_id = ? AND user_b_id = ?",
             (a_id, b_id),
         ).fetchone()
         if existing:
-            flash(f"You're already sharing a garden with {partner['username']}.")
+            if existing["confirmed"]:
+                flash(f"You're already sharing a garden with {partner['username']}.")
+            elif existing["requested_by"] == g.user["id"]:
+                flash(f"You've already sent an invite to {partner['username']} — waiting for them to add you back.")
+            else:
+                # Partner already invited us — confirm the share
+                db.execute("UPDATE garden_shares SET confirmed = 1 WHERE id = ?", (existing["id"],))
+                db.commit()
+                flash(f"Garden sharing with {partner['username']} is now active.")
             return redirect(url_for("tools"))
         db.execute(
-            "INSERT INTO garden_shares (user_a_id, user_b_id, created_at) VALUES (?, ?, ?)",
-            (a_id, b_id, datetime.utcnow().isoformat(timespec="seconds")),
+            "INSERT INTO garden_shares (user_a_id, user_b_id, created_at, confirmed, requested_by) VALUES (?, ?, ?, 0, ?)",
+            (a_id, b_id, datetime.utcnow().isoformat(timespec="seconds"), g.user["id"]),
         )
         db.commit()
-        flash(f"Garden shared with {partner['username']}.")
+        flash(f"Invite sent to {partner['username']}. Sharing becomes active once they add you back.")
         return redirect(url_for("tools"))
 
     @app.route("/settings/unshare-garden/<int:share_id>", methods=["POST"])
     @login_required
     def unshare_garden(share_id):
         db = get_db()
-        db.execute(
-            "DELETE FROM garden_shares WHERE id = ? AND (user_a_id = ? OR user_b_id = ?)",
+        row = db.execute(
+            "SELECT confirmed FROM garden_shares WHERE id = ? AND (user_a_id = ? OR user_b_id = ?)",
             (share_id, g.user["id"], g.user["id"]),
-        )
-        db.commit()
-        flash("Garden sharing removed.")
+        ).fetchone()
+        if row:
+            db.execute("DELETE FROM garden_shares WHERE id = ?", (share_id,))
+            db.commit()
+            flash("Invite cancelled." if not row["confirmed"] else "Garden sharing removed.")
         return redirect(url_for("tools"))
 
     @app.route("/settings/generate-token", methods=["POST"])
@@ -2289,6 +2304,8 @@ def init_db():
     ensure_column(db, "plants", "description", "TEXT")
     ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "users", "location", "TEXT")
+    ensure_column(db, "garden_shares", "confirmed", "INTEGER NOT NULL DEFAULT 1")
+    ensure_column(db, "garden_shares", "requested_by", "INTEGER")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()

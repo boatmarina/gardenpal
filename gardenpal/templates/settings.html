@@ -92,9 +92,32 @@
   <section class="panel" style="margin-bottom:16px">
     <h2 style="margin-bottom:4px">Shared garden</h2>
     <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-      Share your Yard zones, plants, and Garden diary with another GardenPal account. Both of you will see and be able to edit all entries.
+      Share your Yard zones, plants, and Garden diary with another GardenPal account.
+      Both users must add each other before the garden is shared.
     </p>
+
+    {% if garden_shares_in %}
+      <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Pending — they invited you</p>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        {% for share in garden_shares_in %}
+        <div style="background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font-size:0.88rem;font-weight:600">{{ share.partner_name }}</span>
+          <div style="display:flex;gap:10px;align-items:center">
+            <form method="post" action="{{ url_for('share_garden') }}" style="margin:0">
+              <input type="hidden" name="partner_username" value="{{ share.partner_name }}" />
+              <button type="submit" class="button" style="font-size:0.78rem;padding:5px 12px">Accept</button>
+            </form>
+            <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
+              <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Decline</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     {% if garden_shares %}
+      <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Active</p>
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
         {% for share in garden_shares %}
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
@@ -106,13 +129,28 @@
         {% endfor %}
       </div>
     {% endif %}
+
+    {% if garden_shares_out %}
+      <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Pending — waiting for them</p>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        {% for share in garden_shares_out %}
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font-size:0.88rem;font-weight:600;color:var(--muted)">{{ share.partner_name }}</span>
+          <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
+            <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Cancel</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <form method="post" action="{{ url_for('share_garden') }}" style="display:flex;gap:8px;align-items:flex-end">
       <label style="flex:1;margin:0">
         <span style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Partner's username</span>
         <input type="text" name="partner_username" placeholder="Enter username…" required
                style="display:block;width:100%;margin-top:4px" autocomplete="off" autocorrect="off" autocapitalize="none" />
       </label>
-      <button type="submit" class="button" style="white-space:nowrap">Share garden</button>
+      <button type="submit" class="button" style="white-space:nowrap">Send invite</button>
     </form>
   </section>
 
