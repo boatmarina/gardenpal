@@ -146,6 +146,32 @@
     dropdown.hidden = false;
   };
 
+  /*
+   * Render an array of photo URLs into a .photos-grid container.
+   * Creates photo-item divs with lightbox click handlers and onerror cleanup.
+   * Shows the container and returns true; returns false if photos is empty.
+   */
+  G.renderPhotosInGrid = function renderPhotosInGrid(containerEl, photos, altText) {
+    if (!containerEl || !photos || !photos.length) return false;
+    containerEl.innerHTML = '';
+    photos.forEach(function (url) {
+      var div = document.createElement('div');
+      div.className = 'photo-item';
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = altText || '';
+      img.style.cursor = 'zoom-in';
+      img.setAttribute('onerror', "this.closest('.photo-item').remove()");
+      img.addEventListener('click', function (e) {
+        if (G.openLightbox) G.openLightbox(e.target.src);
+      });
+      div.appendChild(img);
+      containerEl.appendChild(div);
+    });
+    containerEl.hidden = false;
+    return true;
+  };
+
   /* Open a full-screen lightbox for an image */
   G.openLightbox = function openLightbox(src) {
     var box = document.createElement('div');
