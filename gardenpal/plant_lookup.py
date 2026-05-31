@@ -93,26 +93,68 @@ def extract_text_from_image(file_storage) -> Tuple[Optional[str], Optional[str]]
     return text, None
 
 
-def identify_plant_from_image(file_storage, provider: str = "plantid") -> Tuple[List[Dict[str, str]], Optional[str]]:
+def identify_plant_from_image(file_storage, provider: str = "plantid", location: Optional[str] = None) -> Tuple[List[Dict[str, str]], Optional[str]]:
     """Returns (suggestions_list, error). suggestions_list is [] on error."""
     if file_storage is None or not file_storage.filename:
         return [], "Please attach a plant photo first."
     if provider == "gemini":
-        return _identify_via_gemini(file_storage)
+        return _identify_via_gemini(file_storage, location)
     if provider == "claude":
-        return _identify_via_claude(file_storage)
-    return _identify_via_plantid(file_storage)
+        return _identify_via_claude(file_storage, location)
+    return _identify_via_plantid(file_storage, location)
 
 
-# Location context shared across all ID services.
-# Coordinates are a central PNW point (approx. mid-Willamette Valley / Puget Sound region).
-_PNW_LAT = 47.5
-_PNW_LON = -122.4
-_PNW_PROMPT_HINT = (
-    "The photo was taken in the Pacific Northwest of North America "
-    "(Oregon/Washington state, USDA zones 7b–9b: mild wet winters, dry summers). "
-    "Prefer species common to this region when confidence is similar."
-)
+def _location_hint(location: Optional[str]) -> str:
+    loc = (location or "").strip()
+    if not loc:
+        return ""
+    return (
+        f"The photo was taken in {loc}. "
+        "Prefer species common to this region when confidence is similar."
+    )
+
+
+def _claude_system(location: Optional[str]) -> str:
+    loc = (location or "").strip()
+    expertise = f"specializing in plants as grown in {loc}" if loc else "with worldwide plant expertise"
+    return (
+        f"You are a plant encyclopedia {expertise}. "
+        "Respond ONLY with a valid JSON object — no markdown, no explanation, nothing else. "
+        "If the plant name is completely unrecognizable, respond with exactly: {\"recognized\": false}"
+    )
+
+
+def _make_details_prompt(query: str, location: Optional[str]) -> str:
+    loc = (location or "").strip()
+    if loc:
+        bloom_hint = f"when it blooms in {loc}, e.g. 'June to August'"
+        native_note = f"true only if native to {loc}; null if uncertain"
+        evergreen_note = f"as it behaves in {loc} conditions; empty string if unknown or not applicable (e.g. annual)"
+        desc_note = f"what it looks like, what it's known for, and any notable growing tips for {loc}. No markdown."
+    else:
+        bloom_hint = "when it blooms, e.g. 'June to August'"
+        native_note = "true only if locally native; null if uncertain"
+        evergreen_note = "empty string if unknown or not applicable (e.g. annual)"
+        desc_note = "what it looks like and what it's known for. No markdown."
+    return (
+        f"Plant: {query}\n\n"
+        "Return a JSON object with these fields:\n"
+        "{\n"
+        '  "recognized": true,\n'
+        '  "name": "most common English name",\n'
+        '  "scientific_name": "Genus species",\n'
+        '  "sun_needs": "full_sun or part_shade or shade (leave empty string if unknown)",\n'
+        '  "watering_needs": "frequent or average or minimal (leave empty string if unknown)",\n'
+        '  "lifecycle": "annual or biennial or perennial (leave empty string if unknown)",\n'
+        "  \"size_info\": \"typical height and spread, e.g. '2–4 ft tall, 1–2 ft wide'\",\n"
+        f'  "flowering_schedule": "{bloom_hint}",\n'
+        f'  "locally_native": true or false or null ({native_note}),\n'
+        f'  "evergreen_status": "evergreen or deciduous or semi-evergreen {evergreen_note}",\n'
+        '  "plant_form": "one of: tree, shrub, perennial, annual, climber, ground-cover, grass, fern, bulb, succulent, herb, bamboo — empty string if unknown",\n'
+        '  "height_category": "low (under 2 ft) or medium (2–5 ft) or tall (5–13 ft) or large (13 ft+) — respond with just the key word: low, medium, tall, or large; empty string if unknown",\n'
+        f'  "description": "1–2 sentence plain-English description: {desc_note}"\n'
+        "}"
+    )
 
 
 def _api_error_msg(service: str, response) -> str:
@@ -128,7 +170,7 @@ def _api_error_msg(service: str, response) -> str:
     return f"{service} error (HTTP {status}): {detail}"
 
 
-def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+def _identify_via_plantid(file_storage, location: Optional[str] = None) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     api_key = os.environ.get("PLANT_ID_API_KEY", "").strip()
     if not api_key:
         return [], "Plant.id is not configured — add PLANT_ID_API_KEY in Vercel environment variables."
@@ -138,7 +180,7 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
     file_storage.stream.seek(0)
 
     encoded = base64.b64encode(raw).decode("ascii")
-    payload = {"images": [encoded], "latitude": _PNW_LAT, "longitude": _PNW_LON}
+    payload = {"images": [encoded]}
     headers = {"Api-Key": api_key, "Content-Type": "application/json"}
 
     try:
@@ -175,7 +217,7 @@ def _identify_via_plantid(file_storage) -> Tuple[Optional[Dict[str, str]], Optio
     return out, None
 
 
-def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+def _identify_via_gemini(file_storage, location: Optional[str] = None) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         return [], "Google AI is not configured — add GEMINI_API_KEY in Vercel environment variables."
@@ -195,10 +237,11 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
         mime = "image/jpeg"
 
     encoded = base64.b64encode(raw).decode("ascii")
+    hint = _location_hint(location)
     prompt = (
         "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
-        f"{_PNW_PROMPT_HINT}\n"
-        "Respond ONLY with valid JSON, no markdown:\n"
+        + (f"{hint}\n" if hint else "")
+        + "Respond ONLY with valid JSON, no markdown:\n"
         '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
         'If no plant is visible or recognizable, respond: {"recognized": false, "suggestions": []}'
     )
@@ -248,7 +291,7 @@ def _identify_via_gemini(file_storage) -> Tuple[Optional[Dict[str, str]], Option
     return (out if out else []), (None if out else "No plant recognized in that photo — try a clearer shot.")
 
 
-def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+def _identify_via_claude(file_storage, location: Optional[str] = None) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
         return None, "Claude Vision is not configured — add ANTHROPIC_API_KEY."
@@ -284,8 +327,8 @@ def _identify_via_claude(file_storage) -> Tuple[Optional[Dict[str, str]], Option
                         "type": "text",
                         "text": (
                             "Identify the plant in this photo. Provide up to 3 possible matches ordered by likelihood.\n"
-                            f"{_PNW_PROMPT_HINT}\n"
-                            "Respond ONLY with valid JSON, no markdown:\n"
+                            + (_location_hint(location) + "\n" if _location_hint(location) else "")
+                            + "Respond ONLY with valid JSON, no markdown:\n"
                             '{"recognized": true, "suggestions": [{"scientific_name": "Genus species", "common_name": "common name", "confidence": "high"}, ...]}\n'
                             'If no plant is visible or recognizable: {"recognized": false, "suggestions": []}'
                         ),
@@ -419,35 +462,7 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
 # Claude lookup for plant care data
 # ---------------------------------------------------------------------------
 
-_CLAUDE_SYSTEM = (
-    "You are a plant encyclopedia specializing in plants as grown in the Pacific Northwest "
-    "of North America (USDA zones 7b–9b: mild wet winters, dry summers). "
-    "Respond ONLY with a valid JSON object — no markdown, no explanation, nothing else. "
-    "If the plant name is completely unrecognizable, respond with exactly: {\"recognized\": false}"
-)
-
-_CLAUDE_PROMPT = """\
-Plant: {query}
-
-Return a JSON object with these fields:
-{{
-  "recognized": true,
-  "name": "most common English name",
-  "scientific_name": "Genus species",
-  "sun_needs": "full_sun or part_shade or shade (leave empty string if unknown)",
-  "watering_needs": "frequent or average or minimal (leave empty string if unknown)",
-  "lifecycle": "annual or biennial or perennial (leave empty string if unknown)",
-  "size_info": "typical height and spread, e.g. '2–4 ft tall, 1–2 ft wide'",
-  "flowering_schedule": "when it blooms in the PNW, e.g. 'June to August'",
-  "pnw_native": true or false or null (true only if native to the Pacific Northwest of North America; null if uncertain),
-  "evergreen_status": "evergreen or deciduous or semi-evergreen as it behaves in PNW conditions; empty string if unknown or not applicable (e.g. annual)",
-  "plant_form": "one of: tree, shrub, perennial, annual, climber, ground-cover, grass, fern, bulb, succulent, herb, bamboo — empty string if unknown",
-  "height_category": "low (under 2 ft) or medium (2–5 ft) or tall (5–13 ft) or large (13 ft+) — respond with just the key word: low, medium, tall, or large; empty string if unknown",
-  "description": "1–2 sentence plain-English description: what it looks like, what it's known for, and any notable PNW growing tips. No markdown."
-}}"""
-
-
-def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
+def _lookup_via_claude(query: str, location: Optional[str] = None) -> Tuple[Optional[Dict], Optional[str]]:
     """Returns (result, error_message)."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
@@ -457,8 +472,8 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
         response = client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=700,
-            system=_CLAUDE_SYSTEM,
-            messages=[{"role": "user", "content": _CLAUDE_PROMPT.format(query=query.strip())}],
+            system=_claude_system(location),
+            messages=[{"role": "user", "content": _make_details_prompt(query.strip(), location)}],
         )
         text = next((b.text for b in response.content if b.type == "text"), "").strip()
         if not text:
@@ -480,7 +495,7 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
             "flowering_schedule": data.get("flowering_schedule") or "",
             "lifecycle":          data.get("lifecycle") or "",
             "size_info":          data.get("size_info") or "",
-            "pnw_native":         data.get("pnw_native"),
+            "pnw_native":         data.get("locally_native"),
             "evergreen_status":   data.get("evergreen_status") or "",
             "plant_form":         data.get("plant_form") or "",
             "height_category":    data.get("height_category") or "",
@@ -500,11 +515,11 @@ def _lookup_via_claude(query: str) -> Tuple[Optional[Dict], Optional[str]]:
 # Main public function
 # ---------------------------------------------------------------------------
 
-def lookup_plant_details(query: str) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     if not query.strip():
         return None, "Enter a plant name or scientific name first."
 
-    result, claude_error = _lookup_via_claude(query)
+    result, claude_error = _lookup_via_claude(query, location)
 
     if result is None:
         # Claude unavailable or didn't recognise the name — fall back to iNaturalist names only

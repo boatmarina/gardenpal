@@ -212,7 +212,7 @@ def create_app() -> Flask:
         user_id = session.get("user_id")
         g.user = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider FROM users WHERE id = ?", (user_id,)).fetchone()
+            g.user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location FROM users WHERE id = ?", (user_id,)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
@@ -485,7 +485,7 @@ def create_app() -> Flask:
             }
 
             if form_action == "autofill_name":
-                details, error = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                details, error = lookup_plant_details(form_values["lookup_query"] or form_values["name"], location=g.user.get("location"))
                 if error:
                     flash(error)
                 else:
@@ -514,7 +514,7 @@ def create_app() -> Flask:
                 if not photo_file or not photo_file.filename:
                     flash("Please choose a photo first.")
                     return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
-                suggestions, error = identify_plant_from_image(photo_file, provider=g.user.get("photo_id_provider") or "claude")
+                suggestions, error = identify_plant_from_image(photo_file, provider=g.user.get("photo_id_provider") or "claude", location=g.user.get("location"))
                 if error:
                     flash(error)
                 elif suggestions:
@@ -525,7 +525,7 @@ def create_app() -> Flask:
                         form_values["scientific_name"] = top["scientific_name"]
                         form_values["lookup_query"] = top["scientific_name"]
                     form_values["photo_id_suggestions"] = json.dumps(suggestions)
-                    details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                    details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["name"], location=g.user.get("location"))
                     if not lookup_error:
                         apply_lookup_to_form(form_values, details, use_common_name=not form_values["name"])
                 # Save photo now so it survives the round-trip (identify already seeked stream back to 0)
@@ -542,7 +542,7 @@ def create_app() -> Flask:
 
             # Auto-fill details on save if not already done via an explicit autofill action
             if form_values["lookup_status"] != "draft":
-                details, lookup_err = lookup_plant_details(form_values["lookup_query"] or form_values["name"])
+                details, lookup_err = lookup_plant_details(form_values["lookup_query"] or form_values["name"], location=g.user.get("location"))
                 if details:
                     apply_lookup_to_form(form_values, details, use_common_name=False)
                 elif lookup_err:
@@ -925,7 +925,7 @@ def create_app() -> Flask:
             }
 
             if form_action == "autofill_name":
-                details, error = lookup_plant_details(form_values["lookup_query"] or form_values["plant_name"])
+                details, error = lookup_plant_details(form_values["lookup_query"] or form_values["plant_name"], location=g.user.get("location"))
                 if error:
                     flash(error)
                 else:
@@ -934,7 +934,7 @@ def create_app() -> Flask:
                 return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_photo":
-                suggestions, error = identify_plant_from_image(request.files.get("photo"), provider=g.user.get("photo_id_provider") or "claude")
+                suggestions, error = identify_plant_from_image(request.files.get("photo"), provider=g.user.get("photo_id_provider") or "claude", location=g.user.get("location"))
                 if error:
                     flash(error)
                 elif suggestions:
@@ -944,7 +944,7 @@ def create_app() -> Flask:
                     if top.get("scientific_name"):
                         form_values["scientific_name"] = top["scientific_name"]
                         form_values["lookup_query"] = top["scientific_name"]
-                    details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["plant_name"])
+                    details, lookup_error = lookup_plant_details(form_values["lookup_query"] or form_values["plant_name"], location=g.user.get("location"))
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
                     form_values["photo_id_suggestions"] = json.dumps(suggestions)
@@ -1396,6 +1396,16 @@ def create_app() -> Flask:
         db.execute("UPDATE users SET photo_id_provider = ? WHERE id = ?", (provider, g.user["id"]))
         db.commit()
         flash("Plant photo identification method updated.")
+        return redirect(url_for("tools"))
+
+    @app.route("/settings/location", methods=["POST"])
+    @login_required
+    def set_location():
+        location = request.form.get("location", "").strip()
+        db = get_db()
+        db.execute("UPDATE users SET location = ? WHERE id = ?", (location or None, g.user["id"]))
+        db.commit()
+        flash("Location updated." if location else "Location cleared.")
         return redirect(url_for("tools"))
 
     @app.route("/settings/share-garden", methods=["POST"])
@@ -1932,7 +1942,7 @@ def create_app() -> Flask:
         q = request.args.get("q", "").strip()
         if not q:
             return jsonify(error="No query provided"), 400
-        result, error = lookup_plant_details(q)
+        result, error = lookup_plant_details(q, location=g.user.get("location") if g.user else None)
         if error:
             return jsonify(error=error), 200
         return jsonify(result)
@@ -2278,6 +2288,7 @@ def init_db():
     ensure_column(db, "plants", "height_category", "TEXT")
     ensure_column(db, "plants", "description", "TEXT")
     ensure_column(db, "users", "photo_id_provider", "TEXT")
+    ensure_column(db, "users", "location", "TEXT")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
