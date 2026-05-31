@@ -91,10 +91,19 @@
 
   <section class="panel" style="margin-bottom:16px">
     <h2 style="margin-bottom:4px">Shared garden</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-      Share your Yard zones, plants, and Garden diary with another GardenPal account.
-      Both users must add each other before the garden is shared.
+    <p class="muted" style="font-size:0.83rem;margin-bottom:10px">
+      Share your Yard zones, plants, and Garden diary with another GardenPal account —
+      both people will see and edit the same data.
     </p>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-bottom:14px">
+      <p style="font-size:0.78rem;font-weight:700;color:var(--text);margin:0 0 6px">How to set it up</p>
+      <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+        <li style="font-size:0.78rem;color:var(--muted)">Both people need a GardenPal account.</li>
+        <li style="font-size:0.78rem;color:var(--muted)">You enter their username below and send an invite.</li>
+        <li style="font-size:0.78rem;color:var(--muted)">They come here and enter <em>your</em> username too.</li>
+        <li style="font-size:0.78rem;color:var(--muted)">Once both sides have added each other the garden is shared.</li>
+      </ol>
+    </div>
 
     {% if garden_shares_in %}
       <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Pending — they invited you</p>
