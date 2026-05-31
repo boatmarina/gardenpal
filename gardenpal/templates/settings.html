@@ -251,6 +251,7 @@
   </section>
   {% endif %}
 
+  {% if current_user and current_user['is_admin'] %}
   <section class="panel stack" style="margin-bottom:16px">
     <h2 style="margin-bottom:4px">Claude MCP access</h2>
     <p class="muted" style="font-size:0.85rem">
@@ -326,6 +327,7 @@
       </div>
     </div>
   </section>
+  {% endif %}
 {% endblock %}
 
 {% block scripts %}
