@@ -453,8 +453,8 @@
   function bubble(role, text) {
     var div = document.createElement('div');
     div.style.cssText = role === 'user'
-      ? 'align-self:flex-end;max-width:85%;background:var(--green-dark);color:#fff;border-radius:14px 14px 3px 14px;padding:8px 12px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap'
-      : 'align-self:flex-start;max-width:88%;background:var(--bg);border:1px solid var(--border);border-radius:14px 14px 14px 3px;padding:8px 12px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap;color:var(--text)';
+      ? 'margin-left:auto;max-width:85%;background:#1C3829;color:#fff;border-radius:14px 14px 3px 14px;padding:8px 12px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap'
+      : 'margin-right:auto;max-width:88%;background:var(--bg);border:1px solid var(--border);border-radius:14px 14px 14px 3px;padding:8px 12px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap;color:var(--text)';
     div.textContent = text;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
