@@ -46,19 +46,21 @@
     </dl>
   </section>
 
-  <!-- ── Photo timeline ── -->
+  <!-- ── Growth log ── -->
   <div class="section-header" style="margin-top:24px">
-    <span class="section-title">Growth photos</span>
+    <span class="section-title">Growth log</span>
   </div>
 
   {% if photos %}
     <div class="cards" style="margin-bottom:20px">
       {% for photo in photos %}
         <div class="card" style="overflow:hidden;padding:0">
+          {% if photo.image_path %}
           <img src="{{ photo.image_path | media_url }}" alt="{{ entry.plant_name }}"
                style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
                onclick="openLightbox(this.src)" />
-          <div style="padding:10px 14px">
+          {% endif %}
+          <div style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %}">
             {% if photo.photo_date %}
               <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px">{{ photo.photo_date | month_day }}</p>
             {% endif %}
@@ -68,35 +70,40 @@
       {% endfor %}
     </div>
   {% else %}
-    <p class="muted" style="font-size:0.85rem;margin-bottom:20px">No photos yet — add one below to start tracking growth.</p>
+    <p class="muted" style="font-size:0.85rem;margin-bottom:20px">No notes yet — add one below to start tracking growth.</p>
   {% endif %}
 
-  <!-- ── Add photo ── -->
+  <!-- ── Add note ── -->
   <div class="panel stack">
-    <h3>Add a photo</h3>
+    <h3>Add a note</h3>
     <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
       <input type="file" name="photo" accept="image/*" capture="environment" id="garden-photo-input"
-             style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" required />
+             style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
+      <label>
+        Note
+        <input type="text" name="photo_notes" id="garden-note-input" placeholder="Height, flowers, any observations…" />
+      </label>
+      <label>
+        Date
+        <input type="date" name="photo_date" value="{{ today }}" />
+      </label>
       <button type="button" class="button btn-upload" id="garden-photo-upload-btn"
+              style="display:inline-flex;align-items:center;gap:6px;justify-content:center;background:var(--card);border:1.5px dashed var(--border);color:var(--muted);font-size:0.83rem"
               onclick="document.getElementById('garden-photo-input').click()">
-        Choose Photo
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span id="garden-photo-upload-label">Add a photo (optional)</span>
       </button>
       <div id="garden-photo-preview" hidden style="margin-top:4px">
         <img id="garden-photo-thumb" src="" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r-md)" />
       </div>
       <div id="garden-photo-loading" hidden style="text-align:center;padding:10px 0 4px">
         <div class="spinner"></div>
-        <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Uploading…</p>
+        <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Saving…</p>
       </div>
-      <label>
-        Date taken
-        <input type="date" name="photo_date" value="{{ today }}" />
-      </label>
-      <label>
-        Notes
-        <input type="text" name="photo_notes" placeholder="Height, flowers, any observations…" />
-      </label>
-      <button type="button" class="button" id="garden-photo-submit-btn">Add Photo</button>
+      <button type="button" class="button" id="garden-photo-submit-btn">Save note</button>
     </form>
   </div>
 
@@ -137,6 +144,8 @@ function openLightbox(src) {
       if (!file) return;
       if (thumb) { thumb.src = URL.createObjectURL(file); }
       if (preview) preview.hidden = false;
+      const label = document.getElementById('garden-photo-upload-label');
+      if (label) label.textContent = file.name.length > 24 ? file.name.slice(0, 22) + '…' : file.name;
       const compressed = await GP.compressImage(file);
       try {
         const dt = new DataTransfer();
@@ -148,8 +157,11 @@ function openLightbox(src) {
 
   if (submitBtn) {
     submitBtn.addEventListener('click', async function() {
-      if (!input || !input.files[0]) {
-        alert('Please choose a photo first.');
+      const noteInput = document.getElementById('garden-note-input');
+      const hasPhoto = input && input.files[0];
+      const hasNote = noteInput && noteInput.value.trim();
+      if (!hasPhoto && !hasNote) {
+        alert('Please write a note or add a photo.');
         return;
       }
       const loading = document.getElementById('garden-photo-loading');
@@ -158,9 +170,11 @@ function openLightbox(src) {
       if (uploadBtn) uploadBtn.disabled = true;
       submitBtn.disabled = true;
       try {
-        const compressed = await GP.compressImage(input.files[0]);
         const fd = new FormData();
-        fd.append('photo', new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+        if (hasPhoto) {
+          const compressed = await GP.compressImage(input.files[0]);
+          fd.append('photo', new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+        }
         const dateInput = form.querySelector('[name="photo_date"]');
         const notesInput = form.querySelector('[name="photo_notes"]');
         if (dateInput) fd.append('photo_date', dateInput.value);
@@ -180,7 +194,7 @@ function openLightbox(src) {
           window.location.reload();
         }
       } catch(_) {
-        alert('Upload failed — please try again.');
+        alert('Save failed — please try again.');
         if (loading) loading.hidden = true;
         if (uploadBtn) uploadBtn.disabled = false;
         submitBtn.disabled = false;
