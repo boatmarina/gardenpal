@@ -50,33 +50,48 @@
       {% if plant.pnw_native %}
         <p class="native-badge" style="margin:10px 0 0">Native to {{ current_user.location if current_user and current_user.location else 'your region' }}</p>
       {% endif %}
-      <div class="detail-actions">
-        <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
-              onsubmit="return confirm('Delete {{ plant.name | e }} from your library?')">
-          <button type="submit" class="button button-danger">Delete from Library</button>
+      {% if is_owner %}
+      <div class=”detail-actions”>
+        <form method=”post” action=”{{ url_for('delete_idea', plant_id=plant.id) }}”
+              onsubmit=”return confirm('Delete {{ plant.name | e }} from your library?')”>
+          <button type=”submit” class=”button button-danger”>Delete from Library</button>
         </form>
       </div>
+      {% else %}
+      <div class=”detail-actions”>
+        <p style=”font-size:0.78rem;color:var(--muted)”>
+          <svg width=”10” height=”10” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”2.2” stroke-linecap=”round” style=”vertical-align:-1px”><circle cx=”12” cy=”8” r=”4”/><path d=”M4 20c0-4 3.6-7 8-7s8 3 8 7”/></svg>
+          Added by {{ shared_names.get(plant.user_id, 'Partner') if shared_names is defined else 'Partner' }}
+        </p>
+      </div>
+      {% endif %}
 
-      <div id="plant-tags-container" class="tag-pills" style="margin-top:10px">
+      <div id=”plant-tags-container” class=”tag-pills” style=”margin-top:10px”>
         {% for tag in plant_tags %}
-        <form method="post" action="{{ url_for('remove_plant_tag', plant_id=plant.id, tag_id=tag.id) }}"
-              style="display:inline-block"
-              onsubmit="return confirm('Remove tag “{{ tag.name | e }}”?')">
-          <button type="submit" class="tag-pill tag-pill-removable"
-                  style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55"
-                  title="Click to remove this tag">
+        {% if is_owner %}
+        <form method=”post” action=”{{ url_for('remove_plant_tag', plant_id=plant.id, tag_id=tag.id) }}”
+              style=”display:inline-block”
+              onsubmit=”return confirm('Remove tag “{{ tag.name | e }}”?')”>
+          <button type=”submit” class=”tag-pill tag-pill-removable”
+                  style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”
+                  title=”Click to remove this tag”>
             {{ tag.name }} &times;
           </button>
         </form>
+        {% else %}
+        <span class=”tag-pill” style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”>{{ tag.name }}</span>
+        {% endif %}
         {% endfor %}
       </div>
 
-      <form method="post" action="{{ url_for('add_plant_tag', plant_id=plant.id) }}"
-            style="margin-top:8px;position:relative" id="tag-add-form">
-        <input type="text" name="tag_name" id="tag-add-input" class="tag-add-input"
-               placeholder="+ Add a tag…" autocomplete="off" />
-        <ul id="tag-add-autocomplete" class="tag-autocomplete-dropdown" hidden></ul>
+      {% if is_owner %}
+      <form method=”post” action=”{{ url_for('add_plant_tag', plant_id=plant.id) }}”
+            style=”margin-top:8px;position:relative” id=”tag-add-form”>
+        <input type=”text” name=”tag_name” id=”tag-add-input” class=”tag-add-input”
+               placeholder=”+ Add a tag…” autocomplete=”off” />
+        <ul id=”tag-add-autocomplete” class=”tag-autocomplete-dropdown” hidden></ul>
       </form>
+      {% endif %}
     </div>
 
     {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.plant_form or plant.height_category or plant.lookup_query %}

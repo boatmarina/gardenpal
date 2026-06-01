@@ -300,18 +300,20 @@ def create_app() -> Flask:
     def dashboard():
         db = get_db()
         user_id = g.user["id"]
-        idea_count = db.execute("SELECT COUNT(*) AS count FROM plants WHERE user_id = ?", (user_id,)).fetchone()["count"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+        idea_count = db.execute(f"SELECT COUNT(*) AS count FROM plants WHERE user_id IN {ph}", id_args).fetchone()["count"]
         zone_count = db.execute(
-            "SELECT COUNT(*) AS count FROM yard_zones WHERE user_id = ?",
-            (user_id,),
+            f"SELECT COUNT(*) AS count FROM yard_zones WHERE user_id IN {ph}",
+            id_args,
         ).fetchone()["count"]
         yard_plant_count = db.execute(
-            "SELECT COUNT(*) AS count FROM yard_plants WHERE user_id = ?",
-            (user_id,),
+            f"SELECT COUNT(*) AS count FROM yard_plants WHERE user_id IN {ph}",
+            id_args,
         ).fetchone()["count"]
         garden_count = db.execute(
-            "SELECT COUNT(*) AS count FROM garden_entries WHERE user_id = ?",
-            (user_id,),
+            f"SELECT COUNT(*) AS count FROM garden_entries WHERE user_id IN {ph}",
+            id_args,
         ).fetchone()["count"]
         return render_template(
             "dashboard.html",
@@ -627,10 +629,13 @@ def create_app() -> Flask:
     @login_required
     def idea_detail(plant_id: int):
         db = get_db()
-        plant = db.execute("SELECT * FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])).fetchone()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        plant = db.execute(f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}", (plant_id, *id_args)).fetchone()
         if plant is None:
             flash("Plant was not found.")
             return redirect(url_for("ideas_index"))
+        is_owner = plant["user_id"] == g.user["id"]
 
         zone_id = request.args.get("zone_id", type=int)
         yard_plant_id = request.args.get("yard_plant_id", type=int)
@@ -674,10 +679,12 @@ def create_app() -> Flask:
             "SELECT id, name FROM yard_zones WHERE user_id = ? ORDER BY name ASC",
             (g.user["id"],),
         ).fetchall()
+        shared_names = _shared_user_names(db, g.user["id"])
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
                                plant_tags=plant_tags, user_tags=user_tags,
-                               all_zones=all_zones,
+                               all_zones=all_zones, is_owner=is_owner,
+                               shared_names=shared_names,
                                plant_zones=[
                                    {"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "notes": r["notes"]}
                                    for r in db.execute(
@@ -696,9 +703,11 @@ def create_app() -> Flask:
     @login_required
     def idea_add_to_zone(plant_id: int):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         plant = db.execute(
-            "SELECT * FROM plants WHERE id = ? AND user_id = ?",
-            (plant_id, g.user["id"]),
+            f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}",
+            (plant_id, *id_args),
         ).fetchone()
         if plant is None:
             flash("Plant not found.")
