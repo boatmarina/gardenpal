@@ -97,6 +97,12 @@
             <p>{{ plant.scientific_name or "" }}</p>
             <p class="muted">{{ plant.sun_needs or "" }}{% if plant.sun_needs and plant.lifecycle %} · {% endif %}{{ plant.lifecycle or "" }}</p>
             {% if plant.notes %}<p class="muted" style="font-size:0.8rem;margin-top:4px">{{ plant.notes }}</p>{% endif %}
+            {% if plant.user_id != current_user.id %}
+              <p style="font-size:0.72rem;color:var(--muted);margin-top:3px">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="vertical-align:-1px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                {{ shared_names.get(plant.user_id, 'Partner') }}
+              </p>
+            {% endif %}
             {% set ptags = tags_map.get(plant.lib_plant_id, []) if plant.lib_plant_id else [] %}
             {% if ptags %}
             <div class="tag-pills" style="margin-top:6px;flex-wrap:nowrap;overflow:hidden">
