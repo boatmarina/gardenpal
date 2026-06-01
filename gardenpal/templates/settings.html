@@ -81,7 +81,7 @@
         <input type="radio" name="provider" value="plantid" {% if cur == 'plantid' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
         <div>
           <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Plant.id</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Specialist plant identification API.
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">Specialist plant identification service.
             {% if current_user and current_user['is_admin'] %}Requires <code>PLANT_ID_API_KEY</code>.
             {% if plantid_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}{% endif %}</p>
         </div>
@@ -91,7 +91,7 @@
         <input type="radio" name="provider" value="gemini" {% if cur == 'gemini' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
         <div>
           <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Google AI (Gemini)</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Google's multimodal AI — similar to Google Lens. Requires <code>GEMINI_API_KEY</code>.
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">General AI service. Requires <code>GEMINI_API_KEY</code>.
             {% if gemini_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}</p>
         </div>
       </label>
@@ -100,7 +100,7 @@
         <input type="radio" name="provider" value="claude" {% if cur == 'claude' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
         <div>
           <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Claude Vision (Anthropic)</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Same AI used for plant care details — no extra key needed.
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">General AI service.
             {% if current_user and current_user['is_admin'] %}{% if claude_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}{% endif %}</p>
         </div>
       </label>
