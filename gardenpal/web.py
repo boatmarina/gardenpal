@@ -642,8 +642,8 @@ def create_app() -> Flask:
         zone = None
         if zone_id:
             zone = db.execute(
-                "SELECT id, name FROM yard_zones WHERE id = ? AND user_id = ?",
-                (zone_id, g.user["id"]),
+                f"SELECT id, name FROM yard_zones WHERE id = ? AND user_id IN {ph}",
+                (zone_id, *id_args),
             ).fetchone()
 
         categories = db.execute(
@@ -676,8 +676,8 @@ def create_app() -> Flask:
             ).fetchall()
         ]
         all_zones = db.execute(
-            "SELECT id, name FROM yard_zones WHERE user_id = ? ORDER BY name ASC",
-            (g.user["id"],),
+            f"SELECT id, name FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC",
+            id_args,
         ).fetchall()
         shared_names = _shared_user_names(db, g.user["id"])
         return render_template("idea_detail.html", plant=plant, categories=categories,
@@ -688,14 +688,14 @@ def create_app() -> Flask:
                                plant_zones=[
                                    {"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "notes": r["notes"]}
                                    for r in db.execute(
-                                       """
+                                       f"""
                                        SELECT yp.id, yp.notes, z.id AS zone_id, z.name AS zone_name
                                        FROM yard_plants yp
                                        JOIN yard_zones z ON z.id = yp.zone_id
-                                       WHERE yp.user_id = ? AND lower(yp.plant_name) = lower(?)
+                                       WHERE yp.user_id IN {ph} AND lower(yp.plant_name) = lower(?)
                                        ORDER BY z.name ASC
                                        """,
-                                       (g.user["id"], plant["name"]),
+                                       (*id_args, plant["name"]),
                                    ).fetchall()
                                ])
 
@@ -716,9 +716,11 @@ def create_app() -> Flask:
         if not zone_id:
             flash("Please choose a zone.")
             return redirect(url_for("idea_detail", plant_id=plant_id))
+        zone_ids = _shared_user_ids(db, g.user["id"])
+        zph, z_id_args = _in_ids(zone_ids)
         zone = db.execute(
-            "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
-            (zone_id, g.user["id"]),
+            f"SELECT id FROM yard_zones WHERE id = ? AND user_id IN {zph}",
+            (zone_id, *z_id_args),
         ).fetchone()
         if zone is None:
             flash("Zone not found.")
