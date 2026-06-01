@@ -1786,12 +1786,16 @@ def create_app() -> Flask:
         db = get_db()
         user_id = g.user["id"]
         today = datetime.utcnow().strftime("%Y-%m-%d")
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
 
         entries = db.execute(
-            """SELECT id, plant_name, variety, location_type, location_name, planted_date, notes
-            FROM garden_entries WHERE user_id = ?
-            ORDER BY CASE WHEN planted_date IS NULL THEN 1 ELSE 0 END, planted_date DESC""",
-            (user_id,),
+            f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
+                       ge.planted_date, ge.notes, ge.user_id
+            FROM garden_entries ge
+            WHERE ge.user_id IN {ph}
+            ORDER BY CASE WHEN ge.planted_date IS NULL THEN 1 ELSE 0 END, ge.planted_date DESC""",
+            id_args,
         ).fetchall()
 
         if entries:
@@ -1801,6 +1805,7 @@ def create_app() -> Flask:
                 if e["variety"]: ln += f" ({e['variety']})"
                 if e["location_name"]: ln += f" in {e['location_name']}"
                 if e["planted_date"]: ln += f", planted {e['planted_date']}"
+                if e["user_id"] != user_id: ln += " [partner's — read only]"
                 lines.append(ln)
             entries_text = "\n".join(lines)
         else:
@@ -1810,6 +1815,7 @@ def create_app() -> Flask:
             f"You are a concise assistant for an edible garden tracker. Today is {today}.\n\n"
             f"Current garden entries:\n{entries_text}\n\n"
             "Help the user add plants, add notes, update details, or answer questions about their garden. "
+            "Entries marked [partner's — read only] belong to a shared garden partner — answer questions about them but do not try to modify them. "
             "For bulk changes call the relevant tool multiple times. Keep replies short — just confirm what was done. "
             "If a plant name is ambiguous (multiple matches), list the options and ask which one. "
             "Never mention entry IDs to the user — they are internal only. "
@@ -1959,6 +1965,8 @@ def create_app() -> Flask:
                                         sets.append(f"{f} = ?")
                                         params.append((inp[f] or "").strip() or None)
                                 if sets:
+                                    sets.append("updated_at = ?")
+                                    params.append(datetime.utcnow().isoformat(timespec="seconds"))
                                     params += [eid, user_id]
                                     db.execute(
                                         f"UPDATE garden_entries SET {', '.join(sets)} WHERE id = ? AND user_id = ?",
