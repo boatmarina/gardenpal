@@ -40,18 +40,22 @@
       Used to tailor plant descriptions, bloom times, and photo identification to your region.
       Enter a city, region, or country — e.g. <em>Austin, TX</em> or <em>Pacific Northwest</em>.
     </p>
-    {% if current_user.location %}
+    {% set loc = current_user.location %}
     <div id="loc-display" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
-      <span style="font-size:0.88rem;font-weight:600;flex:1">{{ current_user.location }}</span>
+      {% if loc %}
+        <span style="font-size:0.88rem;font-weight:600;flex:1">{{ loc }}</span>
+      {% else %}
+        <span style="font-size:0.88rem;font-weight:600;flex:1;color:var(--muted)">Pacific Northwest <span style="font-weight:400;font-size:0.78rem">(default)</span></span>
+      {% endif %}
       <button type="button"
               onclick="document.getElementById('loc-display').hidden=true;document.getElementById('loc-form').hidden=false;document.getElementById('loc-input').focus()"
               style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Change</button>
     </div>
     <form id="loc-form" method="post" action="{{ url_for('set_location') }}" hidden
-          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px">
       <label style="flex:1;margin:0;min-width:180px">
-        <input id="loc-input" type="text" name="location" placeholder="e.g. Austin, TX"
-               value="{{ current_user.location }}"
+        <input id="loc-input" type="text" name="location" placeholder="e.g. Pacific Northwest"
+               value="{{ loc or '' }}"
                style="display:block;width:100%" autocomplete="off" />
       </label>
       <button type="submit" class="button" style="white-space:nowrap">Save</button>
@@ -59,16 +63,6 @@
               onclick="document.getElementById('loc-form').hidden=true;document.getElementById('loc-display').hidden=false"
               style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;font-family:inherit;padding:8px 0">Cancel</button>
     </form>
-    {% else %}
-    <form method="post" action="{{ url_for('set_location') }}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-      <label style="flex:1;margin:0;min-width:180px">
-        <span class="sr-only">Location</span>
-        <input type="text" name="location" placeholder="Pacific Northwest"
-               style="display:block;width:100%" autocomplete="off" />
-      </label>
-      <button type="submit" class="button" style="white-space:nowrap">Save location</button>
-    </form>
-    {% endif %}
   </section>
 
   <section class="panel" style="margin-bottom:16px">
