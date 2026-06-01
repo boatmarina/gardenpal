@@ -1811,7 +1811,10 @@ def create_app() -> Flask:
             f"Current garden entries:\n{entries_text}\n\n"
             "Help the user add plants, add notes, update details, or answer questions about their garden. "
             "For bulk changes call the relevant tool multiple times. Keep replies short — just confirm what was done. "
-            "If a plant name is ambiguous (multiple matches), list the options and ask which one."
+            "If a plant name is ambiguous (multiple matches), list the options and ask which one. "
+            "Never mention entry IDs to the user — they are internal only. "
+            "Always format dates for the user as 'Month Day' (e.g. 'May 17', never '2026-05-17'). "
+            "Never use markdown bold (**text**) or other markdown in your replies."
         )
 
         tools = [
