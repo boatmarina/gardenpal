@@ -1450,7 +1450,7 @@ def create_app() -> Flask:
             (a_id, b_id, datetime.utcnow().isoformat(timespec="seconds"), g.user["id"]),
         )
         db.commit()
-        flash(f"Invite sent to {partner['username']}. Sharing becomes active once they add you back.")
+        flash(f"Partner added. Sharing becomes active once {partner['username']} adds you back in their settings.")
         return redirect(url_for("tools"))
 
     @app.route("/settings/unshare-garden/<int:share_id>", methods=["POST"])
