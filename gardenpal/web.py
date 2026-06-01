@@ -117,6 +117,32 @@ def _connect(database_url: str) -> _PgDB:
     return _PgDB(conn)
 
 
+def _parse_date_to_iso(value: str, today: str) -> str | None:
+    """Normalize a date string to YYYY-MM-DD; returns None if blank or unparseable."""
+    if not value:
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    # Already ISO
+    import re
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+        return v
+    # Try common natural-language formats
+    for fmt in ("%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y",
+                "%B %d", "%b %d", "%m/%d/%Y", "%m/%d/%y", "%d %B %Y", "%d %b %Y"):
+        try:
+            parsed = datetime.strptime(v, fmt)
+            # Formats without a year default to the current year
+            if "%Y" not in fmt and "%y" not in fmt:
+                parsed = parsed.replace(year=datetime.strptime(today, "%Y-%m-%d").year)
+            return parsed.strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    # Unknown format — store as-is and let the DB reject if invalid
+    return v
+
+
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
@@ -1913,7 +1939,7 @@ def create_app() -> Flask:
                                     (inp.get("variety") or "").strip() or None,
                                     (inp.get("location_type") or "").strip() or None,
                                     (inp.get("location_name") or "").strip() or None,
-                                    (inp.get("planted_date") or "").strip() or None,
+                                    _parse_date_to_iso((inp.get("planted_date") or "").strip(), today),
                                     (inp.get("notes") or "").strip() or None,
                                     now, now,
                                 ),
@@ -1962,8 +1988,11 @@ def create_app() -> Flask:
                                 sets, params = [], []
                                 for f in fields:
                                     if f in inp:
+                                        val = (inp[f] or "").strip() or None
+                                        if f == "planted_date" and val:
+                                            val = _parse_date_to_iso(val, today)
                                         sets.append(f"{f} = ?")
-                                        params.append((inp[f] or "").strip() or None)
+                                        params.append(val)
                                 if sets:
                                     sets.append("updated_at = ?")
                                     params.append(datetime.utcnow().isoformat(timespec="seconds"))
