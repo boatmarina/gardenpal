@@ -7,6 +7,13 @@
     <h1 class="hero-title">Tools.</h1>
   </div>
 
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px">
+    <span style="font-size:0.82rem;color:var(--muted)">Signed in as <strong style="color:var(--text)">{{ current_user.username }}</strong></span>
+    <form method="post" action="{{ url_for('logout') }}" style="margin:0">
+      <button type="submit" class="button button-secondary" style="font-size:0.78rem;padding:5px 14px">Log out</button>
+    </form>
+  </div>
+
   {% if current_user and current_user['is_admin'] %}
   <section class="panel" style="margin-bottom:16px">
     <h2 style="margin-bottom:4px">Users</h2>
