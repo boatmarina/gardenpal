@@ -1897,10 +1897,11 @@ def create_app() -> Flask:
                         if not pname:
                             result = {"error": "plant_name is required"}
                         else:
-                            row_id = db.execute(
+                            now = datetime.utcnow().isoformat(timespec="seconds")
+                            row = db.execute(
                                 """INSERT INTO garden_entries
-                                (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
                                 (
                                     user_id, pname,
                                     (inp.get("variety") or "").strip() or None,
@@ -1908,12 +1909,12 @@ def create_app() -> Flask:
                                     (inp.get("location_name") or "").strip() or None,
                                     (inp.get("planted_date") or "").strip() or None,
                                     (inp.get("notes") or "").strip() or None,
-                                    datetime.utcnow().isoformat(timespec="seconds"),
+                                    now, now,
                                 ),
-                            ).lastrowid
+                            ).fetchone()
                             db.commit()
                             changed = True
-                            result = {"ok": True, "entry_id": row_id}
+                            result = {"ok": True, "entry_id": row["id"]}
 
                     elif block.name == "add_garden_note":
                         eid = inp.get("entry_id")
