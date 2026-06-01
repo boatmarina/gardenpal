@@ -1764,6 +1764,221 @@ def create_app() -> Flask:
         db.commit()
         return redirect(url_for("garden_edit", entry_id=row["id"]))
 
+    @app.route("/api/garden-chat", methods=["POST"])
+    @login_required
+    def garden_chat():
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            return jsonify(error="Chat assistant not available."), 503
+
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return jsonify(error="Chat assistant not configured."), 503
+
+        data = request.get_json(silent=True) or {}
+        message = (data.get("message") or "").strip()
+        history = (data.get("history") or [])[-10:]  # cap at last 10 messages
+
+        if not message:
+            return jsonify(error="Message is required."), 400
+
+        db = get_db()
+        user_id = g.user["id"]
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+
+        entries = db.execute(
+            """SELECT id, plant_name, variety, location_type, location_name, planted_date, notes
+            FROM garden_entries WHERE user_id = ?
+            ORDER BY CASE WHEN planted_date IS NULL THEN 1 ELSE 0 END, planted_date DESC""",
+            (user_id,),
+        ).fetchall()
+
+        if entries:
+            lines = []
+            for e in entries:
+                ln = f"  ID {e['id']}: {e['plant_name']}"
+                if e["variety"]: ln += f" ({e['variety']})"
+                if e["location_name"]: ln += f" in {e['location_name']}"
+                if e["planted_date"]: ln += f", planted {e['planted_date']}"
+                lines.append(ln)
+            entries_text = "\n".join(lines)
+        else:
+            entries_text = "  (no entries yet)"
+
+        system = (
+            f"You are a concise assistant for an edible garden tracker. Today is {today}.\n\n"
+            f"Current garden entries:\n{entries_text}\n\n"
+            "Help the user add plants, add notes, update details, or answer questions about their garden. "
+            "For bulk changes call the relevant tool multiple times. Keep replies short — just confirm what was done. "
+            "If a plant name is ambiguous (multiple matches), list the options and ask which one."
+        )
+
+        tools = [
+            {
+                "name": "add_garden_entry",
+                "description": "Add a new plant to the user's edible garden.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_name": {"type": "string"},
+                        "variety": {"type": "string"},
+                        "location_type": {"type": "string", "enum": ["raised_bed", "ground", "container", "greenhouse", "other"]},
+                        "location_name": {"type": "string", "description": "e.g. 'Raised bed 1'"},
+                        "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "notes": {"type": "string"},
+                    },
+                    "required": ["plant_name"],
+                },
+            },
+            {
+                "name": "add_garden_note",
+                "description": "Add a text note or observation to an existing garden entry.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "note": {"type": "string"},
+                        "note_date": {"type": "string", "description": "YYYY-MM-DD, defaults to today"},
+                    },
+                    "required": ["entry_id", "note"],
+                },
+            },
+            {
+                "name": "update_garden_entry",
+                "description": "Update fields of an existing garden entry (variety, location, planted date, etc.).",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "plant_name": {"type": "string"},
+                        "variety": {"type": "string"},
+                        "location_type": {"type": "string", "enum": ["raised_bed", "ground", "container", "greenhouse", "other"]},
+                        "location_name": {"type": "string"},
+                        "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "notes": {"type": "string"},
+                    },
+                    "required": ["entry_id"],
+                },
+            },
+        ]
+
+        messages = list(history) + [{"role": "user", "content": message}]
+        changed = False
+        client = _anthropic.Anthropic(api_key=api_key)
+
+        for _ in range(10):
+            response = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=512,
+                system=system,
+                tools=tools,
+                messages=messages,
+            )
+            messages.append({"role": "assistant", "content": response.content})
+
+            if response.stop_reason != "tool_use":
+                text = next((b.text for b in response.content if hasattr(b, "text")), "Done.")
+                return jsonify(reply=text, changed=changed)
+
+            # Execute tool calls
+            tool_results = []
+            for block in response.content:
+                if not hasattr(block, "type") or block.type != "tool_use":
+                    continue
+                inp = block.input
+                result = {}
+                try:
+                    if block.name == "add_garden_entry":
+                        pname = (inp.get("plant_name") or "").strip()
+                        if not pname:
+                            result = {"error": "plant_name is required"}
+                        else:
+                            row_id = db.execute(
+                                """INSERT INTO garden_entries
+                                (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (
+                                    user_id, pname,
+                                    (inp.get("variety") or "").strip() or None,
+                                    (inp.get("location_type") or "").strip() or None,
+                                    (inp.get("location_name") or "").strip() or None,
+                                    (inp.get("planted_date") or "").strip() or None,
+                                    (inp.get("notes") or "").strip() or None,
+                                    datetime.utcnow().isoformat(timespec="seconds"),
+                                ),
+                            ).lastrowid
+                            db.commit()
+                            changed = True
+                            result = {"ok": True, "entry_id": row_id}
+
+                    elif block.name == "add_garden_note":
+                        eid = inp.get("entry_id")
+                        note = (inp.get("note") or "").strip()
+                        if not eid or not note:
+                            result = {"error": "entry_id and note are required"}
+                        else:
+                            entry = db.execute(
+                                "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
+                                (eid, user_id),
+                            ).fetchone()
+                            if not entry:
+                                result = {"error": f"Entry {eid} not found"}
+                            else:
+                                db.execute(
+                                    """INSERT INTO garden_photos
+                                    (entry_id, user_id, image_path, photo_date, notes, created_at)
+                                    VALUES (?, ?, NULL, ?, ?, ?)""",
+                                    (eid, user_id, inp.get("note_date") or today, note,
+                                     datetime.utcnow().isoformat(timespec="seconds")),
+                                )
+                                db.commit()
+                                changed = True
+                                result = {"ok": True}
+
+                    elif block.name == "update_garden_entry":
+                        eid = inp.get("entry_id")
+                        if not eid:
+                            result = {"error": "entry_id is required"}
+                        else:
+                            entry = db.execute(
+                                "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
+                                (eid, user_id),
+                            ).fetchone()
+                            if not entry:
+                                result = {"error": f"Entry {eid} not found"}
+                            else:
+                                fields = ["plant_name", "variety", "location_type", "location_name", "planted_date", "notes"]
+                                sets, params = [], []
+                                for f in fields:
+                                    if f in inp:
+                                        sets.append(f"{f} = ?")
+                                        params.append((inp[f] or "").strip() or None)
+                                if sets:
+                                    params += [eid, user_id]
+                                    db.execute(
+                                        f"UPDATE garden_entries SET {', '.join(sets)} WHERE id = ? AND user_id = ?",
+                                        params,
+                                    )
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True, "updated": [f for f in fields if f in inp]}
+                                else:
+                                    result = {"error": "No fields to update"}
+                    else:
+                        result = {"error": f"Unknown tool: {block.name}"}
+                except Exception as exc:
+                    result = {"error": str(exc)}
+
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": json.dumps(result),
+                })
+            messages.append({"role": "user", "content": tool_results})
+
+        return jsonify(reply="Something went wrong — please try again.", changed=False)
+
     # ── Garden API (token-authenticated) ────────────────────────────────────
 
     def token_required(view):

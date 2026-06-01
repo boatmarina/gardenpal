@@ -244,6 +244,46 @@
   </div>
   <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
 
+  <!-- Garden Assistant (Beta) -->
+  <div style="margin-bottom:16px">
+    <button id="chat-toggle" type="button"
+            style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:var(--text);text-align:left">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--green-dark)">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Garden Assistant
+      <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px">Beta</span>
+      <svg id="chat-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+
+    <div id="chat-panel" hidden
+         style="margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden">
+
+      <!-- Instructions -->
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg)">
+        <p style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:6px">What you can do</p>
+        <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
+          <li style="font-size:0.78rem;color:var(--muted)">"Add zucchini planted today in raised bed 2"</li>
+          <li style="font-size:0.78rem;color:var(--muted)">"The tomatoes variety is Sungold"</li>
+          <li style="font-size:0.78rem;color:var(--muted)">"Add a note to the beans: first flowers today"</li>
+          <li style="font-size:0.78rem;color:var(--muted)">"Add basil, parsley, and dill planted May 20th in container 1" <em style="font-size:0.73rem">(bulk)</em></li>
+          <li style="font-size:0.78rem;color:var(--muted)">"What did I plant in raised bed 1?" or "What's planted this year?"</li>
+        </ul>
+      </div>
+
+      <!-- Messages -->
+      <div id="chat-messages" style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto"></div>
+
+      <!-- Input -->
+      <div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border)">
+        <input id="chat-input" type="text" placeholder="Ask or type a change…"
+               style="flex:1;font-size:0.85rem;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--text);font-family:inherit" />
+        <button id="chat-send"
+                style="background:var(--green-dark);color:#fff;border:none;border-radius:var(--r-md);padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">Send</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Timeline -->
   {% if grouped_entries %}
     {% for month_num, month_entries in grouped_entries %}
@@ -364,4 +404,132 @@
   });
 })();
 </script>
+
+<script>
+(function () {
+  var toggle   = document.getElementById('chat-toggle');
+  var panel    = document.getElementById('chat-panel');
+  var chevron  = document.getElementById('chat-chevron');
+  var messages = document.getElementById('chat-messages');
+  var input    = document.getElementById('chat-input');
+  var sendBtn  = document.getElementById('chat-send');
+  if (!toggle || !panel) return;
+
+  var STORAGE_KEY = 'garden_chat';
+
+  // Restore state from sessionStorage (persists across page reloads)
+  var saved = {};
+  try { saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}'); } catch(_) {}
+
+  var history = saved.history || [];   // [{role, content}] text only
+  var isOpen  = !!saved.open;
+
+  function openPanel() {
+    panel.hidden = false;
+    chevron.style.transform = 'rotate(180deg)';
+    isOpen = true;
+    save();
+  }
+  function closePanel() {
+    panel.hidden = true;
+    chevron.style.transform = '';
+    isOpen = false;
+    save();
+  }
+
+  toggle.addEventListener('click', function () {
+    if (panel.hidden) openPanel(); else closePanel();
+  });
+
+  function save() {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({open: isOpen, history: history})); } catch(_) {}
+  }
+
+  function bubble(role, text) {
+    var div = document.createElement('div');
+    div.style.cssText = role === 'user'
+      ? 'align-self:flex-end;max-width:85%;background:var(--green-dark);color:#fff;border-radius:14px 14px 3px 14px;padding:8px 12px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap'
+      : 'align-self:flex-start;max-width:88%;background:var(--bg);border:1px solid var(--border);border-radius:14px 14px 14px 3px;padding:8px 12px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap;color:var(--text)';
+    div.textContent = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  function spinnerBubble() {
+    var div = document.createElement('div');
+    div.style.cssText = 'align-self:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:14px 14px 14px 3px;padding:10px 14px;display:flex;gap:5px;align-items:center';
+    for (var i = 0; i < 3; i++) {
+      var d = document.createElement('div');
+      d.style.cssText = 'width:6px;height:6px;border-radius:50%;background:var(--muted);animation:chatDot 1.2s infinite';
+      d.style.animationDelay = (i * 0.2) + 's';
+      div.appendChild(d);
+    }
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  // Restore saved messages visually
+  history.forEach(function (m) { bubble(m.role, m.content); });
+  if (isOpen) openPanel();
+
+  async function send() {
+    var text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.disabled = true;
+    sendBtn.disabled = true;
+
+    bubble('user', text);
+    var spin = spinnerBubble();
+
+    try {
+      var res = await fetch('/api/garden-chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: text, history: history}),
+      });
+      var data = await res.json();
+      spin.remove();
+
+      var reply = data.reply || data.error || 'Something went wrong.';
+      bubble('assistant', reply);
+
+      history.push({role: 'user', content: text});
+      history.push({role: 'assistant', content: reply});
+      if (history.length > 20) history = history.slice(-20);
+      save();
+
+      if (data.changed) {
+        var note = document.createElement('div');
+        note.style.cssText = 'align-self:center;font-size:0.72rem;color:var(--muted);padding:4px 0';
+        note.textContent = 'Refreshing…';
+        messages.appendChild(note);
+        messages.scrollTop = messages.scrollHeight;
+        setTimeout(function () { window.location.reload(); }, 1200);
+      }
+    } catch (_) {
+      spin.remove();
+      bubble('assistant', 'Network error — please try again.');
+    }
+
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+
+  sendBtn.addEventListener('click', send);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); send(); }
+  });
+})();
+</script>
+
+<style>
+@keyframes chatDot {
+  0%,80%,100% { transform:scale(0.7); opacity:0.4; }
+  40% { transform:scale(1); opacity:1; }
+}
+</style>
 {% endblock %}
