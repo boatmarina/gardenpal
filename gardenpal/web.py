@@ -326,6 +326,9 @@ def create_app() -> Flask:
     def ideas_index():
         db = get_db()
         user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+        shared_names = _shared_user_names(db, user_id)
         q = request.args.get("q", "").strip()
         sun = request.args.get("sun", "").strip()
         lifecycle = request.args.get("lifecycle", "").strip()
@@ -335,13 +338,13 @@ def create_app() -> Flask:
         category_id = request.args.get("category", "").strip()
         tag_id = request.args.get("tag", "").strip()
 
-        query = """
+        query = f"""
             SELECT DISTINCT p.*
             FROM plants p
             LEFT JOIN plant_categories pc ON p.id = pc.plant_id
-            WHERE p.user_id = ?
+            WHERE p.user_id IN {ph}
         """
-        params = [user_id]
+        params = list(id_args)
 
         if q:
             query += " AND (p.name LIKE ? OR p.notes LIKE ? OR p.source_note LIKE ?)"
@@ -387,32 +390,32 @@ def create_app() -> Flask:
                     tags_map[pid] = []
                 tags_map[pid].append({"id": row["id"], "name": row["name"], "color": row["color"]})
 
-        # Tags that exist on at least one of this user's plants (for filter bar)
+        # Tags that exist on any visible plant (for filter bar)
         user_tags = [
             {"id": t["id"], "name": t["name"], "color": t["color"]}
             for t in db.execute(
-                """
+                f"""
                 SELECT DISTINCT t.id, t.name, t.color
                 FROM tags t
                 JOIN plant_tags pt ON pt.tag_id = t.id
                 JOIN plants p ON p.id = pt.plant_id
-                WHERE t.user_id = ?
+                WHERE p.user_id IN {ph}
                 ORDER BY t.name ASC
                 """,
-                (user_id,),
+                id_args,
             ).fetchall()
         ]
 
         categories = db.execute(
-            """
+            f"""
             SELECT DISTINCT c.*
             FROM categories c
             JOIN plant_categories pc ON c.id = pc.category_id
             JOIN plants p ON p.id = pc.plant_id
-            WHERE p.user_id = ?
+            WHERE p.user_id IN {ph}
             ORDER BY c.name ASC
             """,
-            (user_id,),
+            id_args,
         ).fetchall()
         return render_template(
             "ideas_index.html",
@@ -420,6 +423,7 @@ def create_app() -> Flask:
             tags_map=tags_map,
             user_tags=user_tags,
             categories=categories,
+            shared_names=shared_names,
             active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "plant_form": plant_form, "height_category": height_category, "category": category_id, "tag": tag_id},
         )
 
@@ -866,7 +870,8 @@ def create_app() -> Flask:
                 lib_plant_ids,
             ).fetchall():
                 tags_map.setdefault(row["plant_id"], []).append({"id": row["id"], "name": row["name"], "color": row["color"]})
-        return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map)
+        shared_names = _shared_user_names(db, g.user["id"])
+        return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map, shared_names=shared_names)
 
     @app.route("/yard/plants/new", methods=["GET", "POST"])
     @login_required
@@ -1138,6 +1143,17 @@ def create_app() -> Flask:
 
     def _in_ids(ids):
         return "({})".format(",".join("?" * len(ids))), ids
+
+    def _shared_user_names(db, user_id):
+        """Return {partner_user_id: username} for all confirmed garden-share partners."""
+        rows = db.execute(
+            "SELECT CASE WHEN gs.user_a_id = ? THEN gs.user_b_id ELSE gs.user_a_id END AS pid, u.username "
+            "FROM garden_shares gs "
+            "JOIN users u ON u.id = CASE WHEN gs.user_a_id = ? THEN gs.user_b_id ELSE gs.user_a_id END "
+            "WHERE (gs.user_a_id = ? OR gs.user_b_id = ?) AND gs.confirmed = 1",
+            (user_id, user_id, user_id, user_id),
+        ).fetchall()
+        return {r["pid"]: r["username"] for r in rows}
 
     def _user_stats(db, user_id, created_at_str):
         plants  = db.execute("SELECT COUNT(*) AS n FROM plants WHERE user_id = ?",        (user_id,)).fetchone()["n"]
@@ -1550,6 +1566,7 @@ def create_app() -> Flask:
         month_counts = {m: len(lst) for m, lst in grouped.items()}
         grouped_entries = sorted(grouped.items())
 
+        shared_names = _shared_user_names(db, uid)
         return render_template(
             "garden_index.html",
             grouped_entries=grouped_entries,
@@ -1558,6 +1575,7 @@ def create_app() -> Flask:
             years=years,
             active_year=active_year,
             current_year=current_year,
+            shared_names=shared_names,
         )
 
     @app.route("/garden/new", methods=["GET", "POST"])

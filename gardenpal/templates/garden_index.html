@@ -261,6 +261,12 @@
                 {% if entry.location_name %}
                   <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
                 {% endif %}
+                {% if entry.user_id != current_user.id %}
+                  <p style="font-size:0.72rem;color:var(--muted);margin-top:3px">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="vertical-align:-1px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                    {{ shared_names.get(entry.user_id, 'Partner') }}
+                  </p>
+                {% endif %}
                 <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6px">
                   <p class="muted" style="font-size:0.78rem;margin:0">{% if entry.planted_date %}Planted {{ entry.planted_date | planted_date }}{% endif %}</p>
                   <div style="flex-shrink:0;color:var(--green-mid);opacity:0.55">{{ plant_icon(entry.plant_name) }}</div>
@@ -289,6 +295,12 @@
                   {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
                   {% if entry.location_name %}
                     <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
+                  {% endif %}
+                  {% if entry.user_id != current_user.id %}
+                    <p style="font-size:0.72rem;color:var(--muted);margin-top:3px">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="vertical-align:-1px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                      {{ shared_names.get(entry.user_id, 'Partner') }}
+                    </p>
                   {% endif %}
                 </div>
                 <div style="flex-shrink:0;color:var(--green-mid);opacity:0.6;margin-top:2px">
