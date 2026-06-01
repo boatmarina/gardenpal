@@ -1656,10 +1656,11 @@ def create_app() -> Flask:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
         image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "garden")
-        if not image_path:
+        note_text = request.form.get("photo_notes", "").strip() or None
+        if not image_path and not note_text:
             if is_ajax:
-                return jsonify(error="Please select a photo."), 400
-            flash("Please select a photo.")
+                return jsonify(error="Please add a photo or write a note."), 400
+            flash("Please add a photo or write a note.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
         db.execute(
             "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -1668,14 +1669,14 @@ def create_app() -> Flask:
                 g.user["id"],
                 image_path,
                 request.form.get("photo_date", "").strip() or None,
-                request.form.get("photo_notes", "").strip() or None,
+                note_text,
                 datetime.utcnow().isoformat(timespec="seconds"),
             ),
         )
         db.commit()
         if is_ajax:
             return jsonify(ok=True)
-        flash("Photo added.")
+        flash("Note added.")
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
     @app.route("/garden/<int:entry_id>/edit", methods=["GET", "POST"])
