@@ -275,11 +275,15 @@
       <div id="chat-messages" style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto"></div>
 
       <!-- Input -->
-      <div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border)">
-        <input id="chat-input" type="text" placeholder="Ask or type a change…"
-               style="flex:1;font-size:0.85rem;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--text);font-family:inherit" />
-        <button id="chat-send"
-                style="background:var(--green-dark);color:#fff;border:none;border-radius:var(--r-md);padding:8px 14px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0">Send</button>
+      <div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);align-items:flex-end">
+        <textarea id="chat-input" rows="2" placeholder="Ask or type a change…"
+                  style="flex:1;font-size:0.85rem;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--text);font-family:inherit;resize:none;line-height:1.4;max-height:120px;overflow-y:auto"></textarea>
+        <button id="chat-send" title="Send (Ctrl+Enter)"
+                style="background:var(--green-dark);color:#fff;border:none;border-radius:var(--r-md);padding:9px 11px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
@@ -520,8 +524,12 @@
   }
 
   sendBtn.addEventListener('click', send);
+  input.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  });
   input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); send(); }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
   });
 })();
 </script>
