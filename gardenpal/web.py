@@ -2643,6 +2643,12 @@ def init_db():
     ensure_column(db, "garden_shares", "confirmed", "INTEGER NOT NULL DEFAULT 1")
     ensure_column(db, "garden_shares", "requested_by", "INTEGER")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
+    # Allow note-only growth log entries (image_path may be NULL)
+    try:
+        db.execute("ALTER TABLE garden_photos ALTER COLUMN image_path DROP NOT NULL")
+        db.commit()
+    except Exception:
+        pass
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
     if user is None:
@@ -2762,7 +2768,7 @@ _SCHEMA_STATEMENTS = [
         id SERIAL PRIMARY KEY,
         entry_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
-        image_path TEXT NOT NULL,
+        image_path TEXT,
         photo_date TEXT,
         notes TEXT,
         created_at TEXT NOT NULL,
