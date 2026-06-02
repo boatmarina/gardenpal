@@ -1,3 +1,6 @@
+/* Reveal body once this stylesheet has loaded (prevents FOUC on iOS PWA) */
+body { visibility: visible; }
+
 /* ================================================================
    TOKENS
    ================================================================ */
