@@ -15,319 +15,336 @@
   </div>
 
   {% if current_user and current_user['is_admin'] %}
-  <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">Users</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Click a user to view their activity and manage their account.</p>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      {% for row in all_users %}
-      {% set u = row.user %}
-      {% set s = row.stats %}
-      <a href="{{ url_for('admin_user_detail', target_id=u.id) }}"
-         style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;color:inherit">
-        <div style="display:flex;align-items:center;gap:7px;min-width:0">
-          <span style="font-size:0.85rem;font-weight:600;white-space:nowrap">{{ u.username }}</span>
-          {% if u.is_admin %}<span style="font-size:0.7rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600;white-space:nowrap">admin</span>{% endif %}
-        </div>
-        <div style="display:flex;gap:14px;align-items:center;flex-shrink:0">
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-            <span style="font-size:0.78rem;color:var(--muted)">{{ s.plants }} plants · {{ s.zones }} zones · {{ s.garden }} edibles</span>
-            <span style="font-size:0.73rem;color:var(--muted)">last seen {{ s.last_login | relative_login }}</span>
-          </div>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.35"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-      </a>
-      {% endfor %}
-    </div>
-  </section>
+  <!-- Tab bar — admin only -->
+  <div style="display:flex;gap:4px;padding:4px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-xl);margin-bottom:20px">
+    <button id="tab-settings" onclick="showTab('settings')"
+            style="flex:1;padding:7px 12px;border:none;border-radius:calc(var(--r-xl) - 2px);font-size:0.83rem;font-weight:600;font-family:inherit;cursor:pointer;transition:background 0.15s,color 0.15s">
+      Settings
+    </button>
+    <button id="tab-admin" onclick="showTab('admin')"
+            style="flex:1;padding:7px 12px;border:none;border-radius:calc(var(--r-xl) - 2px);font-size:0.83rem;font-weight:600;font-family:inherit;cursor:pointer;transition:background 0.15s,color 0.15s">
+      Admin
+    </button>
+  </div>
   {% endif %}
 
-  <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">Your location</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-      Used to tailor plant descriptions, bloom times, and photo identification to your region.
-      Enter a city, region, or country — e.g. <em>Austin, TX</em> or <em>Pacific Northwest</em>.
-    </p>
-    {% set loc = current_user.location %}
-    <div id="loc-display" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
-      {% if loc %}
-        <span style="font-size:0.88rem;font-weight:600;flex:1">{{ loc }}</span>
-      {% else %}
-        <span style="font-size:0.88rem;font-weight:600;flex:1;color:var(--muted)">Pacific Northwest <span style="font-weight:400;font-size:0.78rem">(default)</span></span>
-      {% endif %}
-      <button type="button"
-              onclick="document.getElementById('loc-display').hidden=true;document.getElementById('loc-form').hidden=false;document.getElementById('loc-input').focus()"
-              style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Change</button>
-    </div>
-    <form id="loc-form" method="post" action="{{ url_for('set_location') }}" hidden
-          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px">
-      <label style="flex:1;margin:0;min-width:180px">
-        <input id="loc-input" type="text" name="location" placeholder="e.g. Pacific Northwest"
-               value="{{ loc or '' }}"
-               style="display:block;width:100%" autocomplete="off" />
-      </label>
-      <button type="submit" class="button" style="white-space:nowrap">Save</button>
-      <button type="button"
-              onclick="document.getElementById('loc-form').hidden=true;document.getElementById('loc-display').hidden=false"
-              style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;font-family:inherit;padding:8px 0">Cancel</button>
-    </form>
-  </section>
+  <!-- ── Settings tab ── -->
+  <div id="panel-settings">
 
-  <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">Plant photo identification</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Choose which service identifies plants from photos.</p>
-    <form method="post" action="{{ url_for('set_photo_id_provider') }}" style="display:flex;flex-direction:column;gap:10px">
-      {% set cur = current_user.photo_id_provider or 'plantid' %}
-      <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1.5px solid {% if cur == 'plantid' %}var(--green-mid){% else %}var(--border){% endif %};border-radius:var(--r-md);text-transform:none;letter-spacing:0;font-size:1rem;font-weight:400;color:inherit">
-        <input type="radio" name="provider" value="plantid" {% if cur == 'plantid' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
-        <div>
-          <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Plant.id</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Specialist plant identification service.
-            {% if current_user and current_user['is_admin'] %}Requires <code>PLANT_ID_API_KEY</code>.
-            {% if plantid_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}{% endif %}</p>
-        </div>
-      </label>
-      {% if current_user and current_user['is_admin'] %}
-      <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1.5px solid {% if cur == 'gemini' %}var(--green-mid){% else %}var(--border){% endif %};border-radius:var(--r-md);text-transform:none;letter-spacing:0;font-size:1rem;font-weight:400;color:inherit">
-        <input type="radio" name="provider" value="gemini" {% if cur == 'gemini' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
-        <div>
-          <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Google AI (Gemini)</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">General AI service. Requires <code>GEMINI_API_KEY</code>.
-            {% if gemini_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}</p>
-        </div>
-      </label>
-      {% endif %}
-      <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1.5px solid {% if cur == 'claude' %}var(--green-mid){% else %}var(--border){% endif %};border-radius:var(--r-md);text-transform:none;letter-spacing:0;font-size:1rem;font-weight:400;color:inherit">
-        <input type="radio" name="provider" value="claude" {% if cur == 'claude' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
-        <div>
-          <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Claude Vision (Anthropic)</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">General AI service.
-            {% if current_user and current_user['is_admin'] %}{% if claude_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}{% endif %}</p>
-        </div>
-      </label>
-    </form>
-  </section>
-
-  <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">Shared garden</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:10px">
-      Share your Yard zones, plants, and Garden diary with another GardenPal account —
-      both people will see and edit the same data.
-    </p>
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-bottom:14px">
-      <p style="font-size:0.78rem;font-weight:700;color:var(--text);margin:0 0 6px">How to set it up</p>
-      <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
-        <li style="font-size:0.78rem;color:var(--muted)">Both people need a GardenPal account.</li>
-        <li style="font-size:0.78rem;color:var(--muted)">Enter their username below and click <strong>Add partner</strong>.</li>
-        <li style="font-size:0.78rem;color:var(--muted)">Tell them to come here and enter your username: <strong style="color:var(--text);font-family:monospace">{{ current_user.username }}</strong></li>
-        <li style="font-size:0.78rem;color:var(--muted)">Once both sides have added each other the garden is shared.</li>
-      </ol>
-    </div>
-
-    {% if garden_shares_in %}
-      <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Pending — they invited you</p>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        {% for share in garden_shares_in %}
-        <div style="background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <span style="font-size:0.88rem;font-weight:600">{{ share.partner_name }}</span>
-          <div style="display:flex;gap:10px;align-items:center">
-            <form method="post" action="{{ url_for('share_garden') }}" style="margin:0">
-              <input type="hidden" name="partner_username" value="{{ share.partner_name }}" />
-              <button type="submit" class="button" style="font-size:0.78rem;padding:5px 12px">Accept</button>
-            </form>
-            <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
-              <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Decline</button>
-            </form>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    {% if garden_shares %}
-      <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Active</p>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        {% for share in garden_shares %}
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <span style="font-size:0.88rem;font-weight:600">{{ share.partner_name }}</span>
-          <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
-            <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Remove</button>
-          </form>
-        </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    {% if garden_shares_out %}
-      <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Pending — waiting for them</p>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        {% for share in garden_shares_out %}
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <span style="font-size:0.88rem;font-weight:600;color:var(--muted)">{{ share.partner_name }}</span>
-          <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
-            <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Cancel</button>
-          </form>
-        </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    <form method="post" action="{{ url_for('share_garden') }}" style="display:flex;gap:8px;align-items:flex-end">
-      <label style="flex:1;margin:0">
-        <span style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Partner's username</span>
-        <input type="text" name="partner_username" placeholder="Enter username…" required
-               style="display:block;width:100%;margin-top:4px" autocomplete="off" autocorrect="off" autocapitalize="none" />
-      </label>
-      <button type="submit" class="button" style="white-space:nowrap">Add partner</button>
-    </form>
-  </section>
-
-  <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:8px">Export data</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
-      Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.
-    </p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Plant Library</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">All your saved plants with tags and notes</p>
-        </div>
-        <a href="{{ url_for('export_library_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Yard Zones</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Plants per zone with per-zone notes</p>
-        </div>
-        <a href="{{ url_for('export_yard_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Edible Garden Diary</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">All garden entries with planted dates and locations</p>
-        </div>
-        <a href="{{ url_for('export_garden_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
-      </div>
-    </div>
-  </section>
-
-  {% if current_user and current_user['is_admin'] and perenual_log is defined %}
-  <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">Perenual usage log</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-      Every search query that hit the Perenual API — last 200 entries.
-      <strong>Hit</strong> = Perenual returned results; <strong>Miss</strong> = fell through to iNaturalist.
-    </p>
-    {% if perenual_log %}
-      {% set hits = perenual_log | selectattr('result_count', 'gt', 0) | list | length %}
-      {% set total = perenual_log | length %}
-      <div style="display:flex;gap:16px;margin-bottom:12px">
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
-          <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ total }}</p>
-          <p style="font-size:0.75rem;color:var(--muted);margin:0">searches logged</p>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
-          <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ hits }}</p>
-          <p style="font-size:0.75rem;color:var(--muted);margin:0">Perenual hits</p>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
-          <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ total - hits }}</p>
-          <p style="font-size:0.75rem;color:var(--muted);margin:0">iNat fallbacks</p>
-        </div>
-      </div>
-      <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
-        {% for row in perenual_log %}
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
-          <span style="font-size:0.83rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.query }}</span>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-            {% if row.result_count > 0 %}
-            <span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600">Hit · {{ row.result_count }}</span>
-            {% else %}
-            <span style="font-size:0.72rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">Miss</span>
-            {% endif %}
-            <span style="font-size:0.72rem;color:var(--muted)">{{ row.logged_at[:16].replace('T', ' ') }}</span>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No searches logged yet.</p>
-    {% endif %}
-  </section>
-  {% endif %}
-
-  {% if current_user and current_user['is_admin'] and chat_error_log is defined %}
-  <section class="panel" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">AI assistant error log</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-      Errors from the garden chat assistant — last 200 entries. Billing and auth errors mean the assistant is unavailable to all users.
-    </p>
-    {% if chat_error_log %}
-      <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
-        {% for row in chat_error_log %}
-        <div style="padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-            <span style="font-size:0.78rem;font-weight:600">{{ row.username or '(deleted)' }}</span>
-            {% if row.error_type in ('billing_auth', 'billing_credits') %}
-              <span style="font-size:0.7rem;background:#fce8e8;color:#b04040;border:1px solid #f5c0c0;border-radius:4px;padding:1px 6px;font-weight:600">{{ row.error_type }}</span>
-            {% elif row.error_type == 'rate_limit' %}
-              <span style="font-size:0.7rem;background:#fff3e0;color:#B5803A;border:1px solid #f0d090;border-radius:4px;padding:1px 6px;font-weight:600">rate limit</span>
-            {% elif row.error_type == 'overloaded' %}
-              <span style="font-size:0.7rem;background:#fff3e0;color:#B5803A;border:1px solid #f0d090;border-radius:4px;padding:1px 6px;font-weight:600">overloaded</span>
-            {% else %}
-              <span style="font-size:0.7rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">{{ row.error_type }}</span>
-            {% endif %}
-            <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
-          </div>
-          {% if row.user_message %}
-            <p style="font-size:0.8rem;margin:0 0 2px;color:var(--text)">"{{ row.user_message }}"</p>
-          {% endif %}
-          {% if row.error_detail %}
-            <p style="font-size:0.73rem;color:var(--muted);margin:0;word-break:break-all">{{ row.error_detail[:200] }}</p>
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No errors logged yet.</p>
-    {% endif %}
-  </section>
-  {% endif %}
-
-  {% if current_user and current_user['is_admin'] %}
-  <section class="panel" style="margin-bottom:16px" id="services-panel">
-    <h2 style="margin-bottom:4px">Connected services</h2>
-
-    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">API integrations used by the app and their usage limits.</p>
-    <div id="services-list" style="display:flex;flex-direction:column;gap:10px">
-      <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:12px 0">
-        <span class="spinner" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>Checking services…
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Your location</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+        Used to tailor plant descriptions, bloom times, and photo identification to your region.
+        Enter a city, region, or country — e.g. <em>Austin, TX</em> or <em>Pacific Northwest</em>.
       </p>
-    </div>
-  </section>
-  {% endif %}
+      {% set loc = current_user.location %}
+      <div id="loc-display" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+        {% if loc %}
+          <span style="font-size:0.88rem;font-weight:600;flex:1">{{ loc }}</span>
+        {% else %}
+          <span style="font-size:0.88rem;font-weight:600;flex:1;color:var(--muted)">Pacific Northwest <span style="font-weight:400;font-size:0.78rem">(default)</span></span>
+        {% endif %}
+        <button type="button"
+                onclick="document.getElementById('loc-display').hidden=true;document.getElementById('loc-form').hidden=false;document.getElementById('loc-input').focus()"
+                style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Change</button>
+      </div>
+      <form id="loc-form" method="post" action="{{ url_for('set_location') }}" hidden
+            style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px">
+        <label style="flex:1;margin:0;min-width:180px">
+          <input id="loc-input" type="text" name="location" placeholder="e.g. Pacific Northwest"
+                 value="{{ loc or '' }}"
+                 style="display:block;width:100%" autocomplete="off" />
+        </label>
+        <button type="submit" class="button" style="white-space:nowrap">Save</button>
+        <button type="button"
+                onclick="document.getElementById('loc-form').hidden=true;document.getElementById('loc-display').hidden=false"
+                style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;font-family:inherit;padding:8px 0">Cancel</button>
+      </form>
+    </section>
 
-  {% if current_user and current_user['is_admin'] %}
-  <section class="panel stack" style="margin-bottom:16px">
-    <h2 style="margin-bottom:4px">Claude MCP access</h2>
-    <p class="muted" style="font-size:0.85rem">
-      Generate a personal token, then add the MCP server to Claude Desktop so Claude can read and
-      update your garden tracker directly from any chat — no copy-pasting needed.
-    </p>
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Plant photo identification</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Choose which service identifies plants from photos.</p>
+      <form method="post" action="{{ url_for('set_photo_id_provider') }}" style="display:flex;flex-direction:column;gap:10px">
+        {% set cur = current_user.photo_id_provider or 'plantid' %}
+        <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1.5px solid {% if cur == 'plantid' %}var(--green-mid){% else %}var(--border){% endif %};border-radius:var(--r-md);text-transform:none;letter-spacing:0;font-size:1rem;font-weight:400;color:inherit">
+          <input type="radio" name="provider" value="plantid" {% if cur == 'plantid' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
+          <div>
+            <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Plant.id</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">Specialist plant identification service.
+              {% if current_user and current_user['is_admin'] %}Requires <code>PLANT_ID_API_KEY</code>.
+              {% if plantid_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}{% endif %}</p>
+          </div>
+        </label>
+        {% if current_user and current_user['is_admin'] %}
+        <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1.5px solid {% if cur == 'gemini' %}var(--green-mid){% else %}var(--border){% endif %};border-radius:var(--r-md);text-transform:none;letter-spacing:0;font-size:1rem;font-weight:400;color:inherit">
+          <input type="radio" name="provider" value="gemini" {% if cur == 'gemini' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
+          <div>
+            <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Google AI (Gemini)</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">General AI service. Requires <code>GEMINI_API_KEY</code>.
+              {% if gemini_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}</p>
+          </div>
+        </label>
+        {% endif %}
+        <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1.5px solid {% if cur == 'claude' %}var(--green-mid){% else %}var(--border){% endif %};border-radius:var(--r-md);text-transform:none;letter-spacing:0;font-size:1rem;font-weight:400;color:inherit">
+          <input type="radio" name="provider" value="claude" {% if cur == 'claude' %}checked{% endif %} style="margin-top:3px;accent-color:var(--green)" onchange="this.form.submit()" />
+          <div>
+            <p style="font-size:0.88rem;font-weight:600;margin:0 0 2px">Claude Vision (Anthropic)</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">General AI service.
+              {% if current_user and current_user['is_admin'] %}{% if claude_configured %}<span style="color:var(--green-dark);font-weight:600">✓ Configured</span>{% else %}<span style="color:#b04040;font-weight:600">Not configured</span>{% endif %}{% endif %}</p>
+          </div>
+        </label>
+      </form>
+    </section>
 
-    {% if user.api_token %}
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-top:4px">
-        <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Your token</p>
-        <code style="font-size:0.82rem;word-break:break-all;display:block">{{ user.api_token }}</code>
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Shared garden</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:10px">
+        Share your Yard zones, plants, and Garden diary with another GardenPal account —
+        both people will see and edit the same data.
+      </p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-bottom:14px">
+        <p style="font-size:0.78rem;font-weight:700;color:var(--text);margin:0 0 6px">How to set it up</p>
+        <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+          <li style="font-size:0.78rem;color:var(--muted)">Both people need a GardenPal account.</li>
+          <li style="font-size:0.78rem;color:var(--muted)">Enter their username below and click <strong>Add partner</strong>.</li>
+          <li style="font-size:0.78rem;color:var(--muted)">Tell them to come here and enter your username: <strong style="color:var(--text);font-family:monospace">{{ current_user.username }}</strong></li>
+          <li style="font-size:0.78rem;color:var(--muted)">Once both sides have added each other the garden is shared.</li>
+        </ol>
       </div>
 
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
-        <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Claude Desktop config</p>
-        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:8px">
-          Add this to your <code>claude_desktop_config.json</code>
-          (find it via Claude Desktop → Settings → Developer):
+      {% if garden_shares_in %}
+        <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Pending — they invited you</p>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+          {% for share in garden_shares_in %}
+          <div style="background:var(--green-light);border:1.5px solid var(--green-mid);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <span style="font-size:0.88rem;font-weight:600">{{ share.partner_name }}</span>
+            <div style="display:flex;gap:10px;align-items:center">
+              <form method="post" action="{{ url_for('share_garden') }}" style="margin:0">
+                <input type="hidden" name="partner_username" value="{{ share.partner_name }}" />
+                <button type="submit" class="button" style="font-size:0.78rem;padding:5px 12px">Accept</button>
+              </form>
+              <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
+                <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Decline</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if garden_shares %}
+        <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Active</p>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+          {% for share in garden_shares %}
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <span style="font-size:0.88rem;font-weight:600">{{ share.partner_name }}</span>
+            <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
+              <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Remove</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if garden_shares_out %}
+        <p style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Pending — waiting for them</p>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+          {% for share in garden_shares_out %}
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <span style="font-size:0.88rem;font-weight:600;color:var(--muted)">{{ share.partner_name }}</span>
+            <form method="post" action="{{ url_for('unshare_garden', share_id=share.id) }}" style="margin:0">
+              <button type="submit" style="font-size:0.78rem;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline">Cancel</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('share_garden') }}" style="display:flex;gap:8px;align-items:flex-end">
+        <label style="flex:1;margin:0">
+          <span style="font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Partner's username</span>
+          <input type="text" name="partner_username" placeholder="Enter username…" required
+                 style="display:block;width:100%;margin-top:4px" autocomplete="off" autocorrect="off" autocapitalize="none" />
+        </label>
+        <button type="submit" class="button" style="white-space:nowrap">Add partner</button>
+      </form>
+    </section>
+
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:8px">Export data</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
+        Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Plant Library</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">All your saved plants with tags and notes</p>
+          </div>
+          <a href="{{ url_for('export_library_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Yard Zones</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">Plants per zone with per-zone notes</p>
+          </div>
+          <a href="{{ url_for('export_yard_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Edible Garden Diary</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">All garden entries with planted dates and locations</p>
+          </div>
+          <a href="{{ url_for('export_garden_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /panel-settings -->
+
+  <!-- ── Admin tab ── -->
+  {% if current_user and current_user['is_admin'] %}
+  <div id="panel-admin" hidden>
+
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Users</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Click a user to view their activity and manage their account.</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        {% for row in all_users %}
+        {% set u = row.user %}
+        {% set s = row.stats %}
+        <a href="{{ url_for('admin_user_detail', target_id=u.id) }}"
+           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;color:inherit">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0">
+            <span style="font-size:0.85rem;font-weight:600;white-space:nowrap">{{ u.username }}</span>
+            {% if u.is_admin %}<span style="font-size:0.7rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600;white-space:nowrap">admin</span>{% endif %}
+          </div>
+          <div style="display:flex;gap:14px;align-items:center;flex-shrink:0">
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+              <span style="font-size:0.78rem;color:var(--muted)">{{ s.plants }} plants · {{ s.zones }} zones · {{ s.garden }} edibles</span>
+              <span style="font-size:0.73rem;color:var(--muted)">last seen {{ s.last_login | relative_login }}</span>
+            </div>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.35"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if perenual_log is defined %}
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Perenual usage log</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+        Every search query that hit the Perenual API — last 200 entries.
+        <strong>Hit</strong> = Perenual returned results; <strong>Miss</strong> = fell through to iNaturalist.
+      </p>
+      {% if perenual_log %}
+        {% set hits = perenual_log | selectattr('result_count', 'gt', 0) | list | length %}
+        {% set total = perenual_log | length %}
+        <div style="display:flex;gap:16px;margin-bottom:12px">
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
+            <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ total }}</p>
+            <p style="font-size:0.75rem;color:var(--muted);margin:0">searches logged</p>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
+            <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ hits }}</p>
+            <p style="font-size:0.75rem;color:var(--muted);margin:0">Perenual hits</p>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;flex:1;text-align:center">
+            <p style="font-size:1.4rem;font-weight:700;line-height:1;margin-bottom:2px">{{ total - hits }}</p>
+            <p style="font-size:0.75rem;color:var(--muted);margin:0">iNat fallbacks</p>
+          </div>
+        </div>
+        <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          {% for row in perenual_log %}
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+            <span style="font-size:0.83rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.query }}</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              {% if row.result_count > 0 %}
+              <span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600">Hit · {{ row.result_count }}</span>
+              {% else %}
+              <span style="font-size:0.72rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">Miss</span>
+              {% endif %}
+              <span style="font-size:0.72rem;color:var(--muted)">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No searches logged yet.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if chat_error_log is defined %}
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">AI assistant error log</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+        Errors from the garden chat assistant — last 200 entries. Billing and auth errors mean the assistant is unavailable to all users.
+      </p>
+      {% if chat_error_log %}
+        <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          {% for row in chat_error_log %}
+          <div style="padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <span style="font-size:0.78rem;font-weight:600">{{ row.username or '(deleted)' }}</span>
+              {% if row.error_type in ('billing_auth', 'billing_credits') %}
+                <span style="font-size:0.7rem;background:#fce8e8;color:#b04040;border:1px solid #f5c0c0;border-radius:4px;padding:1px 6px;font-weight:600">{{ row.error_type }}</span>
+              {% elif row.error_type == 'rate_limit' %}
+                <span style="font-size:0.7rem;background:#fff3e0;color:#B5803A;border:1px solid #f0d090;border-radius:4px;padding:1px 6px;font-weight:600">rate limit</span>
+              {% elif row.error_type == 'overloaded' %}
+                <span style="font-size:0.7rem;background:#fff3e0;color:#B5803A;border:1px solid #f0d090;border-radius:4px;padding:1px 6px;font-weight:600">overloaded</span>
+              {% else %}
+                <span style="font-size:0.7rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">{{ row.error_type }}</span>
+              {% endif %}
+              <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+            </div>
+            {% if row.user_message %}
+              <p style="font-size:0.8rem;margin:0 0 2px;color:var(--text)">"{{ row.user_message }}"</p>
+            {% endif %}
+            {% if row.error_detail %}
+              <p style="font-size:0.73rem;color:var(--muted);margin:0;word-break:break-all">{{ row.error_detail[:200] }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No errors logged yet.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="panel" style="margin-bottom:16px" id="services-panel">
+      <h2 style="margin-bottom:4px">Connected services</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">API integrations used by the app and their usage limits.</p>
+      <div id="services-list" style="display:flex;flex-direction:column;gap:10px">
+        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:12px 0">
+          <span class="spinner" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>Checking services…
         </p>
-        <pre style="font-size:0.73rem;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0;line-height:1.5">{
+      </div>
+    </section>
+
+    <section class="panel stack" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Claude MCP access</h2>
+      <p class="muted" style="font-size:0.85rem">
+        Generate a personal token, then add the MCP server to Claude Desktop so Claude can read and
+        update your garden tracker directly from any chat — no copy-pasting needed.
+      </p>
+
+      {% if user.api_token %}
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;margin-top:4px">
+          <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Your token</p>
+          <code style="font-size:0.82rem;word-break:break-all;display:block">{{ user.api_token }}</code>
+        </div>
+
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+          <p style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Claude Desktop config</p>
+          <p style="font-size:0.78rem;color:var(--muted);margin-bottom:8px">
+            Add this to your <code>claude_desktop_config.json</code>
+            (find it via Claude Desktop → Settings → Developer):
+          </p>
+          <pre style="font-size:0.73rem;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin:0;line-height:1.5">{
   "mcpServers": {
     "gardenpal": {
       "command": "python",
@@ -339,117 +356,148 @@
     }
   }
 }</pre>
-        <p style="font-size:0.75rem;color:var(--muted);margin-top:8px">
-          Replace <code>/path/to/gardenpal</code> with where you cloned the repo.
-          Install deps once: <code>pip install httpx "mcp[cli]"</code> then restart Claude Desktop.
-          Once connected, just tell Claude: <em>"Add zucchini to my garden tracker, planted today in raised bed 1."</em>
-        </p>
-      </div>
+          <p style="font-size:0.75rem;color:var(--muted);margin-top:8px">
+            Replace <code>/path/to/gardenpal</code> with where you cloned the repo.
+            Install deps once: <code>pip install httpx "mcp[cli]"</code> then restart Claude Desktop.
+            Once connected, just tell Claude: <em>"Add zucchini to my garden tracker, planted today in raised bed 1."</em>
+          </p>
+        </div>
 
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <form method="post" action="{{ url_for('generate_api_token') }}">
-          <button type="submit" class="button button-secondary" style="font-size:0.82rem">Regenerate token</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <form method="post" action="{{ url_for('generate_api_token') }}">
+            <button type="submit" class="button button-secondary" style="font-size:0.82rem">Regenerate token</button>
+          </form>
+          <form method="post" action="{{ url_for('revoke_api_token') }}"
+                onsubmit="return confirm('Revoke your token? Claude will no longer be able to update your garden.')">
+            <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;font-family:inherit;padding:8px 0">Revoke</button>
+          </form>
+        </div>
+      {% else %}
+        <form method="post" action="{{ url_for('generate_api_token') }}" style="margin-top:4px">
+          <button type="submit">Generate API token</button>
         </form>
-        <form method="post" action="{{ url_for('revoke_api_token') }}"
-              onsubmit="return confirm('Revoke your token? Claude will no longer be able to update your garden.')">
-          <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.82rem;cursor:pointer;font-family:inherit;padding:8px 0">Revoke</button>
-        </form>
-      </div>
-    {% else %}
-      <form method="post" action="{{ url_for('generate_api_token') }}" style="margin-top:4px">
-        <button type="submit">Generate API token</button>
-      </form>
-    {% endif %}
-  </section>
+      {% endif %}
+    </section>
 
-  <section class="panel">
-    <h2 style="margin-bottom:8px">MCP tools</h2>
-    <p class="muted" style="font-size:0.83rem;margin-bottom:12px">
-      The MCP server exposes these tools to Claude. You can also call the REST API directly
-      with <code>Authorization: Bearer &lt;token&gt;</code>.
-    </p>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
-        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">list_garden_entries</p>
-        <code style="font-size:0.78rem;color:var(--muted)">Returns all your garden entries — no arguments needed</code>
+    <section class="panel">
+      <h2 style="margin-bottom:8px">MCP tools</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:12px">
+        The MCP server exposes these tools to Claude. You can also call the REST API directly
+        with <code>Authorization: Bearer &lt;token&gt;</code>.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+          <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">list_garden_entries</p>
+          <code style="font-size:0.78rem;color:var(--muted)">Returns all your garden entries — no arguments needed</code>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+          <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">add_garden_entry</p>
+          <code style="font-size:0.78rem;color:var(--muted);display:block">plant_name, variety?, location_type?, location_name?, planted_date?, notes?</code>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
+          <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">update_garden_entry</p>
+          <code style="font-size:0.78rem;color:var(--muted)">entry_id (required) + any fields to update</code>
+        </div>
       </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
-        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">add_garden_entry</p>
-        <code style="font-size:0.78rem;color:var(--muted);display:block">plant_name, variety?, location_type?, location_name?, planted_date?, notes?</code>
-      </div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
-        <p style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green-mid);margin-bottom:4px">update_garden_entry</p>
-        <code style="font-size:0.78rem;color:var(--muted)">entry_id (required) + any fields to update</code>
-      </div>
-    </div>
-  </section>
+    </section>
+
+  </div><!-- /panel-admin -->
   {% endif %}
+
 {% endblock %}
 
 {% block scripts %}
 {% if current_user and current_user['is_admin'] %}
 <script>
 (function () {
-  fetch('/api/service-status')
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      var list = document.getElementById('services-list');
-      if (!list) return;
-      var html = '';
-      (data.services || []).forEach(function (s) {
-        var dot, dotLabel;
-        if (s.always_free) {
-          dot = 'background:#4A7C95'; dotLabel = 'Free';
-        } else if (s.configured) {
-          dot = 'background:var(--green-mid)'; dotLabel = 'Connected';
-        } else {
-          dot = 'background:#aaa'; dotLabel = s.optional ? 'Not set (optional)' : 'Not configured';
-        }
+  var TAB_KEY = 'tools_tab';
+  var activeTab = sessionStorage.getItem(TAB_KEY) || 'settings';
 
-        var creditHtml = '';
-        if (s.credits_remaining != null) {
-          var pct = s.credits_total ? Math.round((s.credits_remaining / s.credits_total) * 100) : null;
-          var barColor = pct == null ? 'var(--green-mid)' : pct > 30 ? 'var(--green-mid)' : pct > 10 ? '#B5803A' : '#C26B7E';
-          var checkedLabel = '';
-          if (s.checked_ago_secs != null) {
-            var secs = s.checked_ago_secs;
-            if (secs < 120)          checkedLabel = 'just now';
-            else if (secs < 3600)    checkedLabel = Math.round(secs / 60) + ' min ago';
-            else if (secs < 86400)   checkedLabel = Math.round(secs / 3600) + ' hr ago';
-            else                     checkedLabel = Math.round(secs / 86400) + ' days ago';
-          }
-          creditHtml = '<div style="margin-top:8px">'
-            + '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-bottom:3px">'
-            + '<span>Credits remaining</span>'
-            + '<span style="font-weight:600;color:var(--text)">' + s.credits_remaining
-            + (s.credits_total ? ' / ' + s.credits_total : '') + '</span></div>'
-            + (pct != null ? '<div style="height:4px;background:var(--border);border-radius:2px"><div style="height:4px;border-radius:2px;width:' + pct + '%;background:' + barColor + '"></div></div>' : '')
-            + (checkedLabel ? '<p style="font-size:0.72rem;color:var(--muted);margin:4px 0 0;text-align:right">Updated ' + checkedLabel + ' · refreshes every 24 h</p>' : '')
-            + '</div>';
-        }
+  function showTab(name) {
+    activeTab = name;
+    try { sessionStorage.setItem(TAB_KEY, name); } catch(_) {}
+    var isSettings = name === 'settings';
+    document.getElementById('panel-settings').hidden = !isSettings;
+    document.getElementById('panel-admin').hidden = isSettings;
+    var btnActive   = 'background:var(--green-dark);color:#fff';
+    var btnInactive = 'background:transparent;color:var(--muted)';
+    document.getElementById('tab-settings').style.cssText += ';' + (isSettings ? btnActive : btnInactive);
+    document.getElementById('tab-admin').style.cssText    += ';' + (isSettings ? btnInactive : btnActive);
+  }
 
-        html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:13px 15px">'
-          + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">'
-          + '<div style="display:flex;align-items:center;gap:7px">'
-          + '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;' + dot + '"></span>'
-          + '<span style="font-size:0.85rem;font-weight:600">' + s.name + '</span>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:8px">'
-          + '<span style="font-size:0.72rem;color:var(--muted)">' + dotLabel + '</span>'
-          + '<a href="' + s.dashboard_url + '" target="_blank" rel="noopener" '
-          + 'style="font-size:0.72rem;color:var(--green-dark);white-space:nowrap">Dashboard ↗</a>'
-          + '</div></div>'
-          + '<p style="font-size:0.78rem;color:var(--muted);margin:0 0 2px">' + s.used_for + '</p>'
-          + '<p style="font-size:0.75rem;color:var(--muted);margin:0">' + (s.limit_note || '') + '</p>'
-          + creditHtml
-          + '</div>';
-      });
-      list.innerHTML = html;
-    })
-    .catch(function () {
-      var list = document.getElementById('services-list');
-      if (list) list.innerHTML = '<p style="font-size:0.83rem;color:var(--muted)">Could not load service status.</p>';
-    });
+  window.showTab = showTab;
+  showTab(activeTab);
+
+  // Load service status only when admin tab is first viewed
+  var servicesLoaded = false;
+  var origShowTab = window.showTab;
+  window.showTab = function(name) {
+    origShowTab(name);
+    if (name === 'admin' && !servicesLoaded) {
+      servicesLoaded = true;
+      fetch('/api/service-status')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var list = document.getElementById('services-list');
+          if (!list) return;
+          var html = '';
+          (data.services || []).forEach(function (s) {
+            var dot, dotLabel;
+            if (s.always_free) {
+              dot = 'background:#4A7C95'; dotLabel = 'Free';
+            } else if (s.configured) {
+              dot = 'background:var(--green-mid)'; dotLabel = 'Connected';
+            } else {
+              dot = 'background:#aaa'; dotLabel = s.optional ? 'Not set (optional)' : 'Not configured';
+            }
+            var creditHtml = '';
+            if (s.credits_remaining != null) {
+              var pct = s.credits_total ? Math.round((s.credits_remaining / s.credits_total) * 100) : null;
+              var barColor = pct == null ? 'var(--green-mid)' : pct > 30 ? 'var(--green-mid)' : pct > 10 ? '#B5803A' : '#C26B7E';
+              var checkedLabel = '';
+              if (s.checked_ago_secs != null) {
+                var secs = s.checked_ago_secs;
+                if (secs < 120)          checkedLabel = 'just now';
+                else if (secs < 3600)    checkedLabel = Math.round(secs / 60) + ' min ago';
+                else if (secs < 86400)   checkedLabel = Math.round(secs / 3600) + ' hr ago';
+                else                     checkedLabel = Math.round(secs / 86400) + ' days ago';
+              }
+              creditHtml = '<div style="margin-top:8px">'
+                + '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-bottom:3px">'
+                + '<span>Credits remaining</span>'
+                + '<span style="font-weight:600;color:var(--text)">' + s.credits_remaining
+                + (s.credits_total ? ' / ' + s.credits_total : '') + '</span></div>'
+                + (pct != null ? '<div style="height:4px;background:var(--border);border-radius:2px"><div style="height:4px;border-radius:2px;width:' + pct + '%;background:' + barColor + '"></div></div>' : '')
+                + (checkedLabel ? '<p style="font-size:0.72rem;color:var(--muted);margin:4px 0 0;text-align:right">Updated ' + checkedLabel + ' · refreshes every 24 h</p>' : '')
+                + '</div>';
+            }
+            html += '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:13px 15px">'
+              + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">'
+              + '<div style="display:flex;align-items:center;gap:7px">'
+              + '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;' + dot + '"></span>'
+              + '<span style="font-size:0.85rem;font-weight:600">' + s.name + '</span>'
+              + '</div>'
+              + '<div style="display:flex;align-items:center;gap:8px">'
+              + '<span style="font-size:0.72rem;color:var(--muted)">' + dotLabel + '</span>'
+              + '<a href="' + s.dashboard_url + '" target="_blank" rel="noopener" '
+              + 'style="font-size:0.72rem;color:var(--green-dark);white-space:nowrap">Dashboard ↗</a>'
+              + '</div></div>'
+              + '<p style="font-size:0.78rem;color:var(--muted);margin:0 0 2px">' + s.used_for + '</p>'
+              + '<p style="font-size:0.75rem;color:var(--muted);margin:0">' + (s.limit_note || '') + '</p>'
+              + creditHtml
+              + '</div>';
+          });
+          list.innerHTML = html;
+        })
+        .catch(function () {
+          var list = document.getElementById('services-list');
+          if (list) list.innerHTML = '<p style="font-size:0.83rem;color:var(--muted)">Could not load service status.</p>';
+        });
+    }
+  };
+
+  // Re-apply to pick up the lazy-load wrapper for initial tab
+  showTab(activeTab);
 })();
 </script>
 {% endif %}
