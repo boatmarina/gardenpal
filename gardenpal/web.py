@@ -1902,123 +1902,133 @@ def create_app() -> Flask:
         changed = False
         client = _anthropic.Anthropic(api_key=api_key)
 
-        for _ in range(10):
-            response = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=512,
-                system=system,
-                tools=tools,
-                messages=messages,
-            )
-            messages.append({"role": "assistant", "content": response.content})
+        try:
+            for _ in range(10):
+                response = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=1024,
+                    system=system,
+                    tools=tools,
+                    messages=messages,
+                )
+                messages.append({"role": "assistant", "content": response.content})
 
-            if response.stop_reason != "tool_use":
-                text = next((b.text for b in response.content if hasattr(b, "text")), "Done.")
-                return jsonify(reply=text, changed=changed)
+                if response.stop_reason != "tool_use":
+                    text = next((b.text for b in response.content if hasattr(b, "text")), "Done.")
+                    return jsonify(reply=text, changed=changed)
 
-            # Execute tool calls
-            tool_results = []
-            for block in response.content:
-                if not hasattr(block, "type") or block.type != "tool_use":
-                    continue
-                inp = block.input
-                result = {}
-                try:
-                    if block.name == "add_garden_entry":
-                        pname = (inp.get("plant_name") or "").strip()
-                        if not pname:
-                            result = {"error": "plant_name is required"}
-                        else:
-                            now = datetime.utcnow().isoformat(timespec="seconds")
-                            row = db.execute(
-                                """INSERT INTO garden_entries
-                                (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
-                                (
-                                    user_id, pname,
-                                    (inp.get("variety") or "").strip() or None,
-                                    (inp.get("location_type") or "").strip() or None,
-                                    (inp.get("location_name") or "").strip() or None,
-                                    _parse_date_to_iso((inp.get("planted_date") or "").strip(), today),
-                                    (inp.get("notes") or "").strip() or None,
-                                    now, now,
-                                ),
-                            ).fetchone()
-                            db.commit()
-                            changed = True
-                            result = {"ok": True, "entry_id": row["id"]}
-
-                    elif block.name == "add_garden_note":
-                        eid = inp.get("entry_id")
-                        note = (inp.get("note") or "").strip()
-                        if not eid or not note:
-                            result = {"error": "entry_id and note are required"}
-                        else:
-                            entry = db.execute(
-                                "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
-                                (eid, user_id),
-                            ).fetchone()
-                            if not entry:
-                                result = {"error": f"Entry {eid} not found"}
+                # Execute tool calls
+                tool_results = []
+                for block in response.content:
+                    if not hasattr(block, "type") or block.type != "tool_use":
+                        continue
+                    inp = block.input
+                    result = {}
+                    try:
+                        if block.name == "add_garden_entry":
+                            pname = (inp.get("plant_name") or "").strip()
+                            if not pname:
+                                result = {"error": "plant_name is required"}
                             else:
-                                db.execute(
-                                    """INSERT INTO garden_photos
-                                    (entry_id, user_id, image_path, photo_date, notes, created_at)
-                                    VALUES (?, ?, NULL, ?, ?, ?)""",
-                                    (eid, user_id, inp.get("note_date") or today, note,
-                                     datetime.utcnow().isoformat(timespec="seconds")),
-                                )
+                                now = datetime.utcnow().isoformat(timespec="seconds")
+                                row = db.execute(
+                                    """INSERT INTO garden_entries
+                                    (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                                    (
+                                        user_id, pname,
+                                        (inp.get("variety") or "").strip() or None,
+                                        (inp.get("location_type") or "").strip() or None,
+                                        (inp.get("location_name") or "").strip() or None,
+                                        _parse_date_to_iso((inp.get("planted_date") or "").strip(), today),
+                                        (inp.get("notes") or "").strip() or None,
+                                        now, now,
+                                    ),
+                                ).fetchone()
                                 db.commit()
                                 changed = True
-                                result = {"ok": True}
+                                result = {"ok": True, "entry_id": row["id"]}
 
-                    elif block.name == "update_garden_entry":
-                        eid = inp.get("entry_id")
-                        if not eid:
-                            result = {"error": "entry_id is required"}
-                        else:
-                            entry = db.execute(
-                                "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
-                                (eid, user_id),
-                            ).fetchone()
-                            if not entry:
-                                result = {"error": f"Entry {eid} not found"}
+                        elif block.name == "add_garden_note":
+                            eid = inp.get("entry_id")
+                            note = (inp.get("note") or "").strip()
+                            if not eid or not note:
+                                result = {"error": "entry_id and note are required"}
                             else:
-                                fields = ["plant_name", "variety", "location_type", "location_name", "planted_date", "notes"]
-                                sets, params = [], []
-                                for f in fields:
-                                    if f in inp:
-                                        val = (inp[f] or "").strip() or None
-                                        if f == "planted_date" and val:
-                                            val = _parse_date_to_iso(val, today)
-                                        sets.append(f"{f} = ?")
-                                        params.append(val)
-                                if sets:
-                                    sets.append("updated_at = ?")
-                                    params.append(datetime.utcnow().isoformat(timespec="seconds"))
-                                    params += [eid, user_id]
+                                entry = db.execute(
+                                    "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
+                                    (eid, user_id),
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                else:
                                     db.execute(
-                                        f"UPDATE garden_entries SET {', '.join(sets)} WHERE id = ? AND user_id = ?",
-                                        params,
+                                        """INSERT INTO garden_photos
+                                        (entry_id, user_id, image_path, photo_date, notes, created_at)
+                                        VALUES (?, ?, NULL, ?, ?, ?)""",
+                                        (eid, user_id, _parse_date_to_iso(inp.get("note_date") or today, today), note,
+                                         datetime.utcnow().isoformat(timespec="seconds")),
                                     )
                                     db.commit()
                                     changed = True
-                                    result = {"ok": True, "updated": [f for f in fields if f in inp]}
+                                    result = {"ok": True}
+
+                        elif block.name == "update_garden_entry":
+                            eid = inp.get("entry_id")
+                            if not eid:
+                                result = {"error": "entry_id is required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
+                                    (eid, user_id),
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
                                 else:
-                                    result = {"error": "No fields to update"}
-                    else:
-                        result = {"error": f"Unknown tool: {block.name}"}
-                except Exception as exc:
-                    result = {"error": str(exc)}
+                                    fields = ["plant_name", "variety", "location_type", "location_name", "planted_date", "notes"]
+                                    sets, params = [], []
+                                    for f in fields:
+                                        if f in inp:
+                                            val = (inp[f] or "").strip() or None
+                                            if f == "planted_date" and val:
+                                                val = _parse_date_to_iso(val, today)
+                                            sets.append(f"{f} = ?")
+                                            params.append(val)
+                                    if sets:
+                                        sets.append("updated_at = ?")
+                                        params.append(datetime.utcnow().isoformat(timespec="seconds"))
+                                        params += [eid, user_id]
+                                        db.execute(
+                                            f"UPDATE garden_entries SET {', '.join(sets)} WHERE id = ? AND user_id = ?",
+                                            params,
+                                        )
+                                        db.commit()
+                                        changed = True
+                                        result = {"ok": True, "updated": [f for f in fields if f in inp]}
+                                    else:
+                                        result = {"error": "No fields to update"}
+                        else:
+                            result = {"error": f"Unknown tool: {block.name}"}
+                    except Exception as exc:
+                        result = {"error": str(exc)}
 
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": json.dumps(result),
-                })
-            messages.append({"role": "user", "content": tool_results})
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result),
+                    })
+                messages.append({"role": "user", "content": tool_results})
 
-        return jsonify(reply="Something went wrong — please try again.", changed=False)
+            return jsonify(reply="Something went wrong — please try again.", changed=False)
+
+        except _anthropic.RateLimitError:
+            return jsonify(reply="The assistant is busy right now — please try again in a moment.", changed=False), 429
+        except _anthropic.APIStatusError as exc:
+            if exc.status_code in (529, 503):
+                return jsonify(reply="The assistant is temporarily overloaded — please try again in a moment.", changed=False), 503
+            return jsonify(reply="The assistant encountered an error — please try again.", changed=False), 502
+        except Exception:
+            return jsonify(reply="Something went wrong — please try again.", changed=False), 500
 
     # ── Garden API (token-authenticated) ────────────────────────────────────
 
