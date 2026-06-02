@@ -1547,7 +1547,7 @@ def create_app() -> Flask:
         db.execute("UPDATE users SET api_token = ? WHERE id = ?", (token, g.user["id"]))
         db.commit()
         flash("New API token generated.")
-        return redirect(url_for("settings"))
+        return redirect(url_for("tools"))
 
     @app.route("/settings/revoke-token", methods=["POST"])
     @login_required
@@ -1556,7 +1556,7 @@ def create_app() -> Flask:
         db.execute("UPDATE users SET api_token = NULL WHERE id = ?", (g.user["id"],))
         db.commit()
         flash("API token revoked.")
-        return redirect(url_for("settings"))
+        return redirect(url_for("tools"))
 
     # ── Garden tracker (UI) ─────────────────────────────────────────────────
 
@@ -1880,7 +1880,7 @@ def create_app() -> Flask:
                     "properties": {
                         "plant_name": {"type": "string"},
                         "variety": {"type": "string"},
-                        "location_type": {"type": "string", "enum": ["raised_bed", "ground", "container", "greenhouse", "other"]},
+                        "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "other"]},
                         "location_name": {"type": "string", "description": "e.g. 'Raised bed 1'"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
                         "notes": {"type": "string"},
@@ -1910,7 +1910,7 @@ def create_app() -> Flask:
                         "entry_id": {"type": "integer"},
                         "plant_name": {"type": "string"},
                         "variety": {"type": "string"},
-                        "location_type": {"type": "string", "enum": ["raised_bed", "ground", "container", "greenhouse", "other"]},
+                        "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "other"]},
                         "location_name": {"type": "string"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
                         "notes": {"type": "string"},
@@ -2545,7 +2545,8 @@ def create_app() -> Flask:
     @app.route("/uploads/<path:filename>")
     @login_required
     def uploads(filename: str):
-        if not filename.startswith(f"{g.user['id']}_"):
+        allowed_ids = _shared_user_ids(get_db(), g.user["id"])
+        if not any(filename.startswith(f"{uid}_") for uid in allowed_ids):
             flash("You do not have access to that file.")
             return redirect(url_for("dashboard"))
         return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
