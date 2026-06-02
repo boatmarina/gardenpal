@@ -143,6 +143,19 @@ def _parse_date_to_iso(value: str, today: str) -> str | None:
     return v
 
 
+def _log_chat_error(db, user_id, username, user_message, error_type, error_detail=""):
+    try:
+        db.execute(
+            """INSERT INTO chat_error_log (user_id, username, user_message, error_type, error_detail, logged_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, username, (user_message or "")[:500], error_type, (error_detail or "")[:500],
+             datetime.utcnow().isoformat(timespec="seconds")),
+        )
+        db.commit()
+    except Exception:
+        pass  # never let logging break the response
+
+
 def create_app() -> Flask:
     app = Flask(__name__, instance_relative_config=True)
     upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
@@ -1258,6 +1271,7 @@ def create_app() -> Flask:
         users_with_stats = []
         perenual_log = []
         db = get_db()
+        chat_error_log = []
         if g.user.get("is_admin"):
             rows = db.execute(
                 "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at ASC"
@@ -1268,6 +1282,10 @@ def create_app() -> Flask:
             perenual_log = db.execute(
                 "SELECT query, result_count, logged_at FROM perenual_log"
                 " ORDER BY logged_at DESC LIMIT 200"
+            ).fetchall()
+            chat_error_log = db.execute(
+                "SELECT username, user_message, error_type, error_detail, logged_at"
+                " FROM chat_error_log ORDER BY logged_at DESC LIMIT 200"
             ).fetchall()
         uid = g.user["id"]
         share_rows = db.execute(
@@ -1282,6 +1300,7 @@ def create_app() -> Flask:
         garden_shares_out    = [{"id": r["id"], "partner_name": r["partner_name"]} for r in share_rows if not r["confirmed"] and r["requested_by"] == uid]
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
                                perenual_log=perenual_log,
+                               chat_error_log=chat_error_log,
                                garden_shares=garden_shares,
                                garden_shares_in=garden_shares_in,
                                garden_shares_out=garden_shares_out,
@@ -2021,13 +2040,23 @@ def create_app() -> Flask:
 
             return jsonify(reply="Something went wrong — please try again.", changed=False)
 
-        except _anthropic.RateLimitError:
+        except _anthropic.AuthenticationError as exc:
+            _log_chat_error(db, user_id, g.user["username"], message, "billing_auth", str(exc))
+            return jsonify(reply="The garden assistant is currently unavailable.", changed=False), 503
+        except _anthropic.RateLimitError as exc:
+            _log_chat_error(db, user_id, g.user["username"], message, "rate_limit", str(exc))
             return jsonify(reply="The assistant is busy right now — please try again in a moment.", changed=False), 429
         except _anthropic.APIStatusError as exc:
+            if exc.status_code == 402:
+                _log_chat_error(db, user_id, g.user["username"], message, "billing_credits", str(exc))
+                return jsonify(reply="The garden assistant is currently unavailable.", changed=False), 503
             if exc.status_code in (529, 503):
+                _log_chat_error(db, user_id, g.user["username"], message, "overloaded", str(exc))
                 return jsonify(reply="The assistant is temporarily overloaded — please try again in a moment.", changed=False), 503
+            _log_chat_error(db, user_id, g.user["username"], message, f"api_{exc.status_code}", str(exc))
             return jsonify(reply="The assistant encountered an error — please try again.", changed=False), 502
-        except Exception:
+        except Exception as exc:
+            _log_chat_error(db, user_id, g.user["username"], message, "unknown", str(exc))
             return jsonify(reply="Something went wrong — please try again.", changed=False), 500
 
     # ── Garden API (token-authenticated) ────────────────────────────────────
@@ -2807,6 +2836,19 @@ _SCHEMA_STATEMENTS = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_garden_shares_a ON garden_shares(user_a_id)",
     "CREATE INDEX IF NOT EXISTS idx_garden_shares_b ON garden_shares(user_b_id)",
+    """
+    CREATE TABLE IF NOT EXISTS chat_error_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        username TEXT,
+        user_message TEXT,
+        error_type TEXT NOT NULL,
+        error_detail TEXT,
+        logged_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_chat_error_log_at ON chat_error_log(logged_at DESC)",
 ]
 
 

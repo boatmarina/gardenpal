@@ -256,6 +256,44 @@
   </section>
   {% endif %}
 
+  {% if current_user and current_user['is_admin'] and chat_error_log is defined %}
+  <section class="panel" style="margin-bottom:16px">
+    <h2 style="margin-bottom:4px">AI assistant error log</h2>
+    <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+      Errors from the garden chat assistant — last 200 entries. Billing and auth errors mean the assistant is unavailable to all users.
+    </p>
+    {% if chat_error_log %}
+      <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+        {% for row in chat_error_log %}
+        <div style="padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <span style="font-size:0.78rem;font-weight:600">{{ row.username or '(deleted)' }}</span>
+            {% if row.error_type in ('billing_auth', 'billing_credits') %}
+              <span style="font-size:0.7rem;background:#fce8e8;color:#b04040;border:1px solid #f5c0c0;border-radius:4px;padding:1px 6px;font-weight:600">{{ row.error_type }}</span>
+            {% elif row.error_type == 'rate_limit' %}
+              <span style="font-size:0.7rem;background:#fff3e0;color:#B5803A;border:1px solid #f0d090;border-radius:4px;padding:1px 6px;font-weight:600">rate limit</span>
+            {% elif row.error_type == 'overloaded' %}
+              <span style="font-size:0.7rem;background:#fff3e0;color:#B5803A;border:1px solid #f0d090;border-radius:4px;padding:1px 6px;font-weight:600">overloaded</span>
+            {% else %}
+              <span style="font-size:0.7rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">{{ row.error_type }}</span>
+            {% endif %}
+            <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+          </div>
+          {% if row.user_message %}
+            <p style="font-size:0.8rem;margin:0 0 2px;color:var(--text)">"{{ row.user_message }}"</p>
+          {% endif %}
+          {% if row.error_detail %}
+            <p style="font-size:0.73rem;color:var(--muted);margin:0;word-break:break-all">{{ row.error_detail[:200] }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No errors logged yet.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if current_user and current_user['is_admin'] %}
   <section class="panel" style="margin-bottom:16px" id="services-panel">
     <h2 style="margin-bottom:4px">Connected services</h2>
