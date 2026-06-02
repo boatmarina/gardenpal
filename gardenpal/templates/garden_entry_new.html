@@ -22,9 +22,11 @@
         Location type
         <select name="location_type">
           <option value="">Choose…</option>
-          <option value="raised_bed" {% if form_values.location_type == "raised_bed" %}selected{% endif %}>Raised bed</option>
-          <option value="container"  {% if form_values.location_type == "container"  %}selected{% endif %}>Container</option>
-          <option value="in_ground"  {% if form_values.location_type == "in_ground"  %}selected{% endif %}>In ground</option>
+          <option value="raised_bed"  {% if form_values.location_type == "raised_bed"  %}selected{% endif %}>Raised bed</option>
+          <option value="container"   {% if form_values.location_type == "container"   %}selected{% endif %}>Container</option>
+          <option value="in_ground"   {% if form_values.location_type == "in_ground"   %}selected{% endif %}>In ground</option>
+          <option value="greenhouse"  {% if form_values.location_type == "greenhouse"  %}selected{% endif %}>Greenhouse</option>
+          <option value="other"       {% if form_values.location_type == "other"       %}selected{% endif %}>Other</option>
         </select>
       </label>
       <label>
