@@ -1860,8 +1860,11 @@ def create_app() -> Flask:
             f"You are a concise assistant for an edible garden tracker. Today is {today}.\n\n"
             f"Current garden entries:\n{entries_text}\n\n"
             "Help the user add plants, add notes, update details, or answer questions about their garden. "
-            "Entries marked [partner's — read only] belong to a shared garden partner — answer questions about them but do not try to modify them. "
-            "For bulk changes call the relevant tool multiple times. Keep replies short — just confirm what was done. "
+            "Entries marked [partner's — read only] belong to a shared garden partner — answer questions about them but do NOT call any tool on them. "
+            "For bulk changes call the relevant tool once per entry. "
+            "If a tool returns an error, skip that entry silently and continue with the remaining ones — do NOT apologise or stop early. "
+            "Only mention a failure at the end if every single attempt failed. "
+            "Keep replies short — just confirm what was done. "
             "If a plant name is ambiguous (multiple matches), list the options and ask which one. "
             "Never mention entry IDs to the user — they are internal only. "
             "Always format dates for the user as 'Month Day' (e.g. 'May 17', never '2026-05-17'). "
@@ -1975,11 +1978,13 @@ def create_app() -> Flask:
                                 result = {"error": "entry_id and note are required"}
                             else:
                                 entry = db.execute(
-                                    "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
-                                    (eid, user_id),
+                                    "SELECT id, user_id FROM garden_entries WHERE id = ?",
+                                    (eid,),
                                 ).fetchone()
                                 if not entry:
-                                    result = {"error": f"Entry {eid} not found"}
+                                    result = {"error": f"Entry {eid} not found — skip it and continue with others"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} belongs to your garden partner and is read-only — skip it and continue with the user's own entries"}
                                 else:
                                     db.execute(
                                         """INSERT INTO garden_photos
@@ -1998,11 +2003,13 @@ def create_app() -> Flask:
                                 result = {"error": "entry_id is required"}
                             else:
                                 entry = db.execute(
-                                    "SELECT id FROM garden_entries WHERE id = ? AND user_id = ?",
-                                    (eid, user_id),
+                                    "SELECT id, user_id FROM garden_entries WHERE id = ?",
+                                    (eid,),
                                 ).fetchone()
                                 if not entry:
-                                    result = {"error": f"Entry {eid} not found"}
+                                    result = {"error": f"Entry {eid} not found — skip it and continue with others"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} belongs to your garden partner and is read-only — skip it and continue with the user's own entries"}
                                 else:
                                     fields = ["plant_name", "variety", "location_type", "location_name", "planted_date", "notes"]
                                     sets, params = [], []
@@ -2030,6 +2037,10 @@ def create_app() -> Flask:
                             result = {"error": f"Unknown tool: {block.name}"}
                     except Exception as exc:
                         result = {"error": str(exc)}
+
+                    if "error" in result:
+                        _log_chat_error(db, user_id, g.user["username"], message,
+                                        f"tool_{block.name}", result["error"])
 
                     tool_results.append({
                         "type": "tool_result",
