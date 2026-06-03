@@ -1197,6 +1197,8 @@ def create_app() -> Flask:
             [notes, yard_plant_id] + id_args,
         )
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": True})
         back = request.args.get("back", type=int)
         if back:
             return redirect(url_for("idea_detail", plant_id=back))

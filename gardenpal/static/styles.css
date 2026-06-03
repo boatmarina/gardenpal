@@ -1233,6 +1233,15 @@ button.tag-pill-removable {
 }
 button.tag-pill-removable:hover { opacity: 0.7; }
 
+.notes-saved-hint {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--green-dark);
+  margin-top: 4px;
+  opacity: 1;
+  transition: opacity 0.4s;
+}
+
 /* Tag filter pills (links in library filter row) */
 .tag-filter-pill {
   display: inline-flex;

@@ -49,7 +49,25 @@
     <!-- ── LIBRARY PICKER ── -->
     <div id="section-library">
       {% if library_plants %}
-        <p class="muted" style="font-size:0.82rem;margin-bottom:12px">Tap a plant from your collection to add it to your yard.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <p class="muted" style="font-size:0.82rem;margin:0">Tap a plant from your collection.</p>
+          <button type="button" id="lib-filter-toggle"
+                  style="background:none;border:1px solid var(--border);border-radius:var(--r-md);padding:5px 9px;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--muted);font-size:0.72rem;font-weight:600;letter-spacing:0.03em">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Search
+          </button>
+        </div>
+        <div id="lib-filter-panel" hidden style="margin-bottom:12px">
+          <div class="library-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="lib-search-input" placeholder="Search your library…" autocomplete="off" />
+          </div>
+          <p id="lib-search-empty" class="muted" style="font-size:0.82rem;margin-top:8px" hidden>No plants match.</p>
+        </div>
         <div class="cards">
           {% for plant in library_plants %}
             {% set thumb = plant.photo_urls | first_photo %}
@@ -973,6 +991,44 @@ async function compressAndIdentify(inputEl, submitBtnId) {
 
   document.addEventListener('click', function(e) { if (!wrap.contains(e.target)) dropdown.hidden = true; });
   wrap.addEventListener('click', function(e) { if (e.target === wrap || e.target === chipsDisplay) inp.focus(); });
+})();
+
+/* Library search filter */
+(function() {
+  var toggle = document.getElementById('lib-filter-toggle');
+  var panel  = document.getElementById('lib-filter-panel');
+  var input  = document.getElementById('lib-search-input');
+  var emptyMsg = document.getElementById('lib-search-empty');
+  var cards  = Array.from(document.querySelectorAll('#section-library .plant-pick'));
+
+  if (toggle && panel) {
+    toggle.addEventListener('click', function() {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden && input) {
+        input.focus();
+        toggle.style.borderColor = 'var(--green-mid)';
+        toggle.style.color = 'var(--green-dark)';
+      } else {
+        toggle.style.borderColor = '';
+        toggle.style.color = '';
+      }
+    });
+  }
+
+  if (input) {
+    input.addEventListener('input', function() {
+      var q = input.value.trim().toLowerCase();
+      var visible = 0;
+      cards.forEach(function(card) {
+        var name = (card.getAttribute('data-name') || '').toLowerCase();
+        var sci  = (card.getAttribute('data-sci')  || '').toLowerCase();
+        var show = !q || name.indexOf(q) !== -1 || sci.indexOf(q) !== -1;
+        card.hidden = !show;
+        if (show) visible++;
+      });
+      if (emptyMsg) emptyMsg.hidden = visible > 0 || !q;
+    });
+  }
 })();
 </script>
 {% endblock %}
