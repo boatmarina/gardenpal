@@ -1214,6 +1214,9 @@ dd { margin: 0; }
 button.tag-pill-removable {
   -webkit-appearance: none;
   appearance: none;
+  background: none;
+  color: inherit;
+  border: none;
   cursor: pointer;
   font: inherit;
   font-size: 0.75rem;
@@ -1316,12 +1319,13 @@ button.tag-chip-close:hover { opacity: 1; }
 
 /* Inline add-tag input on detail page */
 .tag-add-input {
-  width: auto;
+  width: auto !important;  /* override global input{width:100%} */
   min-width: 140px;
+  max-width: 280px;
   border: 1.5px dashed var(--border);
   border-radius: 999px;
   padding: 5px 16px;
-  font-size: 0.82rem;
+  font-size: 1rem;  /* ≥16px prevents iOS auto-zoom on focus */
   background: transparent;
   color: var(--fg);
   transition: border-color 0.15s, border-style 0.15s;
