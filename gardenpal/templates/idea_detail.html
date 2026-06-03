@@ -138,14 +138,13 @@
                   style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;font-family:inherit">×</button>
         </form>
       </div>
-      <form method="post"
-            action="{{ url_for('yard_plant_update_notes', yard_plant_id=pz.id) }}?back={{ plant.id }}">
+      <div class="notes-autosave-wrap"
+           data-url="{{ url_for('yard_plant_update_notes', yard_plant_id=pz.id) }}?back={{ plant.id }}">
         <textarea name="notes" rows="2"
                   placeholder="Notes — e.g. planted May 2025, south-facing corner…"
-                  style="font-size:0.85rem;resize:vertical;margin-bottom:6px">{{ pz.notes or '' }}</textarea>
-        <button type="submit" class="button button-secondary"
-                style="font-size:0.65rem;padding:4px 12px">Save notes</button>
-      </form>
+                  style="font-size:0.85rem;resize:vertical">{{ pz.notes or '' }}</textarea>
+        <span class="notes-saved-hint" hidden>Saved ✓</span>
+      </div>
     </div>
     {% endfor %}
     {% if all_zones %}
@@ -496,6 +495,33 @@
 
   wrap.addEventListener('click', function(e) {
     if (e.target === wrap) inp.focus();
+  });
+})();
+
+/* Auto-save notes on blur */
+(function() {
+  document.querySelectorAll('.notes-autosave-wrap').forEach(function(container) {
+    var textarea = container.querySelector('textarea');
+    var hint = container.querySelector('.notes-saved-hint');
+    var url = container.dataset.url;
+    if (!textarea || !url) return;
+    var lastSaved = textarea.value;
+    var hintTimer;
+
+    textarea.addEventListener('blur', function() {
+      if (textarea.value === lastSaved) return;
+      lastSaved = textarea.value;
+      var fd = new FormData();
+      fd.append('notes', textarea.value);
+      fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+        .then(function() {
+          if (!hint) return;
+          hint.hidden = false;
+          clearTimeout(hintTimer);
+          hintTimer = setTimeout(function() { hint.hidden = true; }, 2000);
+        })
+        .catch(function() {});
+    });
   });
 })();
 
