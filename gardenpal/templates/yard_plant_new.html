@@ -265,7 +265,9 @@
     </div>
 
     <!-- ── ZONE + SAVE ── -->
-    <div id="common-fields" {% if not form_values.plant_name %}hidden{% endif %} class="panel stack">
+    <div id="common-fields"
+         {% if form_values.active_mode == 'library' and not form_values.plant_name %}hidden{% endif %}
+         class="panel stack">
       <label>
         Yard zone *
         <select name="zone_id" required>
@@ -284,6 +286,11 @@
         </div>
         <input type="hidden" name="tag_names" id="yard-tag-names-hidden" value="" />
       </div>
+      <label>
+        Where did you see it?
+        <input type="text" name="source_note" value="{{ form_values.source_note }}"
+               placeholder="e.g. neighbor's garden, nursery, online" />
+      </label>
       <label>
         Notes
         <textarea name="notes" rows="3" placeholder="Planting date, spot notes…">{{ form_values.notes }}</textarea>
@@ -402,13 +409,21 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     btnNew.classList.toggle('dark', !isLib);
   }
 
-  btnLibrary.addEventListener('click', () => setMode('library'));
+  btnLibrary.addEventListener('click', () => {
+    setMode('library');
+    // Hide common fields in library mode until a plant is picked
+    if (!hName.value) common.hidden = true;
+  });
   btnNew.addEventListener('click', () => {
     setMode('new');
-    if (!hName.value) { selPanel.hidden = true; common.hidden = true; }
+    selPanel.hidden = true;
+    common.hidden = false;  // Always show fields in Add New mode
   });
 
-  setMode(hMode.value || 'library');
+  const initialMode = hMode.value || 'library';
+  setMode(initialMode);
+  // If returning to this page in new mode, keep common fields visible
+  if (initialMode === 'new') common.hidden = false;
 
   /* ── yard input sub-mode (name / photo / label / url) ── */
   const yardModeIds = ['name', 'photo', 'label', 'url'];
