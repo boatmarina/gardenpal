@@ -623,6 +623,25 @@ label {
 }
 .month-strip-inline::-webkit-scrollbar { display: none; }
 
+.year-badge-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  padding: 4px 0;
+  border-left: 1px solid var(--border);
+  margin: 6px 4px 6px 6px;
+}
+.year-badge-cell {
+  writing-mode: vertical-lr;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .garden-search-icon-btn {
   flex-shrink: 0;
   background: none;
