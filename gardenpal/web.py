@@ -674,7 +674,7 @@ def create_app() -> Flask:
         if plant is None:
             flash("Plant was not found.")
             return redirect(url_for("ideas_index"))
-        is_owner = plant["user_id"] == g.user["id"]
+        is_owner = plant["user_id"] in ids
 
         zone_id = request.args.get("zone_id", type=int)
         yard_plant_id = request.args.get("yard_plant_id", type=int)
@@ -952,6 +952,7 @@ def create_app() -> Flask:
             "lifecycle": "",
             "size_info": "",
             "spreads": "",
+            "description": "",
             "notes": "",
             "image_url": "",
             "active_mode": "library",
@@ -971,6 +972,7 @@ def create_app() -> Flask:
                 "lifecycle": request.form.get("lifecycle", "").strip(),
                 "size_info": request.form.get("size_info", "").strip(),
                 "spreads": request.form.get("spreads", "").strip(),
+                "description": request.form.get("description", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
                 "image_url": request.form.get("image_url", "").strip(),
                 "photo_urls_json": request.form.get("photo_urls_json", "").strip(),
@@ -1070,8 +1072,9 @@ def create_app() -> Flask:
                     INSERT INTO plants
                     (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path,
                      label_photo_path, image_url, size_info, flowering_schedule, sun_exposure, lifecycle,
-                     lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category,
+                     description, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         g.user["id"],
@@ -1094,6 +1097,7 @@ def create_app() -> Flask:
                         None,
                         None,
                         None,
+                        form_values.get("description") or None,
                         datetime.utcnow().isoformat(timespec="seconds"),
                     ),
                 )
@@ -1107,6 +1111,7 @@ def create_app() -> Flask:
                     ("lifecycle",          form_values["lifecycle"] or None),
                     ("size_info",          form_values["size_info"] or None),
                     ("flowering_schedule", form_values["flowering_schedule"] or None),
+                    ("description",        form_values.get("description") or None),
                 ] if v}
                 if updates:
                     set_clause = ", ".join(
@@ -2455,8 +2460,10 @@ def create_app() -> Flask:
     @login_required
     def add_plant_tag(plant_id: int):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         plant = db.execute(
-            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+            f"SELECT id FROM plants WHERE id = ? AND user_id IN {ph}", (plant_id, *id_args)
         ).fetchone()
         if plant is None:
             flash("Plant not found.")
@@ -2489,8 +2496,10 @@ def create_app() -> Flask:
     @login_required
     def remove_plant_tag(plant_id: int, tag_id: int):
         db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         plant = db.execute(
-            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+            f"SELECT id FROM plants WHERE id = ? AND user_id IN {ph}", (plant_id, *id_args)
         ).fetchone()
         if plant is None:
             flash("Plant not found.")
@@ -3025,6 +3034,8 @@ def apply_lookup_to_yard_form(form_values: dict, details: dict):
         form_values["size_info"] = details["size_info"]
     if details.get("spreads"):
         form_values["spreads"] = details["spreads"]
+    if details.get("description"):
+        form_values["description"] = details["description"]
     if details.get("photo_url") and not form_values.get("image_url"):
         form_values["image_url"] = details["photo_url"]
 
