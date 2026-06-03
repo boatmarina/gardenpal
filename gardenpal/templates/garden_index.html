@@ -202,27 +202,23 @@
     </a>
   </section>
 
-  <!-- Combined nav bar: year · months · search toggle -->
+  <!-- Nav bar: month strip across all years + search toggle -->
   <div class="garden-nav-bar">
-    <div class="year-nav-inline">
-      <a href="?year={{ active_year - 1 }}" class="year-nav-arrow-sm">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-      </a>
-      <span class="year-nav-label">{{ active_year }}</span>
-      <a href="?year={{ active_year + 1 }}" class="year-nav-arrow-sm{% if active_year >= current_year %} muted{% endif %}">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-      </a>
-    </div>
-    <div class="month-strip-inline">
-      {% for m in range(1, 13) %}
-        {% set cnt = month_counts.get(m, 0) %}
-        {% set off_season = m < 3 or m > 9 %}
+    <div class="month-strip-inline" id="month-strip">
+      {% set ns = namespace(prev_year=none) %}
+      {% for yr, mo, cnt in strip_months %}
+        {% if yr != ns.prev_year %}
+          <div class="year-badge-cell">{{ yr }}</div>
+          {% set ns.prev_year = yr %}
+        {% endif %}
+        {% set off_season = mo < 3 or mo > 9 %}
         {% if cnt == 0 %}{% set dot_cls = "dot-empty" %}
         {% elif cnt <= 2 %}{% set dot_cls = "dot-sm" %}
         {% elif cnt <= 5 %}{% set dot_cls = "dot-md" %}
         {% else %}{% set dot_cls = "dot-lg" %}{% endif %}
-        <a href="#month-{{ m }}" class="month-cell{% if cnt > 0 %} has-plants{% endif %}{% if off_season %} off-season{% endif %}">
-          <span class="month-label">{{ month_abbrs[m] }}</span>
+        <a href="#month-{{ yr }}-{{ mo }}" class="month-cell{% if cnt > 0 %} has-plants{% endif %}{% if off_season %} off-season{% endif %}"
+           data-year="{{ yr }}" data-month="{{ mo }}">
+          <span class="month-label">{{ month_abbrs[mo] }}</span>
           <span class="month-dot {{ dot_cls }}"></span>
           <span class="month-count">{% if cnt > 0 %}{{ cnt }}{% endif %}</span>
         </a>
@@ -296,10 +292,10 @@
 
   <!-- Timeline -->
   {% if grouped_entries %}
-    {% for month_num, month_entries in grouped_entries %}
-      <div id="month-{{ month_num }}" class="timeline-section">
+    {% for (entry_year, month_num), month_entries in grouped_entries %}
+      <div id="month-{{ entry_year }}-{{ month_num }}" class="timeline-section">
         <div class="timeline-month-header">
-          <span>{{ month_names[month_num] }}</span>
+          <span>{{ month_names[month_num] }}{% if entry_year != current_year %} <span style="font-weight:400;opacity:0.55;font-size:0.85em">{{ entry_year }}</span>{% endif %}</span>
         </div>
         <div class="cards">
           {% for entry in month_entries %}
@@ -328,7 +324,7 @@
       </div>
     {% endfor %}
   {% else %}
-    <p class="empty" id="garden-no-entries">Nothing planted in {{ active_year }} yet.</p>
+    <p class="empty" id="garden-no-entries">Nothing planted yet.</p>
   {% endif %}
 
   {% if unscheduled %}
@@ -412,6 +408,21 @@
     filter();
     inp.focus();
   });
+
+  /* Scroll month strip to current month on load */
+  (function() {
+    var strip = document.getElementById('month-strip');
+    if (!strip) return;
+    var curYear = {{ current_year }};
+    var curMonth = {{ current_year }};  /* placeholder, use Date */
+    var now = new Date();
+    var cell = strip.querySelector('[data-year="' + now.getFullYear() + '"][data-month="' + (now.getMonth() + 1) + '"]');
+    if (cell) {
+      var stripRect = strip.getBoundingClientRect();
+      var cellRect  = cell.getBoundingClientRect();
+      strip.scrollLeft += cellRect.left - stripRect.left - stripRect.width / 2 + cellRect.width / 2;
+    }
+  })();
 
   /* Search toggle button */
   var toggleBtn = document.getElementById('garden-search-toggle');
