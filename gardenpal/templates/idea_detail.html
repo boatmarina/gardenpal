@@ -54,7 +54,10 @@
       <div class=”detail-actions”>
         <form method=”post” action=”{{ url_for('delete_idea', plant_id=plant.id) }}”
               onsubmit=”return confirm('Delete {{ plant.name | e }} from your library?')”>
-          <button type=”submit” class=”button button-danger”>Delete from Library</button>
+          <button type=”submit”
+                  style=”background:none;border:none;color:var(--muted);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:0;font-family:inherit”>
+            Delete from Library
+          </button>
         </form>
       </div>
       {% else %}
@@ -73,7 +76,7 @@
           {% if is_owner %}
           <form method=”post” action=”{{ url_for('remove_plant_tag', plant_id=plant.id, tag_id=tag.id) }}”
                 style=”display:inline-block”
-                onsubmit=”return confirm('Remove tag {{ tag.name | e | tojson }}?')”>
+                onsubmit=”return confirm('Remove tag {{ tag.name | e }}?')”>
             <button type=”submit” class=”tag-pill tag-pill-removable”
                     style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”
                     title=”Click to remove”>
@@ -84,17 +87,17 @@
           <span class=”tag-pill” style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”>{{ tag.name }}</span>
           {% endif %}
           {% endfor %}
-          {% if is_owner %}
-          <div style=”position:relative;display:inline-block” id=”tag-add-wrap”>
-            <form method=”post” action=”{{ url_for('add_plant_tag', plant_id=plant.id) }}”
-                  id=”tag-add-form”>
-              <input type=”text” name=”tag_name” id=”tag-add-input” class=”tag-add-input”
-                     placeholder=”+ Add tag…” autocomplete=”off” />
-            </form>
-            <ul id=”tag-add-autocomplete” class=”tag-autocomplete-dropdown” hidden></ul>
-          </div>
-          {% endif %}
         </div>
+        {% if is_owner %}
+        <div style=”position:relative;margin-top:8px” id=”tag-add-wrap”>
+          <form method=”post” action=”{{ url_for('add_plant_tag', plant_id=plant.id) }}”
+                id=”tag-add-form”>
+            <input type=”text” name=”tag_name” id=”tag-add-input” class=”tag-add-input”
+                   placeholder=”+ Add tag…” autocomplete=”off” />
+          </form>
+          <ul id=”tag-add-autocomplete” class=”tag-autocomplete-dropdown” hidden></ul>
+        </div>
+        {% endif %}
       </div>
     </div>
 
