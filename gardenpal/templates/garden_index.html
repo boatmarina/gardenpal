@@ -202,8 +202,9 @@
     </a>
   </section>
 
-  <!-- Nav bar: month strip across all years + search toggle -->
-  <div class="garden-nav-bar">
+  <!-- Nav bar: month strip + inline search -->
+  <div class="garden-nav-bar" style="margin-bottom:14px">
+    <!-- Month strip (visible by default) -->
     <div class="month-strip-inline" id="month-strip">
       {% set ns = namespace(prev_year=none) %}
       {% for yr, mo, cnt in strip_months %}
@@ -224,23 +225,23 @@
         </a>
       {% endfor %}
     </div>
-    <button id="garden-search-toggle" type="button" class="garden-search-icon-btn" title="Search plants">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- Search panel (hidden until toggle) -->
-  <div id="garden-search-panel" hidden style="margin-bottom:14px">
-    <div class="library-search">
+    <!-- Search input (hidden by default, replaces month strip) -->
+    <div id="garden-search-inner" hidden style="flex:1;min-width:0;display:flex;align-items:center;padding:0 4px 0 10px;gap:6px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-      <input id="garden-search" type="search" placeholder="Search plants…" autocomplete="off" />
-      <button id="garden-search-clear" type="button"
-              style="display:none;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px 4px;flex-shrink:0">×</button>
+      <input id="garden-search" type="search" placeholder="Search plants…" autocomplete="off"
+             style="flex:1;border:none;background:none;font-size:1rem;color:var(--fg);outline:none;min-width:0" />
     </div>
+    <!-- Toggle button (search / close) -->
+    <button id="garden-search-toggle" type="button" class="garden-search-icon-btn" title="Search plants">
+      <svg id="search-icon-search" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <svg id="search-icon-close" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" hidden>
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
   </div>
   <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
 
@@ -364,14 +365,12 @@
 {% block scripts %}
 <script>
 (function () {
-  var inp    = document.getElementById('garden-search');
-  var clear  = document.getElementById('garden-search-clear');
-  var noRes  = document.getElementById('garden-search-empty');
+  var inp   = document.getElementById('garden-search');
+  var noRes = document.getElementById('garden-search-empty');
   if (!inp) return;
 
   function filter() {
     var q = inp.value.trim().toLowerCase();
-    clear.style.display = q ? '' : 'none';
 
     var cards = document.querySelectorAll('.card[data-search]');
     var anyVisible = false;
@@ -403,12 +402,6 @@
     timer = setTimeout(filter, 150);
   });
 
-  clear.addEventListener('click', function () {
-    inp.value = '';
-    filter();
-    inp.focus();
-  });
-
   /* Scroll month strip to current month on load */
   (function() {
     var strip = document.getElementById('month-strip');
@@ -424,13 +417,19 @@
     }
   })();
 
-  /* Search toggle button */
-  var toggleBtn = document.getElementById('garden-search-toggle');
-  var searchPanel = document.getElementById('garden-search-panel');
-  if (toggleBtn && searchPanel) {
+  /* Search toggle: swap month strip for inline search input */
+  var toggleBtn   = document.getElementById('garden-search-toggle');
+  var monthStrip  = document.getElementById('month-strip');
+  var searchInner = document.getElementById('garden-search-inner');
+  var iconSearch  = document.getElementById('search-icon-search');
+  var iconClose   = document.getElementById('search-icon-close');
+  if (toggleBtn) {
     toggleBtn.addEventListener('click', function () {
-      var opening = searchPanel.hidden;
-      searchPanel.hidden = !opening;
+      var opening = searchInner.hidden;
+      searchInner.hidden = !opening;
+      monthStrip.hidden  = opening;
+      iconSearch.hidden  = opening;
+      iconClose.hidden   = !opening;
       toggleBtn.classList.toggle('active', opening);
       if (opening) {
         inp.focus();
