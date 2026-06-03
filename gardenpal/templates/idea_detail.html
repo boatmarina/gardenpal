@@ -47,6 +47,13 @@
       {% if plant.description %}
       <p style="margin:10px 0 0;font-size:0.9rem;line-height:1.5;color:var(--text)">{{ plant.description }}</p>
       {% endif %}
+      {% if plant_tags %}
+      <div class="tag-pills" style="margin-top:10px">
+        {% for tag in plant_tags %}
+        <span class="tag-pill" style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55">{{ tag.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if plant.pnw_native %}
         <p class="native-badge" style="margin:10px 0 0">Native to {{ current_user.location if current_user and current_user.location else 'your region' }}</p>
       {% endif %}
