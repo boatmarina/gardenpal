@@ -2516,6 +2516,8 @@ def create_app() -> Flask:
             (plant_id, tag_id),
         )
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"id": tag_id, "name": tag_name, "color": color})
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
     @app.route("/ideas/<int:plant_id>/tags/<int:tag_id>/remove", methods=["POST"])
@@ -2532,6 +2534,8 @@ def create_app() -> Flask:
             return redirect(url_for("ideas_index"))
         db.execute("DELETE FROM plant_tags WHERE plant_id = ? AND tag_id = ?", (plant_id, tag_id))
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": True})
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
     @app.route("/api/tags")
