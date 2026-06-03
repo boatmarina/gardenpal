@@ -1067,7 +1067,7 @@ def create_app() -> Flask:
                 (g.user["id"], form_values["plant_name"]),
             ).fetchone()
             if existing is None:
-                db.execute(
+                library_plant_id = db.execute(
                     """
                     INSERT INTO plants
                     (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path,
@@ -1075,6 +1075,7 @@ def create_app() -> Flask:
                      lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category,
                      description, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id
                     """,
                     (
                         g.user["id"],
@@ -1100,8 +1101,9 @@ def create_app() -> Flask:
                         form_values.get("description") or None,
                         datetime.utcnow().isoformat(timespec="seconds"),
                     ),
-                )
+                ).fetchone()["id"]
             else:
+                library_plant_id = existing["id"]
                 updates = {k: v for k, v in [
                     ("scientific_name",    form_values["scientific_name"] or None),
                     ("lookup_query",       form_values["lookup_query"] or None),
@@ -1120,6 +1122,27 @@ def create_app() -> Flask:
                     db.execute(
                         f"UPDATE plants SET {set_clause} WHERE id = ?",
                         [*updates.values(), existing["id"]],
+                    )
+            # Associate tags with the library plant record
+            tag_names_raw = request.form.get("tag_names", "").strip()
+            if tag_names_raw:
+                for tn in [t.strip() for t in tag_names_raw.split(",") if t.strip()]:
+                    tn = tn[:50]
+                    color = tag_color_for(tn)
+                    et = db.execute(
+                        "SELECT id FROM tags WHERE user_id = ? AND lower(name) = lower(?)",
+                        (g.user["id"], tn),
+                    ).fetchone()
+                    if et:
+                        tid = et["id"]
+                    else:
+                        tid = db.execute(
+                            "INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?) RETURNING id",
+                            (g.user["id"], tn, color),
+                        ).fetchone()["id"]
+                    db.execute(
+                        "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                        (library_plant_id, tid),
                     )
             _yard_method = "library" if form_values.get("active_mode") == "library" else (form_values.get("yard_input_mode") or "name")
             _log_activity(db, g.user["id"], f"yard_plant_added_{_yard_method}", form_values["plant_name"])
