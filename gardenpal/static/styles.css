@@ -702,6 +702,9 @@ label {
 /* ================================================================
    DETAIL PAGE
    ================================================================ */
+/* Allow dropdowns (tag autocomplete) to overflow the card boundary */
+.card.detail { overflow: visible; }
+
 .detail-header {
   padding: 18px var(--pad) 14px;
 }
@@ -1209,6 +1212,8 @@ dd { margin: 0; }
 
 /* Removable pill (used as a button on detail page) */
 button.tag-pill-removable {
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
   font: inherit;
   font-size: 0.75rem;
