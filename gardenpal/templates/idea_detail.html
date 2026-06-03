@@ -59,35 +59,6 @@
       </div>
       {% endif %}
 
-      <div style=”margin-top:14px”>
-        <div id=”plant-tags-container” class=”tag-pills”>
-          {% for tag in plant_tags %}
-          {% if is_owner %}
-          <form method=”post” action=”{{ url_for('remove_plant_tag', plant_id=plant.id, tag_id=tag.id) }}”
-                style=”display:inline-block”
-                onsubmit=”return confirm('Remove tag {{ tag.name | e }}?')”>
-            <button type=”submit” class=”tag-pill tag-pill-removable”
-                    style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”
-                    title=”Click to remove”>
-              {{ tag.name }} ×
-            </button>
-          </form>
-          {% else %}
-          <span class=”tag-pill” style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”>{{ tag.name }}</span>
-          {% endif %}
-          {% endfor %}
-        </div>
-        {% if is_owner %}
-        <div style=”position:relative;margin-top:8px” id=”tag-add-wrap”>
-          <form method=”post” action=”{{ url_for('add_plant_tag', plant_id=plant.id) }}”
-                id=”tag-add-form” style=”display:inline-block”>
-            <input type=”text” name=”tag_name” id=”tag-add-input” class=”tag-add-input”
-                   placeholder=”Add or apply tag…” autocomplete=”off” />
-          </form>
-          <ul id=”tag-add-autocomplete” class=”tag-autocomplete-dropdown” hidden></ul>
-        </div>
-        {% endif %}
-      </div>
     </div>
 
     {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.plant_form or plant.height_category or plant.lookup_query %}
@@ -366,85 +337,5 @@
     });
 })();
 
-/* Tag autocomplete on detail page */
-(function() {
-  var inp = document.getElementById('tag-add-input');
-  var dropdown = document.getElementById('tag-add-autocomplete');
-  if (!inp) return;
-  var timer;
-  var _selecting = false;
-
-  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  function pickTag(value) {
-    if (_selecting) return;
-    _selecting = true;
-    inp.value = value;
-    dropdown.hidden = true;
-    inp.form.requestSubmit();
-    setTimeout(function() { _selecting = false; }, 600);
-  }
-
-  function addOption(li, value) {
-    /* touchstart fires before blur on mobile — preventDefault keeps focus on input */
-    li.addEventListener('touchstart', function(e) { e.preventDefault(); pickTag(value); });
-    li.addEventListener('mousedown',  function(e) { e.preventDefault(); pickTag(value); });
-  }
-
-  function showDropdown(tags, q) {
-    dropdown.innerHTML = '';
-    var exactMatch = tags.some(function(t) { return t.name.toLowerCase() === (q||'').toLowerCase(); });
-    if (q && !exactMatch) {
-      var li = document.createElement('li');
-      li.innerHTML = 'Create “<strong>' + esc(q) + '</strong>”';
-      li.style.color = 'var(--green-dark)';
-      addOption(li, q);
-      dropdown.appendChild(li);
-    }
-    tags.forEach(function(t) {
-      var li = document.createElement('li');
-      li.textContent = t.name;
-      addOption(li, t.name);
-      dropdown.appendChild(li);
-    });
-    dropdown.hidden = !dropdown.children.length;
-  }
-
-  function fetchTags(q) {
-    clearTimeout(timer);
-    timer = setTimeout(function() {
-      fetch('/api/tags' + (q ? '?q=' + encodeURIComponent(q) : ''))
-        .then(function(r){ return r.json(); })
-        .then(function(d){ showDropdown(d.tags || [], q); })
-        .catch(function(){});
-    }, q ? 200 : 60);
-  }
-
-  inp.addEventListener('input', function() {
-    var q = inp.value.trim();
-    if (!q) { dropdown.hidden = true; return; }
-    fetchTags(q);
-  });
-  inp.addEventListener('focus', function() {
-    fetchTags(inp.value.trim());
-  });
-  inp.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { dropdown.hidden = true; return; }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      dropdown.hidden = true;
-      if (inp.value.trim()) inp.form.requestSubmit();
-    }
-  });
-  inp.addEventListener('blur', function() {
-    /* 500ms gives iOS time to fire touchstart on dropdown items before we hide */
-    setTimeout(function() { if (!_selecting) dropdown.hidden = true; }, 500);
-  });
-  document.addEventListener('click', function(e) {
-    var wrap = document.getElementById('tag-add-wrap');
-    if (wrap && !wrap.contains(e.target)) dropdown.hidden = true;
-  });
-})();
 </script>
 {% endblock %}
