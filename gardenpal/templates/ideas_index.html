@@ -3,7 +3,7 @@
 {% block title %}Library · GardenPal{% endblock %}
 
 {% block content %}
-{% set has_filters = active_filters.q or active_filters.sun or active_filters.lifecycle or active_filters.evergreen or active_filters.plant_form or active_filters.height_category %}
+{% set has_filters = active_filters.sun or active_filters.lifecycle or active_filters.evergreen or active_filters.plant_form or active_filters.height_category %}
   <section class="panel" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <h2>Plant Library</h2>
@@ -25,17 +25,19 @@
     </a>
   </section>
 
+  <!-- Always-visible search bar -->
+  <div class="library-search" style="margin-bottom:14px">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" id="library-search-input" placeholder="Search plants…" autocomplete="off"
+           value="{{ active_filters.q }}" />
+  </div>
+
   <!-- Expandable filter panel -->
   <div id="filter-panel" {% if not has_filters %}hidden{% endif %}
        style="background:var(--card);border-radius:var(--r-xl);padding:14px 16px;margin-bottom:14px">
     <form method="get" style="display:flex;flex-direction:column;gap:10px">
-      <div class="library-search" style="margin-bottom:0">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input type="text" name="q" placeholder="Search by name" value="{{ active_filters.q }}" />
-        <button type="submit" style="display:none"></button>
-      </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <select name="sun" style="flex:1;min-width:110px;font-size:0.85rem" onchange="this.form.submit()">
           <option value="">Any sun</option>
@@ -109,7 +111,7 @@
   {% if plants %}
     <div class="cards">
       {% for plant in plants %}
-        <article class="card">
+        <article class="card" data-search="{{ plant.name | lower | e }} {{ (plant.scientific_name or '') | lower | e }}">
           <a href="{{ url_for('idea_detail', plant_id=plant.id) }}" class="card-link">
             <div class="thumb">
               {% set first_photo = plant.photo_urls | first_photo %}
@@ -153,6 +155,7 @@
         </article>
       {% endfor %}
     </div>
+    <p id="search-empty" class="empty" hidden>No plants match your search.</p>
   {% else %}
     <p class="empty">No plants yet — tap the leaf button to add one.</p>
   {% endif %}
@@ -167,20 +170,30 @@
   if (toggle && panel) {
     toggle.addEventListener('click', function () {
       panel.hidden = !panel.hidden;
-      // No auto-focus — prevents mobile browsers from zooming into the input
     });
   }
 
-  /* Live search — submit after brief pause while typing */
-  var searchInput = panel && panel.querySelector('input[name="q"]');
-  if (searchInput) {
-    var searchTimer;
-    searchInput.addEventListener('input', function () {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(function () {
-        searchInput.form.submit();
-      }, 350);
+  /* Client-side search — filter cards instantly, no page reload */
+  var searchInput = document.getElementById('library-search-input');
+  var cards = Array.from(document.querySelectorAll('.cards .card'));
+  var emptyMsg = document.getElementById('search-empty');
+
+  function filterCards() {
+    var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    var visible = 0;
+    cards.forEach(function (card) {
+      var haystack = card.getAttribute('data-search') || '';
+      var show = !q || haystack.indexOf(q) !== -1;
+      card.hidden = !show;
+      if (show) visible++;
     });
+    if (emptyMsg) emptyMsg.hidden = visible > 0 || !q;
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', filterCards);
+    /* Run on load to apply any server-rendered ?q= value */
+    filterCards();
   }
 
   /* Tag filter pills — preserve other active params */
