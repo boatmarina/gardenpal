@@ -47,11 +47,27 @@
       {% if plant.description %}
       <p style="margin:10px 0 0;font-size:0.9rem;line-height:1.5;color:var(--text)">{{ plant.description }}</p>
       {% endif %}
-      {% if plant_tags %}
-      <div class="tag-pills" style="margin-top:10px">
-        {% for tag in plant_tags %}
-        <span class="tag-pill" style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55">{{ tag.name }}</span>
-        {% endfor %}
+      {% if plant_tags or is_owner %}
+      <div id="detail-tag-area" style="margin-top:10px">
+        <div id="detail-tag-chips" class="tag-pills" style="{% if plant_tags %}margin-bottom:8px{% endif %}">
+          {% for tag in plant_tags %}
+          {% if is_owner %}
+          <span class="tag-chip" data-tag-id="{{ tag.id }}" data-name="{{ tag.name | lower | e }}"
+                style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55">
+            {{ tag.name }}<button type="button" class="tag-chip-close" aria-label="Remove {{ tag.name | e }}">×</button>
+          </span>
+          {% else %}
+          <span class="tag-pill" style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55">{{ tag.name }}</span>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% if is_owner %}
+        <div class="tag-input-wrap" id="detail-tag-input-wrap">
+          <input type="text" id="detail-tag-text" class="tag-chip-input"
+                 placeholder="Add or apply tag…" autocomplete="off" />
+          <ul id="detail-tag-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
+        </div>
+        {% endif %}
       </div>
       {% endif %}
       {% if plant.pnw_native %}
@@ -342,6 +358,145 @@
         })
         .catch(() => {});
     });
+})();
+
+/* Tag chips on plant detail page */
+(function() {
+  var wrap = document.getElementById('detail-tag-input-wrap');
+  var inp  = document.getElementById('detail-tag-text');
+  var dropdown = document.getElementById('detail-tag-dropdown');
+  var chipsContainer = document.getElementById('detail-tag-chips');
+  if (!inp) return;
+
+  var ADD_URL    = '{{ url_for("add_plant_tag", plant_id=plant.id) }}';
+  var REMOVE_TPL = '{{ url_for("remove_plant_tag", plant_id=plant.id, tag_id=0) }}';
+  var timer;
+
+  var TAG_COLORS = ["#5B8A5F","#8B6D9C","#C4765A","#4A7C95","#B5803A","#6B9E8A","#C26B7E","#7A8E5F"];
+  function colorFor(name) {
+    var h = 0, s = name.trim().toLowerCase();
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return TAG_COLORS[Math.abs(h) % TAG_COLORS.length];
+  }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function getSelected() {
+    return Array.from(chipsContainer.querySelectorAll('.tag-chip')).map(function(c) {
+      return c.getAttribute('data-name') || '';
+    });
+  }
+
+  function wireRemove(chip, tagId) {
+    var btn = chip.querySelector('.tag-chip-close');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      var url = REMOVE_TPL.replace('/0/remove', '/' + tagId + '/remove');
+      fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function() { chip.remove(); })
+        .catch(function() {});
+    });
+  }
+
+  /* Wire existing server-rendered chips */
+  chipsContainer.querySelectorAll('.tag-chip').forEach(function(chip) {
+    wireRemove(chip, chip.getAttribute('data-tag-id'));
+  });
+
+  function addChipToDOM(id, name, color) {
+    var span = document.createElement('span');
+    span.className = 'tag-chip';
+    span.setAttribute('data-tag-id', id);
+    span.setAttribute('data-name', name.toLowerCase());
+    span.style.cssText = 'background:' + color + '22;color:' + color + ';border:1px solid ' + color + '55';
+    span.appendChild(document.createTextNode(name));
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'tag-chip-close';
+    close.textContent = '×';
+    span.appendChild(close);
+    chipsContainer.appendChild(span);
+    wireRemove(span, id);
+    /* ensure the chips div has bottom margin now that it has content */
+    chipsContainer.style.marginBottom = '8px';
+  }
+
+  function addTag(name) {
+    name = name.trim().slice(0, 50);
+    if (!name || getSelected().includes(name.toLowerCase())) {
+      inp.value = '';
+      dropdown.hidden = true;
+      return;
+    }
+    var fd = new FormData();
+    fd.append('tag_name', name);
+    fetch(ADD_URL, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.id) addChipToDOM(d.id, d.name, d.color);
+        inp.value = '';
+        dropdown.hidden = true;
+      })
+      .catch(function() {});
+  }
+
+  function showDropdown(tags) {
+    var sel = getSelected();
+    var q = inp.value.trim();
+    var exactMatch = tags.some(function(t) { return t.name.toLowerCase() === q.toLowerCase(); });
+    dropdown.innerHTML = '';
+    if (q && !exactMatch) {
+      var li = document.createElement('li');
+      li.innerHTML = 'Create "<strong>' + esc(q) + '</strong>"';
+      li.style.color = 'var(--green-dark)';
+      li.addEventListener('mousedown', function(e) { e.preventDefault(); addTag(q); });
+      li.addEventListener('touchstart', function(e) { e.preventDefault(); addTag(q); });
+      dropdown.appendChild(li);
+    }
+    tags.filter(function(t) { return !sel.includes(t.name.toLowerCase()); })
+      .forEach(function(t) {
+        var li = document.createElement('li');
+        li.textContent = t.name;
+        li.addEventListener('mousedown', function(e) { e.preventDefault(); addTag(t.name); });
+        li.addEventListener('touchstart', function(e) { e.preventDefault(); addTag(t.name); });
+        dropdown.appendChild(li);
+      });
+    dropdown.hidden = !dropdown.children.length;
+  }
+
+  function fetchTags(q) {
+    clearTimeout(timer);
+    timer = setTimeout(function() {
+      fetch('/api/tags' + (q ? '?q=' + encodeURIComponent(q) : ''))
+        .then(function(r) { return r.json(); })
+        .then(function(d) { showDropdown(d.tags || []); })
+        .catch(function() {});
+    }, q ? 200 : 60);
+  }
+
+  inp.addEventListener('input', function() {
+    var val = inp.value;
+    if (val.includes(',')) {
+      val.split(',').slice(0, -1).forEach(function(p) { addTag(p); });
+      inp.value = val.split(',').pop();
+    }
+    fetchTags(inp.value.trim());
+  });
+
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); if (inp.value.trim()) addTag(inp.value.trim()); }
+    if (e.key === 'Escape') dropdown.hidden = true;
+  });
+
+  inp.addEventListener('focus', function() { fetchTags(''); });
+  inp.addEventListener('blur', function() { setTimeout(function() { dropdown.hidden = true; }, 300); });
+
+  document.addEventListener('click', function(e) {
+    if (wrap && !wrap.contains(e.target)) dropdown.hidden = true;
+  });
+
+  wrap.addEventListener('click', function(e) {
+    if (e.target === wrap) inp.focus();
+  });
 })();
 
 </script>
