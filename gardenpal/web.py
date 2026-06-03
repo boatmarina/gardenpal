@@ -935,10 +935,10 @@ def create_app() -> Flask:
             + [r["plant_name"] for r in db.execute(f"SELECT DISTINCT plant_name FROM yard_plants WHERE user_id IN {ph} ORDER BY plant_name ASC", id_args).fetchall()]
         ))
         library_plants = db.execute(
-            f"SELECT id, name, scientific_name, image_path, image_url, photo_urls, sun_exposure, lifecycle, size_info, flowering_schedule FROM plants WHERE user_id IN {ph} ORDER BY name ASC",
+            f"SELECT id, name, scientific_name, image_path, image_url, photo_urls, sun_exposure, lifecycle, size_info, flowering_schedule, description FROM plants WHERE user_id IN {ph} ORDER BY name ASC",
             id_args,
         ).fetchall()
-        library_plants_json = [{"name": r["name"], "sci": r["scientific_name"] or ""} for r in library_plants]
+        library_plants_json = [{"name": r["name"], "sci": r["scientific_name"] or "", "description": r["description"] or ""} for r in library_plants]
 
         prefill_name = request.args.get("plant_name", "").strip()
         form_values = {

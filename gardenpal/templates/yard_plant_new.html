@@ -61,7 +61,8 @@
                  data-lifecycle="{{ plant.lifecycle | e }}"
                  data-size="{{ plant.size_info | e }}"
                  data-flowering="{{ plant.flowering_schedule | e }}"
-                 data-thumb="{{ (thumb or plant.image_url or '') | e }}">
+                 data-thumb="{{ (thumb or plant.image_url or '') | e }}"
+                 data-description="{{ plant.description | e }}">
               <div class="thumb">
                 {% if plant.image_path %}
                   <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" />
@@ -227,8 +228,11 @@
         </label>
       </div>
 
-      {% if form_values.scientific_name or form_values.sun_needs or form_values.lifecycle %}
+      {% if form_values.description or form_values.scientific_name or form_values.sun_needs or form_values.lifecycle %}
         <div class="autofill-summary" style="margin-top:12px">
+          {% if form_values.description %}
+          <p class="autofill-description" style="width:100%;margin:0 0 6px">{{ form_values.description }}</p>
+          {% endif %}
           {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
           {% if form_values.sun_needs %}<span class="chip">{{ form_values.sun_needs }}</span>{% endif %}
           {% if form_values.lifecycle %}<span class="chip">{{ form_values.lifecycle }}</span>{% endif %}
@@ -321,9 +325,14 @@ function applyYardDetails(details) {
   if (selSciEl && details.scientific_name) selSciEl.textContent = details.scientific_name;
   var chipsEl = document.getElementById('sel-chips');
   if (chipsEl) {
-    var vals = [details.sun_needs, details.lifecycle, details.size_info, details.flowering_schedule].filter(Boolean);
     function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    chipsEl.innerHTML = vals.map(function(c){ return '<span class="chip">' + esc(c) + '</span>'; }).join('');
+    var html = '';
+    if (details.description) {
+      html += '<p class="autofill-description" style="width:100%;margin:0 0 6px;font-size:0.85rem;line-height:1.5;color:var(--fg)">' + esc(details.description) + '</p>';
+    }
+    var vals = [details.sun_needs, details.lifecycle, details.size_info, details.flowering_schedule].filter(Boolean);
+    html += vals.map(function(c){ return '<span class="chip">' + esc(c) + '</span>'; }).join('');
+    chipsEl.innerHTML = html;
   }
 }
 </script>
@@ -598,7 +607,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   document.querySelectorAll('.plant-pick').forEach(card => {
     card.addEventListener('click', () => {
       const d = card.dataset;
-      fillPlant(d.name, d.sci, d.sun, d.lifecycle, d.size, d.flowering, d.thumb || '');
+      fillPlant(d.name, d.sci, d.sun, d.lifecycle, d.size, d.flowering, d.thumb || '', d.description || '');
     });
   });
 
@@ -609,14 +618,14 @@ async function compressAndIdentify(inputEl, submitBtnId) {
 
   /* ── clear selection ── */
   btnClear.addEventListener('click', () => {
-    fillPlant('', '', '', '', '', '', '');
+    fillPlant('', '', '', '', '', '', '', '');
     selPanel.hidden = true;
     common.hidden = true;
     setMode(hMode.value);
   });
 
   /* ── fill from library card ── */
-  function fillPlant(name, sci, sun, lifecycle, size, flowering, thumb) {
+  function fillPlant(name, sci, sun, lifecycle, size, flowering, thumb, description) {
     hName.value      = name;
     hSci.value       = sci;
     hQuery.value     = sci || name;
@@ -625,18 +634,23 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     hSize.value      = size;
     hFlowering.value = flowering;
     hWater.value     = '';
+    const hDesc = document.getElementById('h-description');
+    if (hDesc) hDesc.value = description || '';
 
     selName.textContent = name;
     selSci.textContent  = sci;
     if (thumb) { selThumb.src = thumb; selThumb.style.display = ''; }
     else { selThumb.style.display = 'none'; }
 
-    // Show whatever details the library card already has
+    // Show description + detail chips from the library card
     const selChipsEl = document.getElementById('sel-chips');
     if (selChipsEl) {
-      const chips = [sun, lifecycle, size, flowering].filter(Boolean);
       function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-      selChipsEl.innerHTML = chips.map(c => '<span class="chip">'+esc(c)+'</span>').join('');
+      let html = '';
+      if (description) html += '<p class="autofill-description" style="width:100%;margin:0 0 6px;font-size:0.85rem;line-height:1.5;color:var(--fg)">' + esc(description) + '</p>';
+      const chips = [sun, lifecycle, size, flowering].filter(Boolean);
+      html += chips.map(c => '<span class="chip">'+esc(c)+'</span>').join('');
+      selChipsEl.innerHTML = html;
     }
 
     selPanel.hidden = false;
