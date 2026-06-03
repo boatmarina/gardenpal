@@ -21,6 +21,7 @@
     <input type="hidden" name="spreads"            id="h-spreads"    value="{{ form_values.spreads }}" />
     <input type="hidden" name="image_url"          id="h-image-url"       value="{{ form_values.image_url }}" />
     <input type="hidden" name="photo_urls_json"    id="h-photo-urls-json" value="" />
+    <input type="hidden" name="description"         id="h-description"     value="{{ form_values.description or '' }}" />
     <input type="hidden" name="photo_id_suggestions" id="photo-id-sgs-input" value="{{ form_values.photo_id_suggestions | e }}" />
 
     <!-- Primary CTAs -->
@@ -292,13 +293,14 @@ window.LIBRARY_PLANTS = {{ library_plants_json | tojson }};
 function applyYardDetails(details) {
   if (!details) return;
   var setId = function(id, v) { var el = document.getElementById(id); if (el && v) el.value = v; };
-  setId('h-sci',       details.scientific_name);
-  setId('h-query',     details.scientific_name || '');
-  setId('h-sun',       details.sun_needs);
-  setId('h-lifecycle', details.lifecycle);
-  setId('h-size',      details.size_info);
-  setId('h-flowering', details.flowering_schedule);
-  setId('h-water',     details.watering_needs);
+  setId('h-sci',         details.scientific_name);
+  setId('h-query',       details.scientific_name || '');
+  setId('h-sun',         details.sun_needs);
+  setId('h-lifecycle',   details.lifecycle);
+  setId('h-size',        details.size_info);
+  setId('h-flowering',   details.flowering_schedule);
+  setId('h-water',       details.watering_needs);
+  setId('h-description', details.description);
   var selSciEl = document.getElementById('sel-sci');
   if (selSciEl && details.scientific_name) selSciEl.textContent = details.scientific_name;
   var chipsEl = document.getElementById('sel-chips');

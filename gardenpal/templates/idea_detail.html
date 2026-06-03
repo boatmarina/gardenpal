@@ -66,32 +66,36 @@
       </div>
       {% endif %}
 
-      <div id=”plant-tags-container” class=”tag-pills” style=”margin-top:10px”>
-        {% for tag in plant_tags %}
-        {% if is_owner %}
-        <form method=”post” action=”{{ url_for('remove_plant_tag', plant_id=plant.id, tag_id=tag.id) }}”
-              style=”display:inline-block”
-              onsubmit=”return confirm('Remove tag “{{ tag.name | e }}”?')”>
-          <button type=”submit” class=”tag-pill tag-pill-removable”
-                  style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”
-                  title=”Click to remove this tag”>
-            {{ tag.name }} &times;
-          </button>
-        </form>
-        {% else %}
-        <span class=”tag-pill” style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”>{{ tag.name }}</span>
-        {% endif %}
-        {% endfor %}
+      <div style=”margin-top:14px”>
+        <p style=”font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin:0 0 6px”>Tags</p>
+        <div id=”plant-tags-container” class=”tag-pills”>
+          {% for tag in plant_tags %}
+          {% if is_owner %}
+          <form method=”post” action=”{{ url_for('remove_plant_tag', plant_id=plant.id, tag_id=tag.id) }}”
+                style=”display:inline-block”
+                onsubmit=”return confirm('Remove tag {{ tag.name | e | tojson }}?')”>
+            <button type=”submit” class=”tag-pill tag-pill-removable”
+                    style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”
+                    title=”Click to remove”>
+              {{ tag.name }} ×
+            </button>
+          </form>
+          {% else %}
+          <span class=”tag-pill” style=”background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55”>{{ tag.name }}</span>
+          {% endif %}
+          {% endfor %}
+          {% if is_owner %}
+          <div style=”position:relative;display:inline-block” id=”tag-add-wrap”>
+            <form method=”post” action=”{{ url_for('add_plant_tag', plant_id=plant.id) }}”
+                  id=”tag-add-form”>
+              <input type=”text” name=”tag_name” id=”tag-add-input” class=”tag-add-input”
+                     placeholder=”+ Add tag…” autocomplete=”off” />
+            </form>
+            <ul id=”tag-add-autocomplete” class=”tag-autocomplete-dropdown” hidden></ul>
+          </div>
+          {% endif %}
+        </div>
       </div>
-
-      {% if is_owner %}
-      <form method=”post” action=”{{ url_for('add_plant_tag', plant_id=plant.id) }}”
-            style=”margin-top:8px;position:relative” id=”tag-add-form”>
-        <input type=”text” name=”tag_name” id=”tag-add-input” class=”tag-add-input”
-               placeholder=”+ Add a tag…” autocomplete=”off” />
-        <ul id=”tag-add-autocomplete” class=”tag-autocomplete-dropdown” hidden></ul>
-      </form>
-      {% endif %}
     </div>
 
     {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.plant_form or plant.height_category or plant.lookup_query %}
@@ -369,20 +373,35 @@
   if (!inp) return;
   var timer;
 
-  function showDropdown(tags) {
-    if (!tags.length) { dropdown.hidden = true; return; }
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function showDropdown(tags, q) {
     dropdown.innerHTML = '';
+    var exactMatch = tags.some(function(t) { return t.name.toLowerCase() === (q||'').toLowerCase(); });
+    if (q && !exactMatch) {
+      var li = document.createElement('li');
+      li.innerHTML = 'Create “<strong>' + esc(q) + '</strong>”';
+      li.style.color = 'var(--green-dark)';
+      li.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        inp.value = q;
+        dropdown.hidden = true;
+        inp.form.requestSubmit();
+      });
+      dropdown.appendChild(li);
+    }
     tags.forEach(function(t) {
       var li = document.createElement('li');
       li.textContent = t.name;
-      li.addEventListener('click', function() {
+      li.addEventListener('mousedown', function(e) {
+        e.preventDefault();
         inp.value = t.name;
         dropdown.hidden = true;
-        inp.form.submit();
+        inp.form.requestSubmit();
       });
       dropdown.appendChild(li);
     });
-    dropdown.hidden = false;
+    dropdown.hidden = !dropdown.children.length;
   }
 
   function fetchTags(q) {
@@ -390,13 +409,20 @@
     timer = setTimeout(function() {
       fetch('/api/tags' + (q ? '?q=' + encodeURIComponent(q) : ''))
         .then(function(r){ return r.json(); })
-        .then(function(d){ showDropdown(d.tags || []); })
+        .then(function(d){ showDropdown(d.tags || [], q); })
         .catch(function(){});
     }, q ? 200 : 60);
   }
 
-  inp.addEventListener('input', function() { fetchTags(inp.value.trim()); });
-  inp.addEventListener('focus', function() { fetchTags(inp.value.trim()); });
+  inp.addEventListener('input', function() {
+    var q = inp.value.trim();
+    if (!q) { dropdown.hidden = true; return; }
+    fetchTags(q);
+  });
+  inp.addEventListener('focus', function() {
+    var q = inp.value.trim();
+    fetchTags(q);
+  });
   inp.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { dropdown.hidden = true; return; }
     if (e.key === 'Enter') {
@@ -407,13 +433,11 @@
     }
   });
   inp.addEventListener('blur', function() {
-    setTimeout(function() {
-      dropdown.hidden = true;
-      if (inp.value.trim()) inp.form.requestSubmit();
-    }, 150);
+    setTimeout(function() { dropdown.hidden = true; }, 200);
   });
   document.addEventListener('click', function(e) {
-    if (!inp.closest('form').contains(e.target)) dropdown.hidden = true;
+    var wrap = document.getElementById('tag-add-wrap');
+    if (wrap && !wrap.contains(e.target)) dropdown.hidden = true;
   });
 })();
 </script>
