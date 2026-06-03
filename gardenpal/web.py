@@ -953,6 +953,7 @@ def create_app() -> Flask:
             "size_info": "",
             "spreads": "",
             "description": "",
+            "source_note": "",
             "notes": "",
             "image_url": "",
             "active_mode": "library",
@@ -973,6 +974,7 @@ def create_app() -> Flask:
                 "size_info": request.form.get("size_info", "").strip(),
                 "spreads": request.form.get("spreads", "").strip(),
                 "description": request.form.get("description", "").strip(),
+                "source_note": request.form.get("source_note", "").strip(),
                 "notes": request.form.get("notes", "").strip(),
                 "image_url": request.form.get("image_url", "").strip(),
                 "photo_urls_json": request.form.get("photo_urls_json", "").strip(),
@@ -1083,7 +1085,7 @@ def create_app() -> Flask:
                         form_values["scientific_name"],
                         form_values["lookup_query"],
                         "yard",
-                        None,
+                        form_values.get("source_note") or None,
                         image_path,
                         None,
                         form_values.get("image_url") or None,
@@ -1114,6 +1116,7 @@ def create_app() -> Flask:
                     ("size_info",          form_values["size_info"] or None),
                     ("flowering_schedule", form_values["flowering_schedule"] or None),
                     ("description",        form_values.get("description") or None),
+                    ("source_note",        form_values.get("source_note") or None),
                 ] if v}
                 if updates:
                     set_clause = ", ".join(
