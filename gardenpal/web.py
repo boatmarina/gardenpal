@@ -2561,6 +2561,24 @@ def create_app() -> Flask:
         db.commit()
         return jsonify(ok=True)
 
+    @app.route("/ideas/<int:plant_id>/upload-photo", methods=["POST"])
+    @login_required
+    def upload_idea_photo(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+        ).fetchone()
+        if plant is None:
+            return jsonify(error="Not found"), 404
+        image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "idea")
+        if not image_path:
+            return jsonify(error="Please select a photo."), 400
+        if image_path.startswith("http://") or image_path.startswith("https://"):
+            photo_url = image_path
+        else:
+            photo_url = url_for("uploads", filename=image_path)
+        return jsonify(ok=True, url=photo_url)
+
     @app.route("/plants/new")
     def legacy_new_plant():
         return redirect(url_for("new_idea"))

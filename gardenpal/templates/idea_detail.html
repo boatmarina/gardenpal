@@ -39,6 +39,17 @@
       {% endif %}
     </div>
 
+    {% if is_owner %}
+    <div style="padding:5px 12px;border-top:1px solid var(--border)">
+      <input type="file" id="plant-photo-upload" accept="image/*" style="display:none">
+      <button type="button" id="plant-photo-upload-btn"
+              style="background:none;border:none;padding:0;cursor:pointer;font-size:0.78rem;color:var(--muted);font-family:inherit;display:inline-flex;align-items:center;gap:5px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Add your photo
+      </button>
+    </div>
+    {% endif %}
+
     <div class="detail-header">
       <h2 style="font-size:1.4rem;margin-bottom:4px">{{ plant.name }}</h2>
       <p class="muted" style="font-style:italic;font-size:0.9rem;margin-bottom:0">
@@ -302,6 +313,50 @@
     attachRemove(item);
     attachDrag(item);
     item.querySelector('img').addEventListener('click', e => openLightbox(e.target.src));
+  }
+
+  /* ── upload your own photo ── */
+  const uploadBtn = document.getElementById('plant-photo-upload-btn');
+  const uploadInp = document.getElementById('plant-photo-upload');
+  if (uploadBtn && uploadInp) {
+    uploadBtn.addEventListener('click', () => uploadInp.click());
+    uploadInp.addEventListener('change', async () => {
+      const file = uploadInp.files[0];
+      if (!file) return;
+      const origLabel = uploadBtn.innerHTML;
+      uploadBtn.textContent = 'Uploading…';
+      uploadBtn.disabled = true;
+      try {
+        const compressed = await GP.compressImage(file);
+        const fd = new FormData();
+        fd.append('photo', new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+        const res = await fetch(`/ideas/${plantId}/upload-photo`, {
+          method: 'POST',
+          headers: {'X-Requested-With': 'XMLHttpRequest'},
+          body: fd,
+        });
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+        } else {
+          const placeholder = grid.querySelector('.photos-grid-placeholder');
+          if (placeholder) placeholder.remove();
+          const el = document.createElement('div');
+          el.innerHTML = makePhotoItem(data.url, 0);
+          const newItem = el.firstElementChild;
+          attachControls(newItem);
+          grid.insertBefore(newItem, grid.firstChild);
+          updateBadges();
+          saveOrder();
+        }
+      } catch(e) {
+        alert('Photo upload failed — please try again.');
+      } finally {
+        uploadBtn.innerHTML = origLabel;
+        uploadBtn.disabled = false;
+        uploadInp.value = '';
+      }
+    });
   }
 
   /* ── render ── */
