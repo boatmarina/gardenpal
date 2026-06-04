@@ -1312,6 +1312,7 @@ def create_app() -> Flask:
             for u in rows:
                 stats = _user_stats(db, u["id"], u["created_at"])
                 users_with_stats.append({"user": u, "stats": stats})
+            users_with_stats.sort(key=lambda x: x["stats"].get("last_login") or "", reverse=True)
             perenual_log = db.execute(
                 "SELECT query, result_count, logged_at FROM perenual_log"
                 " ORDER BY logged_at DESC LIMIT 200"
