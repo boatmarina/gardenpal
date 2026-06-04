@@ -507,7 +507,7 @@ label {
   background: var(--card);
   border: 1.5px solid var(--border);
   border-radius: var(--r-xl);
-  padding: 10px 14px;
+  padding: 7px 12px;
   box-shadow: var(--shadow);
 }
 
