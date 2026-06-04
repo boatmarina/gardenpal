@@ -272,41 +272,64 @@
     document.body.appendChild(box);
   }
 
-  /* ── drag-and-drop (pointer events — works for mouse + touch) ── */
+  /* ── drag-and-drop ── */
   let dragging = null;
+
+  function reorderAt(clientX, clientY) {
+    if (!dragging) return;
+    /* temporarily hide the dragging item so elementFromPoint sees what's beneath */
+    const saved = dragging.style.visibility;
+    dragging.style.visibility = 'hidden';
+    const below = document.elementFromPoint(clientX, clientY);
+    dragging.style.visibility = saved;
+    const target = below?.closest('.photo-item');
+    if (target && target !== dragging) {
+      const rect = target.getBoundingClientRect();
+      const insertBefore = clientX < rect.left + rect.width / 2 ? target : target.nextSibling;
+      if (insertBefore !== dragging && insertBefore !== dragging.nextSibling) {
+        grid.insertBefore(dragging, insertBefore);
+      }
+    }
+  }
+
+  function endDrag() {
+    if (!dragging) return;
+    dragging.classList.remove('dragging');
+    dragging = null;
+    updateBadges();
+    saveOrder();
+  }
+
+  /* document-level listeners so moving outside the handle still tracks */
+  document.addEventListener('pointermove', e => {
+    if (!dragging || e.pointerType === 'touch') return;
+    reorderAt(e.clientX, e.clientY);
+  });
+  document.addEventListener('pointerup', e => {
+    if (e.pointerType !== 'touch') endDrag();
+  });
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    reorderAt(e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive: false});
+  document.addEventListener('touchend', () => endDrag());
+  document.addEventListener('touchcancel', () => endDrag());
 
   function attachDrag(item) {
     const handle = item.querySelector('.drag-handle');
     if (!handle) return;
     handle.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'touch') return; /* touch handled below */
       e.preventDefault();
       dragging = item;
       item.classList.add('dragging');
-      handle.setPointerCapture(e.pointerId);
-
-      const onMove = e => {
-        dragging.style.pointerEvents = 'none';
-        const below = document.elementFromPoint(e.clientX, e.clientY);
-        dragging.style.pointerEvents = '';
-        const target = below?.closest('.photo-item');
-        if (target && target !== dragging) {
-          const rect = target.getBoundingClientRect();
-          grid.insertBefore(dragging, e.clientX < rect.left + rect.width / 2 ? target : target.nextSibling);
-        }
-      };
-
-      const onUp = () => {
-        dragging.classList.remove('dragging');
-        dragging = null;
-        updateBadges();
-        saveOrder();
-        handle.removeEventListener('pointermove', onMove);
-        handle.removeEventListener('pointerup', onUp);
-      };
-
-      handle.addEventListener('pointermove', onMove);
-      handle.addEventListener('pointerup', onUp);
     });
+    handle.addEventListener('touchstart', e => {
+      e.preventDefault();
+      dragging = item;
+      item.classList.add('dragging');
+    }, {passive: false});
   }
 
   function attachControls(item) {
