@@ -1779,22 +1779,23 @@ def create_app() -> Flask:
         flash("Note added.")
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
-    @app.route("/garden/<int:entry_id>/update-notes", methods=["POST"])
+    @app.route("/garden/photos/<int:photo_id>/update", methods=["POST"])
     @login_required
-    def garden_update_notes(entry_id: int):
+    def garden_photo_update(photo_id: int):
         db = get_db()
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
-        entry = db.execute(
-            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
-            [entry_id] + id_args,
+        photo = db.execute(
+            f"SELECT id FROM garden_photos WHERE id = ? AND user_id IN {ph}",
+            [photo_id] + id_args,
         ).fetchone()
-        if entry is None:
+        if photo is None:
             return jsonify(error="Not found"), 404
         notes = request.form.get("notes", "").strip() or None
+        photo_date = request.form.get("photo_date", "").strip() or None
         db.execute(
-            f"UPDATE garden_entries SET notes = ?, updated_at = ? WHERE id = ? AND user_id IN {ph}",
-            [notes, datetime.utcnow().isoformat(timespec="seconds"), entry_id] + id_args,
+            "UPDATE garden_photos SET notes = ?, photo_date = ? WHERE id = ?",
+            [notes, photo_date, photo_id],
         )
         db.commit()
         return jsonify(ok=True)
