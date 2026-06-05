@@ -1290,12 +1290,6 @@ button.tag-pill-removable:hover { opacity: 0.7; }
   transition: opacity 0.4s;
 }
 
-.log-date-input:hover,
-.log-date-input:focus {
-  border-bottom-color: var(--border) !important;
-  outline: none;
-}
-
 /* Tag filter pills (links in library filter row) */
 .tag-filter-pill {
   display: inline-flex;
