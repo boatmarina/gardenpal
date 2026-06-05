@@ -6,7 +6,7 @@ import os
 import secrets
 import ssl
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
@@ -321,7 +321,6 @@ def create_app() -> Flask:
                 "INSERT INTO login_log (user_id, logged_in_at) VALUES (?, ?)",
                 (user["id"], datetime.utcnow().isoformat(timespec="seconds")),
             )
-            db.execute("DELETE FROM activity_log WHERE user_id = ?", (user["id"],))
             db.commit()
             flash("Welcome back.")
             return redirect(url_for("dashboard"))
@@ -1254,48 +1253,78 @@ def create_app() -> Flask:
         except Exception:
             weeks = 1.0
         avg_per_week = round(login_count / weeks, 1)
+        week_since = (datetime.utcnow() - timedelta(days=7)).isoformat(timespec="seconds")
         activity_rows = db.execute(
-            "SELECT action, item_name FROM activity_log WHERE user_id = ? ORDER BY logged_at ASC",
-            (user_id,),
+            "SELECT action, item_name, logged_at FROM activity_log"
+            " WHERE user_id = ? AND logged_at >= ? ORDER BY logged_at ASC",
+            (user_id, week_since),
         ).fetchall()
+        login_rows = db.execute(
+            "SELECT logged_in_at FROM login_log"
+            " WHERE user_id = ? AND logged_in_at >= ? ORDER BY logged_in_at ASC",
+            (user_id, week_since),
+        ).fetchall()
+
         _METHOD_LABELS = {
             "name": "by name", "photo": "from photo", "label": "from label",
             "url": "by URL", "library": "from library",
         }
-        plant_entries = []      # [{"name": str, "method_label": str}, ...]
-        yard_entries = []
-        seen_plants = set()
-        seen_yard = set()
-        activity: dict = {}
+        day_data: dict = {}
+
+        def _day(day_str):
+            return day_data.setdefault(day_str, {
+                "logins": 0, "plant_entries": [], "yard_entries": [],
+                "zones": [], "garden_entries": [],
+                "_sp": set(), "_sy": set(),
+            })
+
+        for row in login_rows:
+            _day(row["logged_in_at"][:10])["logins"] += 1
+
         for row in activity_rows:
+            d = _day(row["logged_at"][:10])
             act = row["action"]
             name = (row["item_name"] or "").strip()
             if not name:
                 continue
             if act.startswith("plant_added"):
-                suffix = act[len("plant_added"):].lstrip("_")
-                label = _METHOD_LABELS.get(suffix, "")
-                if name not in seen_plants:
-                    seen_plants.add(name)
-                    plant_entries.append({"name": name, "method_label": label})
+                if name not in d["_sp"]:
+                    d["_sp"].add(name)
+                    suffix = act[len("plant_added"):].lstrip("_")
+                    d["plant_entries"].append({"name": name, "method_label": _METHOD_LABELS.get(suffix, "")})
             elif act.startswith("yard_plant_added"):
-                suffix = act[len("yard_plant_added"):].lstrip("_")
-                label = _METHOD_LABELS.get(suffix, "")
-                if name not in seen_yard:
-                    seen_yard.add(name)
-                    yard_entries.append({"name": name, "method_label": label})
+                if name not in d["_sy"]:
+                    d["_sy"].add(name)
+                    suffix = act[len("yard_plant_added"):].lstrip("_")
+                    d["yard_entries"].append({"name": name, "method_label": _METHOD_LABELS.get(suffix, "")})
+            elif act == "zone_added" and name not in d["zones"]:
+                d["zones"].append(name)
+            elif act == "garden_entry_added" and name not in d["garden_entries"]:
+                d["garden_entries"].append(name)
+
+        today = datetime.utcnow().date()
+        week_activity = []
+        for day_str in sorted(day_data.keys(), reverse=True):
+            try:
+                day_date = datetime.strptime(day_str, "%Y-%m-%d").date()
+            except Exception:
+                continue
+            diff = (today - day_date).days
+            if diff == 0:
+                date_label = "Today"
+            elif diff == 1:
+                date_label = "Yesterday"
             else:
-                if act not in activity:
-                    activity[act] = []
-                if name not in activity[act]:
-                    activity[act].append(name)
+                date_label = day_date.strftime("%a %b %-d")
+            entry = {k: v for k, v in day_data[day_str].items() if not k.startswith("_")}
+            entry["date_label"] = date_label
+            week_activity.append(entry)
+
         return {
             "plants": plants, "zones": zones, "garden": garden,
             "login_count": login_count, "last_login": last_login,
             "avg_per_week": avg_per_week,
-            "last_session": activity,
-            "plant_entries": plant_entries,
-            "yard_entries": yard_entries,
+            "week_activity": week_activity,
         }
 
     @app.route("/tools")
