@@ -292,6 +292,11 @@ def create_app() -> Flask:
             user = db.execute("SELECT id, username FROM users WHERE lower(username) = lower(?)", (username,)).fetchone()
             session.clear()
             session["user_id"] = user["id"]
+            db.execute(
+                "INSERT INTO login_log (user_id, logged_in_at) VALUES (?, ?)",
+                (user["id"], datetime.utcnow().isoformat(timespec="seconds")),
+            )
+            db.commit()
             flash("Account created. Welcome to GardenPal.")
             return redirect(url_for("dashboard"))
 
