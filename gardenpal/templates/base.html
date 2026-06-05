@@ -34,7 +34,7 @@
         </a>
       </div>
     {% else %}
-      <a href="{{ url_for('login') }}" class="brand-user">Log in</a>
+      {% block brand_action %}<a href="{{ url_for('login') }}" class="brand-user">Log in</a>{% endblock %}
     {% endif %}
   </header>
 
