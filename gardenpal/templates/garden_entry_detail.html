@@ -39,15 +39,11 @@
         <dt>Planted</dt>
         <dd>{{ entry.planted_date | planted_date }}</dd>
       {% endif %}
+      {% if entry.notes %}
+        <dt>Notes</dt>
+        <dd>{{ entry.notes }}</dd>
+      {% endif %}
     </dl>
-
-    <div class="notes-autosave-wrap" style="margin-top:12px"
-         data-url="{{ url_for('garden_update_notes', entry_id=entry.id) }}">
-      <textarea name="notes" rows="2"
-                placeholder="Notes — variety details, planting conditions, observations…"
-                style="font-size:0.85rem;resize:vertical">{{ entry.notes or '' }}</textarea>
-      <span class="notes-saved-hint" hidden>Saved ✓</span>
-    </div>
   </section>
 
   <!-- ── Growth log ── -->
@@ -64,11 +60,15 @@
                style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
                onclick="openLightbox(this.src)" />
           {% endif %}
-          <div style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %}">
-            {% if photo.photo_date %}
-              <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px">{{ photo.photo_date | month_day }}</p>
-            {% endif %}
-            {% if photo.notes %}<p class="muted" style="font-size:0.8rem">{{ photo.notes }}</p>{% endif %}
+          <div class="notes-autosave-wrap" style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %}"
+               data-url="{{ url_for('garden_photo_update', photo_id=photo.id) }}">
+            <input type="date" name="photo_date" value="{{ photo.photo_date or '' }}"
+                   style="font-size:0.82rem;font-weight:600;margin-bottom:6px;padding:2px 4px;width:auto;border:none;border-bottom:1px solid transparent;background:transparent;border-radius:0"
+                   class="log-date-input" />
+            <textarea name="notes" rows="2"
+                      placeholder="Add a note…"
+                      style="font-size:0.8rem;resize:vertical;color:var(--muted)">{{ photo.notes or '' }}</textarea>
+            <span class="notes-saved-hint" hidden>Saved ✓</span>
           </div>
         </div>
       {% endfor %}
@@ -206,20 +206,20 @@ function openLightbox(src) {
     });
   }
 })();
-/* Auto-save notes on blur */
+/* Auto-save growth log notes on blur / date change */
 (function() {
   document.querySelectorAll('.notes-autosave-wrap').forEach(function(container) {
-    var textarea = container.querySelector('textarea');
+    var textarea = container.querySelector('textarea[name="notes"]');
+    var dateInput = container.querySelector('input[name="photo_date"]');
     var hint = container.querySelector('.notes-saved-hint');
     var url = container.dataset.url;
-    if (!textarea || !url) return;
-    var lastSaved = textarea.value;
+    if (!url) return;
     var hintTimer;
-    textarea.addEventListener('blur', function() {
-      if (textarea.value === lastSaved) return;
-      lastSaved = textarea.value;
+
+    function save() {
       var fd = new FormData();
-      fd.append('notes', textarea.value);
+      if (textarea) fd.append('notes', textarea.value);
+      if (dateInput) fd.append('photo_date', dateInput.value);
       fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
         .then(function() {
           if (!hint) return;
@@ -228,7 +228,19 @@ function openLightbox(src) {
           hintTimer = setTimeout(function() { hint.hidden = true; }, 2000);
         })
         .catch(function() {});
-    });
+    }
+
+    if (textarea) {
+      var lastNotes = textarea.value;
+      textarea.addEventListener('blur', function() {
+        if (textarea.value === lastNotes) return;
+        lastNotes = textarea.value;
+        save();
+      });
+    }
+    if (dateInput) {
+      dateInput.addEventListener('change', function() { save(); });
+    }
   });
 })();
 </script>
