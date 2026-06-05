@@ -60,15 +60,38 @@
                style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
                onclick="openLightbox(this.src)" />
           {% endif %}
-          <div class="notes-autosave-wrap" style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %}"
+          <div class="log-card-body" style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %};position:relative"
                data-url="{{ url_for('garden_photo_update', photo_id=photo.id) }}">
-            <input type="date" name="photo_date" value="{{ photo.photo_date or '' }}"
-                   style="font-size:0.82rem;font-weight:600;margin-bottom:6px;padding:2px 4px;width:auto;border:none;border-bottom:1px solid transparent;background:transparent;border-radius:0"
-                   class="log-date-input" />
-            <textarea name="notes" rows="2"
-                      placeholder="Add a note…"
-                      style="font-size:0.8rem;resize:vertical;color:var(--muted)">{{ photo.notes or '' }}</textarea>
-            <span class="notes-saved-hint" hidden>Saved ✓</span>
+
+            <!-- pencil toggle -->
+            <button type="button" class="log-edit-toggle"
+                    style="position:absolute;top:8px;right:10px;background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);line-height:1;font-family:inherit"
+                    aria-label="Edit note">
+              <svg class="icon-pencil" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              <svg class="icon-done" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" hidden>
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+
+            <!-- static view -->
+            <div class="log-view-static" style="padding-right:22px">
+              <p class="log-date-display" style="font-size:0.82rem;font-weight:600;margin-bottom:2px">{{ photo.photo_date | month_day }}</p>
+              <p class="log-notes-display" style="font-size:0.8rem;color:var(--muted)">{{ photo.notes or '' }}</p>
+            </div>
+
+            <!-- edit view (hidden by default) -->
+            <div class="log-view-edit" hidden>
+              <input type="date" name="photo_date" value="{{ photo.photo_date or '' }}"
+                     style="font-size:0.82rem;font-weight:600;margin-bottom:6px;padding:2px 0;width:auto;border:none;border-bottom:1px solid var(--border);background:transparent;border-radius:0" />
+              <textarea name="notes" rows="2"
+                        placeholder="Add a note…"
+                        style="font-size:0.8rem;resize:vertical;color:var(--muted)">{{ photo.notes or '' }}</textarea>
+              <span class="notes-saved-hint" hidden>Saved ✓</span>
+            </div>
+
           </div>
         </div>
       {% endfor %}
@@ -206,38 +229,72 @@ function openLightbox(src) {
     });
   }
 })();
-/* Auto-save growth log notes on blur / date change */
+/* Growth log pencil-edit toggle + auto-save */
 (function() {
-  document.querySelectorAll('.notes-autosave-wrap').forEach(function(container) {
-    var textarea = container.querySelector('textarea[name="notes"]');
-    var dateInput = container.querySelector('input[name="photo_date"]');
-    var hint = container.querySelector('.notes-saved-hint');
-    var url = container.dataset.url;
-    if (!url) return;
-    var hintTimer;
+  var MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var parts = iso.split('-');
+    if (parts.length < 3) return iso;
+    return MONTHS[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10);
+  }
 
-    function save() {
+  document.querySelectorAll('.log-card-body').forEach(function(card) {
+    var url = card.dataset.url;
+    var toggle = card.querySelector('.log-edit-toggle');
+    var staticView = card.querySelector('.log-view-static');
+    var editView = card.querySelector('.log-view-edit');
+    var dateInput = editView && editView.querySelector('input[name="photo_date"]');
+    var textarea = editView && editView.querySelector('textarea');
+    var hint = editView && editView.querySelector('.notes-saved-hint');
+    var iconPencil = toggle && toggle.querySelector('.icon-pencil');
+    var iconDone = toggle && toggle.querySelector('.icon-done');
+    if (!toggle || !staticView || !editView) return;
+
+    var hintTimer;
+    function save(then) {
       var fd = new FormData();
-      if (textarea) fd.append('notes', textarea.value);
       if (dateInput) fd.append('photo_date', dateInput.value);
+      if (textarea) fd.append('notes', textarea.value);
       fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
         .then(function() {
-          if (!hint) return;
-          hint.hidden = false;
-          clearTimeout(hintTimer);
-          hintTimer = setTimeout(function() { hint.hidden = true; }, 2000);
-        })
-        .catch(function() {});
+          if (hint) {
+            hint.hidden = false;
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(function() { hint.hidden = true; }, 1800);
+          }
+          if (then) then();
+        }).catch(function() { if (then) then(); });
     }
 
-    if (textarea) {
-      var lastNotes = textarea.value;
-      textarea.addEventListener('blur', function() {
-        if (textarea.value === lastNotes) return;
-        lastNotes = textarea.value;
-        save();
+    function enterEdit() {
+      staticView.hidden = true;
+      editView.hidden = false;
+      if (iconPencil) iconPencil.hidden = true;
+      if (iconDone) iconDone.hidden = false;
+      if (textarea) textarea.focus();
+    }
+
+    function exitEdit() {
+      save(function() {
+        /* update static display with new values */
+        var dateDisplay = staticView.querySelector('.log-date-display');
+        var notesDisplay = staticView.querySelector('.log-notes-display');
+        if (dateDisplay && dateInput) dateDisplay.textContent = fmtDate(dateInput.value);
+        if (notesDisplay && textarea) notesDisplay.textContent = textarea.value;
+        editView.hidden = true;
+        staticView.hidden = false;
+        if (iconPencil) iconPencil.hidden = false;
+        if (iconDone) iconDone.hidden = true;
       });
     }
+
+    toggle.addEventListener('click', function() {
+      if (staticView.hidden) exitEdit(); else enterEdit();
+    });
+
+    /* also auto-save date change without exiting edit mode */
     if (dateInput) {
       dateInput.addEventListener('change', function() { save(); });
     }
