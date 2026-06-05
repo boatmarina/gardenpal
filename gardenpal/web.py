@@ -1916,14 +1916,34 @@ def create_app() -> Flask:
             id_args,
         ).fetchall()
 
+        # Fetch all growth-log notes grouped by entry
+        growth_notes: dict = {}
+        if entries:
+            eids = [e["id"] for e in entries]
+            eid_ph = "(" + ",".join(["?"] * len(eids)) + ")"
+            for row in db.execute(
+                f"SELECT entry_id, photo_date, notes FROM garden_photos"
+                f" WHERE entry_id IN {eid_ph} AND notes IS NOT NULL"
+                f" ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                eids,
+            ).fetchall():
+                growth_notes.setdefault(row["entry_id"], []).append(
+                    (row["photo_date"], row["notes"])
+                )
+
         if entries:
             lines = []
             for e in entries:
                 ln = f"  ID {e['id']}: {e['plant_name']}"
                 if e["variety"]: ln += f" ({e['variety']})"
+                if e["location_type"]: ln += f" [{e['location_type'].replace('_', ' ')}]"
                 if e["location_name"]: ln += f" in {e['location_name']}"
                 if e["planted_date"]: ln += f", planted {e['planted_date']}"
                 if e["user_id"] != user_id: ln += " [partner's — read only]"
+                if e["notes"]: ln += f"\n    Notes: {e['notes']}"
+                for note_date, note_text in growth_notes.get(e["id"], []):
+                    date_part = f" ({note_date})" if note_date else ""
+                    ln += f"\n    Log{date_part}: {note_text}"
                 lines.append(ln)
             entries_text = "\n".join(lines)
         else:
@@ -1931,7 +1951,11 @@ def create_app() -> Flask:
 
         system = (
             f"You are a concise assistant for an edible garden tracker. Today is {today}.\n\n"
-            f"Current garden entries:\n{entries_text}\n\n"
+            f"Current garden entries (includes all notes, log entries, location types, and dates):\n{entries_text}\n\n"
+            "Answer questions using all the information provided above — notes and log entries contain details like "
+            "soil amendments, fertilizers, observations, and other specifics the user has recorded. "
+            "If the answer is in the notes or logs, use it. Only say you don't know something if it genuinely "
+            "isn't recorded anywhere in the data above. "
             "Help the user add plants, add notes, update details, or answer questions about their garden. "
             "Entries marked [partner's — read only] belong to a shared garden partner — answer questions about them but do NOT call any tool on them. "
             "For bulk changes call the relevant tool once per entry. "
