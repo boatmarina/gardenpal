@@ -2147,6 +2147,7 @@ def create_app() -> Flask:
                                         now, now,
                                     ),
                                 ).fetchone()
+                                _log_activity(db, user_id, "garden_entry_added", pname)
                                 db.commit()
                                 changed = True
                                 result = {"ok": True, "entry_id": row["id"]}
