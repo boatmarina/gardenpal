@@ -1886,6 +1886,17 @@ def create_app() -> Flask:
                     entry_id,
                 ] + id_args,
             )
+            new_fert_date = request.form.get("last_fertilized_date", "").strip() or None
+            new_fert_type = request.form.get("last_fertilizer_type", "").strip() or None
+            old_fert_date = entry["last_fertilized_date"] if entry["last_fertilized_date"] else None
+            if new_fert_date and new_fert_date != old_fert_date:
+                note_text = "Fertilized" + (f" with {new_fert_type}" if new_fert_type else "")
+                db.execute(
+                    "INSERT INTO garden_photos (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
+                    " VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+                    (entry_id, g.user["id"], new_fert_date, note_text,
+                     datetime.utcnow().isoformat(timespec="seconds"), new_fert_type, new_fert_date),
+                )
             db.commit()
             flash("Entry updated.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
