@@ -36,7 +36,7 @@
                  value="{{ form_values.location_name or '' }}"
                  placeholder="e.g. North bed, big pot on deck…"
                  autocomplete="off" autocorrect="off"
-                 data-locations="{{ location_names | tojson }}" />
+                 data-locations='{{ location_names | tojson }}' />
           <ul id="loc-name-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
         </div>
       </label>
