@@ -1747,18 +1747,19 @@ def create_app() -> Flask:
         today = datetime.utcnow().strftime("%Y-%m-%d")
 
         # Determine last fertilized: most recent of explicit entry field vs detected growth-log note
+        # fertilization_date is the AI-inferred actual date; falls back to photo_date if not set
         last_fert_photo = db.execute(
-            "SELECT photo_date, fertilizer_type FROM garden_photos"
-            " WHERE entry_id = ? AND is_fertilization = 1"
-            " ORDER BY photo_date DESC NULLS LAST, created_at DESC LIMIT 1",
+            "SELECT COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
+            " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1"
+            " ORDER BY COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC LIMIT 1",
             (entry_id,),
         ).fetchone()
         explicit_date = (entry["last_fertilized_date"] or "") if entry["last_fertilized_date"] else ""
-        photo_date_str = (last_fert_photo["photo_date"] or "") if last_fert_photo else ""
-        if explicit_date and (not photo_date_str or explicit_date >= photo_date_str):
+        photo_fert_date = (last_fert_photo["fert_date"] or "") if last_fert_photo else ""
+        if explicit_date and (not photo_fert_date or explicit_date >= photo_fert_date):
             last_fertilized = {"date": explicit_date, "type": entry["last_fertilizer_type"]}
         elif last_fert_photo:
-            last_fertilized = {"date": photo_date_str or None, "type": last_fert_photo["fertilizer_type"]}
+            last_fertilized = {"date": photo_fert_date or None, "type": last_fert_photo["fertilizer_type"]}
         else:
             last_fertilized = None
 
@@ -1787,20 +1788,26 @@ def create_app() -> Flask:
                 return jsonify(error="Please add a photo or write a note."), 400
             flash("Please add a photo or write a note.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
-        is_fert, fert_type = _detect_fertilization(note_text)
-        if not is_fert and note_text:
-            is_fert, fert_type = _ai_detect_fertilization(note_text)
+        photo_date = request.form.get("photo_date", "").strip() or None
+        planted_row = db.execute("SELECT planted_date FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+        planted_date = planted_row["planted_date"] if planted_row else None
+        is_fert, fert_type, fert_date = _detect_fertilization(note_text)
+        if is_fert and _has_date_hint(note_text):
+            fert_date = _extract_fertilization_date(note_text, photo_date, planted_date)
+        elif not is_fert and note_text:
+            is_fert, fert_type, fert_date = _ai_detect_fertilization(note_text, photo_date, planted_date)
         db.execute(
-            "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at, is_fertilization, fertilizer_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 entry_id,
                 g.user["id"],
                 image_path,
-                request.form.get("photo_date", "").strip() or None,
+                photo_date,
                 note_text,
                 datetime.utcnow().isoformat(timespec="seconds"),
                 is_fert,
                 fert_type,
+                fert_date,
             ),
         )
         db.commit()
@@ -1823,12 +1830,20 @@ def create_app() -> Flask:
             return jsonify(error="Not found"), 404
         notes = request.form.get("notes", "").strip() or None
         photo_date = request.form.get("photo_date", "").strip() or None
-        is_fert, fert_type = _detect_fertilization(notes)
-        if not is_fert and notes:
-            is_fert, fert_type = _ai_detect_fertilization(notes)
+        planted_row = db.execute(
+            "SELECT ge.planted_date FROM garden_photos gp"
+            " JOIN garden_entries ge ON ge.id = gp.entry_id WHERE gp.id = ?",
+            (photo_id,),
+        ).fetchone()
+        planted_date = planted_row["planted_date"] if planted_row else None
+        is_fert, fert_type, fert_date = _detect_fertilization(notes)
+        if is_fert and _has_date_hint(notes):
+            fert_date = _extract_fertilization_date(notes, photo_date, planted_date)
+        elif not is_fert and notes:
+            is_fert, fert_type, fert_date = _ai_detect_fertilization(notes, photo_date, planted_date)
         db.execute(
-            "UPDATE garden_photos SET notes = ?, photo_date = ?, is_fertilization = ?, fertilizer_type = ? WHERE id = ?",
-            [notes, photo_date, is_fert, fert_type, photo_id],
+            "UPDATE garden_photos SET notes = ?, photo_date = ?, is_fertilization = ?, fertilizer_type = ?, fertilization_date = ? WHERE id = ?",
+            [notes, photo_date, is_fert, fert_type, fert_date, photo_id],
         )
         db.commit()
         return jsonify(ok=True)
@@ -2815,6 +2830,7 @@ def init_db():
 
     ensure_column(db, "garden_photos", "is_fertilization", "INTEGER")
     ensure_column(db, "garden_photos", "fertilizer_type", "TEXT")
+    ensure_column(db, "garden_photos", "fertilization_date", "TEXT")
     ensure_column(db, "garden_entries", "last_fertilized_date", "TEXT")
     ensure_column(db, "garden_entries", "last_fertilizer_type", "TEXT")
 
@@ -2823,12 +2839,27 @@ def init_db():
         "SELECT id, notes FROM garden_photos WHERE is_fertilization IS NULL AND notes IS NOT NULL"
     ).fetchall()
     for row in unclassified:
-        is_fert, ftype = _detect_fertilization(row["notes"])
+        is_fert, ftype, _ = _detect_fertilization(row["notes"])
         db.execute(
             "UPDATE garden_photos SET is_fertilization = ?, fertilizer_type = ? WHERE id = ?",
             [is_fert, ftype, row["id"]],
         )
     db.execute("UPDATE garden_photos SET is_fertilization = 0 WHERE is_fertilization IS NULL")
+
+    # Backfill fertilization_date for existing fertilization notes that have date hints in their text
+    needs_date = db.execute(
+        "SELECT gp.id, gp.notes, gp.photo_date, ge.planted_date"
+        " FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
+        " WHERE gp.is_fertilization = 1 AND gp.fertilization_date IS NULL AND gp.notes IS NOT NULL"
+    ).fetchall()
+    for row in needs_date:
+        if _has_date_hint(row["notes"]):
+            fert_date = _extract_fertilization_date(row["notes"], row["photo_date"], row["planted_date"])
+            if fert_date:
+                db.execute(
+                    "UPDATE garden_photos SET fertilization_date = ? WHERE id = ?",
+                    [fert_date, row["id"]],
+                )
     db.commit()
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
@@ -3198,45 +3229,110 @@ _FERTILIZER_TERMS = [
 ]
 
 
+import re as _re
+
+# Matches note text that hints at a specific date other than when the note was written
+_DATE_HINT_RE = _re.compile(
+    r'\b(when|at|upon|during)\s+plant'
+    r'|\byesterday\b'
+    r'|\blast\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b'
+    r'|\b\d+\s+days?\s+ago\b'
+    r'|\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b'
+    r'|\b(january|february|march|april|may|june|july|august|september|october|november|december'
+    r'|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}\b'
+    r'|\b\d{1,2}/\d{1,2}\b',
+    _re.IGNORECASE,
+)
+
+_ISO_DATE_RE = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+
+def _has_date_hint(note_text):
+    return bool(note_text and _DATE_HINT_RE.search(note_text))
+
+
 def _detect_fertilization(note_text):
-    """Keyword-based detection. Returns (is_fertilization 0/1, fertilizer_type or None)."""
+    """Keyword-based detection. Returns (is_fert 0/1, fert_type or None, fert_date None).
+    Date is always None here — resolved separately when text contains a date hint."""
     if not note_text:
-        return (0, None)
+        return (0, None, None)
     lower = note_text.lower()
     for keyword, ftype in _FERTILIZER_TERMS:
         if keyword in lower:
-            return (1, ftype)
-    return (0, None)
+            return (1, ftype, None)
+    return (0, None, None)
 
 
-def _ai_detect_fertilization(note_text):
-    """Claude Haiku fallback for notes that don't match the keyword list.
-    Returns (0/1, type_or_None). Silently returns (0, None) on any error."""
+def _extract_fertilization_date(note_text, photo_date, planted_date):
+    """Ask Haiku to resolve the actual fertilization date from note text.
+    Returns YYYY-MM-DD string or None (caller falls back to photo_date)."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key or not note_text:
-        return (0, None)
+        return None
     try:
         import anthropic as _anthropic
-        import json as _json
+        ctx_parts = []
+        if photo_date:
+            ctx_parts.append(f"note written: {photo_date}")
+        if planted_date:
+            ctx_parts.append(f"plant planted: {planted_date}")
+        ctx = "; ".join(ctx_parts)
         client = _anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=60,
+            max_tokens=15,
+            system=(
+                "Return ONLY the date fertilizer was actually applied, as YYYY-MM-DD. "
+                "Use the context to resolve phrases like 'when planting' or 'yesterday'. "
+                "Return null if the date cannot be determined."
+            ),
+            messages=[{"role": "user", "content": f"Context: {ctx}\nNote: {note_text[:400]}"}],
+        )
+        result = resp.content[0].text.strip().strip('"').strip("'")
+        return result if _ISO_DATE_RE.match(result) else None
+    except Exception:
+        return None
+
+
+def _ai_detect_fertilization(note_text, photo_date=None, planted_date=None):
+    """Claude Haiku fallback for notes that don't match the keyword list.
+    Returns (is_fert 0/1, fert_type or None, fert_date or None)."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key or not note_text:
+        return (0, None, None)
+    try:
+        import anthropic as _anthropic
+        import json as _json
+        ctx_parts = []
+        if photo_date:
+            ctx_parts.append(f"note written: {photo_date}")
+        if planted_date:
+            ctx_parts.append(f"plant planted: {planted_date}")
+        ctx = "; ".join(ctx_parts)
+        client = _anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=80,
             system=(
                 "Classify garden notes. Reply ONLY with JSON, no prose. "
-                "Return {\"f\":true,\"t\":\"type\"} if the note describes applying a fertilizer "
-                "or soil amendment (worm castings, bone/blood meal, manure, compost tea, kelp, "
-                "seaweed, plant food, pellets, liquid feed, etc.). "
-                "Return {\"f\":false} otherwise. \"t\" is the short fertilizer name (1-4 words)."
+                "Return {\"f\":true,\"t\":\"type\",\"d\":\"YYYY-MM-DD\"} if a fertilizer/amendment "
+                "was applied (worm castings, bone/blood meal, manure, compost tea, kelp, seaweed, "
+                "plant food, pellets, liquid feed, etc.). Return {\"f\":false} otherwise. "
+                "\"t\": short fertilizer name (1-4 words). "
+                "\"d\": actual application date — use context to resolve 'when planting', 'yesterday' etc; "
+                "omit if date is unclear. "
+                f"Context: {ctx}"
             ),
             messages=[{"role": "user", "content": note_text[:400]}],
         )
         data = _json.loads(resp.content[0].text.strip())
         if data.get("f"):
-            return (1, data.get("t") or None)
-        return (0, None)
+            d = data.get("d")
+            fert_date = d if (d and _ISO_DATE_RE.match(str(d))) else None
+            return (1, data.get("t") or None, fert_date)
+        return (0, None, None)
     except Exception:
-        return (0, None)
+        return (0, None, None)
 
 
 def infer_query_from_text(raw_text: str) -> str:
