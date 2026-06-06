@@ -1,5 +1,7 @@
 /* Reveal body once this stylesheet has loaded (prevents FOUC on iOS PWA) */
 body { visibility: visible; }
+/* Hide the inline splash once this file loads */
+#gp-splash { display: none; }
 
 /* ================================================================
    TOKENS
