@@ -49,14 +49,23 @@
         <textarea name="notes" rows="3" placeholder="Seed source, spacing, observations…">{{ form_values.notes or '' }}</textarea>
       </label>
       <div style="border-top:1px solid var(--border);padding-top:0.9rem;margin-top:0.2rem">
-        <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.7rem">Override last fertilized</p>
+        <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Last fertilized</p>
+        <p style="font-size:0.85rem;margin-bottom:0.8rem">
+          {% if last_fertilized %}
+            {% if last_fertilized.date %}{{ last_fertilized.date | planted_date }}{% endif %}
+            {% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}
+            {% if not last_fertilized.date and not last_fertilized.type %}—{% endif %}
+          {% else %}
+            <span class="muted">Never</span>
+          {% endif %}
+        </p>
         <div class="stack">
           <label>
-            Date last fertilized
+            Override date
             <input type="date" name="last_fertilized_date" value="{{ form_values.last_fertilized_date or '' }}" />
           </label>
           <label>
-            Fertilizer type
+            Override fertilizer type
             <input type="text" name="last_fertilizer_type" value="{{ form_values.last_fertilizer_type or '' }}"
                    placeholder="e.g. Worm castings, Fish emulsion…" />
           </label>
