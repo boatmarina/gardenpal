@@ -2158,7 +2158,7 @@ def create_app() -> Flask:
                                 result = {"error": "entry_id and note are required"}
                             else:
                                 entry = db.execute(
-                                    "SELECT id, user_id FROM garden_entries WHERE id = ?",
+                                    "SELECT id, user_id, planted_date FROM garden_entries WHERE id = ?",
                                     (eid,),
                                 ).fetchone()
                                 if not entry:
@@ -2166,12 +2166,20 @@ def create_app() -> Flask:
                                 elif entry["user_id"] != user_id:
                                     result = {"error": f"Entry {eid} belongs to your garden partner and is read-only — skip it and continue with the user's own entries"}
                                 else:
+                                    note_date = _parse_date_to_iso(inp.get("note_date") or today, today)
+                                    planted_date = entry["planted_date"]
+                                    is_fert, fert_type, fert_date = _detect_fertilization(note)
+                                    if is_fert and _has_date_hint(note):
+                                        fert_date = _extract_fertilization_date(note, note_date, planted_date)
+                                    elif not is_fert:
+                                        is_fert, fert_type, fert_date = _ai_detect_fertilization(note, note_date, planted_date)
                                     db.execute(
                                         """INSERT INTO garden_photos
-                                        (entry_id, user_id, image_path, photo_date, notes, created_at)
-                                        VALUES (?, ?, NULL, ?, ?, ?)""",
-                                        (eid, user_id, _parse_date_to_iso(inp.get("note_date") or today, today), note,
-                                         datetime.utcnow().isoformat(timespec="seconds")),
+                                        (entry_id, user_id, image_path, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)
+                                        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)""",
+                                        (eid, user_id, note_date, note,
+                                         datetime.utcnow().isoformat(timespec="seconds"),
+                                         is_fert, fert_type, fert_date),
                                     )
                                     db.commit()
                                     changed = True
