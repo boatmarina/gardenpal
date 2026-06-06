@@ -1890,7 +1890,21 @@ def create_app() -> Flask:
             flash("Entry updated.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
         location_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
-        return render_template("garden_entry_edit.html", entry=entry, form_values=entry, location_names=location_names)
+        last_fert_photo = db.execute(
+            "SELECT COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
+            " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1"
+            " ORDER BY COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC LIMIT 1",
+            (entry_id,),
+        ).fetchone()
+        explicit_date = (entry["last_fertilized_date"] or "") if entry["last_fertilized_date"] else ""
+        photo_fert_date = (last_fert_photo["fert_date"] or "") if last_fert_photo else ""
+        if explicit_date and (not photo_fert_date or explicit_date >= photo_fert_date):
+            last_fertilized = {"date": explicit_date, "type": entry["last_fertilizer_type"]}
+        elif last_fert_photo:
+            last_fertilized = {"date": photo_fert_date or None, "type": last_fert_photo["fertilizer_type"]}
+        else:
+            last_fertilized = None
+        return render_template("garden_entry_edit.html", entry=entry, form_values=entry, location_names=location_names, last_fertilized=last_fertilized)
 
     @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
     @login_required
