@@ -1745,7 +1745,24 @@ def create_app() -> Flask:
             (entry_id,),
         ).fetchall()
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today)
+
+        # Determine last fertilized: most recent of explicit entry field vs detected growth-log note
+        last_fert_photo = db.execute(
+            "SELECT photo_date, fertilizer_type FROM garden_photos"
+            " WHERE entry_id = ? AND is_fertilization = 1"
+            " ORDER BY photo_date DESC NULLS LAST, created_at DESC LIMIT 1",
+            (entry_id,),
+        ).fetchone()
+        explicit_date = (entry["last_fertilized_date"] or "") if entry["last_fertilized_date"] else ""
+        photo_date_str = (last_fert_photo["photo_date"] or "") if last_fert_photo else ""
+        if explicit_date and (not photo_date_str or explicit_date >= photo_date_str):
+            last_fertilized = {"date": explicit_date, "type": entry["last_fertilizer_type"]}
+        elif last_fert_photo:
+            last_fertilized = {"date": photo_date_str or None, "type": last_fert_photo["fertilizer_type"]}
+        else:
+            last_fertilized = None
+
+        return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today, last_fertilized=last_fertilized)
 
     @app.route("/garden/<int:entry_id>/photos", methods=["POST"])
     @login_required
@@ -1770,8 +1787,11 @@ def create_app() -> Flask:
                 return jsonify(error="Please add a photo or write a note."), 400
             flash("Please add a photo or write a note.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
+        is_fert, fert_type = _detect_fertilization(note_text)
+        if not is_fert and note_text:
+            is_fert, fert_type = _ai_detect_fertilization(note_text)
         db.execute(
-            "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at, is_fertilization, fertilizer_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 entry_id,
                 g.user["id"],
@@ -1779,6 +1799,8 @@ def create_app() -> Flask:
                 request.form.get("photo_date", "").strip() or None,
                 note_text,
                 datetime.utcnow().isoformat(timespec="seconds"),
+                is_fert,
+                fert_type,
             ),
         )
         db.commit()
@@ -1801,9 +1823,12 @@ def create_app() -> Flask:
             return jsonify(error="Not found"), 404
         notes = request.form.get("notes", "").strip() or None
         photo_date = request.form.get("photo_date", "").strip() or None
+        is_fert, fert_type = _detect_fertilization(notes)
+        if not is_fert and notes:
+            is_fert, fert_type = _ai_detect_fertilization(notes)
         db.execute(
-            "UPDATE garden_photos SET notes = ?, photo_date = ? WHERE id = ?",
-            [notes, photo_date, photo_id],
+            "UPDATE garden_photos SET notes = ?, photo_date = ?, is_fertilization = ?, fertilizer_type = ? WHERE id = ?",
+            [notes, photo_date, is_fert, fert_type, photo_id],
         )
         db.commit()
         return jsonify(ok=True)
@@ -1830,7 +1855,8 @@ def create_app() -> Flask:
             db.execute(
                 f"""UPDATE garden_entries
                    SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
-                       planted_date = ?, notes = ?, updated_at = ?
+                       planted_date = ?, notes = ?, last_fertilized_date = ?, last_fertilizer_type = ?,
+                       updated_at = ?
                    WHERE id = ? AND user_id IN {ph}""",
                 [
                     plant_name,
@@ -1839,6 +1865,8 @@ def create_app() -> Flask:
                     request.form.get("location_name", "").strip() or None,
                     request.form.get("planted_date", "").strip() or None,
                     request.form.get("notes", "").strip() or None,
+                    request.form.get("last_fertilized_date", "").strip() or None,
+                    request.form.get("last_fertilizer_type", "").strip() or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                     entry_id,
                 ] + id_args,
@@ -2785,6 +2813,24 @@ def init_db():
     except Exception:
         pass
 
+    ensure_column(db, "garden_photos", "is_fertilization", "INTEGER")
+    ensure_column(db, "garden_photos", "fertilizer_type", "TEXT")
+    ensure_column(db, "garden_entries", "last_fertilized_date", "TEXT")
+    ensure_column(db, "garden_entries", "last_fertilizer_type", "TEXT")
+
+    # Backfill existing growth-log notes using keyword detection (one-time, skips already-classified rows)
+    unclassified = db.execute(
+        "SELECT id, notes FROM garden_photos WHERE is_fertilization IS NULL AND notes IS NOT NULL"
+    ).fetchall()
+    for row in unclassified:
+        is_fert, ftype = _detect_fertilization(row["notes"])
+        db.execute(
+            "UPDATE garden_photos SET is_fertilization = ?, fertilizer_type = ? WHERE id = ?",
+            [is_fert, ftype, row["id"]],
+        )
+    db.execute("UPDATE garden_photos SET is_fertilization = 0 WHERE is_fertilization IS NULL")
+    db.commit()
+
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
     if user is None:
         db.execute(
@@ -3096,6 +3142,101 @@ def ensure_column(db, table_name: str, column_name: str, column_spec: str):
     ).fetchone()
     if exists is None:
         db.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_spec}")
+
+
+# (keyword_fragment, display_type) — first match wins; None type means extract via AI or use "fertilizer"
+_FERTILIZER_TERMS = [
+    ("worm cast", "worm castings"),
+    ("wormcast", "worm castings"),
+    ("vermicast", "worm castings"),
+    ("vermicompost", "vermicompost"),
+    ("bone meal", "bone meal"),
+    ("bonemeal", "bone meal"),
+    ("blood meal", "blood meal"),
+    ("bloodmeal", "blood meal"),
+    ("fish emulsion", "fish emulsion"),
+    ("fish meal", "fish meal"),
+    ("fishmeal", "fish meal"),
+    ("kelp meal", "kelp meal"),
+    ("kelp extract", "kelp extract"),
+    ("seaweed extract", "seaweed extract"),
+    ("seaweed fertiliz", "seaweed fertilizer"),
+    ("compost tea", "compost tea"),
+    ("chicken pellet", "chicken pellets"),
+    ("chicken manure", "chicken manure"),
+    ("cow manure", "cow manure"),
+    ("horse manure", "horse manure"),
+    ("rabbit manure", "rabbit manure"),
+    ("bat guano", "bat guano"),
+    ("seabird guano", "seabird guano"),
+    ("guano", "guano"),
+    ("miracle-gro", "Miracle-Gro"),
+    ("miracle gro", "Miracle-Gro"),
+    ("growmore", "Growmore"),
+    ("tomato feed", "tomato feed"),
+    ("tomato fertiliz", "tomato fertilizer"),
+    ("liquid seaweed", "liquid seaweed"),
+    ("seaweed", "seaweed"),
+    ("manure", "manure"),
+    ("epsom salt", "Epsom salt"),
+    ("rock dust", "rock dust"),
+    ("greensand", "greensand"),
+    ("slow-release", "slow-release fertilizer"),
+    ("slow release", "slow-release fertilizer"),
+    ("granular fertiliz", "granular fertilizer"),
+    ("granular feed", "granular feed"),
+    ("liquid feed", "liquid feed"),
+    ("liquid fertiliz", "liquid fertilizer"),
+    ("liquid fertilis", "liquid fertilizer"),
+    ("plant food", "plant food"),
+    ("organic feed", "organic feed"),
+    ("organic fertiliz", "organic fertilizer"),
+    ("organic fertilis", "organic fertilizer"),
+    ("fertilis", None),
+    ("fertiliz", None),
+    ("npk", None),
+]
+
+
+def _detect_fertilization(note_text):
+    """Keyword-based detection. Returns (is_fertilization 0/1, fertilizer_type or None)."""
+    if not note_text:
+        return (0, None)
+    lower = note_text.lower()
+    for keyword, ftype in _FERTILIZER_TERMS:
+        if keyword in lower:
+            return (1, ftype)
+    return (0, None)
+
+
+def _ai_detect_fertilization(note_text):
+    """Claude Haiku fallback for notes that don't match the keyword list.
+    Returns (0/1, type_or_None). Silently returns (0, None) on any error."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key or not note_text:
+        return (0, None)
+    try:
+        import anthropic as _anthropic
+        import json as _json
+        client = _anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=60,
+            system=(
+                "Classify garden notes. Reply ONLY with JSON, no prose. "
+                "Return {\"f\":true,\"t\":\"type\"} if the note describes applying a fertilizer "
+                "or soil amendment (worm castings, bone/blood meal, manure, compost tea, kelp, "
+                "seaweed, plant food, pellets, liquid feed, etc.). "
+                "Return {\"f\":false} otherwise. \"t\" is the short fertilizer name (1-4 words)."
+            ),
+            messages=[{"role": "user", "content": note_text[:400]}],
+        )
+        data = _json.loads(resp.content[0].text.strip())
+        if data.get("f"):
+            return (1, data.get("t") or None)
+        return (0, None)
+    except Exception:
+        return (0, None)
 
 
 def infer_query_from_text(raw_text: str) -> str:

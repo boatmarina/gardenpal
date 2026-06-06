@@ -43,6 +43,16 @@
         <dt>Notes</dt>
         <dd>{{ entry.notes }}</dd>
       {% endif %}
+      <dt>Last fertilized</dt>
+      <dd>
+        {% if last_fertilized %}
+          {% if last_fertilized.date %}{{ last_fertilized.date | planted_date }}{% endif %}
+          {% if last_fertilized.type %}<span class="muted" style="font-size:0.85em"> · {{ last_fertilized.type }}</span>{% endif %}
+          {% if not last_fertilized.date and not last_fertilized.type %}—{% endif %}
+        {% else %}
+          <span class="muted">Never</span>
+        {% endif %}
+      </dd>
     </dl>
   </section>
 
