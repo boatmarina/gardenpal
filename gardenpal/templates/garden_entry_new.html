@@ -31,8 +31,13 @@
       </label>
       <label>
         Location name
-        <input type="text" name="location_name" value="{{ form_values.location_name or '' }}" placeholder="e.g. North bed, big pot on deck…" />
+        <input type="text" name="location_name" value="{{ form_values.location_name or '' }}"
+               placeholder="e.g. North bed, big pot on deck…"
+               list="location-name-list" autocomplete="off" />
       </label>
+      <datalist id="location-name-list">
+        {% for name in location_names %}<option value="{{ name | e }}">{% endfor %}
+      </datalist>
       <label>
         Date planted
         <input type="date" name="planted_date" value="{{ form_values.planted_date or '' }}" />

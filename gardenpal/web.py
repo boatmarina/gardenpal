@@ -1717,7 +1717,15 @@ def create_app() -> Flask:
             flash("Entry added to your garden tracker.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        return render_template("garden_entry_new.html", form_values={"planted_date": today})
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        location_names = [
+            r["location_name"] for r in db.execute(
+                f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC",
+                id_args,
+            ).fetchall()
+        ]
+        return render_template("garden_entry_new.html", form_values={"planted_date": today}, location_names=location_names)
 
     @app.route("/garden/<int:entry_id>")
     @login_required
@@ -1817,7 +1825,8 @@ def create_app() -> Flask:
             plant_name = request.form.get("plant_name", "").strip()
             if not plant_name:
                 flash("Plant name is required.")
-                return render_template("garden_entry_edit.html", entry=entry, form_values=request.form)
+                _loc_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
+                return render_template("garden_entry_edit.html", entry=entry, form_values=request.form, location_names=_loc_names)
             db.execute(
                 f"""UPDATE garden_entries
                    SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
@@ -1837,7 +1846,8 @@ def create_app() -> Flask:
             db.commit()
             flash("Entry updated.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
-        return render_template("garden_entry_edit.html", entry=entry, form_values=entry)
+        location_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
+        return render_template("garden_entry_edit.html", entry=entry, form_values=entry, location_names=location_names)
 
     @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
     @login_required
