@@ -31,13 +31,15 @@
       </label>
       <label>
         Location name
-        <input type="text" name="location_name" value="{{ form_values.location_name or '' }}"
-               placeholder="e.g. North bed, big pot on deck…"
-               list="location-name-list" autocomplete="off" />
+        <div style="position:relative">
+          <input id="loc-name-input" type="text" name="location_name"
+                 value="{{ form_values.location_name or '' }}"
+                 placeholder="e.g. North bed, big pot on deck…"
+                 autocomplete="off" autocorrect="off"
+                 data-locations="{{ location_names | tojson }}" />
+          <ul id="loc-name-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
+        </div>
       </label>
-      <datalist id="location-name-list">
-        {% for name in location_names %}<option value="{{ name | e }}">{% endfor %}
-      </datalist>
       <label>
         Date planted
         <input type="date" name="planted_date" value="{{ form_values.planted_date or '' }}" />
@@ -49,4 +51,34 @@
       <button type="submit" style="margin-top:4px">Save to Garden</button>
     </form>
   </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var inp = document.getElementById('loc-name-input');
+  var dropdown = document.getElementById('loc-name-dropdown');
+  if (!inp || !dropdown) return;
+  var locations = [];
+  try { locations = JSON.parse(inp.dataset.locations || '[]'); } catch(e) {}
+  function show(query) {
+    var q = (query || '').trim().toLowerCase();
+    var matches = q ? locations.filter(function(l) { return l.toLowerCase().includes(q); }) : locations;
+    if (!matches.length) { dropdown.hidden = true; return; }
+    dropdown.innerHTML = '';
+    matches.forEach(function(name) {
+      var li = document.createElement('li');
+      li.textContent = name;
+      li.addEventListener('mousedown', function(e) { e.preventDefault(); inp.value = name; dropdown.hidden = true; });
+      li.addEventListener('touchstart', function(e) { e.preventDefault(); inp.value = name; dropdown.hidden = true; inp.blur(); });
+      dropdown.appendChild(li);
+    });
+    dropdown.hidden = false;
+  }
+  inp.addEventListener('focus', function() { show(inp.value); });
+  inp.addEventListener('input', function() { show(inp.value); });
+  inp.addEventListener('blur', function() { setTimeout(function() { dropdown.hidden = true; }, 200); });
+  inp.addEventListener('keydown', function(e) { if (e.key === 'Escape') dropdown.hidden = true; });
+})();
+</script>
 {% endblock %}
