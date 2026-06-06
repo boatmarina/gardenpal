@@ -1279,7 +1279,7 @@ def create_app() -> Flask:
         def _day(day_str):
             return day_data.setdefault(day_str, {
                 "logins": 0, "plant_entries": [], "yard_entries": [],
-                "zones": [], "garden_entries": [],
+                "zones": [], "garden_entries": [], "chat_queries": [],
                 "_sp": set(), "_sy": set(),
             })
 
@@ -1306,6 +1306,8 @@ def create_app() -> Flask:
                 d["zones"].append(name)
             elif act == "garden_entry_added" and name not in d["garden_entries"]:
                 d["garden_entries"].append(name)
+            elif act == "garden_chat":
+                d["chat_queries"].append(name)
 
         today = datetime.utcnow().date()
         week_activity = []
@@ -1982,6 +1984,8 @@ def create_app() -> Flask:
 
         db = get_db()
         user_id = g.user["id"]
+        _log_activity(db, user_id, "garden_chat", message[:200])
+        db.commit()
         today = datetime.utcnow().strftime("%Y-%m-%d")
         ids = _shared_user_ids(db, user_id)
         ph, id_args = _in_ids(ids)

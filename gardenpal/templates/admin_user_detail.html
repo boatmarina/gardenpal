@@ -111,7 +111,17 @@
               <span style="color:var(--muted)"> — {{ day.garden_entries | join(', ') }}</span>
             </li>
             {% endif %}
-            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries %}
+            {% if day.chat_queries %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--green-dark)">Asked garden assistant {{ day.chat_queries | length }} time{{ 's' if day.chat_queries | length != 1 else '' }}</span>
+              <div style="margin-top:5px;display:flex;flex-direction:column;gap:4px">
+                {% for q in day.chat_queries %}
+                <div style="font-size:0.8rem;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:5px 10px;font-style:italic">"{{ q }}"</div>
+                {% endfor %}
+              </div>
+            </li>
+            {% endif %}
+            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.chat_queries %}
               <li style="font-size:0.85rem;color:var(--muted)">No recorded activity.</li>
             {% endif %}
           </ul>
