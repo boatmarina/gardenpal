@@ -48,6 +48,20 @@
         Notes
         <textarea name="notes" rows="3" placeholder="Seed source, spacing, observations…">{{ form_values.notes or '' }}</textarea>
       </label>
+      <div style="border-top:1px solid var(--border);padding-top:0.9rem;margin-top:0.2rem">
+        <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.7rem">Override last fertilized</p>
+        <div class="stack">
+          <label>
+            Date last fertilized
+            <input type="date" name="last_fertilized_date" value="{{ form_values.last_fertilized_date or '' }}" />
+          </label>
+          <label>
+            Fertilizer type
+            <input type="text" name="last_fertilizer_type" value="{{ form_values.last_fertilizer_type or '' }}"
+                   placeholder="e.g. Worm castings, Fish emulsion…" />
+          </label>
+        </div>
+      </div>
       <button type="submit" style="margin-top:4px">Save Changes</button>
     </form>
   </div>
