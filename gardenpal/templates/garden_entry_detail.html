@@ -26,34 +26,67 @@
     </div>
     {% if entry.variety %}<p class="muted" style="font-style:italic;margin-bottom:12px">{{ entry.variety }}</p>{% endif %}
 
-    <dl class="detail-list">
-      {% if entry.location_type %}
-        <dt>Location type</dt>
-        <dd>{{ entry.location_type | replace("_", " ") | title }}</dd>
-      {% endif %}
-      {% if entry.location_name %}
-        <dt>Location</dt>
-        <dd>{{ entry.location_name }}</dd>
+    <div class="meta-list">
+      {% if entry.location_type or entry.location_name %}
+      <div class="meta-item">
+        <span class="meta-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C8.69 2 6 4.69 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.31-2.69-6-6-6z"/>
+            <circle cx="12" cy="8" r="2"/>
+          </svg>
+        </span>
+        <span class="meta-label">Location</span>
+        <span class="meta-value">
+          {%- if entry.location_type %}{{ entry.location_type | replace("_", " ") | title }}{% endif %}
+          {%- if entry.location_type and entry.location_name %} · {% endif %}
+          {%- if entry.location_name %}{{ entry.location_name }}{% endif -%}
+        </span>
+      </div>
       {% endif %}
       {% if entry.planted_date %}
-        <dt>Planted</dt>
-        <dd>{{ entry.planted_date | planted_date }}</dd>
+      <div class="meta-item">
+        <span class="meta-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </span>
+        <span class="meta-label">Planted</span>
+        <span class="meta-value">{{ entry.planted_date | planted_date }}</span>
+      </div>
       {% endif %}
-      {% if entry.notes %}
-        <dt>Notes</dt>
-        <dd>{{ entry.notes }}</dd>
-      {% endif %}
-      <dt>Last fertilized</dt>
-      <dd>
-        {% if last_fertilized %}
-          {% if last_fertilized.date %}{{ last_fertilized.date | planted_date }}{% endif %}
-          {% if last_fertilized.type %}<span class="muted" style="font-size:0.85em"> · {{ last_fertilized.type }}</span>{% endif %}
-          {% if not last_fertilized.date and not last_fertilized.type %}—{% endif %}
+      <div class="meta-item">
+        <span class="meta-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22V12"/>
+            <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
+            <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
+          </svg>
+        </span>
+        <span class="meta-label">Fertilized</span>
+        {% if last_fertilized and last_fertilized.date %}
+          <span class="meta-value">{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %} · {{ last_fertilized.type }}{% endif %}</span>
         {% else %}
-          <span class="muted">Never</span>
+          <span class="meta-value muted">Never</span>
         {% endif %}
-      </dd>
-    </dl>
+      </div>
+      {% if entry.notes %}
+      <div class="meta-item">
+        <span class="meta-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="13" y1="17" x2="8" y2="17"/>
+          </svg>
+        </span>
+        <span class="meta-label">Notes</span>
+        <span class="meta-value">{{ entry.notes }}</span>
+      </div>
+      {% endif %}
+    </div>
   </section>
 
   <!-- ── Growth log ── -->
