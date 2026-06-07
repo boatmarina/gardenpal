@@ -791,6 +791,50 @@ dt {
 dd { margin: 0; }
 
 /* ================================================================
+   GARDEN ENTRY METADATA ROWS
+   ================================================================ */
+.meta-list {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.meta-item:last-child { border-bottom: none; }
+.meta-icon {
+  flex-shrink: 0;
+  width: 14px;
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+.meta-label {
+  flex-shrink: 0;
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 72px;
+}
+.meta-value {
+  flex: 1;
+  font-size: 0.88rem;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.meta-value.muted { color: var(--muted); }
+
+/* ================================================================
    FLASH MESSAGES
    ================================================================ */
 .flash-area { margin-bottom: 14px; }

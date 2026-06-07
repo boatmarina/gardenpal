@@ -1312,7 +1312,7 @@ def create_app() -> Flask:
 
         note_rows = db.execute(
             "SELECT gp.created_at, gp.image_path, gp.is_fertilization, gp.fertilizer_type,"
-            " gp.fertilization_date, gp.note_text, ge.plant_name"
+            " gp.fertilization_date, gp.notes, ge.plant_name"
             " FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
             " WHERE gp.user_id = ? AND gp.created_at >= ? ORDER BY gp.created_at ASC",
             (user_id, week_since),
@@ -1324,7 +1324,7 @@ def create_app() -> Flask:
                 "is_fertilization": bool(row["is_fertilization"]),
                 "fertilizer_type": row["fertilizer_type"],
                 "fertilization_date": row["fertilization_date"],
-                "note_text": (row["note_text"] or "")[:120],
+                "note_text": (row["notes"] or "")[:120],
             })
 
         today = datetime.utcnow().date()
