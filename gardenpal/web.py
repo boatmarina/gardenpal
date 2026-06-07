@@ -1784,7 +1784,37 @@ def create_app() -> Flask:
         else:
             last_fertilized = None
 
-        return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today, last_fertilized=last_fertilized)
+        # Refresh next-fertilization suggestion when stale
+        gen_at = entry["next_fertilization_generated_at"] if entry["next_fertilization_generated_at"] else None
+        last_fert_date = last_fertilized["date"] if last_fertilized else None
+        needs_regen = (
+            not gen_at
+            or (last_fert_date and last_fert_date > gen_at[:10])
+            or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
+        )
+        if needs_regen:
+            growth_notes = [
+                (r["photo_date"], r["notes"])
+                for r in db.execute(
+                    "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ? AND notes IS NOT NULL"
+                    " ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                    (entry_id,),
+                ).fetchall()
+            ]
+            user_location = g.user.get("location", "")
+            suggestion = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes)
+            if suggestion:
+                # Reload entry to get fresh cached values
+                entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+
+        next_fertilization = {
+            "date": entry["next_fertilization_date"],
+            "note": entry["next_fertilization_note"],
+            "planned_date": entry["planned_fertilization_date"],
+        }
+
+        return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today,
+                               last_fertilized=last_fertilized, next_fertilization=next_fertilization)
 
     @app.route("/garden/<int:entry_id>/photos", methods=["POST"])
     @login_required
@@ -1831,6 +1861,15 @@ def create_app() -> Flask:
                 fert_date,
             ),
         )
+        if is_fert:
+            effective_date = fert_date or photo_date or datetime.utcnow().strftime("%Y-%m-%d")
+            db.execute(
+                "UPDATE garden_entries SET next_fertilization_generated_at = NULL,"
+                " planned_fertilization_date = CASE"
+                " WHEN planned_fertilization_date IS NOT NULL AND planned_fertilization_date <= ? THEN NULL"
+                " ELSE planned_fertilization_date END WHERE id = ?",
+                (effective_date, entry_id),
+            )
         db.commit()
         if is_ajax:
             return jsonify(ok=True)
@@ -1918,6 +1957,14 @@ def create_app() -> Flask:
                     (entry_id, g.user["id"], new_fert_date, note_text,
                      datetime.utcnow().isoformat(timespec="seconds"), new_fert_type, new_fert_date),
                 )
+            if new_fert_date != old_fert_date:
+                db.execute(
+                    "UPDATE garden_entries SET next_fertilization_generated_at = NULL,"
+                    " planned_fertilization_date = CASE"
+                    " WHEN planned_fertilization_date IS NOT NULL AND ? IS NOT NULL AND planned_fertilization_date <= ? THEN NULL"
+                    " ELSE planned_fertilization_date END WHERE id = ?",
+                    (new_fert_date, new_fert_date, entry_id),
+                )
             db.commit()
             flash("Entry updated.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
@@ -1948,6 +1995,27 @@ def create_app() -> Flask:
         db.commit()
         flash("Entry deleted.")
         return redirect(url_for("garden_index"))
+
+    @app.route("/garden/<int:entry_id>/plan-fertilize", methods=["POST"])
+    @login_required
+    def garden_plan_fertilize(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            flash("Entry not found.")
+            return redirect(url_for("garden_index"))
+        planned_date = request.form.get("planned_date", "").strip() or None
+        db.execute(
+            "UPDATE garden_entries SET planned_fertilization_date = ? WHERE id = ?",
+            (planned_date, entry_id),
+        )
+        db.commit()
+        return redirect(url_for("garden_detail", entry_id=entry_id))
 
     @app.route("/garden/<int:entry_id>/duplicate", methods=["POST"])
     @login_required
@@ -2899,6 +2967,10 @@ def init_db():
     ensure_column(db, "garden_photos", "fertilization_date", "TEXT")
     ensure_column(db, "garden_entries", "last_fertilized_date", "TEXT")
     ensure_column(db, "garden_entries", "last_fertilizer_type", "TEXT")
+    ensure_column(db, "garden_entries", "next_fertilization_date", "TEXT")
+    ensure_column(db, "garden_entries", "next_fertilization_note", "TEXT")
+    ensure_column(db, "garden_entries", "next_fertilization_generated_at", "TEXT")
+    ensure_column(db, "garden_entries", "planned_fertilization_date", "TEXT")
 
     # Backfill existing growth-log notes using keyword detection (one-time, skips already-classified rows)
     unclassified = db.execute(
@@ -3399,6 +3471,77 @@ def _ai_detect_fertilization(note_text, photo_date=None, planted_date=None):
         return (0, None, None)
     except Exception:
         return (0, None, None)
+
+
+def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes):
+    """Call Claude Haiku to suggest the next fertilization date. Caches result in DB."""
+    import anthropic as _anthropic
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    try:
+        today_str = datetime.utcnow().date().isoformat()
+        plant_name = entry["plant_name"] or ""
+        variety_str = f" ({entry['variety']})" if entry.get("variety") else ""
+        location_type = (entry.get("location_type") or "").replace("_", " ")
+        location_name = entry.get("location_name") or ""
+        planted_date = entry.get("planted_date") or "unknown"
+
+        if last_fertilized and last_fertilized.get("date"):
+            last_fert_str = last_fertilized["date"]
+            last_fert_type = last_fertilized.get("type") or ""
+        else:
+            last_fert_str = "never"
+            last_fert_type = ""
+
+        notes_lines = []
+        for photo_date, notes in growth_notes:
+            if notes:
+                notes_lines.append(f"- {photo_date or '?'}: {notes[:200]}")
+        notes_str = "\n".join(notes_lines) if notes_lines else "None"
+
+        user_msg = (
+            f"Plant: {plant_name}{variety_str}\n"
+            f"Location type: {location_type or 'unknown'}\n"
+            f"Location name: {location_name or 'not specified'}\n"
+            f"User's location: {user_location or 'unknown'}\n"
+            f"Planted: {planted_date}\n"
+            f"Last fertilized: {last_fert_str}"
+            + (f" (fertilizer: {last_fert_type})" if last_fert_type else "")
+            + f"\nGrowth log notes:\n{notes_str}\nToday is {today_str}."
+        )
+
+        client = _anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=220,
+            system=(
+                "You are a gardening advisor. Given plant and fertilization history, "
+                "suggest the next fertilization date. Reply with ONLY:\n"
+                "Line 1: YYYY-MM-DD (the suggested date, must be today or in the future)\n"
+                "Line 2+: 2-3 sentence explanation of your reasoning.\n"
+                "No labels, no extra text."
+            ),
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        raw = resp.content[0].text.strip()
+        lines = raw.splitlines()
+        date_line = lines[0].strip() if lines else ""
+        if not _ISO_DATE_RE.match(date_line):
+            return None
+        if date_line < today_str:
+            date_line = today_str
+        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        generated_at = datetime.utcnow().isoformat(timespec="seconds")
+        db.execute(
+            "UPDATE garden_entries SET next_fertilization_date = ?, next_fertilization_note = ?,"
+            " next_fertilization_generated_at = ? WHERE id = ?",
+            (date_line, note_text or None, generated_at, entry["id"]),
+        )
+        db.commit()
+        return {"date": date_line, "note": note_text or None}
+    except Exception:
+        return None
 
 
 def infer_query_from_text(raw_text: str) -> str:
