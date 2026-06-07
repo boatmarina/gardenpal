@@ -83,14 +83,19 @@
 (function() {
   var btn = document.getElementById('fert-update-btn');
   var fields = document.getElementById('fert-override-fields');
-  if (btn && fields) {
-    btn.addEventListener('click', function() {
-      fields.style.display = 'flex';
-      btn.style.display = 'none';
+  if (!btn || !fields) return;
+  function expand(focus) {
+    fields.style.display = '';   /* let .stack (grid) take over */
+    btn.style.display = 'none';
+    if (focus) {
       var dateInput = fields.querySelector('input[type="date"]');
       if (dateInput) dateInput.focus();
-    });
+    }
   }
+  /* auto-expand if a value was already saved */
+  var existing = fields.querySelector('input[type="date"]');
+  if (existing && existing.value) expand(false);
+  btn.addEventListener('click', function() { expand(true); });
 })();
 (function() {
   var inp = document.getElementById('loc-name-input');
