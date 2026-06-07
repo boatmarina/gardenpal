@@ -1280,6 +1280,7 @@ def create_app() -> Flask:
             return day_data.setdefault(day_str, {
                 "logins": 0, "plant_entries": [], "yard_entries": [],
                 "zones": [], "garden_entries": [], "chat_queries": [],
+                "garden_notes": [],
                 "_sp": set(), "_sy": set(),
             })
 
@@ -1308,6 +1309,23 @@ def create_app() -> Flask:
                 d["garden_entries"].append(name)
             elif act == "garden_chat":
                 d["chat_queries"].append(name)
+
+        note_rows = db.execute(
+            "SELECT gp.created_at, gp.image_path, gp.is_fertilization, gp.fertilizer_type,"
+            " gp.fertilization_date, gp.note_text, ge.plant_name"
+            " FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
+            " WHERE gp.user_id = ? AND gp.created_at >= ? ORDER BY gp.created_at ASC",
+            (user_id, week_since),
+        ).fetchall()
+        for row in note_rows:
+            _day(row["created_at"][:10])["garden_notes"].append({
+                "plant_name": row["plant_name"],
+                "has_photo": bool(row["image_path"]),
+                "is_fertilization": bool(row["is_fertilization"]),
+                "fertilizer_type": row["fertilizer_type"],
+                "fertilization_date": row["fertilization_date"],
+                "note_text": (row["note_text"] or "")[:120],
+            })
 
         today = datetime.utcnow().date()
         week_activity = []

@@ -111,6 +111,31 @@
               <span style="color:var(--muted)"> — {{ day.garden_entries | join(', ') }}</span>
             </li>
             {% endif %}
+            {% if day.garden_notes %}
+            {% set notes_with_photo = day.garden_notes | selectattr('has_photo') | list %}
+            {% set fert_notes = day.garden_notes | selectattr('is_fertilization') | list %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--green-dark)">Added {{ day.garden_notes | length }} growth log note{{ 's' if day.garden_notes | length != 1 else '' }}</span>
+              <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                {% if notes_with_photo %}
+                <span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600">{{ notes_with_photo | length }} with photo</span>
+                {% endif %}
+                {% if fert_notes %}
+                <span style="font-size:0.72rem;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:4px;padding:1px 6px;font-weight:600">{{ fert_notes | length }} fertilization</span>
+                {% endif %}
+              </div>
+              <div style="margin-top:5px;display:flex;flex-direction:column;gap:4px">
+                {% for n in day.garden_notes %}
+                <div style="font-size:0.8rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:5px 10px;display:flex;flex-wrap:wrap;gap:5px;align-items:baseline">
+                  <span style="font-weight:600;color:var(--green-dark)">{{ n.plant_name }}</span>
+                  {% if n.note_text %}<span style="color:var(--muted);font-style:italic">{{ n.note_text }}</span>{% endif %}
+                  {% if n.has_photo %}<span style="font-size:0.7rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:3px;padding:1px 5px;font-weight:600;white-space:nowrap">photo</span>{% endif %}
+                  {% if n.is_fertilization %}<span style="font-size:0.7rem;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:3px;padding:1px 5px;font-weight:600;white-space:nowrap">🌱 fertilized{% if n.fertilizer_type %} · {{ n.fertilizer_type }}{% endif %}{% if n.fertilization_date %} · {{ n.fertilization_date }}{% endif %}</span>{% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </li>
+            {% endif %}
             {% if day.chat_queries %}
             <li style="font-size:0.88rem">
               <span style="font-weight:600;color:var(--green-dark)">Asked garden assistant {{ day.chat_queries | length }} time{{ 's' if day.chat_queries | length != 1 else '' }}</span>
@@ -121,7 +146,7 @@
               </div>
             </li>
             {% endif %}
-            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.chat_queries %}
+            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries %}
               <li style="font-size:0.85rem;color:var(--muted)">No recorded activity.</li>
             {% endif %}
           </ul>
