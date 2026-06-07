@@ -296,6 +296,7 @@ label {
   text-transform: uppercase;
   color: var(--muted);
   cursor: pointer;
+  min-width: 0;
 }
 
 .stack { display: grid; grid-template-columns: 1fr; gap: 0.9rem; }
