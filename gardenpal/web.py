@@ -1350,8 +1350,9 @@ def create_app() -> Flask:
                 users_with_stats.append({"user": u, "stats": stats})
             users_with_stats.sort(key=lambda x: x["stats"].get("last_login") or "", reverse=True)
             perenual_log = db.execute(
-                "SELECT query, result_count, logged_at FROM perenual_log"
-                " ORDER BY logged_at DESC LIMIT 200"
+                "SELECT pl.query, pl.result_count, pl.logged_at, u.username"
+                " FROM perenual_log pl LEFT JOIN users u ON u.id = pl.user_id"
+                " ORDER BY pl.logged_at DESC LIMIT 200"
             ).fetchall()
             chat_error_log = db.execute(
                 "SELECT username, user_message, error_type, error_detail, logged_at"
@@ -2373,8 +2374,8 @@ def create_app() -> Flask:
                 try:
                     _db = get_db()
                     _db.execute(
-                        "INSERT INTO perenual_log (query, result_count, logged_at) VALUES (?, ?, ?)",
-                        (q, len(results), datetime.utcnow().isoformat(timespec="seconds")),
+                        "INSERT INTO perenual_log (query, result_count, logged_at, user_id) VALUES (?, ?, ?, ?)",
+                        (q, len(results), datetime.utcnow().isoformat(timespec="seconds"), g.user["id"] if g.get("user") else None),
                     )
                     _db.commit()
                 except Exception:
@@ -2866,6 +2867,7 @@ def init_db():
     except Exception:
         pass
 
+    ensure_column(db, "perenual_log", "user_id", "INTEGER")
     ensure_column(db, "garden_photos", "is_fertilization", "INTEGER")
     ensure_column(db, "garden_photos", "fertilizer_type", "TEXT")
     ensure_column(db, "garden_photos", "fertilization_date", "TEXT")

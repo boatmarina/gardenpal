@@ -262,6 +262,9 @@
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
             <span style="font-size:0.83rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.query }}</span>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              {% if row.username %}
+              <span style="font-size:0.72rem;color:var(--muted);font-weight:600">{{ row.username }}</span>
+              {% endif %}
               {% if row.result_count > 0 %}
               <span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:600">Hit · {{ row.result_count }}</span>
               {% else %}
