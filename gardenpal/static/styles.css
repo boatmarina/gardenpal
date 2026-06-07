@@ -799,7 +799,7 @@ dd { margin: 0; }
 }
 .meta-item {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   padding: 9px 0;
   border-bottom: 1px solid var(--border);
@@ -811,6 +811,7 @@ dd { margin: 0; }
   width: 14px;
   display: flex;
   align-items: center;
+  padding-top: 2px;
   color: var(--muted);
 }
 .meta-label {
@@ -827,9 +828,7 @@ dd { margin: 0; }
   flex: 1;
   font-size: 0.88rem;
   text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
   min-width: 0;
 }
 .meta-value.muted { color: var(--muted); }
