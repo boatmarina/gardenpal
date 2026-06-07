@@ -50,22 +50,24 @@
       </label>
       <div style="border-top:1px solid var(--border);padding-top:0.9rem;margin-top:0.2rem">
         <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Last fertilized</p>
-        <p style="font-size:0.85rem;margin-bottom:0.8rem">
-          {% if last_fertilized %}
-            {% if last_fertilized.date %}{{ last_fertilized.date | planted_date }}{% endif %}
-            {% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}
-            {% if not last_fertilized.date and not last_fertilized.type %}—{% endif %}
+        <p style="font-size:0.85rem;margin-bottom:0">
+          {% if last_fertilized and last_fertilized.date %}
+            {{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}
+          {% elif last_fertilized %}
+            <span class="muted">—</span>
           {% else %}
             <span class="muted">Never</span>
           {% endif %}
+          <button type="button" id="fert-update-btn"
+                  style="background:none;border:none;padding:0;margin-left:10px;font-size:0.8rem;font-weight:600;color:var(--green-dark);cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px">Update</button>
         </p>
-        <div class="stack">
+        <div id="fert-override-fields" class="stack" style="margin-top:0.9rem;display:none">
           <label>
-            Override date
+            Date
             <input type="date" name="last_fertilized_date" value="{{ form_values.last_fertilized_date or '' }}" />
           </label>
           <label>
-            Override fertilizer type
+            Fertilizer type
             <input type="text" name="last_fertilizer_type" value="{{ form_values.last_fertilizer_type or '' }}"
                    placeholder="e.g. Worm castings, Fish emulsion…" />
           </label>
@@ -78,6 +80,18 @@
 
 {% block scripts %}
 <script>
+(function() {
+  var btn = document.getElementById('fert-update-btn');
+  var fields = document.getElementById('fert-override-fields');
+  if (btn && fields) {
+    btn.addEventListener('click', function() {
+      fields.style.display = 'flex';
+      btn.style.display = 'none';
+      var dateInput = fields.querySelector('input[type="date"]');
+      if (dateInput) dateInput.focus();
+    });
+  }
+})();
 (function() {
   var inp = document.getElementById('loc-name-input');
   var dropdown = document.getElementById('loc-name-dropdown');
