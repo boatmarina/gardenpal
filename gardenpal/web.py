@@ -2386,14 +2386,20 @@ def create_app() -> Flask:
                 pass
 
         # ── iNaturalist (free fallback) ──
+        # Belt-and-suspenders: iconic_taxa param filters the request; this set
+        # catches anything that slips through (animals, insects, birds, etc.)
+        _PLANT_ICONIC_TAXA = {"Plantae", "Fungi", "Chromista", "Protozoa", ""}
         try:
             resp = requests.get(
                 "https://api.inaturalist.org/v1/taxa",
-                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 8},
+                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 12},
                 timeout=8,
             )
             resp.raise_for_status()
-            taxa = resp.json().get("results", [])
+            taxa = [
+                t for t in resp.json().get("results", [])
+                if (t.get("iconic_taxon_name") or "") in _PLANT_ICONIC_TAXA
+            ]
             results = []
             for t in taxa:
                 photo = t.get("default_photo") or {}
@@ -2433,6 +2439,8 @@ def create_app() -> Flask:
                 )
                 resp2.raise_for_status()
                 for t in resp2.json().get("results", []):
+                    if (t.get("iconic_taxon_name") or "") not in _PLANT_ICONIC_TAXA:
+                        continue
                     photo = t.get("default_photo") or {}
                     taxon_photos = []
                     for tp in (t.get("taxon_photos") or [])[:6]:
