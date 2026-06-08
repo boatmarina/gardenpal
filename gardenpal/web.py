@@ -1652,7 +1652,7 @@ def create_app() -> Flask:
     @app.route("/garden")
     @login_required
     def garden_index():
-        from datetime import date
+        from datetime import date, timedelta
         from collections import defaultdict
         db = get_db()
         uid = g.user["id"]
@@ -1660,6 +1660,8 @@ def create_app() -> Flask:
         ph, id_args = _in_ids(ids)
         today = date.today()
         current_year = today.year
+        today_str = today.isoformat()
+        fert_deadline = (today + timedelta(days=3)).isoformat()
 
         # All dated entries across all years
         entries = db.execute(
@@ -1706,6 +1708,8 @@ def create_app() -> Flask:
             strip_months=strip_months,
             current_year=current_year,
             shared_names=shared_names,
+            today=today_str,
+            fert_deadline=fert_deadline,
         )
 
     @app.route("/garden/new", methods=["GET", "POST"])
@@ -1813,8 +1817,11 @@ def create_app() -> Flask:
             "planned_date": entry["planned_fertilization_date"],
         }
 
+        from datetime import timedelta as _timedelta
+        fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
         return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today,
-                               last_fertilized=last_fertilized, next_fertilization=next_fertilization)
+                               last_fertilized=last_fertilized, next_fertilization=next_fertilization,
+                               fert_deadline=fert_deadline)
 
     @app.route("/garden/<int:entry_id>/photos", methods=["POST"])
     @login_required

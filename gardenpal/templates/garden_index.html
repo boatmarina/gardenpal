@@ -298,10 +298,18 @@
         </div>
         <div class="cards">
           {% for entry in month_entries %}
+            {% set eff_fert = entry.planned_fertilization_date or entry.next_fertilization_date %}
+            {% set fert_alert = eff_fert and eff_fert <= fert_deadline %}
             <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
                data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
-              <div class="card-content" style="padding:16px 18px">
-                <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+              <div class="card-content" style="padding:16px 18px;position:relative">
+                {% if fert_alert %}
+                  <span style="position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
+                    <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
+                    {% if eff_fert < today %}Overdue{% else %}Due soon{% endif %}
+                  </span>
+                {% endif %}
+                <h3 style="margin-bottom:2px;padding-right:{% if fert_alert %}68px{% else %}0{% endif %}">{{ entry.plant_name }}</h3>
                 {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
                 {% if entry.location_name %}
                   <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
@@ -331,12 +339,20 @@
       <div class="timeline-month-header"><span>No date</span></div>
       <div class="cards">
         {% for entry in unscheduled %}
+          {% set eff_fert = entry.planned_fertilization_date or entry.next_fertilization_date %}
+          {% set fert_alert = eff_fert and eff_fert <= fert_deadline %}
           <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
              data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
-            <div class="card-content" style="padding:16px 18px">
+            <div class="card-content" style="padding:16px 18px;position:relative">
+              {% if fert_alert %}
+                <span style="position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
+                  <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
+                  {% if eff_fert < today %}Overdue{% else %}Due soon{% endif %}
+                </span>
+              {% endif %}
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                 <div style="flex:1;min-width:0">
-                  <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+                  <h3 style="margin-bottom:2px;padding-right:{% if fert_alert %}60px{% else %}0{% endif %}">{{ entry.plant_name }}</h3>
                   {% if entry.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ entry.variety }}</p>{% endif %}
                   {% if entry.location_name %}
                     <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
