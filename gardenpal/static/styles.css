@@ -271,6 +271,7 @@ select,
 textarea {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   padding: 0.7rem 1rem;
   border: 1.5px solid var(--border);
   border-radius: var(--r-md);
@@ -298,6 +299,8 @@ label {
   cursor: pointer;
   min-width: 0;
 }
+
+form { min-width: 0; }
 
 .stack { display: grid; grid-template-columns: 1fr; gap: 0.9rem; }
 .split { display: grid; gap: 0.7rem; grid-template-columns: repeat(2,1fr); }
