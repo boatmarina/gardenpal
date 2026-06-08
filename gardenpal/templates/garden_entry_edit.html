@@ -49,28 +49,37 @@
         <textarea name="notes" rows="3" placeholder="Seed source, spacing, observations…">{{ form_values.notes or '' }}</textarea>
       </label>
       <div style="border-top:1px solid var(--border);padding-top:0.9rem;margin-top:0.2rem">
-        <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Last fertilized</p>
-        <p style="font-size:0.85rem;margin-bottom:0">
-          {% if last_fertilized and last_fertilized.date %}
-            {{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}
-          {% elif last_fertilized %}
-            <span class="muted">—</span>
-          {% else %}
-            <span class="muted">Never</span>
-          {% endif %}
-          <button type="button" id="fert-update-btn"
-                  style="background:none;border:none;padding:0;margin-left:10px;font-size:0.8rem;font-weight:600;color:var(--green-dark);cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px">Update</button>
-        </p>
-        <div id="fert-override-fields" class="stack" style="margin-top:0.9rem;display:none">
-          <label>
-            Date
-            <input type="date" name="last_fertilized_date" value="{{ form_values.last_fertilized_date or '' }}" />
-          </label>
-          <label>
-            Fertilizer type
-            <input type="text" name="last_fertilizer_type" value="{{ form_values.last_fertilizer_type or '' }}"
-                   placeholder="e.g. Worm castings, Fish emulsion…" />
-          </label>
+        <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Fertilization</p>
+        <label id="never-fert-label" style="flex-direction:row;align-items:center;gap:8px;font-size:0.85rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text);cursor:pointer;margin-bottom:0.7rem">
+          <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
+                 {% if entry.never_fertilize %}checked{% endif %}
+                 style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer" />
+          I never plan to fertilize this plant
+        </label>
+        <div id="fert-tracking-section">
+          <p style="font-size:0.85rem;margin-bottom:0">
+            <span style="color:var(--muted);font-size:0.78rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Last fertilized</span>
+            <span style="margin-left:8px">
+              {% if last_fertilized and last_fertilized.date %}
+                {{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}
+              {% else %}
+                <span class="muted">Never</span>
+              {% endif %}
+            </span>
+            <button type="button" id="fert-update-btn"
+                    style="background:none;border:none;padding:0;margin-left:10px;font-size:0.8rem;font-weight:600;color:var(--green-dark);cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px">Update</button>
+          </p>
+          <div id="fert-override-fields" class="stack" style="margin-top:0.9rem;display:none">
+            <label>
+              Date
+              <input type="date" name="last_fertilized_date" value="{{ form_values.last_fertilized_date or '' }}" />
+            </label>
+            <label>
+              Fertilizer type
+              <input type="text" name="last_fertilizer_type" value="{{ form_values.last_fertilizer_type or '' }}"
+                     placeholder="e.g. Worm castings, Fish emulsion…" />
+            </label>
+          </div>
         </div>
       </div>
       <button type="submit" style="margin-top:4px">Save Changes</button>
@@ -80,6 +89,17 @@
 
 {% block scripts %}
 <script>
+(function() {
+  var cb = document.getElementById('never-fert-cb');
+  var section = document.getElementById('fert-tracking-section');
+  if (cb && section) {
+    function syncSection() {
+      section.style.display = cb.checked ? 'none' : '';
+    }
+    syncSection();
+    cb.addEventListener('change', syncSection);
+  }
+})();
 (function() {
   var btn = document.getElementById('fert-update-btn');
   var fields = document.getElementById('fert-override-fields');
