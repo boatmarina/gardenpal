@@ -1788,34 +1788,35 @@ def create_app() -> Flask:
         else:
             last_fertilized = None
 
-        # Refresh next-fertilization suggestion when stale
-        gen_at = entry["next_fertilization_generated_at"] if entry["next_fertilization_generated_at"] else None
-        last_fert_date = last_fertilized["date"] if last_fertilized else None
-        needs_regen = (
-            not gen_at
-            or (last_fert_date and last_fert_date > gen_at[:10])
-            or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
-        )
-        if needs_regen:
-            growth_notes = [
-                (r["photo_date"], r["notes"])
-                for r in db.execute(
-                    "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ? AND notes IS NOT NULL"
-                    " ORDER BY photo_date ASC NULLS LAST, created_at ASC",
-                    (entry_id,),
-                ).fetchall()
-            ]
-            user_location = g.user.get("location", "")
-            suggestion = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes)
-            if suggestion:
-                # Reload entry to get fresh cached values
-                entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
-
-        next_fertilization = {
-            "date": entry["next_fertilization_date"],
-            "note": entry["next_fertilization_note"],
-            "planned_date": entry["planned_fertilization_date"],
-        }
+        # Refresh next-fertilization suggestion when stale (skip if plant is never-fertilize)
+        if not entry["never_fertilize"]:
+            gen_at = entry["next_fertilization_generated_at"] if entry["next_fertilization_generated_at"] else None
+            last_fert_date = last_fertilized["date"] if last_fertilized else None
+            needs_regen = (
+                not gen_at
+                or (last_fert_date and last_fert_date > gen_at[:10])
+                or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
+            )
+            if needs_regen:
+                growth_notes = [
+                    (r["photo_date"], r["notes"])
+                    for r in db.execute(
+                        "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ? AND notes IS NOT NULL"
+                        " ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                        (entry_id,),
+                    ).fetchall()
+                ]
+                user_location = g.user.get("location", "")
+                suggestion = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes)
+                if suggestion:
+                    entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+            next_fertilization = {
+                "date": entry["next_fertilization_date"],
+                "note": entry["next_fertilization_note"],
+                "planned_date": entry["planned_fertilization_date"],
+            }
+        else:
+            next_fertilization = None
 
         from datetime import timedelta as _timedelta
         fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
@@ -1996,11 +1997,12 @@ def create_app() -> Flask:
                 flash("Plant name is required.")
                 _loc_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
                 return render_template("garden_entry_edit.html", entry=entry, form_values=request.form, location_names=_loc_names)
+            never_fertilize = 1 if request.form.get("never_fertilize") else 0
             db.execute(
                 f"""UPDATE garden_entries
                    SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
                        planted_date = ?, notes = ?, last_fertilized_date = ?, last_fertilizer_type = ?,
-                       updated_at = ?
+                       never_fertilize = ?, updated_at = ?
                    WHERE id = ? AND user_id IN {ph}""",
                 [
                     plant_name,
@@ -2011,6 +2013,7 @@ def create_app() -> Flask:
                     request.form.get("notes", "").strip() or None,
                     request.form.get("last_fertilized_date", "").strip() or None,
                     request.form.get("last_fertilizer_type", "").strip() or None,
+                    never_fertilize,
                     datetime.utcnow().isoformat(timespec="seconds"),
                     entry_id,
                 ] + id_args,
@@ -2018,7 +2021,13 @@ def create_app() -> Flask:
             new_fert_date = request.form.get("last_fertilized_date", "").strip() or None
             new_fert_type = request.form.get("last_fertilizer_type", "").strip() or None
             old_fert_date = entry["last_fertilized_date"] if entry["last_fertilized_date"] else None
-            if new_fert_date and new_fert_date != old_fert_date:
+            if never_fertilize:
+                db.execute(
+                    "UPDATE garden_entries SET next_fertilization_date = NULL, next_fertilization_note = NULL,"
+                    " next_fertilization_generated_at = NULL, planned_fertilization_date = NULL WHERE id = ?",
+                    (entry_id,),
+                )
+            elif new_fert_date and new_fert_date != old_fert_date:
                 note_text = "Fertilized" + (f" with {new_fert_type}" if new_fert_type else "")
                 db.execute(
                     "INSERT INTO garden_photos (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
@@ -2026,7 +2035,7 @@ def create_app() -> Flask:
                     (entry_id, g.user["id"], new_fert_date, note_text,
                      datetime.utcnow().isoformat(timespec="seconds"), new_fert_type, new_fert_date),
                 )
-            if new_fert_date != old_fert_date:
+            if not never_fertilize and new_fert_date != old_fert_date:
                 db.execute(
                     "UPDATE garden_entries SET next_fertilization_generated_at = NULL,"
                     " planned_fertilization_date = CASE"
@@ -3040,6 +3049,7 @@ def init_db():
     ensure_column(db, "garden_entries", "next_fertilization_note", "TEXT")
     ensure_column(db, "garden_entries", "next_fertilization_generated_at", "TEXT")
     ensure_column(db, "garden_entries", "planned_fertilization_date", "TEXT")
+    ensure_column(db, "garden_entries", "never_fertilize", "INTEGER")
 
     # Backfill existing growth-log notes using keyword detection (one-time, skips already-classified rows)
     unclassified = db.execute(
