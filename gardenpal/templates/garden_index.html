@@ -367,6 +367,32 @@
   var noRes = document.getElementById('garden-search-empty');
   if (!inp) return;
 
+  var SEARCH_KEY  = 'garden_search_q';
+  var toggleBtn   = document.getElementById('garden-search-toggle');
+  var monthStrip  = document.getElementById('month-strip');
+  var searchInner = document.getElementById('garden-search-inner');
+  var iconSearch  = document.getElementById('search-icon-search');
+  var iconClose   = document.getElementById('search-icon-close');
+
+  function openSearch() {
+    searchInner.hidden = false;
+    monthStrip.hidden  = true;
+    iconSearch.hidden  = true;
+    iconClose.hidden   = false;
+    if (toggleBtn) toggleBtn.classList.add('active');
+  }
+
+  function closeSearch() {
+    searchInner.hidden = true;
+    monthStrip.hidden  = false;
+    iconSearch.hidden  = false;
+    iconClose.hidden   = true;
+    if (toggleBtn) toggleBtn.classList.remove('active');
+    inp.value = '';
+    try { sessionStorage.removeItem(SEARCH_KEY); } catch(_) {}
+    filter();
+  }
+
   function filter() {
     var q = inp.value.trim().toLowerCase();
 
@@ -380,8 +406,6 @@
     });
 
     document.querySelectorAll('.timeline-section').forEach(function (sec) {
-      var visible = sec.querySelectorAll('.card[data-search]:not([style*="display: none"])').length > 0
-                 || !q;
       if (q) {
         var hasMatch = Array.from(sec.querySelectorAll('.card[data-search]'))
                            .some(function (c) { return c.style.display !== 'none'; });
@@ -397,43 +421,44 @@
   var timer;
   inp.addEventListener('input', function () {
     clearTimeout(timer);
-    timer = setTimeout(filter, 150);
+    timer = setTimeout(function () {
+      filter();
+      try { sessionStorage.setItem(SEARCH_KEY, inp.value); } catch(_) {}
+    }, 150);
   });
 
-  /* Scroll month strip to current month on load */
-  (function() {
-    var strip = document.getElementById('month-strip');
-    if (!strip) return;
-    var curYear = {{ current_year }};
-    var curMonth = {{ current_year }};  /* placeholder, use Date */
-    var now = new Date();
-    var cell = strip.querySelector('[data-year="' + now.getFullYear() + '"][data-month="' + (now.getMonth() + 1) + '"]');
-    if (cell) {
-      var stripRect = strip.getBoundingClientRect();
-      var cellRect  = cell.getBoundingClientRect();
-      strip.scrollLeft += cellRect.left - stripRect.left - stripRect.width / 2 + cellRect.width / 2;
-    }
-  })();
+  /* Restore saved search query (e.g. after navigating back from a detail page) */
+  var savedQ = '';
+  try { savedQ = sessionStorage.getItem(SEARCH_KEY) || ''; } catch(_) {}
+  if (savedQ) {
+    openSearch();
+    inp.value = savedQ;
+    filter();
+  }
+
+  /* Scroll month strip to current month on load (only when search not active) */
+  if (!savedQ) {
+    (function() {
+      var strip = document.getElementById('month-strip');
+      if (!strip) return;
+      var now = new Date();
+      var cell = strip.querySelector('[data-year="' + now.getFullYear() + '"][data-month="' + (now.getMonth() + 1) + '"]');
+      if (cell) {
+        var stripRect = strip.getBoundingClientRect();
+        var cellRect  = cell.getBoundingClientRect();
+        strip.scrollLeft += cellRect.left - stripRect.left - stripRect.width / 2 + cellRect.width / 2;
+      }
+    })();
+  }
 
   /* Search toggle: swap month strip for inline search input */
-  var toggleBtn   = document.getElementById('garden-search-toggle');
-  var monthStrip  = document.getElementById('month-strip');
-  var searchInner = document.getElementById('garden-search-inner');
-  var iconSearch  = document.getElementById('search-icon-search');
-  var iconClose   = document.getElementById('search-icon-close');
   if (toggleBtn) {
     toggleBtn.addEventListener('click', function () {
-      var opening = searchInner.hidden;
-      searchInner.hidden = !opening;
-      monthStrip.hidden  = opening;
-      iconSearch.hidden  = opening;
-      iconClose.hidden   = !opening;
-      toggleBtn.classList.toggle('active', opening);
-      if (opening) {
+      if (searchInner.hidden) {
+        openSearch();
         inp.focus();
       } else {
-        inp.value = '';
-        filter();
+        closeSearch();
       }
     });
   }
