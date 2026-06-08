@@ -171,7 +171,7 @@
   <div class="panel stack">
     <h3>Add a note</h3>
     <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
-      <input type="file" name="photo" accept="image/*" capture="environment" id="garden-photo-input"
+      <input type="file" name="photo" accept="image/*" id="garden-photo-input"
              style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
       <label>
         Note
