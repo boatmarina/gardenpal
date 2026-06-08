@@ -17,7 +17,7 @@
   {% endif %}
 
   <div class="panel stack">
-    <form method="post" class="stack">
+    <form method="post" enctype="multipart/form-data" class="stack">
       <label>
         Date
         <input type="date" name="photo_date" value="{{ photo.photo_date or '' }}" />
@@ -26,6 +26,23 @@
         Note
         <textarea name="notes" rows="5" placeholder="Height, flowers, any observations…">{{ photo.notes or '' }}</textarea>
       </label>
+      {% if not photo.image_path %}
+      <input type="file" name="photo" accept="image/*" id="edit-photo-input"
+             style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
+      <button type="button" id="edit-photo-btn"
+              style="display:inline-flex;align-items:center;gap:6px;justify-content:center;background:var(--card);border:1.5px dashed var(--border);color:var(--muted);font-size:0.83rem;border-radius:var(--r-md);padding:0.7rem 1rem;cursor:pointer;font-family:inherit;width:100%"
+              onclick="document.getElementById('edit-photo-input').click()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span id="edit-photo-label">Add a photo (optional)</span>
+      </button>
+      <div id="edit-photo-preview" hidden style="margin-top:4px">
+        <img id="edit-photo-thumb" src="" alt=""
+             style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r-md)" />
+      </div>
+      {% endif %}
       <button type="submit" style="margin-top:4px">Save changes</button>
     </form>
   </div>
@@ -39,4 +56,29 @@
       </button>
     </form>
   </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var input = document.getElementById('edit-photo-input');
+  var thumb = document.getElementById('edit-photo-thumb');
+  var preview = document.getElementById('edit-photo-preview');
+  var label = document.getElementById('edit-photo-label');
+  if (!input) return;
+  input.addEventListener('change', async function() {
+    var file = this.files[0];
+    if (!file) return;
+    if (thumb) thumb.src = URL.createObjectURL(file);
+    if (preview) preview.hidden = false;
+    if (label) label.textContent = file.name.length > 24 ? file.name.slice(0, 22) + '…' : file.name;
+    var compressed = await GP.compressImage(file);
+    try {
+      var dt = new DataTransfer();
+      dt.items.add(new File([compressed], 'photo.jpg', {type: 'image/jpeg'}));
+      input.files = dt.files;
+    } catch(e) {}
+  });
+})();
+</script>
 {% endblock %}

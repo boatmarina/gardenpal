@@ -1885,7 +1885,7 @@ def create_app() -> Flask:
         photo = db.execute(
             f"SELECT gp.*, ge.id AS entry_id, ge.plant_name, ge.planted_date"
             f" FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
-            f" WHERE gp.id = ? AND gp.user_id IN {ph}",
+            f" WHERE gp.id = ? AND ge.user_id IN {ph}",
             [photo_id] + id_args,
         ).fetchone()
         if photo is None:
@@ -1900,11 +1900,20 @@ def create_app() -> Flask:
                 fert_date = _extract_fertilization_date(notes, photo_date, planted_date)
             elif not is_fert and notes:
                 is_fert, fert_type, fert_date = _ai_detect_fertilization(notes, photo_date, planted_date)
-            db.execute(
-                "UPDATE garden_photos SET notes = ?, photo_date = ?, is_fertilization = ?,"
-                " fertilizer_type = ?, fertilization_date = ? WHERE id = ?",
-                [notes, photo_date, is_fert, fert_type, fert_date, photo_id],
-            )
+            new_image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "garden")
+            update_fields = [notes, photo_date, is_fert, fert_type, fert_date]
+            if new_image_path:
+                db.execute(
+                    "UPDATE garden_photos SET notes = ?, photo_date = ?, is_fertilization = ?,"
+                    " fertilizer_type = ?, fertilization_date = ?, image_path = ? WHERE id = ?",
+                    update_fields + [new_image_path, photo_id],
+                )
+            else:
+                db.execute(
+                    "UPDATE garden_photos SET notes = ?, photo_date = ?, is_fertilization = ?,"
+                    " fertilizer_type = ?, fertilization_date = ? WHERE id = ?",
+                    update_fields + [photo_id],
+                )
             db.commit()
             return redirect(url_for("garden_detail", entry_id=photo["entry_id"]))
         return render_template("garden_photo_edit.html", photo=photo)
@@ -1917,7 +1926,8 @@ def create_app() -> Flask:
         ph, id_args = _in_ids(ids)
         photo = db.execute(
             f"SELECT gp.entry_id FROM garden_photos gp"
-            f" WHERE gp.id = ? AND gp.user_id IN {ph}",
+            f" JOIN garden_entries ge ON ge.id = gp.entry_id"
+            f" WHERE gp.id = ? AND ge.user_id IN {ph}",
             [photo_id] + id_args,
         ).fetchone()
         if photo is None:
