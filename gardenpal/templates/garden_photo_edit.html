@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block page_label %}<span class="page-subtitle">Edit note</span>{% endblock %}
+{% block title %}Edit note · {{ photo.plant_name }} · GardenPal{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('garden_detail', entry_id=photo.entry_id) }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    {{ photo.plant_name }}
+  </a>
+
+  {% if photo.image_path %}
+  <div style="margin-bottom:14px;border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--shadow)">
+    <img src="{{ photo.image_path | media_url }}" alt="{{ photo.plant_name }}"
+         style="width:100%;max-height:260px;object-fit:cover;display:block;cursor:zoom-in"
+         onclick="GP.openLightbox(this.src)" />
+  </div>
+  {% endif %}
+
+  <div class="panel stack">
+    <form method="post" class="stack">
+      <label>
+        Date
+        <input type="date" name="photo_date" value="{{ photo.photo_date or '' }}" />
+      </label>
+      <label>
+        Note
+        <textarea name="notes" rows="5" placeholder="Height, flowers, any observations…">{{ photo.notes or '' }}</textarea>
+      </label>
+      <button type="submit" style="margin-top:4px">Save changes</button>
+    </form>
+  </div>
+
+  <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+    <form method="post" action="{{ url_for('garden_photo_delete', photo_id=photo.id) }}"
+          onsubmit="return confirm('Delete this note?')">
+      <button type="submit"
+              style="background:none;border:none;color:var(--muted);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:0;font-family:inherit">
+        Delete note
+      </button>
+    </form>
+  </div>
+{% endblock %}

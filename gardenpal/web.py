@@ -1876,6 +1876,58 @@ def create_app() -> Flask:
         flash("Note added.")
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
+    @app.route("/garden/photos/<int:photo_id>/edit", methods=["GET", "POST"])
+    @login_required
+    def garden_photo_edit(photo_id: int):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        photo = db.execute(
+            f"SELECT gp.*, ge.id AS entry_id, ge.plant_name, ge.planted_date"
+            f" FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
+            f" WHERE gp.id = ? AND gp.user_id IN {ph}",
+            [photo_id] + id_args,
+        ).fetchone()
+        if photo is None:
+            flash("Note not found.")
+            return redirect(url_for("garden_index"))
+        if request.method == "POST":
+            notes = request.form.get("notes", "").strip() or None
+            photo_date = request.form.get("photo_date", "").strip() or None
+            planted_date = photo["planted_date"]
+            is_fert, fert_type, fert_date = _detect_fertilization(notes)
+            if is_fert and _has_date_hint(notes):
+                fert_date = _extract_fertilization_date(notes, photo_date, planted_date)
+            elif not is_fert and notes:
+                is_fert, fert_type, fert_date = _ai_detect_fertilization(notes, photo_date, planted_date)
+            db.execute(
+                "UPDATE garden_photos SET notes = ?, photo_date = ?, is_fertilization = ?,"
+                " fertilizer_type = ?, fertilization_date = ? WHERE id = ?",
+                [notes, photo_date, is_fert, fert_type, fert_date, photo_id],
+            )
+            db.commit()
+            return redirect(url_for("garden_detail", entry_id=photo["entry_id"]))
+        return render_template("garden_photo_edit.html", photo=photo)
+
+    @app.route("/garden/photos/<int:photo_id>/delete", methods=["POST"])
+    @login_required
+    def garden_photo_delete(photo_id: int):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        photo = db.execute(
+            f"SELECT gp.entry_id FROM garden_photos gp"
+            f" WHERE gp.id = ? AND gp.user_id IN {ph}",
+            [photo_id] + id_args,
+        ).fetchone()
+        if photo is None:
+            flash("Note not found.")
+            return redirect(url_for("garden_index"))
+        entry_id = photo["entry_id"]
+        db.execute("DELETE FROM garden_photos WHERE id = ?", (photo_id,))
+        db.commit()
+        return redirect(url_for("garden_detail", entry_id=entry_id))
+
     @app.route("/garden/photos/<int:photo_id>/update", methods=["POST"])
     @login_required
     def garden_photo_update(photo_id: int):
