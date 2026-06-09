@@ -1886,10 +1886,16 @@ def create_app() -> Flask:
         if not entry["never_fertilize"]:
             gen_at = entry["next_fertilization_generated_at"] if entry["next_fertilization_generated_at"] else None
             last_fert_date = last_fertilized["date"] if last_fertilized else None
+            last_note_row = db.execute(
+                "SELECT created_at FROM garden_photos WHERE entry_id = ? ORDER BY created_at DESC LIMIT 1",
+                (entry_id,),
+            ).fetchone()
+            last_note_at = last_note_row["created_at"] if last_note_row else None
             needs_regen = (
                 not gen_at
                 or (last_fert_date and last_fert_date > gen_at[:10])
                 or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
+                or (last_note_at and gen_at and last_note_at > gen_at)
             )
             if needs_regen:
                 growth_notes = [
@@ -3584,9 +3590,29 @@ _DATE_HINT_RE = _re.compile(
 
 _ISO_DATE_RE = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
+# Matches growth-log phrases that indicate a replanting / reseeding event.
+_REPLANT_RE = _re.compile(
+    r'\b(re[-\s]?seed(?:ed|ing)?|re[-\s]?sow(?:ed|ing)?|re[-\s]?plant(?:ed|ing)?'
+    r'|transplant(?:ed|ing)?|germinate[ds]?|new\s+seedling[s]?|new\s+plant[s]?'
+    r'|direct\s+sow(?:ed|n)?|sow(?:ed|n)\s+seed[s]?)\b',
+    _re.IGNORECASE,
+)
+
 
 def _has_date_hint(note_text):
     return bool(note_text and _DATE_HINT_RE.search(note_text))
+
+
+def _extract_establishment_date(growth_notes):
+    """Return the most recent photo_date from growth notes that mention a replanting/reseeding event.
+
+    Used to give the fertilization advisor the effective age of the *current* plants
+    when the original planted_date no longer reflects reality (e.g. crop bolted, reseeded).
+    """
+    for photo_date, notes in reversed(list(growth_notes)):
+        if photo_date and notes and _REPLANT_RE.search(notes):
+            return photo_date
+    return None
 
 
 def _detect_fertilization(note_text):
@@ -3759,7 +3785,7 @@ def _feature_fertilization(user):
 
 
 def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes):
-    """Call Claude Haiku to suggest the next fertilization date. Caches result in DB."""
+    """Call Claude Sonnet to suggest the next fertilization date. Caches result in DB."""
     import anthropic as _anthropic
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -3785,12 +3811,38 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 notes_lines.append(f"- {photo_date or '?'}: {notes[:200]}")
         notes_str = "\n".join(notes_lines) if notes_lines else "None"
 
+        # Determine effective age of current plants — if a reseeding/transplanting event
+        # appears in the growth log, the original planted_date is no longer meaningful.
+        effective_date = _extract_establishment_date(growth_notes)
+        if effective_date and effective_date != planted_date:
+            try:
+                age_days = (datetime.utcnow().date() - datetime.fromisoformat(effective_date).date()).days
+            except Exception:
+                age_days = None
+            planting_info = (
+                f"Originally planted: {planted_date}\n"
+                f"Current plants established (reseeded/transplanted per log): {effective_date}"
+                + (f" — {age_days} days ago as of today" if age_days is not None else "")
+            )
+        else:
+            try:
+                age_days = (
+                    (datetime.utcnow().date() - datetime.fromisoformat(planted_date).date()).days
+                    if planted_date and planted_date != "unknown" else None
+                )
+            except Exception:
+                age_days = None
+            planting_info = (
+                f"Planted: {planted_date}"
+                + (f" — {age_days} days ago as of today" if age_days is not None else "")
+            )
+
         user_msg = (
             f"Plant: {plant_name}{variety_str}\n"
             f"Location type: {location_type or 'unknown'}\n"
             f"Location name: {location_name or 'not specified'}\n"
             f"User's location: {user_location or 'unknown'}\n"
-            f"Planted: {planted_date}\n"
+            f"{planting_info}\n"
             f"Last fertilized: {last_fert_str}"
             + (f" (fertilizer: {last_fert_type})" if last_fert_type else "")
             + f"\nGrowth log notes:\n{notes_str}\nToday is {today_str}."
@@ -3798,12 +3850,16 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
 
         client = _anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=220,
+            model="claude-sonnet-4-6",
+            max_tokens=300,
             system=(
-                "You are a gardening advisor. Given plant and fertilization history, "
-                "suggest the next fertilization date. Reply with ONLY:\n"
-                "Line 1: YYYY-MM-DD (the suggested date, must be today or in the future)\n"
+                "You are a gardening advisor. Given plant details and growth history, "
+                "suggest the next fertilization date.\n"
+                "Pay close attention to current plant age — seedlings under 3-4 weeks old "
+                "generally should not be fertilized yet; wait until true leaves are established.\n"
+                "If a reseeding or transplanting date is given, use that age, not the original planting date.\n"
+                "Reply with ONLY:\n"
+                "Line 1: YYYY-MM-DD (the suggested date, today or in the future)\n"
                 "Line 2+: 2-3 sentence explanation of your reasoning.\n"
                 "No labels, no extra text."
             ),
