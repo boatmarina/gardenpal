@@ -287,6 +287,15 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--green-mid);
 }
 
+/* iOS Safari renders type="date" with its own large native chrome that ignores
+   font/padding rules. -webkit-appearance: none forces a regular text-box render
+   while the date wheel still fires on tap. font-size ≥ 16px prevents auto-zoom. */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: 1rem;
+}
+
 label {
   display: flex;
   flex-direction: column;
