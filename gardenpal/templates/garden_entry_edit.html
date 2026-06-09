@@ -50,12 +50,14 @@
       </label>
       <div style="border-top:1px solid var(--border);padding-top:0.9rem;margin-top:0.2rem">
         <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Fertilization</p>
+        {% if ff_fert %}
         <label id="never-fert-label" style="flex-direction:row;align-items:center;gap:8px;font-size:0.85rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text);cursor:pointer;margin-bottom:0.7rem">
           <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
                  {% if entry.never_fertilize %}checked{% endif %}
                  style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer" />
           I never plan to fertilize this plant
         </label>
+        {% endif %}
         <div id="fert-tracking-section">
           <p style="font-size:0.85rem;margin-bottom:0">
             <span style="color:var(--muted);font-size:0.78rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Last fertilized</span>
@@ -80,7 +82,7 @@
                      placeholder="e.g. Worm castings, Fish emulsion…" />
             </label>
           </div>
-          {% if next_fertilization and (next_fertilization.date or next_fertilization.planned_date) %}
+          {% if ff_fert and next_fertilization and (next_fertilization.date or next_fertilization.planned_date) %}
           <div style="margin-top:0.9rem;padding-top:0.9rem;border-top:1px solid var(--border)">
             <p style="font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Next fertilization</p>
             <p style="font-size:0.85rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
