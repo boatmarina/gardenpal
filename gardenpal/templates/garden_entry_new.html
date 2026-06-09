@@ -12,11 +12,23 @@
     <form method="post" class="stack">
       <label>
         Plant name *
-        <input type="text" name="plant_name" value="{{ form_values.plant_name or '' }}" placeholder="e.g. Zucchini" required />
+        <div style="position:relative">
+          <input id="plant-name-input" type="text" name="plant_name"
+                 value="{{ form_values.plant_name or '' }}" placeholder="e.g. Zucchini" required
+                 autocomplete="off" autocorrect="off"
+                 data-plant-names='{{ plant_names | tojson }}'
+                 data-plant-varieties='{{ plant_varieties | tojson }}' />
+          <ul id="plant-name-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
+        </div>
       </label>
       <label>
         Variety
-        <input type="text" name="variety" value="{{ form_values.variety or '' }}" placeholder="e.g. Black Beauty" />
+        <div style="position:relative">
+          <input id="variety-input" type="text" name="variety"
+                 value="{{ form_values.variety or '' }}" placeholder="e.g. Black Beauty"
+                 autocomplete="off" autocorrect="off" />
+          <ul id="variety-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
+        </div>
       </label>
       <label>
         Location type
@@ -79,6 +91,20 @@
   inp.addEventListener('input', function() { show(inp.value); });
   inp.addEventListener('blur', function() { setTimeout(function() { dropdown.hidden = true; }, 200); });
   inp.addEventListener('keydown', function(e) { if (e.key === 'Escape') dropdown.hidden = true; });
+})();
+(function() {
+  var nameInp = document.getElementById('plant-name-input');
+  if (!nameInp) return;
+  var plantNames = [], plantVarieties = {};
+  try { plantNames = JSON.parse(nameInp.dataset.plantNames || '[]'); } catch(e) {}
+  try { plantVarieties = JSON.parse(nameInp.dataset.plantVarieties || '{}'); } catch(e) {}
+  GP.setupPlantAutocomplete(
+    nameInp,
+    document.getElementById('plant-name-dropdown'),
+    document.getElementById('variety-input'),
+    document.getElementById('variety-dropdown'),
+    plantNames, plantVarieties
+  );
 })();
 </script>
 {% endblock %}

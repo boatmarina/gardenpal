@@ -172,6 +172,68 @@
     return true;
   };
 
+  /*
+   * Set up plant-name + dependent variety autocomplete on a form.
+   *
+   * nameInp        — plant name <input> element
+   * nameDd         — plant name <ul class="tag-autocomplete-dropdown">
+   * varInp         — variety <input> element (may be null)
+   * varDd          — variety <ul class="tag-autocomplete-dropdown"> (may be null)
+   * plantNames     — string[] of known plant names
+   * plantVarieties — object: lowercase plant name -> string[] of varieties
+   */
+  G.setupPlantAutocomplete = function setupPlantAutocomplete(nameInp, nameDd, varInp, varDd, plantNames, plantVarieties) {
+    if (!nameInp || !nameDd) return;
+
+    function getVarieties(name) {
+      return (plantVarieties || {})[(name || '').trim().toLowerCase()] || [];
+    }
+
+    function fillList(dropdown, items, onPick) {
+      dropdown.innerHTML = '';
+      if (!items.length) { dropdown.hidden = true; return; }
+      items.forEach(function(txt) {
+        var li = document.createElement('li');
+        li.textContent = txt;
+        function pick(e) { e.preventDefault(); onPick(txt); dropdown.hidden = true; }
+        li.addEventListener('mousedown', pick);
+        li.addEventListener('touchstart', function(e) { pick(e); if (document.activeElement) document.activeElement.blur(); });
+        dropdown.appendChild(li);
+      });
+      dropdown.hidden = false;
+    }
+
+    function showNames(q) {
+      var ql = (q || '').trim().toLowerCase();
+      var all = plantNames || [];
+      var matches = ql ? all.filter(function(n) { return n.toLowerCase().includes(ql); }) : all;
+      fillList(nameDd, matches.slice(0, 10), function(name) {
+        nameInp.value = name;
+        if (varInp && varDd) { varInp.focus(); showVarieties(''); }
+      });
+    }
+
+    function showVarieties(q) {
+      if (!varInp || !varDd) return;
+      var vars = getVarieties(nameInp.value);
+      var ql = (q || '').trim().toLowerCase();
+      var matches = ql ? vars.filter(function(v) { return v.toLowerCase().includes(ql); }) : vars;
+      fillList(varDd, matches.slice(0, 10), function(v) { varInp.value = v; });
+    }
+
+    nameInp.addEventListener('focus', function() { showNames(nameInp.value); });
+    nameInp.addEventListener('input', function() { showNames(nameInp.value); });
+    nameInp.addEventListener('blur', function() { setTimeout(function() { nameDd.hidden = true; }, 200); });
+    nameInp.addEventListener('keydown', function(e) { if (e.key === 'Escape') nameDd.hidden = true; });
+
+    if (varInp && varDd) {
+      varInp.addEventListener('focus', function() { showVarieties(varInp.value); });
+      varInp.addEventListener('input', function() { showVarieties(varInp.value); });
+      varInp.addEventListener('blur', function() { setTimeout(function() { varDd.hidden = true; }, 200); });
+      varInp.addEventListener('keydown', function(e) { if (e.key === 'Escape') varDd.hidden = true; });
+    }
+  };
+
   /* Open a full-screen lightbox for an image */
   G.openLightbox = function openLightbox(src) {
     var box = document.createElement('div');

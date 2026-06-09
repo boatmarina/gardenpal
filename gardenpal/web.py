@@ -39,6 +39,95 @@ def tag_color_for(name: str) -> str:
     return TAG_COLORS[int(digest, 16) % len(TAG_COLORS)]
 
 
+# Static edible plant suggestions: plant name -> list of common variety names.
+PLANT_SUGGESTIONS = {
+    "Tomato": ["Cherry", "Grape", "Roma", "Beefsteak", "San Marzano", "Celebrity", "Better Boy",
+               "Early Girl", "Black Krim", "Brandywine", "Cherokee Purple", "Sungold", "Juliet",
+               "Sweet 100", "Mortgage Lifter", "Yellow Pear"],
+    "Cherry Tomato": ["Sungold", "Sweet 100", "Black Cherry", "Chocolate Cherry", "Yellow Pear", "Sun Gold"],
+    "Pepper": ["Bell", "Jalapeño", "Serrano", "Habanero", "Banana", "Anaheim", "Poblano",
+               "Cayenne", "Sweet Italian", "Shishito", "Cubanelle"],
+    "Bell Pepper": ["California Wonder", "King of the North", "Red Knight", "Yolo Wonder"],
+    "Hot Pepper": ["Jalapeño", "Serrano", "Habanero", "Ghost Pepper", "Carolina Reaper", "Thai Bird"],
+    "Eggplant": ["Black Beauty", "Ichiban", "Fairytale", "Graffiti", "Thai", "White", "Listada de Gandia"],
+    "Cucumber": ["Pickling", "Slicing", "English", "Armenian", "Lemon", "Marketmore",
+                 "Straight Eight", "Muncher", "Spacemaster"],
+    "Zucchini": ["Black Beauty", "Costata Romanesco", "Golden", "Cocozelle", "Patio Star"],
+    "Summer Squash": ["Yellow Crookneck", "Pattypan", "Eight Ball", "Zephyr", "Scallopini"],
+    "Winter Squash": ["Butternut", "Acorn", "Spaghetti", "Delicata", "Kabocha", "Hubbard", "Red Kuri", "Carnival"],
+    "Butternut Squash": ["Waltham", "Hunter", "Butterscotch", "Honeynut"],
+    "Pumpkin": ["Jack o' Lantern", "Sugar Pie", "Cinderella", "Baby Boo", "Atlantic Giant", "Howden"],
+    "Watermelon": ["Sugar Baby", "Crimson Sweet", "Charleston Gray", "Jubilee", "Mini Seedless"],
+    "Cantaloupe": ["Honey Rock", "Ambrosia", "Hale's Best", "Hearts of Gold", "Athena"],
+    "Corn": ["Sweet", "Peaches & Cream", "Silver Queen", "Bodacious", "Honey Select", "Candy Corn"],
+    "Green Bean": ["Bush", "Pole", "Kentucky Wonder", "Blue Lake", "Provider", "Dragon Tongue", "Romano", "Contender"],
+    "Pea": ["Sugar Snap", "Snow", "Shelling", "Lincoln", "Little Marvel", "Sugar Ann", "Oregon Sugar Pod"],
+    "Edamame": ["Midori Giant", "Chiba Green", "Beer Friend"],
+    "Lima Bean": ["Fordhook", "Henderson", "King of the Garden", "Christmas"],
+    "Lettuce": ["Romaine", "Butterhead", "Iceberg", "Looseleaf", "Red Leaf", "Green Leaf", "Bibb", "Little Gem", "Buttercrunch"],
+    "Spinach": ["Baby", "Bloomsdale", "Savoy", "Regiment", "Tyee", "Catalina"],
+    "Kale": ["Curly", "Lacinato", "Dinosaur", "Red Russian", "Redbor", "Siberian", "Winterbor"],
+    "Swiss Chard": ["Rainbow", "Ruby Red", "Bright Lights", "Fordhook Giant", "Peppermint"],
+    "Arugula": ["Astro", "Wild", "Slow Bolt", "Sylvetta"],
+    "Bok Choy": ["Baby", "Shanghai", "Joi Choi"],
+    "Collard Greens": ["Georgia Southern", "Flash", "Champion", "Vates"],
+    "Mustard Greens": ["Red Giant", "Southern Giant", "Tendergreen"],
+    "Radicchio": ["Chioggia", "Treviso", "Palla Rossa"],
+    "Carrot": ["Nantes", "Chantenay", "Danvers", "Imperator", "Purple", "Rainbow", "Bolero", "Scarlet Nantes"],
+    "Beet": ["Detroit Dark Red", "Chioggia", "Golden", "Bull's Blood", "Red Ace", "Cylindra"],
+    "Radish": ["French Breakfast", "Cherry Belle", "Daikon", "Watermelon", "Easter Egg"],
+    "Turnip": ["Purple Top White Globe", "Hakurei", "Tokyo Market"],
+    "Parsnip": ["Hollow Crown", "Harris Model", "Javelin"],
+    "Kohlrabi": ["Early White Vienna", "Purple Vienna", "Gigante"],
+    "Sweet Potato": ["Beauregard", "Jewel", "Covington", "Purple", "Japanese"],
+    "Potato": ["Yukon Gold", "Russet", "Red Pontiac", "Fingerling", "Blue", "Kennebec", "All Blue"],
+    "Onion": ["Yellow", "White", "Red", "Vidalia", "Walla Walla", "Sweet", "Bunching", "Cipollini"],
+    "Garlic": ["Hardneck", "Softneck", "Elephant", "Rocambole", "Silverskin", "Porcelain", "Music", "Russian Red"],
+    "Green Onion": ["Evergreen", "Tokyo Long White", "Parade", "Guardsman"],
+    "Shallot": ["French Red", "Banana", "Dutch Yellow"],
+    "Leek": ["Giant Musselburgh", "King Richard", "Autumn Giant", "Lancelot"],
+    "Chives": ["Common", "Garlic Chive"],
+    "Broccoli": ["Calabrese", "Romanesco", "Di Cicco", "Belstar", "Green Magic", "Waltham 29"],
+    "Cauliflower": ["White", "Purple", "Orange", "Romanesco", "Snowball", "Graffiti", "Cheddar"],
+    "Cabbage": ["Green", "Red", "Savoy", "Napa", "Pointed", "January King"],
+    "Brussels Sprouts": ["Long Island", "Jade Cross", "Churchill", "Diablo"],
+    "Celery": ["Utah", "Tango", "Pascal", "Golden Self-Blanching"],
+    "Fennel": ["Florence", "Bronze", "Sweet", "Perfection"],
+    "Basil": ["Sweet", "Genovese", "Purple", "Thai", "Lemon", "Cinnamon", "Dark Opal", "Spicy Globe"],
+    "Parsley": ["Flat-leaf", "Italian", "Curly", "Hamburg"],
+    "Cilantro": ["Santo", "Calypso", "Leisure", "Slow Bolt"],
+    "Dill": ["Fernleaf", "Bouquet", "Mammoth", "Hera"],
+    "Mint": ["Spearmint", "Peppermint", "Apple", "Chocolate", "Mojito", "Lemon"],
+    "Thyme": ["English", "French", "Lemon", "Creeping", "German Winter"],
+    "Rosemary": ["Tuscan Blue", "Arp", "Prostratus", "Barbecue"],
+    "Oregano": ["Greek", "Italian", "Mexican", "Hot & Spicy"],
+    "Sage": ["Common", "Purple", "Berggarten", "Tricolor", "Pineapple"],
+    "Tarragon": ["French", "Russian"],
+    "Lavender": ["English", "French", "Hidcote", "Munstead", "Provence"],
+    "Chamomile": ["German", "Roman"],
+    "Lemongrass": [],
+    "Lemon Balm": [],
+    "Stevia": [],
+    "Strawberry": ["Chandler", "Albion", "Seascape", "Earliglow", "Honeoye", "Fort Laramie", "Alexandria"],
+    "Raspberry": ["Red", "Black", "Yellow", "Heritage", "Anne", "Fall Gold", "Caroline", "Nova"],
+    "Blueberry": ["Highbush", "Lowbush", "Duke", "Bluecrop", "Patriot", "Sunshine Blue", "Top Hat"],
+    "Blackberry": ["Thornless", "Triple Crown", "Apache", "Chester", "Prime-Ark", "Ouachita"],
+    "Rhubarb": ["Victoria", "Canada Red", "Crimson Red"],
+    "Currant": ["Red Lake", "Perfection", "Titania", "Black"],
+    "Fig": ["Brown Turkey", "Celeste", "Chicago Hardy", "Black Mission", "Kadota"],
+    "Grape": ["Concord", "Thompson Seedless", "Red Flame", "Niagara", "Marquette", "Reliance"],
+    "Asparagus": ["Jersey Knight", "Jersey Giant", "Mary Washington", "Purple Passion"],
+    "Artichoke": ["Green Globe", "Imperial Star", "Purple of Romagna"],
+    "Okra": ["Clemson Spineless", "Burgundy", "Emerald"],
+    "Tomatillo": ["Verde", "Purple", "Pineapple", "Grande Rio Verde"],
+    "Ground Cherry": ["Cossack Pineapple", "Aunt Molly's"],
+    "Sunflower": ["Mammoth", "Autumn Beauty", "Teddy Bear", "Lemon Queen"],
+    "Sorrel": ["French", "Red-veined", "Garden"],
+    "Nasturtium": ["Alaska", "Jewel Mix", "Empress of India", "Climbing"],
+    "Rutabaga": ["American Purple Top", "Laurentian"],
+}
+
+
 class _Row:
     """Dict- and attribute-accessible row, like sqlite3.Row."""
 
@@ -1752,7 +1841,10 @@ def create_app() -> Flask:
                 id_args,
             ).fetchall()
         ]
-        return render_template("garden_entry_new.html", form_values={"planted_date": today}, location_names=location_names)
+        plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
+        return render_template("garden_entry_new.html", form_values={"planted_date": today},
+                               location_names=location_names,
+                               plant_names=plant_names, plant_varieties=plant_varieties)
 
     @app.route("/garden/<int:entry_id>")
     @login_required
@@ -1995,12 +2087,15 @@ def create_app() -> Flask:
         if entry is None:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
+        plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
         if request.method == "POST":
             plant_name = request.form.get("plant_name", "").strip()
             if not plant_name:
                 flash("Plant name is required.")
                 _loc_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
-                return render_template("garden_entry_edit.html", entry=entry, form_values=request.form, location_names=_loc_names)
+                return render_template("garden_entry_edit.html", entry=entry, form_values=request.form,
+                                       location_names=_loc_names,
+                                       plant_names=plant_names, plant_varieties=plant_varieties)
             never_fertilize = 1 if request.form.get("never_fertilize") else 0
             db.execute(
                 f"""UPDATE garden_entries
@@ -2077,7 +2172,8 @@ def create_app() -> Flask:
         return render_template("garden_entry_edit.html", entry=entry, form_values=entry,
                                location_names=location_names, last_fertilized=last_fertilized,
                                next_fertilization=next_fertilization,
-                               today=_today, fert_deadline=_fert_deadline)
+                               today=_today, fert_deadline=_fert_deadline,
+                               plant_names=plant_names, plant_varieties=plant_varieties)
 
     @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
     @login_required
@@ -3575,6 +3671,53 @@ def _ai_detect_fertilization(note_text, photo_date=None, planted_date=None):
         return (0, None, None)
     except Exception:
         return (0, None, None)
+
+
+def _build_plant_autocomplete_data(db, user_ids):
+    """Return (plant_names, plant_varieties) merging static PLANT_SUGGESTIONS with user's own entries."""
+    ph, id_args = _in_ids(user_ids)
+    rows = db.execute(
+        f"SELECT DISTINCT plant_name, variety FROM garden_entries WHERE user_id IN {ph}",
+        id_args,
+    ).fetchall()
+
+    # Collect user's own plant names and varieties
+    user_data: dict = {}
+    for row in rows:
+        pn = (row["plant_name"] or "").strip()
+        if not pn:
+            continue
+        variety = (row["variety"] or "").strip()
+        key = pn.lower()
+        if key not in user_data:
+            user_data[key] = {"display": pn, "varieties": set()}
+        if variety:
+            user_data[key]["varieties"].add(variety)
+
+    # Merge plant names: static list + any user-only names not already present
+    static_keys = {n.lower() for n in PLANT_SUGGESTIONS}
+    extra_names = [v["display"] for k, v in user_data.items() if k not in static_keys]
+    all_names = sorted(list(PLANT_SUGGESTIONS.keys()) + extra_names, key=str.lower)
+
+    # Build varieties dict: lowercase plant name -> sorted list
+    varieties: dict = {}
+    for name, vars_list in PLANT_SUGGESTIONS.items():
+        key = name.lower()
+        varieties[key] = list(vars_list)
+
+    # Merge user-recorded varieties, avoiding case-insensitive duplicates
+    for key, data in user_data.items():
+        if data["varieties"]:
+            if key in varieties:
+                existing_lower = {v.lower() for v in varieties[key]}
+                for v in sorted(data["varieties"]):
+                    if v.lower() not in existing_lower:
+                        varieties[key].append(v)
+                        existing_lower.add(v.lower())
+            else:
+                varieties[key] = sorted(data["varieties"])
+
+    return all_names, varieties
 
 
 def _feature_fertilization(user):
