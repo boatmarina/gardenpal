@@ -299,7 +299,7 @@
         <div class="cards">
           {% for entry in month_entries %}
             {% set eff_fert = entry.planned_fertilization_date or entry.next_fertilization_date %}
-            {% set fert_alert = eff_fert and eff_fert <= fert_deadline and not entry.never_fertilize %}
+            {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline and not entry.never_fertilize %}
             <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
                data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
               <div class="card-content" style="padding:16px 18px;position:relative">
@@ -340,7 +340,7 @@
       <div class="cards">
         {% for entry in unscheduled %}
           {% set eff_fert = entry.planned_fertilization_date or entry.next_fertilization_date %}
-          {% set fert_alert = eff_fert and eff_fert <= fert_deadline and not entry.never_fertilize %}
+          {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline and not entry.never_fertilize %}
           <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
              data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
             <div class="card-content" style="padding:16px 18px;position:relative">

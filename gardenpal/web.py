@@ -1701,6 +1701,7 @@ def create_app() -> Flask:
                 strip_months.append((yr, mo, len(grouped.get((yr, mo), []))))
 
         shared_names = _shared_user_names(db, uid)
+        ff_fert = _feature_fertilization(g.user)
         return render_template(
             "garden_index.html",
             grouped_entries=grouped_entries,
@@ -1710,6 +1711,7 @@ def create_app() -> Flask:
             shared_names=shared_names,
             today=today_str,
             fert_deadline=fert_deadline,
+            ff_fert=ff_fert,
         )
 
     @app.route("/garden/new", methods=["GET", "POST"])
@@ -1788,42 +1790,46 @@ def create_app() -> Flask:
         else:
             last_fertilized = None
 
-        # Refresh next-fertilization suggestion when stale (skip if plant is never-fertilize)
-        if not entry["never_fertilize"]:
-            gen_at = entry["next_fertilization_generated_at"] if entry["next_fertilization_generated_at"] else None
-            last_fert_date = last_fertilized["date"] if last_fertilized else None
-            needs_regen = (
-                not gen_at
-                or (last_fert_date and last_fert_date > gen_at[:10])
-                or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
-            )
-            if needs_regen:
-                growth_notes = [
-                    (r["photo_date"], r["notes"])
-                    for r in db.execute(
-                        "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ? AND notes IS NOT NULL"
-                        " ORDER BY photo_date ASC NULLS LAST, created_at ASC",
-                        (entry_id,),
-                    ).fetchall()
-                ]
-                user_location = g.user.get("location", "")
-                suggestion = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes)
-                if suggestion:
-                    entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
-            next_fertilization = {
-                "date": entry["next_fertilization_date"],
-                "note": entry["next_fertilization_note"],
-                "planned_date": entry["planned_fertilization_date"],
-                "never": False,
-            }
+        ff_fert = _feature_fertilization(g.user)
+        if ff_fert:
+            # Refresh next-fertilization suggestion when stale (skip if plant is never-fertilize)
+            if not entry["never_fertilize"]:
+                gen_at = entry["next_fertilization_generated_at"] if entry["next_fertilization_generated_at"] else None
+                last_fert_date = last_fertilized["date"] if last_fertilized else None
+                needs_regen = (
+                    not gen_at
+                    or (last_fert_date and last_fert_date > gen_at[:10])
+                    or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
+                )
+                if needs_regen:
+                    growth_notes = [
+                        (r["photo_date"], r["notes"])
+                        for r in db.execute(
+                            "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ? AND notes IS NOT NULL"
+                            " ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                            (entry_id,),
+                        ).fetchall()
+                    ]
+                    user_location = g.user.get("location", "")
+                    suggestion = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes)
+                    if suggestion:
+                        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+                next_fertilization = {
+                    "date": entry["next_fertilization_date"],
+                    "note": entry["next_fertilization_note"],
+                    "planned_date": entry["planned_fertilization_date"],
+                    "never": False,
+                }
+            else:
+                next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
         else:
-            next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
+            next_fertilization = None
 
         from datetime import timedelta as _timedelta
         fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
         return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today,
                                last_fertilized=last_fertilized, next_fertilization=next_fertilization,
-                               fert_deadline=fert_deadline)
+                               fert_deadline=fert_deadline, ff_fert=ff_fert)
 
     @app.route("/garden/<int:entry_id>/photos", methods=["POST"])
     @login_required
@@ -2062,18 +2068,23 @@ def create_app() -> Flask:
             last_fertilized = {"date": photo_fert_date or None, "type": last_fert_photo["fertilizer_type"]}
         else:
             last_fertilized = None
-        next_fertilization = {
-            "date": entry["next_fertilization_date"],
-            "note": entry["next_fertilization_note"],
-            "planned_date": entry["planned_fertilization_date"],
-            "never": bool(entry["never_fertilize"]),
-        }
-        from datetime import timedelta as _timedelta
-        _today = datetime.utcnow().strftime("%Y-%m-%d")
-        _fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
+        ff_fert = _feature_fertilization(g.user)
+        if ff_fert:
+            next_fertilization = {
+                "date": entry["next_fertilization_date"],
+                "note": entry["next_fertilization_note"],
+                "planned_date": entry["planned_fertilization_date"],
+                "never": bool(entry["never_fertilize"]),
+            }
+            from datetime import timedelta as _timedelta
+            _today = datetime.utcnow().strftime("%Y-%m-%d")
+            _fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
+        else:
+            next_fertilization = None
+            _today = _fert_deadline = None
         return render_template("garden_entry_edit.html", entry=entry, form_values=entry,
                                location_names=location_names, last_fertilized=last_fertilized,
-                               next_fertilization=next_fertilization,
+                               next_fertilization=next_fertilization, ff_fert=ff_fert,
                                today=_today, fert_deadline=_fert_deadline)
 
     @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
@@ -3572,6 +3583,11 @@ def _ai_detect_fertilization(note_text, photo_date=None, planted_date=None):
         return (0, None, None)
     except Exception:
         return (0, None, None)
+
+
+def _feature_fertilization(user):
+    """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
+    return (user or {}).get("email") in {"boatmarina@hotmail.com"}
 
 
 def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes):
