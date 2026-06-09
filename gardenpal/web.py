@@ -1814,9 +1814,10 @@ def create_app() -> Flask:
                 "date": entry["next_fertilization_date"],
                 "note": entry["next_fertilization_note"],
                 "planned_date": entry["planned_fertilization_date"],
+                "never": False,
             }
         else:
-            next_fertilization = None
+            next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
 
         from datetime import timedelta as _timedelta
         fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
@@ -2061,7 +2062,19 @@ def create_app() -> Flask:
             last_fertilized = {"date": photo_fert_date or None, "type": last_fert_photo["fertilizer_type"]}
         else:
             last_fertilized = None
-        return render_template("garden_entry_edit.html", entry=entry, form_values=entry, location_names=location_names, last_fertilized=last_fertilized)
+        next_fertilization = {
+            "date": entry["next_fertilization_date"],
+            "note": entry["next_fertilization_note"],
+            "planned_date": entry["planned_fertilization_date"],
+            "never": bool(entry["never_fertilize"]),
+        }
+        from datetime import timedelta as _timedelta
+        _today = datetime.utcnow().strftime("%Y-%m-%d")
+        _fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
+        return render_template("garden_entry_edit.html", entry=entry, form_values=entry,
+                               location_names=location_names, last_fertilized=last_fertilized,
+                               next_fertilization=next_fertilization,
+                               today=_today, fert_deadline=_fert_deadline)
 
     @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
     @login_required
@@ -2088,10 +2101,19 @@ def create_app() -> Flask:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
         planned_date = request.form.get("planned_date", "").strip() or None
-        db.execute(
-            "UPDATE garden_entries SET planned_fertilization_date = ? WHERE id = ?",
-            (planned_date, entry_id),
-        )
+        never = 1 if request.form.get("never_fertilize") else 0
+        if never:
+            db.execute(
+                "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
+                " next_fertilization_date = NULL, next_fertilization_note = NULL,"
+                " next_fertilization_generated_at = NULL WHERE id = ?",
+                (entry_id,),
+            )
+        else:
+            db.execute(
+                "UPDATE garden_entries SET planned_fertilization_date = ?, never_fertilize = 0 WHERE id = ?",
+                (planned_date, entry_id),
+            )
         db.commit()
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
