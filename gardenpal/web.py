@@ -3675,7 +3675,8 @@ def _ai_detect_fertilization(note_text, photo_date=None, planted_date=None):
 
 def _build_plant_autocomplete_data(db, user_ids):
     """Return (plant_names, plant_varieties) merging static PLANT_SUGGESTIONS with user's own entries."""
-    ph, id_args = _in_ids(user_ids)
+    ph = "({})".format(",".join("?" * len(user_ids)))
+    id_args = list(user_ids)
     rows = db.execute(
         f"SELECT DISTINCT plant_name, variety FROM garden_entries WHERE user_id IN {ph}",
         id_args,
