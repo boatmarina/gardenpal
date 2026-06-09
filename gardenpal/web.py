@@ -3673,6 +3673,26 @@ def _ai_detect_fertilization(note_text, photo_date=None, planted_date=None):
         return (0, None, None)
 
 
+def _plant_name_root(name):
+    """Canonical form of a plant name for plural/singular dedup.
+
+    Handles the most common English plural patterns so that e.g.
+    'Strawberries' (user-entered) doesn't appear alongside 'Strawberry'
+    (static list), and varieties from 'Strawberries' are merged into
+    the 'Strawberry' bucket.
+    """
+    w = name.strip().lower()
+    parts = w.rsplit(' ', 1)
+    last = parts[-1]
+    if last.endswith('ies') and len(last) > 4:
+        last = last[:-3] + 'y'       # strawberries → strawberry
+    elif last.endswith('oes') and len(last) > 3:
+        last = last[:-2]             # tomatoes → tomato, potatoes → potato
+    elif last.endswith('s') and not last.endswith('ss') and len(last) > 3:
+        last = last[:-1]             # beans → bean, peppers → pepper
+    return (parts[0] + ' ' + last) if len(parts) == 2 else last
+
+
 def _build_plant_autocomplete_data(db, user_ids):
     """Return (plant_names, plant_varieties) merging static PLANT_SUGGESTIONS with user's own entries."""
     ph = "({})".format(",".join("?" * len(user_ids)))
@@ -3695,28 +3715,40 @@ def _build_plant_autocomplete_data(db, user_ids):
         if variety:
             user_data[key]["varieties"].add(variety)
 
-    # Merge plant names: static list + any user-only names not already present
+    # Merge plant names: static list + user-only names with no matching static entry
+    # (exact lowercase match OR matching root handles plural/singular variants)
     static_keys = {n.lower() for n in PLANT_SUGGESTIONS}
-    extra_names = [v["display"] for k, v in user_data.items() if k not in static_keys]
+    static_roots = {_plant_name_root(n) for n in PLANT_SUGGESTIONS}
+    extra_names = [
+        v["display"] for k, v in user_data.items()
+        if k not in static_keys and _plant_name_root(k) not in static_roots
+    ]
     all_names = sorted(list(PLANT_SUGGESTIONS.keys()) + extra_names, key=str.lower)
 
-    # Build varieties dict: lowercase plant name -> sorted list
+    # Build varieties dict: lowercase static plant name -> list
     varieties: dict = {}
     for name, vars_list in PLANT_SUGGESTIONS.items():
-        key = name.lower()
-        varieties[key] = list(vars_list)
+        varieties[name.lower()] = list(vars_list)
 
-    # Merge user-recorded varieties, avoiding case-insensitive duplicates
+    # Root → static key mapping, for merging varieties from plural/singular user entries
+    static_root_to_key = {_plant_name_root(n): n.lower() for n in PLANT_SUGGESTIONS}
+
+    # Merge user-recorded varieties, deduplicating by root match
     for key, data in user_data.items():
-        if data["varieties"]:
-            if key in varieties:
-                existing_lower = {v.lower() for v in varieties[key]}
-                for v in sorted(data["varieties"]):
-                    if v.lower() not in existing_lower:
-                        varieties[key].append(v)
-                        existing_lower.add(v.lower())
-            else:
-                varieties[key] = sorted(data["varieties"])
+        if not data["varieties"]:
+            continue
+        if key in varieties:
+            target_key = key
+        else:
+            target_key = static_root_to_key.get(_plant_name_root(key), key)
+        if target_key in varieties:
+            existing_lower = {v.lower() for v in varieties[target_key]}
+            for v in sorted(data["varieties"]):
+                if v.lower() not in existing_lower:
+                    varieties[target_key].append(v)
+                    existing_lower.add(v.lower())
+        else:
+            varieties[target_key] = sorted(data["varieties"])
 
     return all_names, varieties
 
