@@ -80,6 +80,29 @@
                      placeholder="e.g. Worm castings, Fish emulsion…" />
             </label>
           </div>
+          {% if next_fertilization and (next_fertilization.date or next_fertilization.planned_date) %}
+          <div style="margin-top:0.9rem;padding-top:0.9rem;border-top:1px solid var(--border)">
+            <p style="font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Next fertilization</p>
+            <p style="font-size:0.85rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+              {% set eff_fert = next_fertilization.planned_date or next_fertilization.date %}
+              {% if eff_fert and eff_fert <= fert_deadline %}
+                <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
+                  <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
+                  {% if eff_fert < today %}Overdue{% else %}Due soon{% endif %}
+                </span>
+              {% endif %}
+              {% if next_fertilization.planned_date %}
+                <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap">Planned</span>
+                {{ next_fertilization.planned_date | planted_date }}
+              {% else %}
+                {{ next_fertilization.date | planted_date }}
+              {% endif %}
+            </p>
+            {% if next_fertilization.note %}
+            <p style="font-size:0.78rem;color:var(--muted);margin-top:5px;line-height:1.5">{{ next_fertilization.note }}</p>
+            {% endif %}
+          </div>
+          {% endif %}
         </div>
       </div>
       <button type="submit" style="margin-top:4px">Save Changes</button>
