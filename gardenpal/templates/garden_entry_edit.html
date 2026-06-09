@@ -50,14 +50,12 @@
       </label>
       <div style="border-top:1px solid var(--border);padding-top:0.9rem;margin-top:0.2rem">
         <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem">Fertilization</p>
-        {% if ff_fert %}
         <label id="never-fert-label" style="flex-direction:row;align-items:center;gap:8px;font-size:0.85rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text);cursor:pointer;margin-bottom:0.7rem">
           <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
                  {% if entry.never_fertilize %}checked{% endif %}
                  style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer" />
           I never plan to fertilize this plant
         </label>
-        {% endif %}
         <div id="fert-tracking-section">
           <p style="font-size:0.85rem;margin-bottom:0">
             <span style="color:var(--muted);font-size:0.78rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Last fertilized</span>
@@ -82,17 +80,11 @@
                      placeholder="e.g. Worm castings, Fish emulsion…" />
             </label>
           </div>
-          {% if ff_fert and next_fertilization and (next_fertilization.date or next_fertilization.planned_date) %}
+          {% if next_fertilization and (next_fertilization.date or next_fertilization.planned_date) %}
           <div style="margin-top:0.9rem;padding-top:0.9rem;border-top:1px solid var(--border)">
             <p style="font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Next fertilization</p>
             <p style="font-size:0.85rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
               {% set eff_fert = next_fertilization.planned_date or next_fertilization.date %}
-              {% if eff_fert and eff_fert <= fert_deadline %}
-                <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
-                  <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
-                  {% if eff_fert < today %}Overdue{% else %}Due soon{% endif %}
-                </span>
-              {% endif %}
               {% if next_fertilization.planned_date %}
                 <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap">Planned</span>
                 {{ next_fertilization.planned_date | planted_date }}
