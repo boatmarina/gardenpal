@@ -1184,7 +1184,7 @@ def create_app() -> Flask:
                         form_values.get("image_url") or None,
                         form_values["size_info"],
                         form_values["flowering_schedule"],
-                        form_values["sun_needs"],
+                        normalize_sun_value(form_values["sun_needs"] or ""),
                         form_values["lifecycle"],
                         None,
                         form_values["notes"],
@@ -1204,7 +1204,7 @@ def create_app() -> Flask:
                     ("lookup_query",       form_values["lookup_query"] or None),
                     ("image_url",          form_values.get("image_url") or None),
                     ("photo_urls",         form_values.get("photo_urls_json") or None),
-                    ("sun_exposure",       form_values["sun_needs"] or None),
+                    ("sun_exposure",       normalize_sun_value(form_values.get("sun_needs") or "") or None),
                     ("lifecycle",          form_values["lifecycle"] or None),
                     ("size_info",          form_values["size_info"] or None),
                     ("flowering_schedule", form_values["flowering_schedule"] or None),
@@ -3448,6 +3448,21 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_api_usage_user_date ON api_usage(user_id, date)",
+    # Normalise any sun_exposure values that were stored as raw API strings
+    # (e.g. "Part Sun", "Partial Shade", "Full Sun") instead of the canonical
+    # "part-sun" / "full-sun" / "shade" values the filter UI expects.
+    # The WHERE clause skips already-normalised rows so this is a safe no-op on repeat runs.
+    """
+    UPDATE plants
+    SET sun_exposure = CASE
+        WHEN LOWER(sun_exposure) LIKE '%full%' AND LOWER(sun_exposure) LIKE '%sun%' THEN 'full-sun'
+        WHEN LOWER(sun_exposure) LIKE '%part%' THEN 'part-sun'
+        WHEN LOWER(sun_exposure) LIKE '%shade%' THEN 'shade'
+        ELSE NULL
+    END
+    WHERE sun_exposure IS NOT NULL
+      AND sun_exposure NOT IN ('full-sun', 'part-sun', 'shade')
+    """,
 ]
 
 
