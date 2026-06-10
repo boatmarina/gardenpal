@@ -392,8 +392,8 @@
   /* ── render ── */
   function renderPhotos(photos) {
     if (!photos.length) return;
-    reserve = photos.slice(3);
-    grid.innerHTML = photos.slice(0, 3).map((u, i) => makePhotoItem(u, i)).join('');
+    reserve = [];
+    grid.innerHTML = photos.map((u, i) => makePhotoItem(u, i)).join('');
     grid.querySelectorAll('.photo-item').forEach(attachControls);
   }
 
