@@ -203,7 +203,7 @@
         </div>
         <input type="file" name="label_photo" accept="image/*" capture="environment" id="yard-label-input"
                style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden"
-               onchange="(function(f){if(!f)return;var p=document.getElementById('yard-label-photo-preview');p.querySelector('img').src=URL.createObjectURL(f);p.hidden=false;var btn=document.getElementById('yard-label-upload-btn');if(btn){btn.textContent='📷 Photo selected';btn.style.borderColor='var(--green,#4a7c59)';btn.style.color='var(--green,#4a7c59)';}var sub=document.getElementById('yard-label-submit-btn');if(sub)sub.disabled=false;})(this.files[0])" />
+               onchange="(function(f){if(!f)return;var p=document.getElementById('yard-label-photo-preview');p.querySelector('img').src=URL.createObjectURL(f);p.hidden=false;var btn=document.getElementById('yard-label-upload-btn');if(btn){btn.textContent='✓ Photo ready';btn.style.background='var(--green,#4a7c59)';btn.style.color='#fff';btn.style.border='none';}var sub=document.getElementById('yard-label-submit-btn');if(sub)sub.disabled=false;})(this.files[0])" />
         <button type="button" class="button btn-upload" id="yard-label-upload-btn"
                 onclick="document.getElementById('yard-label-input').click()">
           Choose Label Photo
