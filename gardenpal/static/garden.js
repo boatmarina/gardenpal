@@ -45,7 +45,7 @@
         .then(function (r) { return r.json(); }).catch(function () { return {}; })
     ]);
     return {
-      photos:  (results[0].photos || []).slice(0, 3),
+      photos:  (results[0].photos || []).slice(0, 6),
       details: (results[1] && !results[1].error) ? results[1] : null
     };
   };
