@@ -394,6 +394,7 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
     Photos come from iNaturalist observations (includes cultivated/garden plants).
     """
     try:
+        taxon_photos: List[str] = []
         if not taxon_id:
             if not query:
                 return []
@@ -408,17 +409,14 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
                 return []
             taxon = taxa[0]
             taxon_id = taxon.get("id")
-            # Also try taxon_photos from the taxa response (curated, already fetched)
-            taxon_photos: List[str] = []
+            # Collect taxon_photos as a fallback only — they live on iNaturalist's own
+            # CDN (static.inaturalist.org) which can go stale. Observation photos are
+            # stored on S3 (inaturalist-open-data.s3.amazonaws.com) and are more stable.
             for tp in (taxon.get("taxon_photos") or [])[:count]:
                 p = (tp.get("photo") or {})
                 url = p.get("medium_url") or p.get("square_url") or ""
                 if url:
                     taxon_photos.append(url)
-            # Only use curated taxon_photos if we already have enough; otherwise
-            # fall through to the observation-based lookup which gives diverse photos.
-            if len(taxon_photos) >= count:
-                return taxon_photos[:count]
 
         if not taxon_id:
             return []
@@ -449,6 +447,10 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
                     photos.append(medium_url)
             if len(photos) >= count:
                 break
+
+        # If no observation photos found, fall back to the curated taxon_photos
+        if not photos and taxon_photos:
+            return taxon_photos[:count]
 
         return photos
     except Exception:
