@@ -245,7 +245,8 @@
     fetch(`/ideas/${plantId}/update-photos`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({photos: urls})
+      body: JSON.stringify({photos: urls}),
+      keepalive: true  // survives page navigation
     });
   }
 
@@ -487,8 +488,8 @@
       return;
     } catch (_) {}
   }
-  // No stored photos — fetch dynamically.
-  fetchAndRender(imageUrl, false);
+  // No stored photos — fetch dynamically and save so next load is instant.
+  fetchAndRender(imageUrl, true);
 })();
 
 /* Tag chips on plant detail page */
