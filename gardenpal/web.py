@@ -1907,7 +1907,8 @@ def create_app() -> Flask:
                     ).fetchall()
                 ]
                 user_location = g.user.get("location", "")
-                suggestion = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes)
+                fert_allowed, _ = _check_api_rate(db, g.user["id"], "fertilization")
+                suggestion = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes) if fert_allowed else None
                 if suggestion:
                     entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
             next_fertilization = {
@@ -2276,6 +2277,11 @@ def create_app() -> Flask:
 
         db = get_db()
         user_id = g.user["id"]
+
+        allowed, reason = _check_api_rate(db, user_id, "chat")
+        if not allowed:
+            return jsonify(error=reason), 429
+
         _log_activity(db, user_id, "garden_chat", message[:200])
         db.commit()
         today = datetime.utcnow().strftime("%Y-%m-%d")
@@ -3422,6 +3428,26 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_chat_error_log_at ON chat_error_log(logged_at DESC)",
+    # --- Indexes for common hot-path queries ---
+    "CREATE INDEX IF NOT EXISTS idx_garden_entries_user_id   ON garden_entries(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_entries_user_date ON garden_entries(user_id, planted_date DESC NULLS LAST)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry_id   ON garden_photos(entry_id)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry_date ON garden_photos(entry_id, photo_date DESC NULLS LAST)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry_fert ON garden_photos(entry_id, is_fertilization)",
+    # --- API usage tracking (rate limiting + daily spending caps) ---
+    """
+    CREATE TABLE IF NOT EXISTS api_usage (
+        id           SERIAL PRIMARY KEY,
+        user_id      INTEGER NOT NULL,
+        date         TEXT NOT NULL,
+        feature      TEXT NOT NULL,
+        count        INTEGER NOT NULL DEFAULT 0,
+        last_used_at TEXT,
+        UNIQUE (user_id, date, feature),
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_api_usage_user_date ON api_usage(user_id, date)",
 ]
 
 
@@ -3782,6 +3808,55 @@ def _build_plant_autocomplete_data(db, user_ids):
 def _feature_fertilization(user):
     """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
     return (user or {}).get("email") in {"boatmarina@hotmail.com"}
+
+
+# Per-feature daily limits and minimum seconds between consecutive calls.
+_API_LIMITS = {
+    "chat":          {"daily": 40, "burst_secs": 3},
+    "fertilization": {"daily": 15, "burst_secs": 0},   # cache already throttles
+}
+
+
+def _check_api_rate(db, user_id, feature):
+    """Check rate + daily cap for a user/feature. Returns (allowed: bool, reason: str|None).
+
+    Allowed → also increments the counter and updates last_used_at.
+    Denied  → counter is NOT incremented so the limit isn't consumed on rejection.
+    """
+    cfg = _API_LIMITS.get(feature, {"daily": 20, "burst_secs": 5})
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+
+    row = db.execute(
+        "SELECT count, last_used_at FROM api_usage WHERE user_id = ? AND date = ? AND feature = ?",
+        (user_id, today, feature),
+    ).fetchone()
+
+    count = row["count"] if row else 0
+    last_used_at = row["last_used_at"] if row else None
+
+    # Burst check
+    burst = cfg["burst_secs"]
+    if burst and last_used_at:
+        try:
+            elapsed = (datetime.utcnow() - datetime.fromisoformat(last_used_at)).total_seconds()
+            if elapsed < burst:
+                return False, f"Please wait a moment before sending another message."
+        except Exception:
+            pass
+
+    # Daily cap
+    if count >= cfg["daily"]:
+        return False, f"Daily limit reached for this feature ({cfg['daily']}/day). Try again tomorrow."
+
+    # Allowed — upsert the counter
+    db.execute(
+        "INSERT INTO api_usage (user_id, date, feature, count, last_used_at) VALUES (?, ?, ?, 1, ?) "
+        "ON CONFLICT (user_id, date, feature) DO UPDATE SET count = api_usage.count + 1, last_used_at = EXCLUDED.last_used_at",
+        (user_id, today, feature, now_iso),
+    )
+    db.commit()
+    return True, None
 
 
 def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes):
