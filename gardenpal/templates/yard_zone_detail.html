@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from '_plant_icons.html' import plant_icon %}
 {% block page_label %}<span class="page-subtitle">{{ zone.name }}</span>{% endblock %}
 {% block content %}
   <a href="{{ url_for('yard_index') }}" class="back-btn">
@@ -131,6 +132,29 @@
       <p class="empty">No plants mapped in this zone yet.</p>
     {% endif %}
   </section>
+
+  {% if feature_garden_zones and garden_entries %}
+  <p style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px">Edible Garden</p>
+  <section class="cards">
+    {% for ge in garden_entries %}
+    <article class="card" style="position:relative">
+      <a href="{{ url_for('garden_detail', entry_id=ge.id) }}" class="card-link">
+      <div class="thumb" style="background:var(--green-light)">
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:var(--green-mid)">
+          {{ plant_icon(ge.plant_name) }}
+        </div>
+      </div>
+      <div class="card-content">
+        <h3>{{ ge.plant_name }}</h3>
+        {% if ge.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ ge.variety }}</p>{% endif %}
+        {% if ge.location_name %}<p class="muted" style="font-size:0.82rem;margin-top:4px">{{ ge.location_name }}</p>{% endif %}
+        {% if ge.planted_date %}<p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ ge.planted_date | planted_date }}</p>{% endif %}
+      </div>
+      </a>
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
 {% endblock %}
 
 {% block scripts %}
