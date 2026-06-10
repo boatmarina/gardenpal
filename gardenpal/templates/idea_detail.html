@@ -402,53 +402,15 @@
 
   function fetchAndRender(seedUrl, andSave) {
     const savedSet = new Set(seedUrl ? [seedUrl] : []);
-    // Fetch taxon_id first, then use observation photos (user-uploaded S3 URLs, more stable
-    // than curated taxon_photos which can go stale when iNaturalist reorganises their CDN).
-    fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(query) +
-          '&is_active=true&iconic_taxa=Plantae&per_page=1')
+    fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
       .then(r => r.json())
       .then(d => {
-        const taxon = (d.results || [])[0] || {};
-        const taxonId = taxon.id;
-        const taxonPhotos = (taxon.taxon_photos || []).slice(0, 6)
-          .map(tp => (tp.photo || {}).medium_url || (tp.photo || {}).square_url)
-          .filter(Boolean);
-        if (!taxonId) {
-          // No taxon found — try taxon_photos as last resort
-          const extra = taxonPhotos.filter(u => !savedSet.has(u));
-          const combined = seedUrl ? [seedUrl, ...extra] : extra;
-          if (combined.length) { renderPhotos(combined); if (andSave) setTimeout(saveOrder, 1500); }
-          return;
+        const extra = (d.photos || []).filter(u => !savedSet.has(u));
+        const combined = seedUrl ? [seedUrl, ...extra] : extra;
+        if (combined.length) {
+          renderPhotos(combined);
+          if (andSave) setTimeout(saveOrder, 1500);
         }
-        // Fetch observation photos — these are user-uploaded and stored on S3 (more reliable)
-        fetch('https://api.inaturalist.org/v1/observations?taxon_id=' + taxonId +
-              '&has%5B%5D=photos&per_page=18&order_by=votes&order=desc')
-          .then(r2 => r2.json())
-          .then(d2 => {
-            const obsPhotos = [];
-            for (const obs of (d2.results || [])) {
-              const p = (obs.photos || [])[0];
-              if (p && p.url) {
-                obsPhotos.push(p.url.replace('/square.', '/medium.'));
-              }
-              if (obsPhotos.length >= 6) break;
-            }
-            // Prefer observation photos; fall back to taxon_photos if none found
-            const sourcePhotos = obsPhotos.length ? obsPhotos : taxonPhotos;
-            const extra = sourcePhotos.filter(u => !savedSet.has(u));
-            const combined = seedUrl ? [seedUrl, ...extra] : extra;
-            if (combined.length) {
-              renderPhotos(combined);
-              // Delay save so onerror fires first — only working photos get persisted
-              if (andSave) setTimeout(saveOrder, 1500);
-            }
-          })
-          .catch(() => {
-            // Obs fetch failed — fall back to taxon_photos
-            const extra = taxonPhotos.filter(u => !savedSet.has(u));
-            const combined = seedUrl ? [seedUrl, ...extra] : extra;
-            if (combined.length) { renderPhotos(combined); if (andSave) setTimeout(saveOrder, 1500); }
-          });
       })
       .catch(() => {});
   }
@@ -507,30 +469,9 @@
       fetchWebBtn.disabled = true;
       fetchWebBtn.textContent = 'Searching…';
       var existingUrls = new Set(Array.from(grid.querySelectorAll('.photo-item img')).map(function(img) { return img.src; }));
-
-      fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(query) +
-            '&is_active=true&iconic_taxa=Plantae&per_page=1')
+      fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=12')
         .then(function(r) { return r.json(); })
-        .then(function(d) {
-          var taxon = (d.results || [])[0] || {};
-          var taxonId = taxon.id;
-          var taxonPhotos = (taxon.taxon_photos || []).slice(0, 10)
-            .map(function(tp) { var p = tp.photo || {}; return p.medium_url || p.square_url; })
-            .filter(Boolean);
-          if (!taxonId) { appendPhotos(taxonPhotos, existingUrls); return; }
-          fetch('https://api.inaturalist.org/v1/observations?taxon_id=' + taxonId +
-                '&has%5B%5D=photos&per_page=30&order_by=votes&order=desc')
-            .then(function(r2) { return r2.json(); })
-            .then(function(d2) {
-              var obsPhotos = [];
-              (d2.results || []).forEach(function(obs) {
-                var p = (obs.photos || [])[0];
-                if (p && p.url) obsPhotos.push(p.url.replace('/square.', '/medium.'));
-              });
-              appendPhotos(obsPhotos.length ? obsPhotos : taxonPhotos, existingUrls);
-            })
-            .catch(function() { appendPhotos(taxonPhotos, existingUrls); });
-        })
+        .then(function(d) { appendPhotos(d.photos || [], existingUrls); })
         .catch(function() {
           fetchWebBtn.disabled = false;
           fetchWebBtn.innerHTML = fetchWebBtnHTML;
