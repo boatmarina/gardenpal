@@ -202,8 +202,7 @@
           <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
         </div>
         <input type="file" name="label_photo" accept="image/*" capture="environment" id="yard-label-input"
-               style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden"
-               onchange="(function(f){if(!f)return;var p=document.getElementById('yard-label-photo-preview');p.querySelector('img').src=URL.createObjectURL(f);p.hidden=false;var btn=document.getElementById('yard-label-upload-btn');if(btn){btn.textContent='✓ Photo ready';btn.style.background='var(--green,#4a7c59)';btn.style.color='#fff';btn.style.border='none';}var sub=document.getElementById('yard-label-submit-btn');if(sub)sub.disabled=false;})(this.files[0])" />
+               style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
         <button type="button" class="button btn-upload" id="yard-label-upload-btn"
                 onclick="document.getElementById('yard-label-input').click()">
           Choose Label Photo
@@ -549,7 +548,26 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   }
 
   /* ── Label mode spinner ── */
+  const yardLabelFileInput = document.getElementById('yard-label-input');
+  const yardLabelUploadBtn = document.getElementById('yard-label-upload-btn');
   const yardLabelSubmitBtn = document.getElementById('yard-label-submit-btn');
+
+  if (yardLabelFileInput) {
+    yardLabelFileInput.addEventListener('change', function() {
+      const f = yardLabelFileInput.files[0];
+      if (!f) return;
+      const preview = document.getElementById('yard-label-photo-preview');
+      if (preview) { preview.querySelector('img').src = URL.createObjectURL(f); preview.hidden = false; }
+      if (yardLabelUploadBtn) {
+        yardLabelUploadBtn.textContent = 'Photo ready';
+        yardLabelUploadBtn.style.background = 'var(--green)';
+        yardLabelUploadBtn.style.color = '#fff';
+        yardLabelUploadBtn.style.border = 'none';
+      }
+      if (yardLabelSubmitBtn) yardLabelSubmitBtn.disabled = false;
+    });
+  }
+
   if (yardLabelSubmitBtn) {
     yardLabelSubmitBtn.addEventListener('click', async () => {
       const fileInput = document.getElementById('yard-label-input');

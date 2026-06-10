@@ -119,8 +119,7 @@
           <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
         </div>
         <input type="file" name="label_photo" accept="image/*" capture="environment" id="label-file-input"
-               style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden"
-               onchange="(function(f){if(!f)return;var p=document.getElementById('label-photo-preview');p.querySelector('img').src=URL.createObjectURL(f);p.hidden=false;var btn=document.getElementById('label-upload-btn');if(btn){btn.textContent='✓ Photo ready';btn.style.background='var(--green,#4a7c59)';btn.style.color='#fff';btn.style.border='none';}var sub=document.getElementById('label-submit-btn');if(sub)sub.disabled=false;})(this.files[0])" />
+               style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
         <button type="button" class="button btn-upload" id="label-upload-btn"
                 onclick="document.getElementById('label-file-input').click()">
           Choose Label Photo
@@ -457,7 +456,26 @@ function applyDetails(details) {
 
   const photoUrlsHidden = document.getElementById('photo-urls-hidden');
 
+  const labelFileInput = document.getElementById('label-file-input');
+  const labelUploadBtn = document.getElementById('label-upload-btn');
   const labelSubmitBtn = document.getElementById('label-submit-btn');
+
+  if (labelFileInput) {
+    labelFileInput.addEventListener('change', function() {
+      const f = labelFileInput.files[0];
+      if (!f) return;
+      const preview = document.getElementById('label-photo-preview');
+      if (preview) { preview.querySelector('img').src = URL.createObjectURL(f); preview.hidden = false; }
+      if (labelUploadBtn) {
+        labelUploadBtn.textContent = 'Photo ready';
+        labelUploadBtn.style.background = 'var(--green)';
+        labelUploadBtn.style.color = '#fff';
+        labelUploadBtn.style.border = 'none';
+      }
+      if (labelSubmitBtn) labelSubmitBtn.disabled = false;
+    });
+  }
+
   if (labelSubmitBtn) {
     labelSubmitBtn.addEventListener('click', async () => {
       const fileInput = document.getElementById('label-file-input');
