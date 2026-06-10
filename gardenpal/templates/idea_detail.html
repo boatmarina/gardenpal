@@ -393,6 +393,40 @@
   const userPhoto = grid.dataset.imagePath;
   const imageUrl  = grid.dataset.imageUrl;   // single saved community URL (older plants)
   const stored    = grid.dataset.stored;
+
+  function fetchAndRender(seedUrl, andSave) {
+    const savedSet = new Set(seedUrl ? [seedUrl] : []);
+    fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
+      .then(r => r.json())
+      .then(d => {
+        const extra = (d.photos || []).filter(u => !savedSet.has(u));
+        const combined = seedUrl ? [seedUrl, ...extra] : extra;
+        if (combined.length) { renderPhotos(combined); if (andSave) saveOrder(); }
+      })
+      .catch(() => {})
+      .then(() => {
+        if (grid.querySelectorAll('.photo-item').length >= 3) return;
+        fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(query) +
+              '&is_active=true&iconic_taxa=Plantae&per_page=1')
+          .then(r2 => r2.json())
+          .then(d2 => {
+            const taxon = (d2.results || [])[0] || {};
+            const taxonPhotos = (taxon.taxon_photos || []).slice(0, 6)
+              .map(tp => (tp.photo || {}).medium_url || (tp.photo || {}).square_url)
+              .filter(Boolean);
+            const fallbackUrls = taxonPhotos.length ? taxonPhotos : (() => {
+              const p = taxon.default_photo || {};
+              const u = p.medium_url || p.square_url;
+              return u ? [u] : [];
+            })();
+            const extra = fallbackUrls.filter(u => !savedSet.has(u));
+            const combined = seedUrl ? [seedUrl, ...extra] : extra;
+            if (combined.length) { renderPhotos(combined); if (andSave) saveOrder(); }
+          })
+          .catch(() => {});
+      });
+  }
+
   if (userPhoto) {
     // User-uploaded photo always leads; stored community photos follow
     let extras = [];
@@ -401,40 +435,19 @@
     return;
   }
   if (stored) {
-    try { renderPhotos(JSON.parse(stored)); return; } catch (_) {}
+    try {
+      renderPhotos(JSON.parse(stored));
+      // If all stored URLs fail to load, fall back to API after images have had time to error out
+      setTimeout(function() {
+        if (grid.querySelectorAll('.photo-item').length === 0) {
+          fetchAndRender(imageUrl, true);
+        }
+      }, 2000);
+      return;
+    } catch (_) {}
   }
   // No stored photos — fetch dynamically.
-  // imageUrl is the single saved photo; keep it first, append fetched ones after.
-  const savedSet = new Set(imageUrl ? [imageUrl] : []);
-  fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
-    .then(r => r.json())
-    .then(d => {
-      const extra = (d.photos || []).filter(u => !savedSet.has(u));
-      const combined = imageUrl ? [imageUrl, ...extra] : extra;
-      if (combined.length) renderPhotos(combined);
-    })
-    .catch(() => {})
-    .then(() => {
-      if (grid.querySelectorAll('.photo-item').length >= 3) return;
-      fetch('https://api.inaturalist.org/v1/taxa?q=' + encodeURIComponent(query) +
-            '&is_active=true&iconic_taxa=Plantae&per_page=1')
-        .then(r2 => r2.json())
-        .then(d2 => {
-          const taxon = (d2.results || [])[0] || {};
-          const taxonPhotos = (taxon.taxon_photos || []).slice(0, 6)
-            .map(tp => (tp.photo || {}).medium_url || (tp.photo || {}).square_url)
-            .filter(Boolean);
-          const fallbackUrls = taxonPhotos.length ? taxonPhotos : (() => {
-            const p = taxon.default_photo || {};
-            const u = p.medium_url || p.square_url;
-            return u ? [u] : [];
-          })();
-          const extra = fallbackUrls.filter(u => !savedSet.has(u));
-          const combined = imageUrl ? [imageUrl, ...extra] : extra;
-          if (combined.length) renderPhotos(combined);
-        })
-        .catch(() => {});
-    });
+  fetchAndRender(imageUrl, false);
 })();
 
 /* Tag chips on plant detail page */
