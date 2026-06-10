@@ -415,29 +415,7 @@
       .catch(() => {});
   }
 
-  if (userPhoto) {
-    // User-uploaded photo always leads; stored community photos follow
-    let extras = [];
-    if (stored) { try { extras = JSON.parse(stored); } catch (_) {} }
-    renderPhotos([userPhoto, ...extras.filter(u => u !== userPhoto)]);
-    return;
-  }
-  if (stored) {
-    try {
-      renderPhotos(JSON.parse(stored));
-      // If all stored URLs fail to load, fall back to API after images have had time to error out
-      setTimeout(function() {
-        if (grid.querySelectorAll('.photo-item').length === 0) {
-          fetchAndRender(imageUrl, true);
-        }
-      }, 2000);
-      return;
-    } catch (_) {}
-  }
-  // No stored photos — fetch dynamically.
-  fetchAndRender(imageUrl, false);
-
-  /* ── "Find photos" button — append observation photos from iNaturalist ── */
+  /* ── "Find photos" button — must be wired before the early returns below ── */
   var fetchWebBtn = document.getElementById('fetch-web-photos-btn');
   if (fetchWebBtn) {
     var fetchWebBtnHTML = fetchWebBtn.innerHTML;
@@ -449,7 +427,6 @@
         setTimeout(function() { fetchWebBtn.disabled = false; fetchWebBtn.innerHTML = fetchWebBtnHTML; }, 2000);
         return;
       }
-      // Remove placeholder if still present
       var ph = grid.querySelector('.photos-grid-placeholder');
       if (ph) ph.remove();
       var startIdx = grid.querySelectorAll('.photo-item').length;
@@ -478,6 +455,28 @@
         });
     });
   }
+
+  if (userPhoto) {
+    // User-uploaded photo always leads; stored community photos follow
+    let extras = [];
+    if (stored) { try { extras = JSON.parse(stored); } catch (_) {} }
+    renderPhotos([userPhoto, ...extras.filter(u => u !== userPhoto)]);
+    return;
+  }
+  if (stored) {
+    try {
+      renderPhotos(JSON.parse(stored));
+      // If all stored URLs fail to load, fall back to API after images have had time to error out
+      setTimeout(function() {
+        if (grid.querySelectorAll('.photo-item').length === 0) {
+          fetchAndRender(imageUrl, true);
+        }
+      }, 2000);
+      return;
+    } catch (_) {}
+  }
+  // No stored photos — fetch dynamically.
+  fetchAndRender(imageUrl, false);
 })();
 
 /* Tag chips on plant detail page */
