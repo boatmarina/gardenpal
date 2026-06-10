@@ -419,25 +419,27 @@
   var fetchWebBtn = document.getElementById('fetch-web-photos-btn');
   if (fetchWebBtn) {
     var fetchWebBtnHTML = fetchWebBtn.innerHTML;
+    var cachedPhotos = null; // fetched once per page load, reused on subsequent clicks
 
     function appendPhotos(sources, existingUrls) {
       var newPhotos = sources.filter(function(u) { return u && !existingUrls.has(u); });
       if (!newPhotos.length) {
-        fetchWebBtn.textContent = 'No new photos found';
+        fetchWebBtn.textContent = 'No more photos found';
         setTimeout(function() { fetchWebBtn.disabled = false; fetchWebBtn.innerHTML = fetchWebBtnHTML; }, 2000);
         return;
       }
       var ph = grid.querySelector('.photos-grid-placeholder');
       if (ph) ph.remove();
       var startIdx = grid.querySelectorAll('.photo-item').length;
-      newPhotos.slice(0, 6).forEach(function(url, i) {
+      newPhotos.slice(0, 3).forEach(function(url, i) {
         var wrap = document.createElement('div');
         wrap.innerHTML = makePhotoItem(url, startIdx + i);
         var item = wrap.firstElementChild;
         grid.appendChild(item);
         attachControls(item);
       });
-      setTimeout(saveOrder, 1500);
+      updateBadges();
+      saveOrder(); // save immediately so navigating away doesn't lose the photos
       fetchWebBtn.disabled = false;
       fetchWebBtn.innerHTML = fetchWebBtnHTML;
     }
@@ -446,9 +448,19 @@
       fetchWebBtn.disabled = true;
       fetchWebBtn.textContent = 'Searching…';
       var existingUrls = new Set(Array.from(grid.querySelectorAll('.photo-item img')).map(function(img) { return img.src; }));
+
+      if (cachedPhotos !== null) {
+        // Already fetched this session — just show the next 3 from the cached list
+        appendPhotos(cachedPhotos, existingUrls);
+        return;
+      }
+
       fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=12')
         .then(function(r) { return r.json(); })
-        .then(function(d) { appendPhotos(d.photos || [], existingUrls); })
+        .then(function(d) {
+          cachedPhotos = d.photos || [];
+          appendPhotos(cachedPhotos, existingUrls);
+        })
         .catch(function() {
           fetchWebBtn.disabled = false;
           fetchWebBtn.innerHTML = fetchWebBtnHTML;
