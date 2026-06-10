@@ -10,7 +10,7 @@ Priority order within each category. Top 3 (file storage, DB connections, CSRF) 
 
 2. **Database connections** — pg8000 opens a new connection per request. Postgres has a hard connection limit (~100 on most managed plans). At modest concurrent load you'll hit it. Need PgBouncer, a connection pooler, or switch to a pooled connection string (Supabase has this built in).
 
-3. **Database indexes** — `garden_entries.user_id`, `garden_photos.entry_id`, and columns used in ORDER BY/WHERE probably have no indexes. Add them before the tables grow.
+3. ~~**Database indexes** — `garden_entries.user_id`, `garden_photos.entry_id`, and columns used in ORDER BY/WHERE probably have no indexes. Add them before the tables grow.~~ ✅ Done — 5 indexes added (user_id, user_id+planted_date, entry_id, entry_id+photo_date, entry_id+is_fertilization).
 
 ---
 
@@ -18,7 +18,7 @@ Priority order within each category. Top 3 (file storage, DB connections, CSRF) 
 
 4. **CSRF protection** — All POST forms lack CSRF tokens. Flask-WTF or a simple token pattern needed; otherwise logged-in users are vulnerable to cross-site form submissions.
 
-5. **Rate limiting** — The chat endpoint and fertilization suggestion have no per-user limits. One user can spam Claude API calls and run up your bill or starve others. Flask-Limiter with Redis, or a DB counter.
+5. ~~**Rate limiting** — The chat endpoint and fertilization suggestion have no per-user limits. One user can spam Claude API calls and run up your bill or starve others. Flask-Limiter with Redis, or a DB counter.~~ ✅ Done — DB-based burst window (3s between chat messages) via `api_usage` table.
 
 6. **File upload validation** — Extension checking alone (`ALLOWED_EXTENSIONS`) isn't sufficient. Validate MIME type server-side and cap file size; don't trust the client's Content-Type.
 
@@ -28,7 +28,7 @@ Priority order within each category. Top 3 (file storage, DB connections, CSRF) 
 
 ## Cost Control
 
-8. **Claude API spending caps** — Per-user daily limits on chat messages and AI fertilization suggestions. Track usage in the DB and reject calls over the limit.
+8. ~~**Claude API spending caps** — Per-user daily limits on chat messages and AI fertilization suggestions. Track usage in the DB and reject calls over the limit.~~ ✅ Done — 40 chat messages/day, 100 fertilization suggestions/day per user; returns HTTP 429 when exceeded.
 
 9. **Suggestion cache TTL** — Fertilization regen now triggers on every new note. Add a minimum re-generation interval (e.g. at most once per 24 hours per plant) to prevent runaway API calls.
 
