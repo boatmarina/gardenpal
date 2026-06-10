@@ -195,13 +195,14 @@ def _connect(database_url: str) -> _PgDB:
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
+    is_local = parsed.hostname in ('localhost', '127.0.0.1', '::1')
     conn = pg8000.connect(
         host=parsed.hostname,
         port=parsed.port or 5432,
         database=parsed.path.lstrip("/"),
         user=parsed.username,
-        password=parsed.password,
-        ssl_context=ssl_ctx,
+        password=parsed.password or None,
+        ssl_context=None if is_local else ssl_ctx,
     )
     return _PgDB(conn)
 
