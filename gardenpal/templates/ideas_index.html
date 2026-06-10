@@ -116,11 +116,11 @@
             <div class="thumb">
               {% set first_photo = plant.photo_urls | first_photo %}
               {% if plant.image_path %}
-                <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" loading="lazy" />
+                <img src="{{ plant.image_path | media_url }}" alt="{{ plant.name }}" loading="lazy" onerror="this.style.display='none'" />
               {% elif first_photo %}
-                <img src="{{ first_photo }}" alt="{{ plant.name }}" loading="lazy" />
+                <img src="{{ first_photo }}" alt="{{ plant.name }}" loading="lazy" onerror="this.style.display='none'" />
               {% elif plant.image_url %}
-                <img src="{{ plant.image_url }}" alt="{{ plant.name }}" loading="lazy" />
+                <img src="{{ plant.image_url }}" alt="{{ plant.name }}" loading="lazy" onerror="this.style.display='none'" />
               {% else %}
                 <div class="placeholder">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.35">
