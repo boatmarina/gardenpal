@@ -215,6 +215,7 @@ a.btn {
 
 .button:hover, .btn:hover { opacity: 0.88; }
 .button:active, .btn:active { transform: scale(0.97); }
+.button:disabled, .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
 .button-secondary { background: #E2DDD5; color: var(--fg); }
 .button-danger    { background: #C0392B; color: #fff; }
