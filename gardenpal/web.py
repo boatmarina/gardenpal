@@ -1015,7 +1015,17 @@ def create_app() -> Flask:
             ).fetchall():
                 tags_map.setdefault(row["plant_id"], []).append({"id": row["id"], "name": row["name"], "color": row["color"]})
         shared_names = _shared_user_names(db, g.user["id"])
-        return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map, shared_names=shared_names)
+        feature_gz = _feature_garden_zones(g.user)
+        garden_entries = []
+        if feature_gz:
+            garden_entries = db.execute(
+                f"SELECT id, plant_name, variety, location_name, planted_date FROM garden_entries"
+                f" WHERE zone_id = ? AND user_id IN {ph} ORDER BY plant_name ASC",
+                [zone_id] + id_args,
+            ).fetchall()
+        return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
+                               shared_names=shared_names, feature_garden_zones=feature_gz,
+                               garden_entries=garden_entries)
 
     @app.route("/yard/plants/new", methods=["GET", "POST"])
     @login_required
@@ -1808,16 +1818,52 @@ def create_app() -> Flask:
     @login_required
     def garden_new():
         db = get_db()
+        feature_gz = _feature_garden_zones(g.user)
+        zones_json = []
+        if feature_gz:
+            zones_json = [{"id": r["id"], "name": r["name"]} for r in
+                          db.execute("SELECT id, name FROM yard_zones WHERE user_id = ? ORDER BY name ASC",
+                                     (g.user["id"],)).fetchall()]
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
         if request.method == "POST":
             plant_name = request.form.get("plant_name", "").strip()
             if not plant_name:
                 flash("Plant name is required.")
-                return render_template("garden_entry_new.html", form_values=request.form)
+                location_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
+                plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
+                return render_template("garden_entry_new.html", form_values=request.form,
+                                       feature_garden_zones=feature_gz, zones_json=zones_json,
+                                       location_names=location_names,
+                                       plant_names=plant_names, plant_varieties=plant_varieties)
+            zone_id_to_save = None
+            if feature_gz:
+                zone_name_input = request.form.get("zone_name", "").strip()
+                zone_id_input = request.form.get("zone_id", "").strip()
+                if zone_name_input:
+                    if zone_id_input:
+                        try:
+                            zid = int(zone_id_input)
+                            zrow = db.execute("SELECT id FROM yard_zones WHERE id = ? AND user_id = ?", (zid, g.user["id"])).fetchone()
+                            if zrow:
+                                zone_id_to_save = zrow["id"]
+                        except (ValueError, TypeError):
+                            pass
+                    if zone_id_to_save is None:
+                        zrow = db.execute("SELECT id FROM yard_zones WHERE user_id = ? AND lower(name) = lower(?)", (g.user["id"], zone_name_input)).fetchone()
+                        if zrow:
+                            zone_id_to_save = zrow["id"]
+                        else:
+                            now_z = datetime.utcnow().isoformat(timespec="seconds")
+                            zone_id_to_save = db.execute(
+                                "INSERT INTO yard_zones (user_id, name, created_at) VALUES (?, ?, ?) RETURNING id",
+                                (g.user["id"], zone_name_input, now_z),
+                            ).fetchone()["id"]
             now = datetime.utcnow().isoformat(timespec="seconds")
             entry_id = db.execute(
                 """INSERT INTO garden_entries
-                   (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                   (user_id, plant_name, variety, location_type, location_name, planted_date, notes, zone_id, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
                 (
                     g.user["id"],
                     plant_name,
@@ -1826,6 +1872,7 @@ def create_app() -> Flask:
                     request.form.get("location_name", "").strip() or None,
                     request.form.get("planted_date", "").strip() or None,
                     request.form.get("notes", "").strip() or None,
+                    zone_id_to_save,
                     now, now,
                 ),
             ).fetchone()["id"]
@@ -1834,8 +1881,6 @@ def create_app() -> Flask:
             flash("Entry added to your garden tracker.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        ids = _shared_user_ids(db, g.user["id"])
-        ph, id_args = _in_ids(ids)
         location_names = [
             r["location_name"] for r in db.execute(
                 f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC",
@@ -1844,6 +1889,7 @@ def create_app() -> Flask:
         ]
         plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
         return render_template("garden_entry_new.html", form_values={"planted_date": today},
+                               feature_garden_zones=feature_gz, zones_json=zones_json,
                                location_names=location_names,
                                plant_names=plant_names, plant_varieties=plant_varieties)
 
@@ -2095,6 +2141,19 @@ def create_app() -> Flask:
         if entry is None:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
+        feature_gz = _feature_garden_zones(g.user)
+        zones_json = []
+        current_zone_name = ""
+        current_zone_id = ""
+        if feature_gz:
+            zones_json = [{"id": r["id"], "name": r["name"]} for r in
+                          db.execute("SELECT id, name FROM yard_zones WHERE user_id = ? ORDER BY name ASC",
+                                     (g.user["id"],)).fetchall()]
+            if entry["zone_id"]:
+                zrow = db.execute("SELECT id, name FROM yard_zones WHERE id = ?", (entry["zone_id"],)).fetchone()
+                if zrow:
+                    current_zone_name = zrow["name"]
+                    current_zone_id = str(zrow["id"])
         plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
         if request.method == "POST":
             plant_name = request.form.get("plant_name", "").strip()
@@ -2102,14 +2161,44 @@ def create_app() -> Flask:
                 flash("Plant name is required.")
                 _loc_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
                 return render_template("garden_entry_edit.html", entry=entry, form_values=request.form,
+                                       feature_garden_zones=feature_gz, zones_json=zones_json,
+                                       zone_name=request.form.get("zone_name", ""),
+                                       zone_id=request.form.get("zone_id", ""),
                                        location_names=_loc_names,
                                        plant_names=plant_names, plant_varieties=plant_varieties)
+            zone_id_to_save = entry["zone_id"]  # default: keep existing
+            if feature_gz:
+                zone_name_input = request.form.get("zone_name", "").strip()
+                zone_id_input = request.form.get("zone_id", "").strip()
+                if zone_name_input:
+                    resolved = None
+                    if zone_id_input:
+                        try:
+                            zid = int(zone_id_input)
+                            zrow = db.execute("SELECT id FROM yard_zones WHERE id = ? AND user_id = ?", (zid, g.user["id"])).fetchone()
+                            if zrow:
+                                resolved = zrow["id"]
+                        except (ValueError, TypeError):
+                            pass
+                    if resolved is None:
+                        zrow = db.execute("SELECT id FROM yard_zones WHERE user_id = ? AND lower(name) = lower(?)", (g.user["id"], zone_name_input)).fetchone()
+                        if zrow:
+                            resolved = zrow["id"]
+                        else:
+                            now_z = datetime.utcnow().isoformat(timespec="seconds")
+                            resolved = db.execute(
+                                "INSERT INTO yard_zones (user_id, name, created_at) VALUES (?, ?, ?) RETURNING id",
+                                (g.user["id"], zone_name_input, now_z),
+                            ).fetchone()["id"]
+                    zone_id_to_save = resolved
+                else:
+                    zone_id_to_save = None  # user cleared the zone field
             never_fertilize = 1 if request.form.get("never_fertilize") else 0
             db.execute(
                 f"""UPDATE garden_entries
                    SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
                        planted_date = ?, notes = ?, last_fertilized_date = ?, last_fertilizer_type = ?,
-                       never_fertilize = ?, updated_at = ?
+                       never_fertilize = ?, zone_id = ?, updated_at = ?
                    WHERE id = ? AND user_id IN {ph}""",
                 [
                     plant_name,
@@ -2121,6 +2210,7 @@ def create_app() -> Flask:
                     request.form.get("last_fertilized_date", "").strip() or None,
                     request.form.get("last_fertilizer_type", "").strip() or None,
                     never_fertilize,
+                    zone_id_to_save,
                     datetime.utcnow().isoformat(timespec="seconds"),
                     entry_id,
                 ] + id_args,
@@ -2178,6 +2268,8 @@ def create_app() -> Flask:
         _today = datetime.utcnow().strftime("%Y-%m-%d")
         _fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
         return render_template("garden_entry_edit.html", entry=entry, form_values=entry,
+                               feature_garden_zones=feature_gz, zones_json=zones_json,
+                               zone_name=current_zone_name, zone_id=current_zone_id,
                                location_names=location_names, last_fertilized=last_fertilized,
                                next_fertilization=next_fertilization,
                                today=_today, fert_deadline=_fert_deadline,
@@ -3184,6 +3276,7 @@ def init_db():
     ensure_column(db, "garden_entries", "next_fertilization_generated_at", "TEXT")
     ensure_column(db, "garden_entries", "planned_fertilization_date", "TEXT")
     ensure_column(db, "garden_entries", "never_fertilize", "INTEGER")
+    ensure_column(db, "garden_entries", "zone_id", "INTEGER")
 
     # Backfill existing growth-log notes using keyword detection (one-time, skips already-classified rows)
     unclassified = db.execute(
@@ -3823,6 +3916,11 @@ def _build_plant_autocomplete_data(db, user_ids):
 
 def _feature_fertilization(user):
     """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
+    return (user or {}).get("email") in {"boatmarina@hotmail.com"}
+
+
+def _feature_garden_zones(user):
+    """Feature flag: link edible garden entries to yard zones."""
     return (user or {}).get("email") in {"boatmarina@hotmail.com"}
 
 

@@ -30,6 +30,20 @@
           <ul id="variety-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
         </div>
       </label>
+      {% if feature_garden_zones %}
+      <label>
+        Zone
+        <div style="position:relative">
+          <input id="zone-name-input" type="text" name="zone_name"
+                 value="{{ form_values.zone_name or '' }}"
+                 placeholder="e.g. Raised bed 1, Greenhouse…"
+                 autocomplete="off" autocorrect="off"
+                 data-zones='{{ zones_json | tojson }}' />
+          <input type="hidden" name="zone_id" id="zone-id-hidden" value="{{ form_values.zone_id or '' }}" />
+          <ul id="zone-name-dropdown" class="tag-autocomplete-dropdown" hidden></ul>
+        </div>
+      </label>
+      {% endif %}
       <label>
         Location type
         <select name="location_type">
@@ -67,6 +81,33 @@
 
 {% block scripts %}
 <script>
+(function() {
+  var inp = document.getElementById('zone-name-input');
+  var hiddenId = document.getElementById('zone-id-hidden');
+  var dropdown = document.getElementById('zone-name-dropdown');
+  if (!inp || !dropdown) return;
+  var zones = [];
+  try { zones = JSON.parse(inp.dataset.zones || '[]'); } catch(e) {}
+  function show(q) {
+    q = (q || '').trim().toLowerCase();
+    var matches = q ? zones.filter(function(z) { return z.name.toLowerCase().includes(q); }) : zones;
+    if (!matches.length) { dropdown.hidden = true; return; }
+    dropdown.innerHTML = '';
+    matches.forEach(function(zone) {
+      var li = document.createElement('li');
+      li.textContent = zone.name;
+      function pick() { inp.value = zone.name; if (hiddenId) hiddenId.value = zone.id; dropdown.hidden = true; }
+      li.addEventListener('mousedown', function(e) { e.preventDefault(); pick(); });
+      li.addEventListener('touchstart', function(e) { e.preventDefault(); pick(); inp.blur(); });
+      dropdown.appendChild(li);
+    });
+    dropdown.hidden = false;
+  }
+  inp.addEventListener('focus', function() { show(inp.value); });
+  inp.addEventListener('input', function() { if (hiddenId) hiddenId.value = ''; show(inp.value); });
+  inp.addEventListener('blur', function() { setTimeout(function() { dropdown.hidden = true; }, 200); });
+  inp.addEventListener('keydown', function(e) { if (e.key === 'Escape') dropdown.hidden = true; });
+})();
 (function() {
   var inp = document.getElementById('loc-name-input');
   var dropdown = document.getElementById('loc-name-dropdown');
