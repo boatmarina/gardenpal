@@ -3813,7 +3813,7 @@ def _feature_fertilization(user):
 # Per-feature daily limits and minimum seconds between consecutive calls.
 _API_LIMITS = {
     "chat":          {"daily": 40, "burst_secs": 3},
-    "fertilization": {"daily": 15, "burst_secs": 0},   # cache already throttles
+    "fertilization": {"daily": 100, "burst_secs": 0},  # cache already throttles; 100/day covers large gardens
 }
 
 
