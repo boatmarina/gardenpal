@@ -18,14 +18,60 @@
       </button>
     </div>
     {% if zone.description %}<p style="color:var(--muted);font-size:0.85rem;margin-bottom:12px">{{ zone.description }}</p>{% endif %}
-    <a href="{{ url_for('yard_plant_new') }}?zone_id={{ zone.id }}" class="button"
-       style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-      </svg>
-      Add Plant
-    </a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a href="{{ url_for('yard_plant_new') }}?zone_id={{ zone.id }}" class="button"
+         style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+        </svg>
+        Add Plant
+      </a>
+      {% if feature_garden_zones %}
+      <button type="button" id="add-edible-toggle" class="button button-secondary"
+              style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3c0 1.5.8 2.8 2 3.4V21h2V8.4c1.2-.6 2-1.9 2-3.4a3 3 0 0 0-3-3z"/>
+          <path d="M5 12c-1.5.5-2 1.5-2 2.5C3 16.5 4.5 18 6 18"/>
+          <path d="M19 12c1.5.5 2 1.5 2 2.5C21 16.5 19.5 18 18 18"/>
+        </svg>
+        Add Edible
+      </button>
+      {% endif %}
+    </div>
+
+    {% if feature_garden_zones %}
+    <div id="add-edible-panel" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);position:relative">
+      <button type="button" id="add-edible-close"
+              style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;font-size:1.1rem;line-height:1">×</button>
+      <a href="{{ url_for('garden_new') }}?zone_id={{ zone.id }}"
+         class="button" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;font-size:0.82rem;margin-bottom:14px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New plant
+      </a>
+      {% if other_garden_entries %}
+      <p style="font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Or add from garden</p>
+      <div class="stack" style="gap:0">
+        {% for e in other_garden_entries %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="min-width:0">
+            <span style="font-size:0.85rem;font-weight:500">{{ e.plant_name }}</span>
+            {% if e.variety %}<span class="muted" style="font-size:0.8rem;margin-left:4px;font-style:italic">{{ e.variety }}</span>{% endif %}
+            {% if e.location_name %}<p class="muted" style="font-size:0.75rem;margin-top:1px">{{ e.location_name }}</p>{% endif %}
+          </div>
+          <form method="post" action="{{ url_for('garden_assign_zone', entry_id=e.id) }}" style="flex-shrink:0;margin-left:10px">
+            <input type="hidden" name="zone_id" value="{{ zone.id }}" />
+            <input type="hidden" name="return_zone_id" value="{{ zone.id }}" />
+            <button type="submit" class="button button-secondary" style="font-size:0.78rem;padding:5px 10px">Add</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted" style="font-size:0.83rem">All your garden plants are already in this zone.</p>
+      {% endif %}
+    </div>
+    {% endif %}
 
     <div id="zone-edit-form" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
       <form method="post" action="{{ url_for('yard_zone_edit', zone_id=zone.id) }}" class="stack" style="gap:10px">
@@ -168,6 +214,16 @@
   if (toggle && form) {
     toggle.addEventListener('click', function() { form.hidden = false; toggle.hidden = true; });
     cancel.addEventListener('click', function() { form.hidden = true;  toggle.hidden = false; });
+  }
+})();
+
+(function() {
+  var btn = document.getElementById('add-edible-toggle');
+  var panel = document.getElementById('add-edible-panel');
+  var close = document.getElementById('add-edible-close');
+  if (btn && panel) {
+    btn.addEventListener('click', function() { panel.hidden = !panel.hidden; });
+    if (close) close.addEventListener('click', function() { panel.hidden = true; });
   }
 })();
 
