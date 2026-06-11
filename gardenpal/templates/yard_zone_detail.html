@@ -129,7 +129,9 @@
         </article>
       {% endfor %}
     {% else %}
+      {% if not garden_entries %}
       <p class="empty">No plants mapped in this zone yet.</p>
+      {% endif %}
     {% endif %}
   </section>
 
