@@ -1971,9 +1971,26 @@ def create_app() -> Flask:
         from datetime import timedelta as _timedelta
         fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
         ff_fert = _feature_fertilization(g.user)
+        feature_gz = _feature_garden_zones(g.user)
+        entry_zone = None
+        if feature_gz and entry["zone_id"]:
+            zone_row = db.execute(
+                "SELECT id, name FROM yard_zones WHERE id = ?", (entry["zone_id"],)
+            ).fetchone()
+            if zone_row:
+                entry_zone = {"id": zone_row["id"], "name": zone_row["name"]}
+        from_zone_id = request.args.get("from_zone", type=int)
+        if feature_gz and from_zone_id:
+            back_href = url_for("yard_zone_detail", zone_id=from_zone_id)
+            back_label = "Zone"
+        else:
+            back_href = url_for("garden_index")
+            back_label = "Garden"
         return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today,
                                last_fertilized=last_fertilized, next_fertilization=next_fertilization,
-                               fert_deadline=fert_deadline, ff_fert=ff_fert)
+                               fert_deadline=fert_deadline, ff_fert=ff_fert,
+                               feature_gz=feature_gz, entry_zone=entry_zone,
+                               back_href=back_href, back_label=back_label)
 
     @app.route("/garden/<int:entry_id>/photos", methods=["POST"])
     @login_required
