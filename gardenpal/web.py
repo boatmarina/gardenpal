@@ -897,9 +897,11 @@ def create_app() -> Flask:
         ph, id_args = _in_ids(ids)
         zones = db.execute(
             f"""
-            SELECT z.*, COUNT(yp.id) AS plant_count
+            SELECT z.*,
+                   COUNT(DISTINCT yp.id) + COUNT(DISTINCT ge.id) AS plant_count
             FROM yard_zones z
             LEFT JOIN yard_plants yp ON yp.zone_id = z.id
+            LEFT JOIN garden_entries ge ON ge.zone_id = z.id
             WHERE z.user_id IN {ph}
             GROUP BY z.id
             ORDER BY z.created_at DESC
