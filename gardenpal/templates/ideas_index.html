@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block page_label %}<span class="page-subtitle">Library</span>{% endblock %}
-{% block title %}Library · GardenPal{% endblock %}
+{% block page_label %}<span class="page-subtitle">Ornamentals</span>{% endblock %}
+{% block title %}Ornamentals · GardenPal{% endblock %}
 
 {% block content %}
 {% set has_filters = active_filters.sun or active_filters.lifecycle or active_filters.evergreen or active_filters.plant_form or active_filters.height_category %}
   <section class="panel" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <h2>Plant Library</h2>
+      <h2>Ornamentals</h2>
       <button type="button" id="filter-toggle"
               style="position:relative;background:none;border:1px solid var(--border);border-radius:var(--r-md);padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;color:{% if has_filters %}var(--green-dark){% else %}var(--muted){% endif %};{% if has_filters %}border-color:var(--green-dark);background:var(--green-light){% endif %}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">

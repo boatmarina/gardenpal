@@ -2046,7 +2046,7 @@ def create_app() -> Flask:
             back_label = "Zone"
         else:
             back_href = url_for("garden_index")
-            back_label = "Garden"
+            back_label = "Edibles"
         return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today,
                                last_fertilized=last_fertilized, next_fertilization=next_fertilization,
                                fert_deadline=fert_deadline, ff_fert=ff_fert,

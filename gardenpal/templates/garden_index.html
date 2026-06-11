@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block page_label %}<span class="page-subtitle">Veggie Garden</span>{% endblock %}
-{% block title %}Garden · GardenPal{% endblock %}
+{% block page_label %}<span class="page-subtitle">Edibles</span>{% endblock %}
+{% block title %}Edibles · GardenPal{% endblock %}
 {% from '_plant_icons.html' import plant_icon %}
 
 {% block content %}
@@ -8,7 +8,7 @@
 {% set month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
 
   <section class="panel" style="margin-bottom:16px">
-    <h2>Edible Garden Diary</h2>
+    <h2>Edibles</h2>
     <p style="color:var(--muted);font-size:0.85rem;margin-top:6px;margin-bottom:12px">Track the veggies and fruits you've planted across the season.</p>
     <a href="{{ url_for('garden_new') }}" class="button" style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
