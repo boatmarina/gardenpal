@@ -4031,8 +4031,8 @@ def _feature_fertilization(user):
 
 
 def _feature_garden_zones(user):
-    """Feature flag: link edible garden entries to yard zones."""
-    return (user or {}).get("username") in {"boatmarina"}
+    """Edible garden entries can be assigned to yard zones."""
+    return True
 
 
 # Per-feature daily limits and minimum seconds between consecutive calls.
