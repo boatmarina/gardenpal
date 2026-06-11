@@ -6,6 +6,7 @@
     <h2>Yard Diary</h2>
     <p style="color:var(--muted);font-size:0.85rem;margin-top:6px;margin-bottom:12px">Track what is planted in each yard area</p>
     <div style="display:flex;gap:8px">
+      {# hidden for now — add plant from a zone's detail page instead
       <a href="{{ url_for('yard_plant_new') }}" class="button" style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
@@ -13,6 +14,7 @@
         </svg>
         Add Plant
       </a>
+      #}
       <a href="{{ url_for('yard_zone_new') }}" class="button" style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
