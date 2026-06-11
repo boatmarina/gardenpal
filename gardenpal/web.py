@@ -1007,6 +1007,7 @@ def create_app() -> Flask:
         ).fetchall()
         lib_plant_ids = [p["lib_plant_id"] for p in plants if p["lib_plant_id"]]
         tags_map = {}
+        user_ph = ph  # preserve before possible overwrite below
         if lib_plant_ids:
             ph = ",".join("?" * len(lib_plant_ids))
             for row in db.execute(
@@ -1020,7 +1021,7 @@ def create_app() -> Flask:
         if feature_gz:
             garden_entries = db.execute(
                 f"SELECT id, plant_name, variety, location_name, planted_date FROM garden_entries"
-                f" WHERE zone_id = ? AND user_id IN {ph} ORDER BY plant_name ASC",
+                f" WHERE zone_id = ? AND user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
             ).fetchall()
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
