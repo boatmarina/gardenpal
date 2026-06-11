@@ -139,15 +139,17 @@
   </article>
 
   {% if plant_zones %}
-  <section class="panel" style="margin-top:14px">
-    <h3 style="margin:0 0 12px;font-size:1rem;font-weight:700">In your yard</h3>
+  <div style="margin-top:14px">
     {% for pz in plant_zones %}
-    <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <a href="{{ url_for('yard_zone_detail', zone_id=pz.zone_id) }}"
-           style="font-weight:600;color:var(--fg);text-decoration:none;font-size:0.9rem">
-          {{ pz.zone_name }}
-        </a>
+    <div style="background:var(--card);border-radius:var(--r-xl);padding:var(--pad);margin-bottom:12px">
+
+      <!-- Zone header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <p style="font-size:0.62rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Zone</p>
+          <a href="{{ url_for('yard_zone_detail', zone_id=pz.zone_id) }}"
+             style="font-weight:700;font-size:1rem;color:var(--fg);text-decoration:none">{{ pz.zone_name }}</a>
+        </div>
         <form method="post"
               action="{{ url_for('yard_plant_remove', yard_plant_id=pz.id) }}?back={{ plant.id }}"
               onsubmit="return confirm('Remove {{ plant.name | e }} from {{ pz.zone_name | e }}?')">
@@ -155,28 +157,60 @@
                   style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;font-family:inherit">×</button>
         </form>
       </div>
-      <div class="notes-autosave-wrap"
-           data-url="{{ url_for('yard_plant_update_notes', yard_plant_id=pz.id) }}?back={{ plant.id }}">
-        <textarea name="notes" rows="2"
-                  placeholder="Notes — e.g. planted May 2025, south-facing corner…"
-                  style="font-size:0.85rem;resize:vertical">{{ pz.notes or '' }}</textarea>
-        <span class="notes-saved-hint" hidden>Saved ✓</span>
-      </div>
+
+      <!-- Notes log -->
+      {% if pz.yard_notes %}
+        {% for n in pz.yard_notes %}
+        <div style="padding:9px 0;border-top:1px solid var(--border);position:relative">
+          <p style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:2px">{{ n.note_date | month_day if n.note_date }}</p>
+          <p style="font-size:0.85rem;line-height:1.5;padding-right:48px">{{ n.notes }}</p>
+          <form method="post" action="{{ url_for('yard_plant_note_delete', note_id=n.id) }}"
+                style="position:absolute;top:8px;right:0"
+                onsubmit="return confirm('Delete this note?')">
+            <input type="hidden" name="plant_id" value="{{ plant.id }}" />
+            <button type="submit" title="Delete note"
+                    style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:0.72rem;padding:2px 4px;font-family:inherit">Delete</button>
+          </form>
+        </div>
+        {% endfor %}
+      {% else %}
+      <p style="font-size:0.82rem;color:var(--muted);border-top:1px solid var(--border);padding-top:9px">No notes yet.</p>
+      {% endif %}
+
+      <!-- Add note form -->
+      <form method="post" action="{{ url_for('yard_plant_add_note', yard_plant_id=pz.id) }}"
+            class="stack" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);gap:8px">
+        <input type="hidden" name="plant_id" value="{{ plant.id }}" />
+        <label style="font-size:0.85rem">
+          Note
+          <textarea name="notes" rows="2" placeholder="Observations, care notes…" style="font-size:0.85rem;resize:vertical"></textarea>
+        </label>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <label style="font-size:0.85rem;flex:1;min-width:120px">
+            Date
+            <input type="date" name="note_date" value="{{ today }}" style="font-size:0.85rem" />
+          </label>
+          <button type="submit" class="button button-secondary" style="font-size:0.82rem;flex-shrink:0;margin-bottom:1px">Save note</button>
+        </div>
+      </form>
     </div>
     {% endfor %}
+
     {% if all_zones %}
-    <form method="post" action="{{ url_for('idea_add_to_zone', plant_id=plant.id) }}"
-          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-      <select name="zone_id" required style="flex:1;min-width:0;font-size:0.85rem">
-        <option value="">Add to another zone…</option>
-        {% for z in all_zones %}
-          <option value="{{ z.id }}">{{ z.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="button button-secondary" style="font-size:0.75rem;flex-shrink:0">+ Add</button>
-    </form>
+    <div style="background:var(--card);border-radius:var(--r-xl);padding:14px 16px">
+      <form method="post" action="{{ url_for('idea_add_to_zone', plant_id=plant.id) }}"
+            style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select name="zone_id" required style="flex:1;min-width:0;font-size:0.85rem">
+          <option value="">Add to another zone…</option>
+          {% for z in all_zones %}
+            <option value="{{ z.id }}">{{ z.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="button button-secondary" style="font-size:0.75rem;flex-shrink:0">+ Add</button>
+      </form>
+    </div>
     {% endif %}
-  </section>
+  </div>
   {% else %}
   <div style="margin-top:14px;background:var(--card);border-radius:var(--r-xl);padding:var(--pad)">
     {% if all_zones %}
@@ -631,32 +665,6 @@
   });
 })();
 
-/* Auto-save notes on blur */
-(function() {
-  document.querySelectorAll('.notes-autosave-wrap').forEach(function(container) {
-    var textarea = container.querySelector('textarea');
-    var hint = container.querySelector('.notes-saved-hint');
-    var url = container.dataset.url;
-    if (!textarea || !url) return;
-    var lastSaved = textarea.value;
-    var hintTimer;
-
-    textarea.addEventListener('blur', function() {
-      if (textarea.value === lastSaved) return;
-      lastSaved = textarea.value;
-      var fd = new FormData();
-      fd.append('notes', textarea.value);
-      fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd })
-        .then(function() {
-          if (!hint) return;
-          hint.hidden = false;
-          clearTimeout(hintTimer);
-          hintTimer = setTimeout(function() { hint.hidden = true; }, 2000);
-        })
-        .catch(function() {});
-    });
-  });
-})();
 
 </script>
 {% endblock %}
