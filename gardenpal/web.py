@@ -3916,12 +3916,12 @@ def _build_plant_autocomplete_data(db, user_ids):
 
 def _feature_fertilization(user):
     """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
-    return (user or {}).get("email") in {"boatmarina@hotmail.com"}
+    return (user or {}).get("username") in {"boatmarina"}
 
 
 def _feature_garden_zones(user):
     """Feature flag: link edible garden entries to yard zones."""
-    return (user or {}).get("email") in {"boatmarina@hotmail.com"}
+    return (user or {}).get("username") in {"boatmarina"}
 
 
 # Per-feature daily limits and minimum seconds between consecutive calls.
