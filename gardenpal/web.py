@@ -1034,15 +1034,23 @@ def create_app() -> Flask:
         shared_names = _shared_user_names(db, g.user["id"])
         feature_gz = _feature_garden_zones(g.user)
         garden_entries = []
+        other_garden_entries = []
         if feature_gz:
             garden_entries = db.execute(
                 f"SELECT id, plant_name, variety, location_name, planted_date FROM garden_entries"
                 f" WHERE zone_id = ? AND user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
             ).fetchall()
+            other_garden_entries = db.execute(
+                f"SELECT id, plant_name, variety, location_name FROM garden_entries"
+                f" WHERE (zone_id IS NULL OR zone_id != ?) AND user_id IN {user_ph}"
+                f" ORDER BY plant_name ASC",
+                [zone_id] + id_args,
+            ).fetchall()
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
-                               garden_entries=garden_entries)
+                               garden_entries=garden_entries,
+                               other_garden_entries=other_garden_entries)
 
     @app.route("/yard/plants/new", methods=["GET", "POST"])
     @login_required
@@ -1905,7 +1913,20 @@ def create_app() -> Flask:
             ).fetchall()
         ]
         plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
-        return render_template("garden_entry_new.html", form_values={"planted_date": today},
+        # Pre-populate zone if navigated from a zone page
+        prefill_zone_id = request.args.get("zone_id", type=int)
+        prefill_zone_name = ""
+        if feature_gz and prefill_zone_id:
+            zrow = db.execute(
+                "SELECT name FROM yard_zones WHERE id = ? AND user_id = ?",
+                (prefill_zone_id, g.user["id"]),
+            ).fetchone()
+            if zrow:
+                prefill_zone_name = zrow["name"]
+        return render_template("garden_entry_new.html",
+                               form_values={"planted_date": today,
+                                            "zone_name": prefill_zone_name,
+                                            "zone_id": str(prefill_zone_id) if prefill_zone_name else ""},
                                feature_garden_zones=feature_gz, zones_json=zones_json,
                                location_names=location_names,
                                plant_names=plant_names, plant_varieties=plant_varieties)
@@ -2382,6 +2403,35 @@ def create_app() -> Flask:
         ).fetchone()
         db.commit()
         return redirect(url_for("garden_edit", entry_id=row["id"]))
+
+    @app.route("/garden/<int:entry_id>/assign-zone", methods=["POST"])
+    @login_required
+    def garden_assign_zone(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            flash("Entry not found.")
+            return redirect(url_for("garden_index"))
+        zone_id = request.form.get("zone_id", type=int)
+        if zone_id:
+            zone = db.execute(
+                "SELECT id FROM yard_zones WHERE id = ? AND user_id = ?",
+                (zone_id, g.user["id"]),
+            ).fetchone()
+            if zone is None:
+                flash("Zone not found.")
+                return redirect(url_for("garden_index"))
+        db.execute("UPDATE garden_entries SET zone_id = ? WHERE id = ?", (zone_id, entry_id))
+        db.commit()
+        return_zone = request.form.get("return_zone_id", type=int) or zone_id
+        if return_zone:
+            return redirect(url_for("yard_zone_detail", zone_id=return_zone))
+        return redirect(url_for("garden_index"))
 
     @app.route("/api/garden-chat", methods=["POST"])
     @login_required
