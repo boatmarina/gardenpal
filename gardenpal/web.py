@@ -3456,6 +3456,22 @@ def init_db():
         )
     db.execute("UPDATE garden_photos SET is_fertilization = 0 WHERE is_fertilization IS NULL")
 
+    # Migrate yard_plants.notes → yard_plant_notes (one-time; skips yard_plants that already have entries)
+    old_notes = db.execute(
+        """
+        SELECT yp.id AS yard_plant_id, yp.user_id, yp.notes, yp.created_at
+        FROM yard_plants yp
+        WHERE yp.notes IS NOT NULL AND yp.notes != ''
+          AND NOT EXISTS (SELECT 1 FROM yard_plant_notes n WHERE n.yard_plant_id = yp.id)
+        """
+    ).fetchall()
+    for row in old_notes:
+        note_date = row["created_at"][:10] if row["created_at"] else None
+        db.execute(
+            "INSERT INTO yard_plant_notes (yard_plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+            (row["yard_plant_id"], row["user_id"], note_date, row["notes"], row["created_at"] or datetime.utcnow().isoformat(timespec="seconds")),
+        )
+
     # Backfill fertilization_date for existing fertilization notes that have date hints in their text
     needs_date = db.execute(
         "SELECT gp.id, gp.notes, gp.photo_date, ge.planted_date"
