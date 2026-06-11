@@ -129,6 +129,35 @@
 
   <script src="{{ url_for('static', filename='garden.js') }}" defer></script>
   {% block scripts %}{% endblock %}
+
+  {% if show_whats_new %}
+  <div id="whats-new-overlay" style="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;padding:0 0 20px;box-sizing:border-box">
+    <div style="background:var(--card);border-radius:var(--r-xl) var(--r-xl) var(--r-md) var(--r-md);padding:22px 20px 18px;max-width:480px;width:calc(100% - 32px);max-height:82vh;overflow-y:auto;box-shadow:0 -2px 24px rgba(0,0,0,0.12)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 8px;margin:0">What's new</p>
+        <button id="whats-new-close" type="button" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.3rem;line-height:1;padding:2px 4px">×</button>
+      </div>
+
+      {# ── WHAT'S NEW CONTENT — replace the placeholder below ── #}
+      <p style="font-size:0.85rem;color:var(--muted);line-height:1.6">Content coming soon.</p>
+      {# ── END CONTENT ── #}
+
+      <button id="whats-new-got-it" type="button" class="button" style="width:100%;margin-top:18px">Got it</button>
+    </div>
+  </div>
+  <script>
+  (function() {
+    var overlay = document.getElementById('whats-new-overlay');
+    function dismiss() {
+      overlay.remove();
+      fetch('/whats-new/dismiss', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}});
+    }
+    document.getElementById('whats-new-close').addEventListener('click', dismiss);
+    document.getElementById('whats-new-got-it').addEventListener('click', dismiss);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) dismiss(); });
+  })();
+  </script>
+  {% endif %}
   <script>
   document.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter') return;
