@@ -1034,23 +1034,33 @@ def create_app() -> Flask:
         shared_names = _shared_user_names(db, g.user["id"])
         feature_gz = _feature_garden_zones(g.user)
         garden_entries = []
-        other_garden_entries = []
         if feature_gz:
             garden_entries = db.execute(
                 f"SELECT id, plant_name, variety, location_name, planted_date FROM garden_entries"
                 f" WHERE zone_id = ? AND user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
             ).fetchall()
-            other_garden_entries = db.execute(
-                f"SELECT id, plant_name, variety, location_name,"
-                f" CASE WHEN zone_id = ? THEN 1 ELSE 0 END AS in_this_zone"
-                f" FROM garden_entries WHERE user_id IN {user_ph} ORDER BY plant_name ASC",
-                [zone_id] + id_args,
-            ).fetchall()
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
-                               garden_entries=garden_entries,
-                               other_garden_entries=other_garden_entries)
+                               garden_entries=garden_entries)
+
+    @app.route("/yard/zones/<int:zone_id>/add-edible")
+    @login_required
+    def yard_zone_add_edible(zone_id: int):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        zone = db.execute(f"SELECT * FROM yard_zones WHERE id = ? AND user_id IN {ph}", [zone_id] + id_args).fetchone()
+        if zone is None:
+            flash("Yard zone not found.")
+            return redirect(url_for("yard_index"))
+        all_entries = db.execute(
+            f"SELECT id, plant_name, variety, location_name,"
+            f" CASE WHEN zone_id = ? THEN 1 ELSE 0 END AS in_this_zone"
+            f" FROM garden_entries WHERE user_id IN {ph} ORDER BY in_this_zone ASC, plant_name ASC",
+            [zone_id] + id_args,
+        ).fetchall()
+        return render_template("yard_zone_add_edible.html", zone=zone, all_entries=all_entries)
 
     @app.route("/yard/plants/new", methods=["GET", "POST"])
     @login_required

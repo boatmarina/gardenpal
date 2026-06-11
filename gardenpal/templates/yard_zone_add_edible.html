@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from '_plant_icons.html' import plant_icon %}
+{% block page_label %}<span class="page-subtitle">Add Edible</span>{% endblock %}
+{% block title %}Add Edible · {{ zone.name }} · GardenPal{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('yard_zone_detail', zone_id=zone.id) }}" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    {{ zone.name }}
+  </a>
+
+  <section class="panel">
+    <h2 style="margin-bottom:4px">{{ zone.name }}</h2>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:14px">Add edible plants to this zone</p>
+    <a href="{{ url_for('garden_new') }}?zone_id={{ zone.id }}"
+       class="button" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;font-size:0.82rem">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New plant
+    </a>
+  </section>
+
+  {% if all_entries %}
+  <section class="panel" style="padding:0">
+    <div id="assign-zone-list">
+      {% for e in all_entries %}
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border)">
+        <div style="flex-shrink:0;width:36px;height:36px;border-radius:var(--r-md);background:var(--green-light);display:flex;align-items:center;justify-content:center">
+          {{ plant_icon(e.plant_name, 26) }}
+        </div>
+        <div style="flex:1;min-width:0">
+          <p style="font-size:0.88rem;font-weight:500;margin:0">{{ e.plant_name }}</p>
+          {% if e.variety or e.location_name %}
+          <p class="muted" style="font-size:0.75rem;margin:1px 0 0">
+            {%- if e.variety %}{{ e.variety }}{% endif %}
+            {%- if e.variety and e.location_name %} · {% endif %}
+            {%- if e.location_name %}{{ e.location_name }}{% endif -%}
+          </p>
+          {% endif %}
+        </div>
+        {% if e.in_this_zone %}
+        <span class="in-zone-badge" style="font-size:0.7rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 8px;flex-shrink:0">In zone</span>
+        {% else %}
+        <form method="post" action="{{ url_for('garden_assign_zone', entry_id=e.id) }}" data-assign-zone="1" style="flex-shrink:0">
+          <input type="hidden" name="zone_id" value="{{ zone.id }}" />
+          <button type="submit" class="button button-secondary" style="font-size:0.78rem;padding:5px 12px">Add</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <p class="empty">No garden plants yet — use "New plant" above to add your first.</p>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var list = document.getElementById('assign-zone-list');
+  if (!list) return;
+  list.addEventListener('submit', async function(e) {
+    var form = e.target;
+    if (!form.dataset.assignZone) return;
+    e.preventDefault();
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    try {
+      var res = await fetch(form.action, {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: new FormData(form),
+      });
+      var data = await res.json();
+      if (data.ok) {
+        var badge = document.createElement('span');
+        badge.className = 'in-zone-badge';
+        badge.textContent = 'In zone';
+        badge.style.cssText = 'font-size:0.7rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 8px;flex-shrink:0';
+        form.replaceWith(badge);
+      } else if (btn) {
+        btn.disabled = false;
+      }
+    } catch(_) {
+      if (btn) btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
