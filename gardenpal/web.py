@@ -827,24 +827,35 @@ def create_app() -> Flask:
             id_args,
         ).fetchall()
         shared_names = _shared_user_names(db, g.user["id"])
+        pz_rows = db.execute(
+            f"""
+            SELECT yp.id, z.id AS zone_id, z.name AS zone_name
+            FROM yard_plants yp
+            JOIN yard_zones z ON z.id = yp.zone_id
+            WHERE yp.user_id IN {ph} AND lower(yp.plant_name) = lower(?)
+            ORDER BY z.name ASC
+            """,
+            (*id_args, plant["name"]),
+        ).fetchall()
+        plant_zones = [{"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "yard_notes": []} for r in pz_rows]
+        if plant_zones:
+            ph2, pz_id_args = _in_ids([pz["id"] for pz in plant_zones])
+            note_rows = db.execute(
+                f"SELECT * FROM yard_plant_notes WHERE yard_plant_id IN {ph2} ORDER BY note_date DESC NULLS LAST, created_at DESC",
+                pz_id_args,
+            ).fetchall()
+            notes_by_pz: dict = {}
+            for n in note_rows:
+                notes_by_pz.setdefault(n["yard_plant_id"], []).append(n)
+            for pz in plant_zones:
+                pz["yard_notes"] = notes_by_pz.get(pz["id"], [])
+        today = datetime.utcnow().date().isoformat()
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
                                plant_tags=plant_tags, user_tags=user_tags,
                                all_zones=all_zones, is_owner=is_owner,
-                               shared_names=shared_names,
-                               plant_zones=[
-                                   {"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "notes": r["notes"]}
-                                   for r in db.execute(
-                                       f"""
-                                       SELECT yp.id, yp.notes, z.id AS zone_id, z.name AS zone_name
-                                       FROM yard_plants yp
-                                       JOIN yard_zones z ON z.id = yp.zone_id
-                                       WHERE yp.user_id IN {ph} AND lower(yp.plant_name) = lower(?)
-                                       ORDER BY z.name ASC
-                                       """,
-                                       (*id_args, plant["name"]),
-                                   ).fetchall()
-                               ])
+                               shared_names=shared_names, today=today,
+                               plant_zones=plant_zones)
 
     @app.route("/ideas/<int:plant_id>/add-to-zone", methods=["POST"])
     @login_required
@@ -1356,6 +1367,50 @@ def create_app() -> Flask:
         if back:
             return redirect(url_for("idea_detail", plant_id=back))
         return redirect(url_for("yard_zone_detail", zone_id=row["zone_id"]))
+
+    @app.route("/yard/plants/<int:yard_plant_id>/notes", methods=["POST"])
+    @login_required
+    def yard_plant_add_note(yard_plant_id: int):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        row = db.execute(
+            f"SELECT id FROM yard_plants WHERE id = ? AND user_id IN {ph}",
+            (yard_plant_id, *id_args),
+        ).fetchone()
+        if row is None:
+            flash("Plant not found.")
+            return redirect(url_for("yard_index"))
+        notes = request.form.get("notes", "").strip()
+        note_date = request.form.get("note_date", "").strip() or datetime.utcnow().date().isoformat()
+        if notes:
+            db.execute(
+                "INSERT INTO yard_plant_notes (yard_plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+                (yard_plant_id, g.user["id"], note_date, notes, datetime.utcnow().isoformat(timespec="seconds")),
+            )
+            db.commit()
+        back = request.form.get("plant_id", type=int)
+        if back:
+            return redirect(url_for("idea_detail", plant_id=back))
+        return redirect(url_for("yard_index"))
+
+    @app.route("/yard/plant-notes/<int:note_id>/delete", methods=["POST"])
+    @login_required
+    def yard_plant_note_delete(note_id: int):
+        db = get_db()
+        row = db.execute(
+            "SELECT id FROM yard_plant_notes WHERE id = ? AND user_id = ?",
+            (note_id, g.user["id"]),
+        ).fetchone()
+        if row is None:
+            flash("Note not found.")
+            return redirect(url_for("yard_index"))
+        db.execute("DELETE FROM yard_plant_notes WHERE id = ?", (note_id,))
+        db.commit()
+        back = request.form.get("plant_id", type=int)
+        if back:
+            return redirect(url_for("idea_detail", plant_id=back))
+        return redirect(url_for("yard_index"))
 
     # ── Tools (settings + exports) ───────────────────────────────────────────
 
@@ -3653,6 +3708,19 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_api_usage_user_date ON api_usage(user_id, date)",
+    """
+    CREATE TABLE IF NOT EXISTS yard_plant_notes (
+        id SERIAL PRIMARY KEY,
+        yard_plant_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        note_date TEXT,
+        notes TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (yard_plant_id) REFERENCES yard_plants (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_yard_plant_notes_yp ON yard_plant_notes(yard_plant_id)",
     # Normalise any sun_exposure values that were stored as raw API strings
     # (e.g. "Part Sun", "Partial Shade", "Full Sun") instead of the canonical
     # "part-sun" / "full-sun" / "shade" values the filter UI expects.
