@@ -908,7 +908,21 @@ def create_app() -> Flask:
             """,
             id_args,
         ).fetchall()
-        return render_template("yard_index.html", zones=zones)
+        # For zones with no photo, gather up to 4 edible plant names for a thumbnail collage
+        zone_edible_plants = {}
+        if _feature_garden_zones(g.user):
+            no_photo_ids = [z["id"] for z in zones if not z["reference_image_path"]]
+            if no_photo_ids:
+                ph2 = ",".join("?" * len(no_photo_ids))
+                for row in db.execute(
+                    f"SELECT zone_id, plant_name FROM garden_entries"
+                    f" WHERE zone_id IN ({ph2}) ORDER BY id ASC",
+                    no_photo_ids,
+                ).fetchall():
+                    bucket = zone_edible_plants.setdefault(row["zone_id"], [])
+                    if len(bucket) < 4:
+                        bucket.append(row["plant_name"])
+        return render_template("yard_index.html", zones=zones, zone_edible_plants=zone_edible_plants)
 
     @app.route("/yard/zones/new", methods=["GET", "POST"])
     @login_required
