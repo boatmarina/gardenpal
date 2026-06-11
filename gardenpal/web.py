@@ -247,6 +247,8 @@ def _log_chat_error(db, user_id, username, user_message, error_type, error_detai
 
 
 def create_app() -> Flask:
+    WHATS_NEW_VERSION = "2025-06-a"  # bump this string to show the dialog again to all users
+
     app = Flask(__name__, instance_relative_config=True)
     upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
     app.config.from_mapping(
@@ -341,11 +343,13 @@ def create_app() -> Flask:
         user_id = session.get("user_id")
         g.user = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location FROM users WHERE id = ?", (user_id,)).fetchone()
+            g.user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (user_id,)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
-        return {"current_user": g.get("user")}
+        user = g.get("user")
+        show_whats_new = bool(user) and user.get("whats_new_seen") != WHATS_NEW_VERSION
+        return {"current_user": user, "show_whats_new": show_whats_new}
 
     @app.route("/auth/signup", methods=["GET", "POST"])
     def signup():
@@ -421,6 +425,16 @@ def create_app() -> Flask:
             return redirect(url_for("dashboard"))
 
         return render_template("login.html")
+
+    @app.route("/whats-new/dismiss", methods=["POST"])
+    @login_required
+    def whats_new_dismiss():
+        get_db().execute(
+            "UPDATE users SET whats_new_seen = ? WHERE id = ?",
+            (WHATS_NEW_VERSION, g.user["id"]),
+        )
+        get_db().commit()
+        return ("", 204)
 
     @app.route("/auth/logout", methods=["POST"])
     def logout():
@@ -3351,6 +3365,7 @@ def init_db():
     ensure_column(db, "plants", "description", "TEXT")
     ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "users", "location", "TEXT")
+    ensure_column(db, "users", "whats_new_seen", "TEXT")
     ensure_column(db, "garden_shares", "confirmed", "INTEGER NOT NULL DEFAULT 1")
     ensure_column(db, "garden_shares", "requested_by", "INTEGER")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
