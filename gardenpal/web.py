@@ -247,7 +247,7 @@ def _log_chat_error(db, user_id, username, user_message, error_type, error_detai
 
 
 def create_app() -> Flask:
-    WHATS_NEW_VERSION = "2025-06-a"  # bump this string to show the dialog again to all users
+    WHATS_NEW_VERSION = "2025-06-b"  # bump this string to show the dialog again to all users
 
     app = Flask(__name__, instance_relative_config=True)
     upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
@@ -378,8 +378,8 @@ def create_app() -> Flask:
                 return render_template("signup.html")
 
             db.execute(
-                "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
-                (username, generate_password_hash(password), datetime.utcnow().isoformat(timespec="seconds")),
+                "INSERT INTO users (username, password_hash, whats_new_seen, created_at) VALUES (?, ?, ?, ?)",
+                (username, generate_password_hash(password), WHATS_NEW_VERSION, datetime.utcnow().isoformat(timespec="seconds")),
             )
             db.commit()
 
