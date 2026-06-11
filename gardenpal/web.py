@@ -1042,9 +1042,9 @@ def create_app() -> Flask:
                 [zone_id] + id_args,
             ).fetchall()
             other_garden_entries = db.execute(
-                f"SELECT id, plant_name, variety, location_name FROM garden_entries"
-                f" WHERE (zone_id IS NULL OR zone_id != ?) AND user_id IN {user_ph}"
-                f" ORDER BY plant_name ASC",
+                f"SELECT id, plant_name, variety, location_name,"
+                f" CASE WHEN zone_id = ? THEN 1 ELSE 0 END AS in_this_zone"
+                f" FROM garden_entries WHERE user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
             ).fetchall()
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
@@ -2428,6 +2428,8 @@ def create_app() -> Flask:
                 return redirect(url_for("garden_index"))
         db.execute("UPDATE garden_entries SET zone_id = ? WHERE id = ?", (zone_id, entry_id))
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(ok=True)
         return_zone = request.form.get("return_zone_id", type=int) or zone_id
         if return_zone:
             return redirect(url_for("yard_zone_detail", zone_id=return_zone))
