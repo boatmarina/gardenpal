@@ -28,53 +28,17 @@
         Add Plant
       </a>
       {% if feature_garden_zones %}
-      <button type="button" id="add-edible-toggle" class="button button-secondary"
-              style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
+      <a href="{{ url_for('yard_zone_add_edible', zone_id=zone.id) }}" class="button button-secondary"
+         style="display:inline-flex;align-items:center;gap:5px;padding:7px 10px;font-size:0.82rem">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2a3 3 0 0 0-3 3c0 1.5.8 2.8 2 3.4V21h2V8.4c1.2-.6 2-1.9 2-3.4a3 3 0 0 0-3-3z"/>
           <path d="M5 12c-1.5.5-2 1.5-2 2.5C3 16.5 4.5 18 6 18"/>
           <path d="M19 12c1.5.5 2 1.5 2 2.5C21 16.5 19.5 18 18 18"/>
         </svg>
         Add Edible
-      </button>
-      {% endif %}
-    </div>
-
-    {% if feature_garden_zones %}
-    <div id="add-edible-panel" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);position:relative">
-      <button type="button" id="add-edible-close"
-              style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;font-size:1.1rem;line-height:1">×</button>
-      <a href="{{ url_for('garden_new') }}?zone_id={{ zone.id }}"
-         class="button" style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;font-size:0.82rem;margin-bottom:14px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        New plant
       </a>
-      {% if other_garden_entries %}
-      <p style="font-size:0.72rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Or add from garden</p>
-      <div id="assign-zone-list" style="gap:0">
-        {% for e in other_garden_entries %}
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-          <div style="min-width:0">
-            <span style="font-size:0.85rem;font-weight:500">{{ e.plant_name }}</span>
-            {% if e.variety %}<span class="muted" style="font-size:0.8rem;margin-left:4px;font-style:italic">{{ e.variety }}</span>{% endif %}
-            {% if e.location_name %}<p class="muted" style="font-size:0.75rem;margin-top:1px">{{ e.location_name }}</p>{% endif %}
-          </div>
-          {% if e.in_this_zone %}
-          <span style="font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 8px;flex-shrink:0;margin-left:10px">In zone</span>
-          {% else %}
-          <form method="post" action="{{ url_for('garden_assign_zone', entry_id=e.id) }}" data-assign-zone="1" style="flex-shrink:0;margin-left:10px">
-            <input type="hidden" name="zone_id" value="{{ zone.id }}" />
-            <button type="submit" class="button button-secondary" style="font-size:0.78rem;padding:5px 10px">Add</button>
-          </form>
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <p class="muted" style="font-size:0.83rem">No garden plants yet. Use "New plant" above to add one.</p>
       {% endif %}
     </div>
-    {% endif %}
 
     <div id="zone-edit-form" hidden style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
       <form method="post" action="{{ url_for('yard_zone_edit', zone_id=zone.id) }}" class="stack" style="gap:10px">
@@ -218,46 +182,6 @@
     toggle.addEventListener('click', function() { form.hidden = false; toggle.hidden = true; });
     cancel.addEventListener('click', function() { form.hidden = true;  toggle.hidden = false; });
   }
-})();
-
-(function() {
-  var btn = document.getElementById('add-edible-toggle');
-  var panel = document.getElementById('add-edible-panel');
-  var close = document.getElementById('add-edible-close');
-  if (btn && panel) {
-    btn.addEventListener('click', function() { panel.hidden = !panel.hidden; });
-    if (close) close.addEventListener('click', function() { panel.hidden = true; });
-  }
-})();
-
-(function() {
-  var list = document.getElementById('assign-zone-list');
-  if (!list) return;
-  list.addEventListener('submit', async function(e) {
-    var form = e.target;
-    if (!form.dataset.assignZone) return;
-    e.preventDefault();
-    var btn = form.querySelector('button[type="submit"]');
-    if (btn) btn.disabled = true;
-    try {
-      var res = await fetch(form.action, {
-        method: 'POST',
-        headers: {'X-Requested-With': 'XMLHttpRequest'},
-        body: new FormData(form),
-      });
-      var data = await res.json();
-      if (data.ok) {
-        var badge = document.createElement('span');
-        badge.textContent = 'In zone';
-        badge.style.cssText = 'font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 8px;flex-shrink:0;margin-left:10px';
-        form.replaceWith(badge);
-      } else if (btn) {
-        btn.disabled = false;
-      }
-    } catch(_) {
-      if (btn) btn.disabled = false;
-    }
-  });
 })();
 
 (function() {
