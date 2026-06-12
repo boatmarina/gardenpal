@@ -677,9 +677,7 @@
 
 function gpToggleNote(pzId) {
   var el = document.getElementById('gp-note-form-' + pzId);
-  if (!el) return;
-  el.hidden = !el.hidden;
-  if (!el.hidden) el.querySelector('textarea').focus();
+  if (el) el.hidden = !el.hidden;
 }
 </script>
 {% endblock %}

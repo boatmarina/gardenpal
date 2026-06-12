@@ -160,6 +160,14 @@
   </script>
   {% endif %}
   <script>
+  /* Never auto-focus a text input on page load or navigation */
+  document.addEventListener('DOMContentLoaded', function() {
+    var a = document.activeElement;
+    if (a && a !== document.body && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) {
+      a.blur();
+    }
+  });
+
   document.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter') return;
     var t = e.target;
