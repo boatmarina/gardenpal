@@ -173,26 +173,34 @@
           </form>
         </div>
         {% endfor %}
+        <button type="button" onclick="gpToggleNote('{{ pz.id }}')"
+                style="margin-top:8px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0">+ Add note</button>
       {% else %}
-      <p style="font-size:0.82rem;color:var(--muted);border-top:1px solid var(--border);padding-top:9px">No notes yet.</p>
+      <div style="display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);padding-top:9px">
+        <p style="font-size:0.82rem;color:var(--muted);margin:0">No notes yet.</p>
+        <button type="button" onclick="gpToggleNote('{{ pz.id }}')"
+                style="background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0;white-space:nowrap">+ Add note</button>
+      </div>
       {% endif %}
 
-      <!-- Add note form -->
-      <form method="post" action="{{ url_for('yard_plant_add_note', yard_plant_id=pz.id) }}"
-            class="stack" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);gap:8px">
-        <input type="hidden" name="plant_id" value="{{ plant.id }}" />
-        <label style="font-size:0.85rem">
-          Note
-          <textarea name="notes" rows="2" placeholder="Observations, care notes…" style="font-size:0.85rem;resize:vertical"></textarea>
-        </label>
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-          <label style="font-size:0.85rem;flex:1;min-width:120px">
-            Date
-            <input type="date" name="note_date" value="{{ today }}" style="font-size:0.85rem" />
+      <!-- Add note form (hidden until toggled) -->
+      <div id="gp-note-form-{{ pz.id }}" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <form method="post" action="{{ url_for('yard_plant_add_note', yard_plant_id=pz.id) }}"
+              class="stack" style="gap:8px">
+          <input type="hidden" name="plant_id" value="{{ plant.id }}" />
+          <label style="font-size:0.85rem">
+            Note
+            <textarea name="notes" rows="2" placeholder="Observations, care notes…" style="font-size:0.85rem;resize:vertical"></textarea>
           </label>
-          <button type="submit" class="button button-secondary" style="font-size:0.82rem;flex-shrink:0;margin-bottom:1px">Save note</button>
-        </div>
-      </form>
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <label style="font-size:0.85rem;flex:1;min-width:120px">
+              Date
+              <input type="date" name="note_date" value="{{ today }}" style="font-size:0.85rem" />
+            </label>
+            <button type="submit" class="button button-secondary" style="font-size:0.82rem;flex-shrink:0;margin-bottom:1px">Save</button>
+          </div>
+        </form>
+      </div>
     </div>
     {% endfor %}
 
@@ -666,5 +674,12 @@
 })();
 
 
+
+function gpToggleNote(pzId) {
+  var el = document.getElementById('gp-note-form-' + pzId);
+  if (!el) return;
+  el.hidden = !el.hidden;
+  if (!el.hidden) el.querySelector('textarea').focus();
+}
 </script>
 {% endblock %}
