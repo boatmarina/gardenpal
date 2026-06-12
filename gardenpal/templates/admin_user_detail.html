@@ -146,7 +146,13 @@
               </div>
             </li>
             {% endif %}
-            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries %}
+            {% if day.tags %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--green-dark)">Applied {{ day.tags | length }} tag{{ 's' if day.tags | length != 1 else '' }}</span>
+              <span style="color:var(--muted)"> — {{ day.tags | join(', ') }}</span>
+            </li>
+            {% endif %}
+            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags %}
               <li style="font-size:0.85rem;color:var(--muted)">No recorded activity.</li>
             {% endif %}
           </ul>
