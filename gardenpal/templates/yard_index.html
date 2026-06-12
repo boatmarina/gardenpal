@@ -37,17 +37,65 @@
               {% else %}
                 {% set edible_icons = zone_edible_plants.get(zone.id, []) %}
                 {% if edible_icons %}
-                  {% if edible_icons | length == 1 %}
-                    <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--green-light)">
-                      {{ plant_icon(edible_icons[0], 50) }}
+                  <div style="position:relative;width:100%;height:100%;overflow:hidden">
+                    {# ── Basket body + weave (bottom layer) ── #}
+                    <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="100" height="100" fill="#E6F3E0"/>
+                      <defs>
+                        <clipPath id="bk{{ zone.id }}">
+                          <path d="M19,54 Q16,91 21,93 Q50,98 79,93 Q84,91 81,54 Q65,50 50,50 Q35,50 19,54Z"/>
+                        </clipPath>
+                      </defs>
+                      <path d="M19,54 Q16,91 21,93 Q50,98 79,93 Q84,91 81,54 Q65,50 50,50 Q35,50 19,54Z" fill="#D4A860"/>
+                      <g clip-path="url(#bk{{ zone.id }})">
+                        <rect x="0" y="58" width="100" height="4"   fill="#9A6820"/>
+                        <rect x="0" y="68" width="100" height="4"   fill="#9A6820"/>
+                        <rect x="0" y="78" width="100" height="4"   fill="#9A6820"/>
+                        <rect x="0" y="88" width="100" height="4"   fill="#9A6820"/>
+                        <rect x="6"  y="62" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="20" y="62" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="34" y="62" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="48" y="62" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="62" y="62" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="76" y="62" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="0"  y="72" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="13" y="72" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="27" y="72" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="41" y="72" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="55" y="72" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="69" y="72" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="83" y="72" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="6"  y="82" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="20" y="82" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="34" y="82" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="48" y="82" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="62" y="82" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="76" y="82" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="0"  y="92" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="13" y="92" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="27" y="92" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="41" y="92" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="55" y="92" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="69" y="92" width="5" height="6"   fill="#9A6820"/>
+                        <rect x="83" y="92" width="5" height="6"   fill="#9A6820"/>
+                      </g>
+                    </svg>
+                    {# ── Plant icons (middle layer) ── #}
+                    <div style="position:absolute;top:3%;left:6%;right:6%;height:52%;display:grid;grid-template-columns:1fr 1fr;align-items:center;justify-items:center">
+                      {% if edible_icons | length == 1 %}
+                        <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center">{{ plant_icon(edible_icons[0], 44) }}</div>
+                      {% else %}
+                        {% for pname in edible_icons %}{{ plant_icon(pname, 24) }}{% endfor %}
+                      {% endif %}
                     </div>
-                  {% else %}
-                    <div style="display:grid;grid-template-columns:1fr 1fr;width:100%;height:100%;background:var(--green-light)">
-                      {% for pname in edible_icons %}
-                        <div style="display:flex;align-items:center;justify-content:center">{{ plant_icon(pname, 30) }}</div>
-                      {% endfor %}
-                    </div>
-                  {% endif %}
+                    {# ── Rim and handle on top of plants ── #}
+                    <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M29,53 Q50,23 71,53" fill="none" stroke="#7A4E18" stroke-width="6" stroke-linecap="round"/>
+                      <path d="M29,53 Q50,23 71,53" fill="none" stroke="#C4903A" stroke-width="3" stroke-linecap="round"/>
+                      <ellipse cx="50" cy="52" rx="31" ry="5.5" fill="#D4A860" stroke="#9A6820" stroke-width="1.5"/>
+                      <ellipse cx="50" cy="50" rx="27" ry="2.5" fill="none" stroke="#ECC880" stroke-width="1" opacity="0.6"/>
+                    </svg>
+                  </div>
                 {% else %}
                   <div class="placeholder">
                     <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
