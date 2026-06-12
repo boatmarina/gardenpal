@@ -343,7 +343,7 @@ def create_app() -> Flask:
         user_id = session.get("user_id")
         g.user = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (user_id,)).fetchone()
+            g.user = get_db().execute("SELECT id, username, email, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (user_id,)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
@@ -4111,7 +4111,11 @@ def _build_plant_autocomplete_data(db, user_ids):
 
 def _feature_fertilization(user):
     """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
-    return (user or {}).get("username") in {"boatmarina"}
+    u = user or {}
+    return (
+        u.get("username") in {"boatmarina"}
+        or u.get("email") in {"holval@gmail.com", "cwtjoa@gmail.com"}
+    )
 
 
 def _feature_garden_zones(user):
