@@ -38,49 +38,48 @@
                 {% set edible_icons = zone_edible_plants.get(zone.id, []) %}
                 {% if edible_icons %}
                   <div style="position:relative;width:100%;height:100%;overflow:hidden;background:#F5EFE0">
-                    {# ── Layer 1: handle + basket body + weave ── #}
-                    <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                      {# handle — drawn behind plants #}
-                      <path d="M28,54 Q50,5 72,54 Q50,17 28,54 Z" fill="#EDE0BE" stroke="#C8A85A" stroke-width="1.2" stroke-linejoin="round"/>
-                      {# basket body #}
-                      <path d="M11,52 L14,88 Q50,94 86,88 L89,52 Z" fill="#EDE0BE"/>
+                    {# ── Layer 1: basket body + weave ── #}
+                    <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="1024" height="1024" fill="#F5EFE0"/>
+                      <ellipse cx="512" cy="648" rx="260" ry="16" fill="rgba(0,0,0,0.07)"/>
+                      <path d="M180 450 C180 560 330 630 512 630 C694 630 844 560 844 450 L180 450 Z" fill="#E8D8BB" stroke="#D7C29C" stroke-width="8"/>
                       <defs>
                         <clipPath id="bk{{ zone.id }}">
-                          <path d="M11,52 L14,88 Q50,94 86,88 L89,52 Z"/>
+                          <path d="M180 450 C180 560 330 630 512 630 C694 630 844 560 844 450 L180 450 Z"/>
                         </clipPath>
                       </defs>
                       <g clip-path="url(#bk{{ zone.id }})">
-                        {# horizontal weave bands #}
-                        <rect x="0" y="59" width="100" height="2.5" fill="#C8A85A" opacity="0.5"/>
-                        <rect x="0" y="66" width="100" height="2.5" fill="#C8A85A" opacity="0.5"/>
-                        <rect x="0" y="73" width="100" height="2.5" fill="#C8A85A" opacity="0.5"/>
-                        <rect x="0" y="80" width="100" height="2.5" fill="#C8A85A" opacity="0.5"/>
-                        <rect x="0" y="87" width="100" height="2.5" fill="#C8A85A" opacity="0.5"/>
-                        {# vertical rib lines #}
-                        <line x1="23" y1="52" x2="21" y2="91" stroke="#C8A85A" stroke-width="0.9" opacity="0.4"/>
-                        <line x1="35" y1="52" x2="33" y2="91" stroke="#C8A85A" stroke-width="0.9" opacity="0.4"/>
-                        <line x1="47" y1="52" x2="45" y2="91" stroke="#C8A85A" stroke-width="0.9" opacity="0.4"/>
-                        <line x1="59" y1="52" x2="57" y2="91" stroke="#C8A85A" stroke-width="0.9" opacity="0.4"/>
-                        <line x1="71" y1="52" x2="69" y2="91" stroke="#C8A85A" stroke-width="0.9" opacity="0.4"/>
-                        <line x1="83" y1="52" x2="81" y2="91" stroke="#C8A85A" stroke-width="0.9" opacity="0.4"/>
+                        <rect x="120" y="485" width="800" height="16" rx="8" fill="#D1BC94"/>
+                        <rect x="120" y="535" width="800" height="16" rx="8" fill="#D1BC94"/>
+                        <rect x="120" y="585" width="800" height="16" rx="8" fill="#D1BC94"/>
+                        <rect x="275" y="455" width="32" height="170" rx="8" fill="#F3E7D1"/>
+                        <rect x="425" y="455" width="32" height="170" rx="8" fill="#F3E7D1"/>
+                        <rect x="575" y="455" width="32" height="170" rx="8" fill="#F3E7D1"/>
+                        <rect x="725" y="455" width="32" height="170" rx="8" fill="#F3E7D1"/>
                       </g>
-                      {# body outline #}
-                      <path d="M11,52 L14,88 Q50,94 86,88 L89,52" fill="none" stroke="#C8A85A" stroke-width="1.4"/>
-                      {# base shadow #}
-                      <ellipse cx="50" cy="93" rx="26" ry="2.5" fill="rgba(0,0,0,0.08)"/>
                     </svg>
-                    {# ── Layer 2: plant icons ── #}
-                    <div style="position:absolute;top:4%;left:8%;right:8%;height:50%;display:grid;grid-template-columns:1fr 1fr;align-items:center;justify-items:center">
+                    {# ── Layer 2: plant icons — overlapping cluster ── #}
+                    <div style="position:absolute;top:0;left:0;right:0;height:50%">
                       {% if edible_icons | length == 1 %}
-                        <div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center">{{ plant_icon(edible_icons[0], 42) }}</div>
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">{{ plant_icon(edible_icons[0], 56) }}</div>
                       {% else %}
-                        {% for pname in edible_icons %}{{ plant_icon(pname, 23) }}{% endfor %}
+                        {% for pname in edible_icons %}
+                          {% if loop.index == 1 %}
+                            <div style="position:absolute;top:6%;left:9%">{{ plant_icon(pname, 48) }}</div>
+                          {% elif loop.index == 2 %}
+                            <div style="position:absolute;top:2%;right:8%">{{ plant_icon(pname, 50) }}</div>
+                          {% elif loop.index == 3 %}
+                            <div style="position:absolute;bottom:2%;left:22%">{{ plant_icon(pname, 52) }}</div>
+                          {% else %}
+                            <div style="position:absolute;bottom:4%;right:16%">{{ plant_icon(pname, 46) }}</div>
+                          {% endif %}
+                        {% endfor %}
                       {% endif %}
                     </div>
                     {# ── Layer 3: rim on top of plants ── #}
-                    <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                      <ellipse cx="50" cy="52" rx="39" ry="5.5" fill="#EDE0BE" stroke="#C8A85A" stroke-width="1.4"/>
-                      <ellipse cx="50" cy="50.5" rx="34" ry="3" fill="none" stroke="#F8F0D5" stroke-width="1.5" opacity="0.9"/>
+                    <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="512" cy="450" rx="335" ry="60" fill="#F2E5CF" stroke="#DEC8A2" stroke-width="8"/>
+                      <ellipse cx="512" cy="450" rx="295" ry="42" fill="#D8C29A"/>
                     </svg>
                   </div>
                 {% else %}
