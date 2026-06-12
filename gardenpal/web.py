@@ -1484,7 +1484,7 @@ def create_app() -> Flask:
             return day_data.setdefault(day_str, {
                 "logins": 0, "plant_entries": [], "yard_entries": [],
                 "zones": [], "garden_entries": [], "chat_queries": [],
-                "garden_notes": [],
+                "garden_notes": [], "tags": [],
                 "_sp": set(), "_sy": set(),
             })
 
@@ -1513,6 +1513,8 @@ def create_app() -> Flask:
                 d["garden_entries"].append(name)
             elif act == "garden_chat":
                 d["chat_queries"].append(name)
+            elif act == "tag_applied":
+                d["tags"].append(name)
 
         note_rows = db.execute(
             "SELECT gp.created_at, gp.image_path, gp.is_fertilization, gp.fertilizer_type,"
@@ -3237,6 +3239,7 @@ def create_app() -> Flask:
             "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
             (plant_id, tag_id),
         )
+        _log_activity(db, g.user["id"], "tag_applied", tag_name)
         db.commit()
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"id": tag_id, "name": tag_name, "color": color})
