@@ -38,10 +38,11 @@
                 {% set edible_icons = zone_edible_plants.get(zone.id, []) %}
                 {% if edible_icons %}
                   <div style="position:relative;width:100%;height:100%;overflow:hidden;background:#F5EFE0">
-                    {# ── Layer 1: basket body + weave ── #}
-                    <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="1024" height="1024" fill="#F5EFE0"/>
-                      <ellipse cx="512" cy="648" rx="260" ry="16" fill="rgba(0,0,0,0.07)"/>
+                    {# ── Layer 1: full basket (body + weave + rim) — all behind plants ── #}
+                    {# viewBox shifted up so basket sits in the lower third of the thumbnail #}
+                    <svg style="position:absolute;inset:0;width:100%;height:100%" viewBox="0 -330 1024 1024" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="0" y="-330" width="1024" height="1354" fill="#F5EFE0"/>
+                      <ellipse cx="512" cy="648" rx="240" ry="14" fill="rgba(0,0,0,0.07)"/>
                       <path d="M180 450 C180 560 330 630 512 630 C694 630 844 560 844 450 L180 450 Z" fill="#E8D8BB" stroke="#D7C29C" stroke-width="8"/>
                       <defs>
                         <clipPath id="bk{{ zone.id }}">
@@ -57,30 +58,27 @@
                         <rect x="575" y="455" width="32" height="170" rx="8" fill="#F3E7D1"/>
                         <rect x="725" y="455" width="32" height="170" rx="8" fill="#F3E7D1"/>
                       </g>
+                      <ellipse cx="512" cy="450" rx="335" ry="60" fill="#F2E5CF" stroke="#DEC8A2" stroke-width="8"/>
+                      <ellipse cx="512" cy="450" rx="295" ry="42" fill="#D8C29A"/>
                     </svg>
-                    {# ── Layer 2: plant icons — overlapping cluster ── #}
-                    <div style="position:absolute;top:0;left:0;right:0;height:50%">
+                    {# ── Layer 2: plant icons — centered overlapping cluster ── #}
+                    <div style="position:absolute;inset:0">
                       {% if edible_icons | length == 1 %}
-                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">{{ plant_icon(edible_icons[0], 56) }}</div>
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-65%)">{{ plant_icon(edible_icons[0], 58) }}</div>
                       {% else %}
                         {% for pname in edible_icons %}
                           {% if loop.index == 1 %}
-                            <div style="position:absolute;top:6%;left:9%">{{ plant_icon(pname, 48) }}</div>
+                            <div style="position:absolute;top:52%;left:50%;z-index:1;transform:translate(calc(-50% - 22px),calc(-50% - 20px))">{{ plant_icon(pname, 50) }}</div>
                           {% elif loop.index == 2 %}
-                            <div style="position:absolute;top:2%;right:8%">{{ plant_icon(pname, 50) }}</div>
+                            <div style="position:absolute;top:52%;left:50%;z-index:2;transform:translate(calc(-50% + 20px),calc(-50% - 26px))">{{ plant_icon(pname, 52) }}</div>
                           {% elif loop.index == 3 %}
-                            <div style="position:absolute;bottom:2%;left:22%">{{ plant_icon(pname, 52) }}</div>
+                            <div style="position:absolute;top:52%;left:50%;z-index:3;transform:translate(calc(-50% - 18px),calc(-50% + 16px))">{{ plant_icon(pname, 48) }}</div>
                           {% else %}
-                            <div style="position:absolute;bottom:4%;right:16%">{{ plant_icon(pname, 46) }}</div>
+                            <div style="position:absolute;top:52%;left:50%;z-index:4;transform:translate(calc(-50% + 24px),calc(-50% + 10px))">{{ plant_icon(pname, 54) }}</div>
                           {% endif %}
                         {% endfor %}
                       {% endif %}
                     </div>
-                    {# ── Layer 3: rim on top of plants ── #}
-                    <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-                      <ellipse cx="512" cy="450" rx="335" ry="60" fill="#F2E5CF" stroke="#DEC8A2" stroke-width="8"/>
-                      <ellipse cx="512" cy="450" rx="295" ry="42" fill="#D8C29A"/>
-                    </svg>
                   </div>
                 {% else %}
                   <div class="placeholder">
