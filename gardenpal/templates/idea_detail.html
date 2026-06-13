@@ -459,7 +459,6 @@
   /* ── render ── */
   function renderPhotos(photos) {
     if (!photos.length) return;
-    reserve = [];
     grid.innerHTML = photos.map((u, i) => makePhotoItem(u, i)).join('');
     grid.querySelectorAll('.photo-item').forEach(attachControls);
   }
@@ -470,13 +469,14 @@
 
   function fetchAndRender(seedUrl, andSave) {
     const savedSet = new Set(seedUrl ? [seedUrl] : []);
-    fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
+    fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=3')
       .then(r => r.json())
       .then(d => {
         const extra = (d.photos || []).filter(u => !savedSet.has(u));
         const combined = seedUrl ? [seedUrl, ...extra] : extra;
         if (combined.length) {
-          renderPhotos(combined);
+          reserve = combined.slice(3);
+          renderPhotos(combined.slice(0, 3));
           if (andSave) setTimeout(saveOrder, 1500);
         }
       })
@@ -540,12 +540,16 @@
     // User-uploaded photo always leads; stored community photos follow
     let extras = [];
     if (stored) { try { extras = JSON.parse(stored); } catch (_) {} }
-    renderPhotos([userPhoto, ...extras.filter(u => u !== userPhoto)]);
+    const combined = [userPhoto, ...extras.filter(u => u !== userPhoto)];
+    reserve = combined.slice(3);
+    renderPhotos(combined.slice(0, 3));
     return;
   }
   if (stored) {
     try {
-      renderPhotos(JSON.parse(stored));
+      const all = JSON.parse(stored);
+      reserve = all.slice(3);
+      renderPhotos(all.slice(0, 3));
       // If all stored URLs fail to load, fall back to API after images have had time to error out
       setTimeout(function() {
         if (grid.querySelectorAll('.photo-item').length === 0) {
