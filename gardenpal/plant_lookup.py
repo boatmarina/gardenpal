@@ -567,3 +567,84 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
                 break
 
     return result, None
+
+
+# ---------------------------------------------------------------------------
+# Plant suggestion (home screen "you might like")
+# ---------------------------------------------------------------------------
+
+def generate_plant_suggestion(location: Optional[str], existing_names: List[str]) -> Tuple[Optional[Dict], Optional[str]]:
+    """Return (suggestion_dict, error). suggestion_dict includes photo_url."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return None, "ANTHROPIC_API_KEY not set"
+
+    loc = (location or "").strip() or "Pacific Northwest"
+    names_str = ", ".join(existing_names[:40]) if existing_names else "none yet"
+
+    prompt = (
+        f"The user lives in {loc}.\n"
+        f"They already have these ornamental plants: {names_str}.\n\n"
+        f"Suggest ONE ornamental plant they don't have yet that would complement their collection "
+        f"and thrive in {loc}. Be specific — include a cultivar if it makes the suggestion more "
+        f"interesting. Return ONLY a JSON object:\n"
+        "{\n"
+        '  "name": "common English name (include cultivar if applicable)",\n'
+        '  "scientific_name": "Genus species or Genus species \'Cultivar\'",\n'
+        '  "description": "2 sentences: what it looks like and what makes it special.",\n'
+        f'  "why": "1 sentence explaining why it suits this collection and thrives in {loc}.",\n'
+        '  "sun_needs": "full-sun or part-sun or shade",\n'
+        '  "watering_needs": "frequent or average or minimal",\n'
+        '  "lifecycle": "annual or perennial or biennial",\n'
+        '  "plant_form": "tree or shrub or perennial or annual or climber or ground-cover or grass or fern or bulb or succulent or herb or bamboo"\n'
+        "}"
+    )
+
+    client = anthropic.Anthropic(api_key=api_key, timeout=10.0)
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+            system=(
+                "You are a knowledgeable gardening advisor. "
+                "Respond ONLY with a valid JSON object — no markdown, no explanation, nothing else."
+            ),
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = next((b.text for b in response.content if b.type == "text"), "").strip()
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        data = json.loads(text)
+        if not isinstance(data, dict) or not data.get("name"):
+            return None, "Unexpected response format"
+
+        suggestion = {
+            "name":          data.get("name", ""),
+            "scientific_name": data.get("scientific_name", ""),
+            "description":   data.get("description", ""),
+            "why":           data.get("why", ""),
+            "sun_needs":     data.get("sun_needs", ""),
+            "watering_needs": data.get("watering_needs", ""),
+            "lifecycle":     data.get("lifecycle", ""),
+            "plant_form":    data.get("plant_form", ""),
+            "photo_url":     None,
+        }
+
+        # Fetch a photo
+        for q in filter(None, [suggestion["scientific_name"], suggestion["name"]]):
+            photos = lookup_plant_photos(q, count=1)
+            if photos:
+                suggestion["photo_url"] = photos[0]
+                break
+
+        return suggestion, None
+
+    except json.JSONDecodeError as exc:
+        return None, f"Invalid JSON from Claude: {exc}"
+    except anthropic.APIError as exc:
+        return None, f"Claude API error: {exc}"
+    except Exception as exc:
+        return None, f"Suggestion failed: {exc}"
