@@ -400,13 +400,23 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
         if not taxon_id:
             if not query:
                 return []
-            taxa_resp = requests.get(
-                "https://api.inaturalist.org/v1/taxa",
-                params={"q": query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 1},
-                timeout=8,
-            )
-            taxa_resp.raise_for_status()
-            taxa = taxa_resp.json().get("results", [])
+            # Build a list of queries to try: full name first, then strip cultivar
+            # (e.g. "Borago officinalis 'Variegata'" → "Borago officinalis")
+            queries_to_try = [query]
+            simplified = query.split("'")[0].split('"')[0].strip()
+            if simplified and simplified != query:
+                queries_to_try.append(simplified)
+            taxa = []
+            for q_try in queries_to_try:
+                taxa_resp = requests.get(
+                    "https://api.inaturalist.org/v1/taxa",
+                    params={"q": q_try, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 1},
+                    timeout=8,
+                )
+                taxa_resp.raise_for_status()
+                taxa = taxa_resp.json().get("results", [])
+                if taxa:
+                    break
             if not taxa:
                 return []
             taxon = taxa[0]

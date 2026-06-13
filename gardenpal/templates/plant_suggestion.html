@@ -14,6 +14,7 @@
     <div id="suggestion-photos" class="photos-grid" hidden
          style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
          data-query="{{ (suggestion.scientific_name or suggestion.name) | e }}"
+         data-name="{{ suggestion.name | e }}"
          data-seed="{{ suggestion.photo_url or '' }}">
     </div>
 
@@ -79,21 +80,33 @@
 {% block scripts %}
 <script>
 (function () {
-  var grid  = document.getElementById('suggestion-photos');
+  var grid     = document.getElementById('suggestion-photos');
   if (!grid) return;
-  var query = grid.dataset.query;
-  var seed  = grid.dataset.seed;
+  var query    = grid.dataset.query;
+  var name     = grid.dataset.name || '';
+  var seed     = grid.dataset.seed;
   if (!query) return;
 
   // Show seed immediately so there's no photo-less flash while the API loads
   if (seed) GP.renderPhotosInGrid(grid, [seed], query);
 
+  function applyPhotos(photos, label) {
+    var extras = (photos || []).filter(function(u) { return u !== seed; });
+    var all    = seed ? [seed].concat(extras) : extras;
+    if (all.length) GP.renderPhotosInGrid(grid, all, label || query);
+    return all.length > 0;
+  }
+
   fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      var extras = (d.photos || []).filter(function(u) { return u !== seed; });
-      var all = seed ? [seed].concat(extras) : extras;
-      if (all.length) GP.renderPhotosInGrid(grid, all, query);
+      if (applyPhotos(d.photos, query)) return;
+      // Scientific name returned nothing — retry with common name
+      var fallback = name && name !== query ? name : '';
+      if (!fallback) return;
+      return fetch('/api/plant-photos?q=' + encodeURIComponent(fallback) + '&count=6')
+        .then(function(r2) { return r2.json(); })
+        .then(function(d2) { applyPhotos(d2.photos, fallback); });
     })
     .catch(function() {});
 })();
