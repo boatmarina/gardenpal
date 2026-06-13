@@ -247,18 +247,6 @@
       </div>
     </section>
 
-    <section class="panel" style="margin-bottom:16px">
-      <h2 style="margin-bottom:4px">Backfill plant details</h2>
-      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-        Enrich existing ornamental plants with water needs, deadheading, and deer resistance
-        using Claude. Processes 10 plants per batch; click once and it runs to completion.
-      </p>
-      <div id="backfill-status" style="font-size:0.83rem;color:var(--muted);margin-bottom:10px;min-height:1.2em"></div>
-      <button id="backfill-btn" type="button" class="button button-secondary" style="font-size:0.83rem">
-        Run backfill
-      </button>
-    </section>
-
     {% if perenual_log is defined %}
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Perenual usage log</h2>
@@ -537,35 +525,7 @@
   window.showTab(activeTab);
 })();
 
-// Backfill plant details
-(function() {
-  var btn    = document.getElementById('backfill-btn');
-  var status = document.getElementById('backfill-status');
-  if (!btn) return;
 
-  function runBatch(totalProcessed) {
-    status.textContent = 'Running… (' + totalProcessed + ' processed so far)';
-    btn.disabled = true;
-    fetch('{{ url_for("admin_backfill_plant_details") }}', { method: 'POST' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        totalProcessed += (d.processed || 0);
-        if (d.remaining > 0) {
-          status.textContent = 'Processed ' + totalProcessed + ' so far, ' + d.remaining + ' remaining…';
-          setTimeout(function() { runBatch(totalProcessed); }, 500);
-        } else {
-          status.textContent = 'Done — ' + totalProcessed + ' plants updated.' + (d.errors && d.errors.length ? ' (' + d.errors.length + ' errors)' : '');
-          btn.disabled = false;
-        }
-      })
-      .catch(function(e) {
-        status.textContent = 'Error: ' + e;
-        btn.disabled = false;
-      });
-  }
-
-  btn.addEventListener('click', function() { runBatch(0); });
-})();
 </script>
 {% endif %}
 {% endblock %}
