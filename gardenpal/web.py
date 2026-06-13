@@ -338,15 +338,17 @@ def create_app() -> Flask:
         try:
             dt = datetime.fromisoformat(str(dt_str)[:19])
             days = (datetime.utcnow() - dt).days
-            if days < 0:
+            if days <= 0:
                 return "today"
+            if days == 1:
+                return "yesterday"
             if days < 7:
-                return dt.strftime("%A")
+                return f"{days}d ago"
             if days < 14:
                 return "last week"
             weeks = days // 7
             if weeks < 5:
-                return f"{weeks} weeks ago"
+                return f"{weeks}w ago"
             return "over a month ago"
         except Exception:
             return str(dt_str)[:10]
@@ -1591,7 +1593,7 @@ def create_app() -> Flask:
             except Exception:
                 continue
             diff = (today - day_date).days
-            if diff == 0:
+            if diff <= 0:
                 date_label = "Today"
             elif diff == 1:
                 date_label = "Yesterday"
