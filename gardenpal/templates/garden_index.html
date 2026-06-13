@@ -400,6 +400,7 @@
         note.textContent = 'Refreshing…';
         messages.appendChild(note);
         messages.scrollTop = messages.scrollHeight;
+        try { sessionStorage.removeItem(SEARCH_KEY); } catch(_) {}
         setTimeout(function () { window.location.reload(); }, 1200);
         return; // keep inputs disabled — page is about to reload
       }
