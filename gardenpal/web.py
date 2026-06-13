@@ -393,7 +393,7 @@ def create_app() -> Flask:
                 (i for i, e in enumerate(WHATS_NEW_CHANGELOG) if e["version"] == seen),
                 len(WHATS_NEW_CHANGELOG),
             )
-            whats_new_entries = [e for e in WHATS_NEW_CHANGELOG[:seen_idx] if not e.get("admin_only")][:5]
+            whats_new_entries = [e for e in WHATS_NEW_CHANGELOG[:seen_idx] if not e.get("admin_only") and not e.get("draft")][:5]
         return {
             "current_user": user,
             "show_whats_new": bool(whats_new_entries),
