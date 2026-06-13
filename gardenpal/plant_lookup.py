@@ -363,8 +363,8 @@ def _identify_via_claude(file_storage, location: Optional[str] = None) -> Tuple[
 # iNaturalist helpers (free, no API key)
 # ---------------------------------------------------------------------------
 
-def _lookup_via_inat(query: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """Returns (scientific_name, common_name, photo_url) or (None, None, None)."""
+def _lookup_via_inat(query: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[int]]:
+    """Returns (scientific_name, common_name, photo_url, taxon_id) or (None, None, None, None)."""
     try:
         resp = requests.get(
             "https://api.inaturalist.org/v1/taxa",
@@ -374,18 +374,18 @@ def _lookup_via_inat(query: str) -> Tuple[Optional[str], Optional[str], Optional
         resp.raise_for_status()
         results = resp.json().get("results", [])
         if not results:
-            return None, None, None
+            return None, None, None, None
         top = results[0]
         photo = top.get("default_photo") or {}
         photo_url = photo.get("medium_url") or photo.get("square_url")
-        return top.get("name"), top.get("preferred_common_name"), photo_url
+        return top.get("name"), top.get("preferred_common_name"), photo_url, top.get("id")
     except Exception:
-        return None, None, None
+        return None, None, None, None
 
 
 def lookup_plant_image(query: str) -> Optional[str]:
     """Return a single iNaturalist photo URL for the plant, or None."""
-    _, _, photo_url = _lookup_via_inat(query)
+    _, _, photo_url, _ = _lookup_via_inat(query)
     return photo_url
 
 
@@ -536,7 +536,7 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
 
     if result is None:
         # Claude unavailable or didn't recognise the name — fall back to iNaturalist names only
-        sci, common, photo_url = _lookup_via_inat(query)
+        sci, common, photo_url, _ = _lookup_via_inat(query)
         if not sci and not common:
             err = claude_error or "No plant information found for that name."
             return None, err
@@ -571,7 +571,7 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
             queries_to_try.append(query.strip())
 
         for inat_q in queries_to_try:
-            _, _, photo_url = _lookup_via_inat(inat_q)
+            _, _, photo_url, _ = _lookup_via_inat(inat_q)
             if photo_url:
                 result["photo_url"] = photo_url
                 break
@@ -684,9 +684,19 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
             queries_to_try.append(suggestion["name"])
 
         for q in queries_to_try:
-            _, _, photo_url = _lookup_via_inat(q)
-            if photo_url:
-                suggestion["photo_url"] = photo_url
+            _, _, taxon_default_url, taxon_id = _lookup_via_inat(q)
+            if taxon_id:
+                # Prefer stable S3 observation photos over the taxon default_photo which
+                # may live on static.inaturalist.org CDN and can go stale.
+                obs = lookup_plant_photos("", count=1, taxon_id=taxon_id)
+                if obs:
+                    suggestion["photo_url"] = obs[0]
+                    break
+                if taxon_default_url:
+                    suggestion["photo_url"] = taxon_default_url
+                    break
+            elif taxon_default_url:
+                suggestion["photo_url"] = taxon_default_url
                 break
 
         return suggestion, None
