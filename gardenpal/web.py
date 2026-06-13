@@ -1745,53 +1745,47 @@ def create_app() -> Flask:
         if not g.user.get("is_admin"):
             return jsonify(error="Forbidden"), 403
         db = get_db()
-        # Count how many plants still need backfilling
-        remaining_before = db.execute(
-            "SELECT COUNT(*) AS n FROM plants WHERE water_needs IS NULL AND name IS NOT NULL"
-        ).fetchone()["n"]
-        if remaining_before == 0:
-            return jsonify(processed=0, remaining=0, errors=[])
+        # Process exactly 1 plant per request to stay within Vercel's timeout
+        plant = db.execute(
+            "SELECT id, name, scientific_name FROM plants WHERE water_needs IS NULL AND name IS NOT NULL LIMIT 1"
+        ).fetchone()
 
-        batch = db.execute(
-            "SELECT id, name, scientific_name FROM plants WHERE water_needs IS NULL AND name IS NOT NULL LIMIT 10"
-        ).fetchall()
+        if plant is None:
+            remaining = db.execute(
+                "SELECT COUNT(*) AS n FROM plants WHERE water_needs IS NULL AND name IS NOT NULL"
+            ).fetchone()["n"]
+            return jsonify(processed=0, remaining=remaining, errors=[])
 
-        processed = 0
+        query = plant["scientific_name"] or plant["name"]
         errors = []
-        for plant in batch:
-            query = plant["scientific_name"] or plant["name"]
-            try:
-                details, err = lookup_plant_details(query)
-                if err or not details:
-                    # Mark as attempted so we don't retry indefinitely — store empty string sentinel
-                    db.execute(
-                        "UPDATE plants SET water_needs = '', deadheading = '', deer_resistant = '' WHERE id = ?",
-                        (plant["id"],),
-                    )
-                    if err:
-                        errors.append(f"{plant['name']}: {err}")
-                else:
-                    db.execute(
-                        "UPDATE plants SET water_needs = ?, deadheading = ?, deer_resistant = ? WHERE id = ?",
-                        (
-                            details.get("watering_needs") or "",
-                            details.get("deadheading") or "",
-                            details.get("deer_resistant") or "",
-                            plant["id"],
-                        ),
-                    )
-                processed += 1
-            except Exception as exc:
-                errors.append(f"{plant['name']}: {exc}")
+        try:
+            details, err = lookup_plant_details(query)
+            if err or not details:
                 db.execute(
-                    "UPDATE plants SET water_needs = '' WHERE id = ?", (plant["id"],)
+                    "UPDATE plants SET water_needs = '', deadheading = '', deer_resistant = '' WHERE id = ?",
+                    (plant["id"],),
                 )
+                if err:
+                    errors.append(f"{plant['name']}: {err}")
+            else:
+                db.execute(
+                    "UPDATE plants SET water_needs = ?, deadheading = ?, deer_resistant = ? WHERE id = ?",
+                    (
+                        details.get("watering_needs") or "",
+                        details.get("deadheading") or "",
+                        details.get("deer_resistant") or "",
+                        plant["id"],
+                    ),
+                )
+        except Exception as exc:
+            errors.append(f"{plant['name']}: {exc}")
+            db.execute("UPDATE plants SET water_needs = '' WHERE id = ?", (plant["id"],))
         db.commit()
 
-        remaining_after = db.execute(
+        remaining = db.execute(
             "SELECT COUNT(*) AS n FROM plants WHERE water_needs IS NULL AND name IS NOT NULL"
         ).fetchone()["n"]
-        return jsonify(processed=processed, remaining=remaining_after, errors=errors)
+        return jsonify(processed=1, remaining=remaining, errors=errors)
 
     @app.route("/export/library.csv")
     @login_required
