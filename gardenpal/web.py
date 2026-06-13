@@ -1739,54 +1739,6 @@ def create_app() -> Flask:
         flash(f"Password reset for {target['username']}.")
         return redirect(url_for("tools"))
 
-    @app.route("/admin/backfill-plant-details", methods=["POST"])
-    @login_required
-    def admin_backfill_plant_details():
-        if not g.user.get("is_admin"):
-            return jsonify(error="Forbidden"), 403
-        db = get_db()
-        # Process exactly 1 plant per request to stay within Vercel's timeout
-        plant = db.execute(
-            "SELECT id, name, scientific_name FROM plants WHERE water_needs IS NULL AND name IS NOT NULL LIMIT 1"
-        ).fetchone()
-
-        if plant is None:
-            remaining = db.execute(
-                "SELECT COUNT(*) AS n FROM plants WHERE water_needs IS NULL AND name IS NOT NULL"
-            ).fetchone()["n"]
-            return jsonify(processed=0, remaining=remaining, errors=[])
-
-        query = plant["scientific_name"] or plant["name"]
-        errors = []
-        try:
-            details, err = lookup_plant_details(query)
-            if err or not details:
-                db.execute(
-                    "UPDATE plants SET water_needs = '', deadheading = '', deer_resistant = '' WHERE id = ?",
-                    (plant["id"],),
-                )
-                if err:
-                    errors.append(f"{plant['name']}: {err}")
-            else:
-                db.execute(
-                    "UPDATE plants SET water_needs = ?, deadheading = ?, deer_resistant = ? WHERE id = ?",
-                    (
-                        details.get("watering_needs") or "",
-                        details.get("deadheading") or "",
-                        details.get("deer_resistant") or "",
-                        plant["id"],
-                    ),
-                )
-        except Exception as exc:
-            errors.append(f"{plant['name']}: {exc}")
-            db.execute("UPDATE plants SET water_needs = '' WHERE id = ?", (plant["id"],))
-        db.commit()
-
-        remaining = db.execute(
-            "SELECT COUNT(*) AS n FROM plants WHERE water_needs IS NULL AND name IS NOT NULL"
-        ).fetchone()["n"]
-        return jsonify(processed=1, remaining=remaining, errors=errors)
-
     @app.route("/export/library.csv")
     @login_required
     def export_library_csv():
