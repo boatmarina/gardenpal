@@ -147,10 +147,11 @@
         <button id="whats-new-close" type="button" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.3rem;line-height:1;padding:2px 4px">×</button>
       </div>
 
-      {# ── WHAT'S NEW CONTENT ── #}
-      <h2 style="font-size:1.05rem;margin:0 0 8px">Edible plants now in zones</h2>
-      <p style="font-size:0.88rem;color:var(--muted);line-height:1.6;margin:0">You can now assign edible garden plants to a yard zone. Head to any zone in the Yard tab and tap <strong>Add Edible</strong> — or assign a zone directly from a plant's detail page.</p>
-      {# ── END CONTENT ── #}
+      {% for entry in whats_new_entries %}
+      {% if not loop.first %}<hr style="border:none;border-top:1px solid var(--border);margin:14px 0">{% endif %}
+      <h2 style="font-size:1.05rem;margin:0 0 6px">{{ entry.title }}</h2>
+      <p style="font-size:0.88rem;color:var(--muted);line-height:1.6;margin:0">{{ entry.body }}</p>
+      {% endfor %}
 
       <button id="whats-new-got-it" type="button" class="button" style="width:100%;margin-top:18px">Got it</button>
     </div>
