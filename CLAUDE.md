@@ -11,6 +11,17 @@ git push -u origin main
 git checkout <feature-branch>
 ```
 
+## What's New changelog
+
+`WHATS_NEW_CHANGELOG` lives at the top of `create_app()` in `web.py`. Entries with `"draft": True` are never shown to users — they are staging entries awaiting approval.
+
+**Process:**
+- When shipping a user-facing feature that seems worth highlighting, add a draft entry at the top of `WHATS_NEW_CHANGELOG` with `"draft": True`.
+- In the same reply where you make the change, tell the user about the draft entry and ask whether they want to publish it.
+- Only set `"draft": False` (or remove the key) after the user explicitly approves the entry and its copy.
+- Admin-only features must also include `"admin_only": True` so they are filtered from the public dialog.
+- Never publish a What's New entry without user approval.
+
 ## Frontend Architecture
 
 ### Add-plant mechanisms
