@@ -3312,13 +3312,18 @@ def create_app() -> Flask:
         user_id = g.user["id"]
         ids = _shared_user_ids(db, user_id)
         ph, id_args = _in_ids(ids)
-        rows = db.execute(
+        ornamental_rows = db.execute(
             f"SELECT name FROM plants WHERE user_id IN {ph} ORDER BY created_at DESC LIMIT 40",
             id_args,
         ).fetchall()
-        existing_names = [r["name"] for r in rows]
+        edible_rows = db.execute(
+            f"SELECT DISTINCT plant_name FROM garden_entries WHERE user_id IN {ph} ORDER BY plant_name LIMIT 30",
+            id_args,
+        ).fetchall()
+        ornamental_names = [r["name"] for r in ornamental_rows]
+        edible_names = [r["plant_name"] for r in edible_rows]
         location = g.user.get("location") or ""
-        suggestion, err = generate_plant_suggestion(location, existing_names)
+        suggestion, err = generate_plant_suggestion(location, ornamental_names, edible_names)
         if err or not suggestion:
             return jsonify(error=err or "Could not generate suggestion"), 500
         session["plant_suggestion"] = suggestion

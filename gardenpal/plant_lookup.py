@@ -573,26 +573,45 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
 # Plant suggestion (home screen "you might like")
 # ---------------------------------------------------------------------------
 
-def generate_plant_suggestion(location: Optional[str], existing_names: List[str]) -> Tuple[Optional[Dict], Optional[str]]:
+def generate_plant_suggestion(location: Optional[str], existing_names: List[str], edible_names: Optional[List[str]] = None) -> Tuple[Optional[Dict], Optional[str]]:
     """Return (suggestion_dict, error). suggestion_dict includes photo_url."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
         return None, "ANTHROPIC_API_KEY not set"
 
     loc = (location or "").strip() or "Pacific Northwest"
-    names_str = ", ".join(existing_names[:40]) if existing_names else "none yet"
+    has_ornamentals = bool(existing_names)
+    has_edibles = bool(edible_names)
+    names_str = ", ".join(existing_names[:40]) if has_ornamentals else "none yet"
+    edibles_str = ", ".join((edible_names or [])[:30]) if has_edibles else ""
+
+    if not has_ornamentals and not has_edibles:
+        context = (
+            f"The user lives in {loc} and is just getting started — they have no plants yet.\n\n"
+            f"Suggest ONE popular, easy-to-grow ornamental perennial flower that is commonly "
+            f"sold at garden centres in {loc} and thrives there. Choose something widely available "
+            f"and rewarding for a beginner."
+        )
+    else:
+        context = f"The user lives in {loc}.\n"
+        context += f"Their ornamental plant collection: {names_str}.\n"
+        if edibles_str:
+            context += f"Their edible garden includes: {edibles_str}.\n"
+        context += (
+            "\nSuggest ONE ornamental plant they don't have yet. "
+            "If their edible garden includes plants that have good companion flowers "
+            "(e.g. flowers that attract pollinators, repel pests, or look beautiful alongside vegetables), "
+            "favour those — otherwise complement their ornamental collection. "
+            "Be specific; include a cultivar if it makes the suggestion more interesting."
+        )
 
     prompt = (
-        f"The user lives in {loc}.\n"
-        f"They already have these ornamental plants: {names_str}.\n\n"
-        f"Suggest ONE ornamental plant they don't have yet that would complement their collection "
-        f"and thrive in {loc}. Be specific — include a cultivar if it makes the suggestion more "
-        f"interesting. Return ONLY a JSON object:\n"
+        context + "\n\nReturn ONLY a JSON object:\n"
         "{\n"
         '  "name": "common English name (include cultivar if applicable)",\n'
         '  "scientific_name": "Genus species or Genus species \'Cultivar\'",\n'
         '  "description": "2 sentences: what it looks like and what makes it special.",\n'
-        f'  "why": "1 sentence explaining why it suits this collection and thrives in {loc}.",\n'
+        f'  "why": "1 sentence explaining why it suits this garden and thrives in {loc}.",\n'
         '  "sun_needs": "full-sun or part-sun or shade",\n'
         '  "watering_needs": "frequent or average or minimal",\n'
         '  "lifecycle": "annual or perennial or biennial",\n'
