@@ -17,7 +17,7 @@ from flask import Flask, Response, flash, g, jsonify, redirect, render_template,
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
+from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, generate_plant_suggestion, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -3300,6 +3300,76 @@ def create_app() -> Flask:
         if error:
             return jsonify(error=error), 200
         return jsonify(result)
+
+    @app.route("/api/plant-suggestion")
+    @login_required
+    def api_plant_suggestion():
+        cached = session.get("plant_suggestion")
+        if cached:
+            return jsonify(cached)
+        db = get_db()
+        user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+        rows = db.execute(
+            f"SELECT name FROM plants WHERE user_id IN {ph} ORDER BY created_at DESC LIMIT 40",
+            id_args,
+        ).fetchall()
+        existing_names = [r["name"] for r in rows]
+        location = g.user.get("location") or ""
+        suggestion, err = generate_plant_suggestion(location, existing_names)
+        if err or not suggestion:
+            return jsonify(error=err or "Could not generate suggestion"), 500
+        session["plant_suggestion"] = suggestion
+        session.modified = True
+        return jsonify(suggestion)
+
+    @app.route("/plant-suggestion")
+    @login_required
+    def plant_suggestion_preview():
+        suggestion = session.get("plant_suggestion")
+        if not suggestion:
+            return redirect(url_for("dashboard"))
+        return render_template("plant_suggestion.html", suggestion=suggestion)
+
+    @app.route("/plant-suggestion/add", methods=["POST"])
+    @login_required
+    def plant_suggestion_add():
+        suggestion = session.get("plant_suggestion")
+        if not suggestion:
+            return redirect(url_for("dashboard"))
+        db = get_db()
+        user_id = g.user["id"]
+        sun = normalize_sun_value(suggestion.get("sun_needs") or "")
+        wn = suggestion.get("watering_needs") or ""
+        water = "minimal" if wn == "minimal" else ("frequent" if wn == "frequent" else wn)
+        plant_id = db.execute(
+            """
+            INSERT INTO plants
+            (user_id, name, scientific_name, lookup_query, source_type, image_url,
+             sun_exposure, lifecycle, description, water_needs, plant_form, lookup_status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+            """,
+            (
+                user_id,
+                suggestion["name"],
+                suggestion.get("scientific_name") or None,
+                suggestion.get("scientific_name") or suggestion["name"],
+                "world",
+                suggestion.get("photo_url") or None,
+                sun or None,
+                suggestion.get("lifecycle") or None,
+                suggestion.get("description") or None,
+                water or None,
+                suggestion.get("plant_form") or None,
+                "draft",
+                datetime.utcnow().isoformat(timespec="seconds"),
+            ),
+        ).fetchone()["id"]
+        db.commit()
+        flash(f"{suggestion['name']} added to your ornamentals.")
+        return redirect(url_for("idea_detail", plant_id=plant_id))
 
     @app.route("/api/service-status")
     @login_required

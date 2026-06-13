@@ -7,6 +7,26 @@
     <p class="hero-sub">Save plants you love. Track what you grow. Remember how it went.</p>
   </div>
 
+  <!-- Plant suggestion card (loaded async) -->
+  <div id="suggestion-wrap" hidden style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Suggested for you</span>
+    </div>
+    <a id="suggestion-link" href="#" class="card" style="display:flex;gap:14px;padding:0;overflow:hidden;text-decoration:none;color:inherit">
+      <div id="suggestion-img-wrap" style="flex-shrink:0;width:90px;background:var(--bg)">
+        <img id="suggestion-img" src="" alt="" style="width:90px;height:100%;object-fit:cover;display:block" onerror="this.closest('div').style.background='var(--bg)';this.style.display='none'" />
+      </div>
+      <div style="padding:14px 14px 14px 0;min-width:0;flex:1">
+        <h3 id="suggestion-name" style="font-size:0.95rem;margin:0 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h3>
+        <p id="suggestion-sci" class="muted" style="font-size:0.75rem;font-style:italic;margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></p>
+        <p id="suggestion-why" style="font-size:0.78rem;color:var(--muted);line-height:1.45;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></p>
+      </div>
+    </a>
+  </div>
+
   <div class="action-cards" style="grid-template-columns:repeat(3,1fr)">
     <a href="{{ url_for('new_idea') }}" class="action-card dark">
       <div class="action-card-icon">
@@ -63,4 +83,36 @@
     <p style="font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px">{{ garden_count }}</p>
     <p class="muted" style="font-size:0.85rem;font-style:normal">plants tracked</p>
   </a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var wrap = document.getElementById('suggestion-wrap');
+  var link = document.getElementById('suggestion-link');
+  var img  = document.getElementById('suggestion-img');
+  var name = document.getElementById('suggestion-name');
+  var sci  = document.getElementById('suggestion-sci');
+  var why  = document.getElementById('suggestion-why');
+  if (!wrap) return;
+
+  fetch('{{ url_for("api_plant_suggestion") }}')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error || !d.name) return;
+      name.textContent = d.name;
+      sci.textContent  = d.scientific_name || '';
+      why.textContent  = d.why || d.description || '';
+      if (d.photo_url) {
+        img.src = d.photo_url;
+        img.alt = d.name;
+      } else {
+        document.getElementById('suggestion-img-wrap').style.display = 'none';
+      }
+      link.href = '{{ url_for("plant_suggestion_preview") }}';
+      wrap.hidden = false;
+    })
+    .catch(function() { /* fail silently — suggestion is optional */ });
+})();
+</script>
 {% endblock %}
