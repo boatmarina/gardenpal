@@ -251,25 +251,26 @@ def create_app() -> Flask:
     # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
     WHATS_NEW_CHANGELOG = [
         {
+            "version": "2026-06-d",
+            "title": "Plant suggestions on your home screen",
+            "body": "GardenPal now suggests an ornamental plant each time you log in, tailored to your location and existing collection. Tap to see photos, care details, and a one-tap add to your library.",
+            "draft": True,
+        },
+        {
             "version": "2026-06-c",
-            "title": "Ask AI on ornamental plants",
+            "title": "Ask AI about any ornamental plant",
             "body": "Every ornamental plant detail page now has an Ask AI panel at the bottom. Ask care questions, pruning tips, or anything about the plant — it knows your location and any notes you've logged.",
         },
         {
             "version": "2026-06-b",
-            "title": "Garden assistant knows your zones",
-            "body": "The edibles garden assistant can now assign or change the yard zone for any plant. Try: \"Put my tomatoes in the Front Bed zone.\"",
+            "title": "Edible plants in zones, now AI-assignable",
+            "body": "Assign edible plants to a yard zone from any plant's detail page or the Yard tab. The garden assistant can also move plants between zones — try: \"Put my tomatoes in the Front Bed.\"",
         },
         {
             "version": "2026-06-a",
             "title": "Impersonate users (admin)",
             "body": "Admins can now tap View As on any user's profile to see the app exactly as they see it, without logging out.",
             "admin_only": True,
-        },
-        {
-            "version": "2025-06-b",
-            "title": "Edible plants now in zones",
-            "body": "You can now assign edible garden plants to a yard zone. Head to any zone in the Yard tab and tap Add Edible — or assign a zone directly from a plant's detail page.",
         },
     ]
     WHATS_NEW_VERSION = WHATS_NEW_CHANGELOG[0]["version"]
