@@ -4,7 +4,6 @@
 {% from '_plant_icons.html' import plant_icon %}
 
 {% block content %}
-{% set month_abbrs = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] %}
 {% set month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
 
   <section class="panel" style="margin-bottom:16px">
@@ -62,31 +61,10 @@
     </div>
   </div>
 
-  <!-- Nav bar: month strip + inline search -->
-  <div class="garden-nav-bar" style="margin-bottom:14px">
-    <!-- Month strip (visible by default) -->
-    <div class="month-strip-inline" id="month-strip">
-      {% set ns = namespace(prev_year=none) %}
-      {% for yr, mo, cnt in strip_months %}
-        {% if yr != ns.prev_year %}
-          <div class="year-badge-cell">{{ yr }}</div>
-          {% set ns.prev_year = yr %}
-        {% endif %}
-        {% set off_season = mo < 3 or mo > 9 %}
-        {% if cnt == 0 %}{% set dot_cls = "dot-empty" %}
-        {% elif cnt <= 2 %}{% set dot_cls = "dot-sm" %}
-        {% elif cnt <= 5 %}{% set dot_cls = "dot-md" %}
-        {% else %}{% set dot_cls = "dot-lg" %}{% endif %}
-        <a href="#month-{{ yr }}-{{ mo }}" class="month-cell{% if cnt > 0 %} has-plants{% endif %}{% if off_season %} off-season{% endif %}"
-           data-year="{{ yr }}" data-month="{{ mo }}">
-          <span class="month-label">{{ month_abbrs[mo] }}</span>
-          <span class="month-dot {{ dot_cls }}"></span>
-          <span class="month-count">{% if cnt > 0 %}{{ cnt }}{% endif %}</span>
-        </a>
-      {% endfor %}
-    </div>
-    <!-- Search input (hidden by default, replaces month strip) -->
-    <div id="garden-search-inner" hidden style="flex:1;min-width:0;display:flex;align-items:center;padding:0 4px 0 10px;gap:6px">
+  <!-- Nav bar: search + sort toggle -->
+  <div class="garden-nav-bar" style="margin-bottom:14px;padding:6px 8px">
+    <!-- Search (always visible) -->
+    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
@@ -99,17 +77,20 @@
         </svg>
       </button>
     </div>
-    <!-- Toggle button (search / close) -->
-    <button id="garden-search-toggle" type="button" class="garden-search-icon-btn" title="Search plants">
-      <svg id="search-icon-search" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      <svg id="search-icon-close" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" hidden>
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
+    <!-- Sort toggle -->
+    <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
+      <button id="sort-date" type="button"
+              style="font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--green-dark);background:var(--green-dark);color:#fff">Date</button>
+      <button id="sort-az" type="button"
+              style="font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:none;color:var(--muted)">A–Z</button>
+    </div>
   </div>
   <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
+
+  <!-- A-Z flat container (populated + shown by JS when sort=az) -->
+  <div id="az-container" hidden style="margin-bottom:14px">
+    <div class="cards" id="az-cards"></div>
+  </div>
 
   <!-- Timeline -->
   {% if grouped_entries %}
@@ -201,17 +182,84 @@
 {% block scripts %}
 <script>
 (function () {
-  var inp       = document.getElementById('garden-search');
-  var noRes     = document.getElementById('garden-search-empty');
-  var clearBtn  = document.getElementById('garden-search-clear');
+  var inp      = document.getElementById('garden-search');
+  var noRes    = document.getElementById('garden-search-empty');
+  var clearBtn = document.getElementById('garden-search-clear');
   if (!inp) return;
 
-  var SEARCH_KEY  = 'garden_search_q';
-  var toggleBtn   = document.getElementById('garden-search-toggle');
-  var monthStrip  = document.getElementById('month-strip');
-  var searchInner = document.getElementById('garden-search-inner');
-  var iconSearch  = document.getElementById('search-icon-search');
-  var iconClose   = document.getElementById('search-icon-close');
+  var SEARCH_KEY = 'garden_search_q';
+  var SORT_KEY   = 'garden_sort';
+
+  var sortDateBtn = document.getElementById('sort-date');
+  var sortAzBtn   = document.getElementById('sort-az');
+  var azContainer = document.getElementById('az-container');
+  var azCards     = document.getElementById('az-cards');
+
+  var sortMode = 'date';
+  try { sortMode = sessionStorage.getItem(SORT_KEY) || 'date'; } catch(_) {}
+  if (sortMode !== 'date' && sortMode !== 'az') sortMode = 'date';
+
+  /* All original timeline cards, captured before any DOM moves */
+  var allCards = Array.from(document.querySelectorAll('.timeline-section .card[data-search]'));
+
+  var ACTIVE_STYLE   = 'font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--green-dark);background:var(--green-dark);color:#fff';
+  var INACTIVE_STYLE = 'font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:none;color:var(--muted)';
+
+  function buildAzCards() {
+    var sorted = allCards.slice().sort(function(a, b) {
+      var na = ((a.querySelector('h3') || {}).textContent || '').trim().toLowerCase();
+      var nb = ((b.querySelector('h3') || {}).textContent || '').trim().toLowerCase();
+      return na.localeCompare(nb);
+    });
+    azCards.innerHTML = '';
+    sorted.forEach(function(c) { azCards.appendChild(c.cloneNode(true)); });
+  }
+
+  function applySort(mode) {
+    sortMode = mode;
+    try { sessionStorage.setItem(SORT_KEY, mode); } catch(_) {}
+    if (sortDateBtn) sortDateBtn.style.cssText = mode === 'date' ? ACTIVE_STYLE : INACTIVE_STYLE;
+    if (sortAzBtn)   sortAzBtn.style.cssText   = mode === 'az'   ? ACTIVE_STYLE : INACTIVE_STYLE;
+    if (mode === 'az') {
+      buildAzCards();
+      document.querySelectorAll('.timeline-section').forEach(function(s) { s.hidden = true; });
+      if (azContainer) azContainer.hidden = false;
+    } else {
+      document.querySelectorAll('.timeline-section').forEach(function(s) { s.hidden = false; });
+      if (azContainer) azContainer.hidden = true;
+    }
+    filter();
+  }
+
+  function filter() {
+    var q = inp.value.trim().toLowerCase();
+    var anyVisible = false;
+
+    if (sortMode === 'az') {
+      Array.from(azCards.querySelectorAll('.card[data-search]')).forEach(function(card) {
+        var match = !q || card.dataset.search.indexOf(q) !== -1;
+        card.style.display = match ? '' : 'none';
+        if (match) anyVisible = true;
+      });
+    } else {
+      Array.from(document.querySelectorAll('.timeline-section .card[data-search]')).forEach(function(card) {
+        var match = !q || card.dataset.search.indexOf(q) !== -1;
+        card.style.display = match ? '' : 'none';
+        if (match) anyVisible = true;
+      });
+      document.querySelectorAll('.timeline-section').forEach(function(sec) {
+        if (q) {
+          var hasMatch = Array.from(sec.querySelectorAll('.card[data-search]'))
+                             .some(function(c) { return c.style.display !== 'none'; });
+          sec.hidden = !hasMatch;
+        } else {
+          sec.hidden = false;
+        }
+      });
+    }
+
+    if (noRes) noRes.style.display = (q && !anyVisible) ? '' : 'none';
+  }
 
   if (clearBtn) {
     clearBtn.addEventListener('click', function() {
@@ -222,49 +270,8 @@
     });
   }
 
-  function openSearch() {
-    searchInner.hidden = false;
-    monthStrip.hidden  = true;
-    iconSearch.hidden  = true;
-    iconClose.hidden   = false;
-    if (toggleBtn) toggleBtn.classList.add('active');
-  }
-
-  function closeSearch() {
-    searchInner.hidden = true;
-    monthStrip.hidden  = false;
-    iconSearch.hidden  = false;
-    iconClose.hidden   = true;
-    if (toggleBtn) toggleBtn.classList.remove('active');
-    inp.value = '';
-    try { sessionStorage.removeItem(SEARCH_KEY); } catch(_) {}
-    filter();
-  }
-
-  function filter() {
-    var q = inp.value.trim().toLowerCase();
-
-    var cards = document.querySelectorAll('.card[data-search]');
-    var anyVisible = false;
-
-    cards.forEach(function (card) {
-      var match = !q || card.dataset.search.indexOf(q) !== -1;
-      card.style.display = match ? '' : 'none';
-      if (match) anyVisible = true;
-    });
-
-    document.querySelectorAll('.timeline-section').forEach(function (sec) {
-      if (q) {
-        var hasMatch = Array.from(sec.querySelectorAll('.card[data-search]'))
-                           .some(function (c) { return c.style.display !== 'none'; });
-        sec.style.display = hasMatch ? '' : 'none';
-      } else {
-        sec.style.display = '';
-      }
-    });
-
-    if (noRes) noRes.style.display = (q && !anyVisible) ? '' : 'none';
-  }
+  if (sortDateBtn) sortDateBtn.addEventListener('click', function() { applySort('date'); });
+  if (sortAzBtn)   sortAzBtn.addEventListener('click',   function() { applySort('az'); });
 
   var timer;
   inp.addEventListener('input', function () {
@@ -276,42 +283,16 @@
     }, 150);
   });
 
-  /* Restore saved search query (e.g. after navigating back from a detail page) */
+  /* Restore saved search */
   var savedQ = '';
   try { savedQ = sessionStorage.getItem(SEARCH_KEY) || ''; } catch(_) {}
   if (savedQ) {
-    openSearch();
     inp.value = savedQ;
     if (clearBtn) clearBtn.hidden = false;
-    filter();
   }
 
-  /* Scroll month strip to current month on load (only when search not active) */
-  if (!savedQ) {
-    (function() {
-      var strip = document.getElementById('month-strip');
-      if (!strip) return;
-      var now = new Date();
-      var cell = strip.querySelector('[data-year="' + now.getFullYear() + '"][data-month="' + (now.getMonth() + 1) + '"]');
-      if (cell) {
-        var stripRect = strip.getBoundingClientRect();
-        var cellRect  = cell.getBoundingClientRect();
-        strip.scrollLeft += cellRect.left - stripRect.left - stripRect.width / 2 + cellRect.width / 2;
-      }
-    })();
-  }
-
-  /* Search toggle: swap month strip for inline search input */
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', function () {
-      if (searchInner.hidden) {
-        openSearch();
-        inp.focus();
-      } else {
-        closeSearch();
-      }
-    });
-  }
+  /* Apply initial sort (rebuilds az-cards if needed) then filter */
+  applySort(sortMode);
 })();
 </script>
 
@@ -418,7 +399,7 @@
         note.textContent = 'Refreshing…';
         messages.appendChild(note);
         messages.scrollTop = messages.scrollHeight;
-        try { sessionStorage.removeItem(SEARCH_KEY); } catch(_) {}
+        try { sessionStorage.removeItem('garden_search_q'); } catch(_) {}
         setTimeout(function () { window.location.reload(); }, 1200);
         return; // keep inputs disabled — page is about to reload
       }
