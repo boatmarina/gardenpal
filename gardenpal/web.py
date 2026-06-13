@@ -1961,26 +1961,12 @@ def create_app() -> Flask:
 
         grouped_entries = sorted(grouped.items())  # [((yr, mo), [entries]), ...]
 
-        # Build strip: past years show only months with entries; current year shows all 12
-        entry_years = sorted(set(ym[0] for ym in grouped.keys()))
-        if current_year not in entry_years:
-            entry_years.append(current_year)
-        strip_months = []
-        for yr in sorted(entry_years):
-            if yr < current_year:
-                months = sorted(mo for (y, mo) in grouped.keys() if y == yr)
-            else:
-                months = list(range(1, 13))
-            for mo in months:
-                strip_months.append((yr, mo, len(grouped.get((yr, mo), []))))
-
         shared_names = _shared_user_names(db, uid)
         ff_fert = _feature_fertilization(g.user)
         return render_template(
             "garden_index.html",
             grouped_entries=grouped_entries,
             unscheduled=unscheduled,
-            strip_months=strip_months,
             current_year=current_year,
             shared_names=shared_names,
             today=today_str,
