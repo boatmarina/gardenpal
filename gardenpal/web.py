@@ -342,14 +342,26 @@ def create_app() -> Flask:
     def load_logged_in_user():
         user_id = session.get("user_id")
         g.user = None
+        g.real_admin = None
         if user_id is not None:
-            g.user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (user_id,)).fetchone()
+            real_user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (user_id,)).fetchone()
+            impersonating_id = session.get("impersonating_id")
+            if impersonating_id and real_user and real_user["is_admin"]:
+                impersonated = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (impersonating_id,)).fetchone()
+                if impersonated:
+                    g.real_admin = real_user
+                    g.user = impersonated
+                else:
+                    session.pop("impersonating_id", None)
+                    g.user = real_user
+            else:
+                g.user = real_user
 
     @app.context_processor
     def inject_auth_user():
         user = g.get("user")
-        show_whats_new = bool(user) and user.get("whats_new_seen") != WHATS_NEW_VERSION
-        return {"current_user": user, "show_whats_new": show_whats_new}
+        show_whats_new = bool(user) and not g.get("real_admin") and user.get("whats_new_seen") != WHATS_NEW_VERSION
+        return {"current_user": user, "show_whats_new": show_whats_new, "real_admin": g.get("real_admin")}
 
     @app.route("/auth/signup", methods=["GET", "POST"])
     def signup():
@@ -1631,6 +1643,25 @@ def create_app() -> Flask:
             return redirect(url_for("admin_user_detail", target_id=target_id))
         stats = _user_stats(db, target_id, target["created_at"])
         return render_template("admin_user_detail.html", target=target, stats=stats)
+
+    @app.route("/admin/impersonate/<int:target_id>", methods=["POST"])
+    @login_required
+    def admin_impersonate(target_id):
+        if not g.user.get("is_admin") or g.real_admin:
+            return redirect(url_for("dashboard"))
+        db = get_db()
+        target = db.execute("SELECT id FROM users WHERE id = ?", (target_id,)).fetchone()
+        if target is None:
+            flash("User not found.")
+            return redirect(url_for("tools"))
+        session["impersonating_id"] = target_id
+        return redirect(url_for("dashboard"))
+
+    @app.route("/admin/impersonate/stop", methods=["POST"])
+    @login_required
+    def admin_impersonate_stop():
+        session.pop("impersonating_id", None)
+        return redirect(url_for("tools"))
 
     @app.route("/admin/reset-password", methods=["POST"])
     @login_required

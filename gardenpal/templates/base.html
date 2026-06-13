@@ -41,6 +41,15 @@
     <div id="gp-splash-name">GardenPal</div>
   </div>
 
+  {% if real_admin %}
+  <div style="background:#1C3829;color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:0.78rem">
+    <span>Viewing as <strong>{{ current_user.username }}</strong></span>
+    <form method="post" action="{{ url_for('admin_impersonate_stop') }}" style="margin:0">
+      <button type="submit" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:4px 12px;border-radius:999px;cursor:pointer;font-size:0.75rem;font-weight:600;font-family:inherit;white-space:nowrap">Exit</button>
+    </form>
+  </div>
+  {% endif %}
+
   <header class="brand-bar">
     <div>
       <a href="{{ url_for('dashboard') if current_user else url_for('login') }}" class="brand-label" style="text-decoration:none;color:inherit">GardenPal</a>

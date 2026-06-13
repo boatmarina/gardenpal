@@ -12,6 +12,9 @@
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <h2 style="margin:0">{{ target.username }}</h2>
       {% if target.is_admin %}<span style="font-size:0.72rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:2px 7px;font-weight:600">admin</span>{% endif %}
+      <form method="post" action="{{ url_for('admin_impersonate', target_id=target.id) }}" style="margin:0;margin-left:auto">
+        <button type="submit" class="button button-secondary" style="font-size:0.78rem;padding:5px 12px">View as</button>
+      </form>
     </div>
 
     <!-- Stats grid -->
