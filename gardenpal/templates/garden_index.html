@@ -92,6 +92,12 @@
       </svg>
       <input id="garden-search" type="search" placeholder="Search plants…" autocomplete="off"
              style="flex:1;border:none;background:none;font-size:1rem;color:var(--fg);outline:none;min-width:0" />
+      <button id="garden-search-clear" type="button" hidden
+              style="flex-shrink:0;background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+      </button>
     </div>
     <!-- Toggle button (search / close) -->
     <button id="garden-search-toggle" type="button" class="garden-search-icon-btn" title="Search plants">
@@ -195,8 +201,9 @@
 {% block scripts %}
 <script>
 (function () {
-  var inp   = document.getElementById('garden-search');
-  var noRes = document.getElementById('garden-search-empty');
+  var inp       = document.getElementById('garden-search');
+  var noRes     = document.getElementById('garden-search-empty');
+  var clearBtn  = document.getElementById('garden-search-clear');
   if (!inp) return;
 
   var SEARCH_KEY  = 'garden_search_q';
@@ -205,6 +212,15 @@
   var searchInner = document.getElementById('garden-search-inner');
   var iconSearch  = document.getElementById('search-icon-search');
   var iconClose   = document.getElementById('search-icon-close');
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      inp.value = '';
+      clearBtn.hidden = true;
+      try { sessionStorage.removeItem(SEARCH_KEY); } catch(_) {}
+      filter();
+    });
+  }
 
   function openSearch() {
     searchInner.hidden = false;
@@ -252,6 +268,7 @@
 
   var timer;
   inp.addEventListener('input', function () {
+    if (clearBtn) clearBtn.hidden = !inp.value;
     clearTimeout(timer);
     timer = setTimeout(function () {
       filter();
@@ -265,6 +282,7 @@
   if (savedQ) {
     openSearch();
     inp.value = savedQ;
+    if (clearBtn) clearBtn.hidden = false;
     filter();
   }
 
