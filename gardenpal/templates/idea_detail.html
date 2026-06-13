@@ -136,6 +136,31 @@
       </dl>
     {% endif %}
 
+    <div style="border-top:1px solid var(--border);padding:0">
+      <button id="plant-chat-toggle" type="button"
+              style="width:100%;display:flex;align-items:center;gap:8px;padding:12px 16px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:var(--text);text-align:left">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--green-dark)">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Ask about this plant
+        <svg id="plant-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div id="plant-chat-panel" hidden>
+        <div id="plant-chat-messages" style="padding:4px 14px 10px;display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto"></div>
+        <div style="display:flex;gap:8px;padding:10px 14px 14px;border-top:1px solid var(--border);align-items:flex-end">
+          <textarea id="plant-chat-input" rows="2" placeholder="Ask a care question…"
+                    enterkeyhint="send"
+                    style="flex:1;font-size:16px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--text);font-family:inherit;resize:none;line-height:1.4;max-height:100px;overflow-y:auto"></textarea>
+          <button id="plant-chat-send"
+                  style="flex-shrink:0;width:38px;height:38px;background:#1C3829;color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.18)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
   </article>
 
   {% if plant_zones %}
@@ -679,5 +704,109 @@ function gpToggleNote(pzId) {
   var el = document.getElementById('gp-note-form-' + pzId);
   if (el) el.hidden = !el.hidden;
 }
+
+(function() {
+  var toggle   = document.getElementById('plant-chat-toggle');
+  var panel    = document.getElementById('plant-chat-panel');
+  var chevron  = document.getElementById('plant-chat-chevron');
+  var messages = document.getElementById('plant-chat-messages');
+  var input    = document.getElementById('plant-chat-input');
+  var sendBtn  = document.getElementById('plant-chat-send');
+  if (!toggle || !panel) return;
+
+  var PLANT_ID    = {{ plant.id }};
+  var STORAGE_KEY = 'plant_chat_' + PLANT_ID;
+
+  var saved = {};
+  try { saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}'); } catch(_) {}
+  var history = saved.history || [];
+  var isOpen  = !!saved.open;
+
+  function save() {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({open: isOpen, history: history})); } catch(_) {}
+  }
+
+  function openPanel() { panel.hidden = false; chevron.style.transform = 'rotate(180deg)'; isOpen = true; save(); }
+  function closePanel() { panel.hidden = true;  chevron.style.transform = '';              isOpen = false; save(); }
+
+  toggle.addEventListener('click', function() { if (panel.hidden) openPanel(); else closePanel(); });
+
+  function bubble(role, text) {
+    var div = document.createElement('div');
+    div.style.cssText = role === 'user'
+      ? 'margin-left:auto;max-width:85%;background:#1C3829;color:#fff;border-radius:14px 14px 3px 14px;padding:7px 11px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap'
+      : 'margin-right:auto;max-width:88%;background:var(--bg);border:1px solid var(--border);border-radius:14px 14px 14px 3px;padding:7px 11px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap;color:var(--text)';
+    div.textContent = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  function spinnerBubble() {
+    var div = document.createElement('div');
+    div.style.cssText = 'margin-right:auto;background:var(--bg);border:1px solid var(--border);border-radius:14px 14px 14px 3px;padding:9px 13px;display:flex;gap:5px;align-items:center';
+    for (var i = 0; i < 3; i++) {
+      var d = document.createElement('div');
+      d.style.cssText = 'width:5px;height:5px;border-radius:50%;background:var(--muted);animation:chatDot 1.2s infinite';
+      d.style.animationDelay = (i * 0.2) + 's';
+      div.appendChild(d);
+    }
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  history.forEach(function(m) { bubble(m.role, m.content); });
+  if (isOpen) openPanel();
+
+  async function send() {
+    var text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.style.height = 'auto';
+    input.disabled = true;
+    sendBtn.disabled = true;
+
+    bubble('user', text);
+    var spin = spinnerBubble();
+
+    try {
+      var res = await fetch('/api/plant-chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: text, plant_id: PLANT_ID, history: history}),
+      });
+      var data = await res.json();
+      spin.remove();
+      var reply = data.reply || data.error || 'Something went wrong.';
+      bubble('assistant', reply);
+      history.push({role: 'user', content: text});
+      history.push({role: 'assistant', content: reply});
+      if (history.length > 20) history = history.slice(-20);
+      save();
+    } catch(_) {
+      spin.remove();
+      bubble('assistant', 'Network error — please try again.');
+    }
+
+    input.disabled = false;
+    sendBtn.disabled = false;
+  }
+
+  sendBtn.addEventListener('click', send);
+  input.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+  });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+})();
 </script>
+<style>
+@keyframes chatDot {
+  0%,80%,100% { transform:scale(0.7);opacity:0.4; }
+  40% { transform:scale(1);opacity:1; }
+}
+</style>
 {% endblock %}

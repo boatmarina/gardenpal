@@ -2547,6 +2547,122 @@ def create_app() -> Flask:
             return redirect(url_for("yard_zone_detail", zone_id=return_zone))
         return redirect(url_for("garden_index"))
 
+    @app.route("/api/plant-chat", methods=["POST"])
+    @login_required
+    def plant_chat():
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            return jsonify(error="Chat assistant not available."), 503
+
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return jsonify(error="Chat assistant not configured."), 503
+
+        data = request.get_json(silent=True) or {}
+        message = (data.get("message") or "").strip()
+        plant_id = data.get("plant_id")
+        history = (data.get("history") or [])[-10:]
+
+        if not message or not plant_id:
+            return jsonify(error="Message and plant_id are required."), 400
+
+        db = get_db()
+        user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+
+        plant = db.execute(
+            f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}",
+            (plant_id, *id_args),
+        ).fetchone()
+        if plant is None:
+            return jsonify(error="Plant not found."), 404
+
+        allowed, reason = _check_api_rate(db, user_id, "chat")
+        if not allowed:
+            return jsonify(error=reason), 429
+
+        _log_activity(db, user_id, "plant_chat", message[:200])
+        db.commit()
+
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        user_location = (g.user.get("location") or "").strip()
+
+        # Build plant context
+        lines = [f"Plant: {plant['name']}"]
+        if plant["scientific_name"]: lines.append(f"Scientific name: {plant['scientific_name']}")
+        if plant["description"]:     lines.append(f"Description: {plant['description']}")
+        if plant["plant_form"]:      lines.append(f"Form: {plant['plant_form']}")
+        if plant["height_category"]: lines.append(f"Height: {plant['height_category']}")
+        if plant["size_info"]:       lines.append(f"Size: {plant['size_info']}")
+        if plant["flowering_schedule"]: lines.append(f"Flowering: {plant['flowering_schedule']}")
+        if plant["sun_exposure"]:    lines.append(f"Sun: {plant['sun_exposure']}")
+        if plant["lifecycle"]:       lines.append(f"Lifecycle: {plant['lifecycle']}")
+        if plant["evergreen_status"]: lines.append(f"Evergreen status: {plant['evergreen_status']}")
+        if plant["pnw_native"]:      lines.append("Native to Pacific Northwest: yes")
+
+        # Zone placements and yard notes
+        pz_rows = db.execute(
+            f"""SELECT yp.id, z.name AS zone_name
+                FROM yard_plants yp JOIN yard_zones z ON z.id = yp.zone_id
+                WHERE yp.user_id IN {ph} AND lower(yp.plant_name) = lower(?)
+                ORDER BY z.name ASC""",
+            (*id_args, plant["name"]),
+        ).fetchall()
+        if pz_rows:
+            pz_ids = [r["id"] for r in pz_rows]
+            ph2, pz_id_args = _in_ids(pz_ids)
+            note_rows = db.execute(
+                f"SELECT yard_plant_id, note_date, notes FROM yard_plant_notes"
+                f" WHERE yard_plant_id IN {ph2} ORDER BY note_date ASC NULLS LAST, created_at ASC",
+                pz_id_args,
+            ).fetchall()
+            notes_by_pz = {}
+            for n in note_rows:
+                notes_by_pz.setdefault(n["yard_plant_id"], []).append(n)
+            for r in pz_rows:
+                lines.append(f"Yard zone: {r['zone_name']}")
+                for n in notes_by_pz.get(r["id"], []):
+                    date_part = f" ({n['note_date']})" if n["note_date"] else ""
+                    lines.append(f"  Note{date_part}: {n['notes']}")
+
+        plant_context = "\n".join(lines)
+
+        system = (
+            f"You are a knowledgeable gardening assistant helping with a specific ornamental plant. Today is {today}.\n"
+            + (f"The user's location: {user_location}\n" if user_location else "")
+            + f"\nPlant details and notes:\n{plant_context}\n\n"
+            "Answer questions about this plant — care, pruning, pests, companion planting, seasonal needs, etc. "
+            "Use the notes and location to give specific, relevant advice. "
+            "Keep replies concise and practical. "
+            "Never use markdown bold (**text**) or other markdown formatting in your replies."
+        )
+
+        messages = [{"role": m["role"], "content": m["content"]} for m in history if m.get("role") in ("user", "assistant")]
+        messages.append({"role": "user", "content": message})
+
+        try:
+            client = _anthropic.Anthropic(api_key=api_key)
+            resp = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=512,
+                system=system,
+                messages=messages,
+            )
+            reply = next((b.text for b in resp.content if hasattr(b, "text")), "").strip()
+            return jsonify(reply=reply)
+        except Exception as exc:
+            try:
+                db.execute(
+                    "INSERT INTO chat_error_log (user_id, error_type, error_message, logged_at) VALUES (?, ?, ?, ?)",
+                    (user_id, type(exc).__name__, str(exc)[:500], datetime.utcnow().isoformat(timespec="seconds")),
+                )
+                db.commit()
+            except Exception:
+                pass
+            return jsonify(error="Assistant unavailable — please try again."), 503
+
     @app.route("/api/garden-chat", methods=["POST"])
     @login_required
     def garden_chat():
