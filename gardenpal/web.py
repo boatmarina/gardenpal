@@ -264,6 +264,7 @@ def create_app() -> Flask:
             "version": "2026-06-a",
             "title": "Impersonate users (admin)",
             "body": "Admins can now tap View As on any user's profile to see the app exactly as they see it, without logging out.",
+            "admin_only": True,
         },
         {
             "version": "2025-06-b",
@@ -392,7 +393,7 @@ def create_app() -> Flask:
                 (i for i, e in enumerate(WHATS_NEW_CHANGELOG) if e["version"] == seen),
                 len(WHATS_NEW_CHANGELOG),
             )
-            whats_new_entries = WHATS_NEW_CHANGELOG[:seen_idx][:5]
+            whats_new_entries = [e for e in WHATS_NEW_CHANGELOG[:seen_idx] if not e.get("admin_only")][:5]
         return {
             "current_user": user,
             "show_whats_new": bool(whats_new_entries),
@@ -1650,7 +1651,8 @@ def create_app() -> Flask:
                                garden_shares_out=garden_shares_out,
                                plantid_configured=bool(os.environ.get("PLANT_ID_API_KEY", "").strip()),
                                gemini_configured=bool(os.environ.get("GEMINI_API_KEY", "").strip()),
-                               claude_configured=bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()))
+                               claude_configured=bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()),
+                               changelog=WHATS_NEW_CHANGELOG)
 
     @app.route("/admin/users/<int:target_id>", methods=["GET", "POST"])
     @login_required
