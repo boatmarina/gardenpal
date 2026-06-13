@@ -1,17 +1,10 @@
 {% extends "base.html" %}
-{% block page_label %}<span class="page-subtitle">Tools</span>{% endblock %}
-{% block title %}Tools · GardenPal{% endblock %}
+{% block page_label %}<span class="page-subtitle">Settings</span>{% endblock %}
+{% block title %}Settings · GardenPal{% endblock %}
 
 {% block content %}
   <div class="hero" style="padding-bottom:16px">
-    <h1 class="hero-title">Tools.</h1>
-  </div>
-
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px">
-    <span style="font-size:0.82rem;color:var(--muted)">Signed in as <strong style="color:var(--text)">{{ current_user.username }}</strong></span>
-    <form method="post" action="{{ url_for('logout') }}" style="margin:0">
-      <button type="submit" class="button button-secondary" style="font-size:0.78rem;padding:5px 14px">Log out</button>
-    </form>
+    <h1 class="hero-title">Settings.</h1>
   </div>
 
   {% if current_user and current_user['is_admin'] %}
@@ -233,6 +226,27 @@
       </div>
     </section>
 
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:12px">What's new</h2>
+      <div style="display:flex;flex-direction:column;gap:0">
+        {% for entry in changelog %}
+        <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <p style="font-size:0.92rem;font-weight:600;margin:0">{{ entry.title }}</p>
+            {% if entry.draft %}
+            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:#FFF3E0;color:#C15400;border:1px solid #FFB74D;border-radius:4px;padding:1px 6px">draft</span>
+            {% endif %}
+            {% if entry.admin_only %}
+            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px">admin</span>
+            {% endif %}
+          </div>
+          <p style="font-size:0.82rem;color:var(--muted);margin:0 0 4px;line-height:1.5">{{ entry.body }}</p>
+          <p style="font-size:0.68rem;color:var(--muted);margin:0;opacity:0.55">{{ entry.version }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
     {% if perenual_log is defined %}
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Perenual usage log</h2>
@@ -405,29 +419,15 @@
       </div>
     </section>
 
-    <section class="panel" style="margin-top:16px">
-      <h2 style="margin-bottom:12px">What's new</h2>
-      <div style="display:flex;flex-direction:column;gap:0">
-        {% for entry in changelog %}
-        <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <p style="font-size:0.92rem;font-weight:600;margin:0">{{ entry.title }}</p>
-            {% if entry.draft %}
-            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:#FFF3E0;color:#C15400;border:1px solid #FFB74D;border-radius:4px;padding:1px 6px">draft</span>
-            {% endif %}
-            {% if entry.admin_only %}
-            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px">admin</span>
-            {% endif %}
-          </div>
-          <p style="font-size:0.82rem;color:var(--muted);margin:0 0 4px;line-height:1.5">{{ entry.body }}</p>
-          <p style="font-size:0.68rem;color:var(--muted);margin:0;opacity:0.55">{{ entry.version }}</p>
-        </div>
-        {% endfor %}
-      </div>
-    </section>
-
   </div><!-- /panel-admin -->
   {% endif %}
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+    <span style="font-size:0.82rem;color:var(--muted)">Signed in as <strong style="color:var(--text)">{{ current_user.username }}</strong></span>
+    <form method="post" action="{{ url_for('logout') }}" style="margin:0">
+      <button type="submit" class="button button-secondary" style="font-size:0.78rem;padding:5px 14px">Log out</button>
+    </form>
+  </div>
 
 {% endblock %}
 
