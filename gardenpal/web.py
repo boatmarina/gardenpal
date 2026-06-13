@@ -2697,10 +2697,16 @@ def create_app() -> Flask:
 
         entries = db.execute(
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
-                       ge.planted_date, ge.notes, ge.user_id
+                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name
             FROM garden_entries ge
+            LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
             WHERE ge.user_id IN {ph}
             ORDER BY CASE WHEN ge.planted_date IS NULL THEN 1 ELSE 0 END, ge.planted_date DESC""",
+            id_args,
+        ).fetchall()
+
+        zones = db.execute(
+            f"SELECT id, name FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC",
             id_args,
         ).fetchall()
 
@@ -2727,6 +2733,7 @@ def create_app() -> Flask:
                 if e["location_type"]: ln += f" [{e['location_type'].replace('_', ' ')}]"
                 if e["location_name"]: ln += f" in {e['location_name']}"
                 if e["planted_date"]: ln += f", planted {e['planted_date']}"
+                if e["zone_name"]: ln += f" [zone: {e['zone_name']}]"
                 if e["user_id"] != user_id: ln += " [partner's — read only]"
                 if e["notes"]: ln += f"\n    Notes: {e['notes']}"
                 for note_date, note_text in growth_notes.get(e["id"], []):
@@ -2737,21 +2744,23 @@ def create_app() -> Flask:
         else:
             entries_text = "  (no entries yet)"
 
+        zones_text = "\n".join(f"  - {z['name']} (ID {z['id']})" for z in zones) or "  (no zones yet)"
         system = (
             f"You are a concise assistant for an edible garden tracker. Today is {today}.\n\n"
-            f"Current garden entries (includes all notes, log entries, location types, and dates):\n{entries_text}\n\n"
+            f"Current garden entries (includes notes, log entries, location types, dates, and yard zone):\n{entries_text}\n\n"
+            f"Available yard zones:\n{zones_text}\n\n"
             "Answer questions using all the information provided above — notes and log entries contain details like "
             "soil amendments, fertilizers, observations, and other specifics the user has recorded. "
             "If the answer is in the notes or logs, use it. Only say you don't know something if it genuinely "
             "isn't recorded anywhere in the data above. "
-            "Help the user add plants, add notes, update details, or answer questions about their garden. "
+            "Help the user add plants, add notes, update details, assign or change yard zones, or answer questions about their garden. "
             "Entries marked [partner's — read only] belong to a shared garden partner — answer questions about them but do NOT call any tool on them. "
             "For bulk changes call the relevant tool once per entry. "
             "If a tool returns an error, skip that entry silently and continue with the remaining ones — do NOT apologise or stop early. "
             "Only mention a failure at the end if every single attempt failed. "
             "Keep replies short — just confirm what was done. "
             "If a plant name is ambiguous (multiple matches), list the options and ask which one. "
-            "Never mention entry IDs to the user — they are internal only. "
+            "Never mention entry IDs or zone IDs to the user — they are internal only. "
             "Always format dates for the user as 'Month Day' (e.g. 'May 17', never '2026-05-17'). "
             "Never use markdown bold (**text**) or other markdown in your replies."
         )
@@ -2769,6 +2778,7 @@ def create_app() -> Flask:
                         "location_name": {"type": "string", "description": "e.g. 'Raised bed 1'"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
                         "notes": {"type": "string"},
+                        "zone_name": {"type": "string", "description": "Name of an existing yard zone to assign this plant to"},
                     },
                     "required": ["plant_name"],
                 },
@@ -2799,6 +2809,18 @@ def create_app() -> Flask:
                         "location_name": {"type": "string"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
                         "notes": {"type": "string"},
+                    },
+                    "required": ["entry_id"],
+                },
+            },
+            {
+                "name": "set_entry_zone",
+                "description": "Assign or change the yard zone for an existing garden entry. Use zone_name to identify the zone, or omit it to remove the zone assignment.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "zone_name": {"type": "string", "description": "Name of the yard zone to assign. Omit or pass null to clear the zone."},
                     },
                     "required": ["entry_id"],
                 },
@@ -2837,11 +2859,20 @@ def create_app() -> Flask:
                             if not pname:
                                 result = {"error": "plant_name is required"}
                             else:
+                                zone_id_val = None
+                                zname = (inp.get("zone_name") or "").strip()
+                                if zname:
+                                    zrow = db.execute(
+                                        f"SELECT id FROM yard_zones WHERE user_id IN {ph} AND lower(name) = lower(?)",
+                                        (*id_args, zname),
+                                    ).fetchone()
+                                    if zrow:
+                                        zone_id_val = zrow["id"]
                                 now = datetime.utcnow().isoformat(timespec="seconds")
                                 row = db.execute(
                                     """INSERT INTO garden_entries
-                                    (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                                    (user_id, plant_name, variety, location_type, location_name, planted_date, notes, zone_id, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
                                     (
                                         user_id, pname,
                                         (inp.get("variety") or "").strip() or None,
@@ -2849,6 +2880,7 @@ def create_app() -> Flask:
                                         (inp.get("location_name") or "").strip() or None,
                                         _parse_date_to_iso((inp.get("planted_date") or "").strip(), today),
                                         (inp.get("notes") or "").strip() or None,
+                                        zone_id_val,
                                         now, now,
                                     ),
                                 ).fetchone()
@@ -2927,6 +2959,39 @@ def create_app() -> Flask:
                                         result = {"ok": True, "updated": [f for f in fields if f in inp]}
                                     else:
                                         result = {"error": "No fields to update"}
+                        elif block.name == "set_entry_zone":
+                            eid = inp.get("entry_id")
+                            if not eid:
+                                result = {"error": "entry_id is required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id, user_id FROM garden_entries WHERE id = ?", (eid,)
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} belongs to your garden partner and is read-only"}
+                                else:
+                                    zname = (inp.get("zone_name") or "").strip()
+                                    zone_id_val = None
+                                    if zname:
+                                        zrow = db.execute(
+                                            f"SELECT id FROM yard_zones WHERE user_id IN {ph} AND lower(name) = lower(?)",
+                                            (*id_args, zname),
+                                        ).fetchone()
+                                        if not zrow:
+                                            result = {"error": f"Zone '{zname}' not found — available zones: {', '.join(z['name'] for z in zones)}"}
+                                        else:
+                                            zone_id_val = zrow["id"]
+                                    if zone_id_val is not None or not zname:
+                                        db.execute(
+                                            "UPDATE garden_entries SET zone_id = ?, updated_at = ? WHERE id = ?",
+                                            (zone_id_val, datetime.utcnow().isoformat(timespec="seconds"), eid),
+                                        )
+                                        db.commit()
+                                        changed = True
+                                        result = {"ok": True, "zone_id": zone_id_val}
+
                         else:
                             result = {"error": f"Unknown tool: {block.name}"}
                     except Exception as exc:
