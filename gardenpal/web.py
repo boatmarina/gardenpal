@@ -254,7 +254,6 @@ def create_app() -> Flask:
             "version": "2026-06-d",
             "title": "Plant suggestions on your home screen",
             "body": "GardenPal now suggests an ornamental plant each time you log in, tailored to your location and existing collection. Tap to see photos, care details, and a one-tap add to your library.",
-            "draft": True,
         },
         {
             "version": "2026-06-c",
