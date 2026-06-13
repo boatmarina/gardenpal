@@ -101,7 +101,7 @@
 
     </div>
 
-    {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.plant_form or plant.height_category or plant.lookup_query %}
+    {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.plant_form or plant.height_category or plant.lookup_query or plant.water_needs or plant.deadheading or plant.deer_resistant %}
       <dl>
         {% if plant.lookup_query %}
           <dt>Query</dt>
@@ -132,6 +132,18 @@
           <dd>
             {{ plant.lifecycle or "" }}{% if plant.lifecycle and plant.evergreen_status %} · {% endif %}{{ plant.evergreen_status or "" }}
           </dd>
+        {% endif %}
+        {% if plant.water_needs %}
+          <dt>Water</dt>
+          <dd>{% if plant.water_needs == 'minimal' %}Drought tolerant{% elif plant.water_needs == 'frequent' %}Frequent{% else %}{{ plant.water_needs | capitalize }}{% endif %}</dd>
+        {% endif %}
+        {% if plant.deadheading %}
+          <dt>Deadhead</dt>
+          <dd>{% if plant.deadheading == 'yes' %}Recommended{% elif plant.deadheading == 'beneficial' %}Optional{% elif plant.deadheading == 'not needed' %}Not needed{% else %}{{ plant.deadheading | capitalize }}{% endif %}</dd>
+        {% endif %}
+        {% if plant.deer_resistant %}
+          <dt>Deer</dt>
+          <dd>{% if plant.deer_resistant == 'yes' %}Resistant{% elif plant.deer_resistant == 'somewhat' %}Somewhat resistant{% elif plant.deer_resistant == 'no' %}Not resistant{% else %}{{ plant.deer_resistant | capitalize }}{% endif %}</dd>
         {% endif %}
       </dl>
     {% endif %}

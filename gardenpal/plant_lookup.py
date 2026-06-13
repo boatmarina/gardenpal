@@ -150,6 +150,8 @@ def _make_details_prompt(query: str, location: Optional[str]) -> str:
         f'  "evergreen_status": "evergreen or deciduous or semi-evergreen {evergreen_note}",\n'
         '  "plant_form": "one of: tree, shrub, perennial, annual, climber, ground-cover, grass, fern, bulb, succulent, herb, bamboo — empty string if unknown",\n'
         '  "height_category": "low (under 2 ft) or medium (2–5 ft) or tall (5–13 ft) or large (13 ft+) — respond with just the key word: low, medium, tall, or large; empty string if unknown",\n'
+        '  "deadheading": "yes (recommended for best blooms) or beneficial (optional but helpful) or not needed — empty string if not applicable (non-flowering) or unknown",\n'
+        '  "deer_resistant": "yes or somewhat or no — empty string if unknown",\n'
         f'  "description": "1–2 sentence plain-English description: {desc_note}"\n'
         "}"
     )
@@ -501,6 +503,8 @@ def _lookup_via_claude(query: str, location: Optional[str] = None) -> Tuple[Opti
             "spreads":            "",
             "photo_url":          None,
             "description":        data.get("description") or "",
+            "deadheading":        data.get("deadheading") or "",
+            "deer_resistant":     data.get("deer_resistant") or "",
         }, None
     except json.JSONDecodeError as exc:
         return None, f"Claude response was not valid JSON: {exc}"
@@ -536,6 +540,8 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
             "size_info":          "",
             "spreads":            "",
             "photo_url":          photo_url,
+            "deadheading":        "",
+            "deer_resistant":     "",
         }
 
     # Ensure we have a photo — try progressively broader queries for cultivars

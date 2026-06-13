@@ -659,6 +659,9 @@ def create_app() -> Flask:
             "plant_form": "",
             "height_category": "",
             "description": "",
+            "water_needs": "",
+            "deadheading": "",
+            "deer_resistant": "",
             "active_mode": "name",
         }
 
@@ -684,6 +687,9 @@ def create_app() -> Flask:
                 "plant_form": request.form.get("plant_form", "").strip(),
                 "height_category": request.form.get("height_category", "").strip(),
                 "description": request.form.get("description", "").strip(),
+                "water_needs": request.form.get("water_needs", "").strip(),
+                "deadheading": request.form.get("deadheading", "").strip(),
+                "deer_resistant": request.form.get("deer_resistant", "").strip(),
                 "active_mode": request.form.get("active_mode", "name").strip(),
                 "pre_uploaded_image_path": request.form.get("pre_uploaded_image_path", "").strip(),
                 "photo_id_suggestions": request.form.get("photo_id_suggestions", "").strip(),
@@ -766,8 +772,8 @@ def create_app() -> Flask:
                 """
                 INSERT INTO plants
                 (user_id, name, scientific_name, lookup_query, source_type, source_note, image_path, label_photo_path,
-                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category, description, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 image_url, size_info, flowering_schedule, sun_exposure, lifecycle, lookup_status, notes, pnw_native, photo_urls, evergreen_status, plant_form, height_category, description, water_needs, deadheading, deer_resistant, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
                 (
@@ -792,6 +798,9 @@ def create_app() -> Flask:
                     form_values["plant_form"] or None,
                     form_values["height_category"] or None,
                     form_values["description"] or None,
+                    form_values["water_needs"] or None,
+                    form_values["deadheading"] or None,
+                    form_values["deer_resistant"] or None,
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             ).fetchone()["id"]
@@ -3660,6 +3669,9 @@ def init_db():
     ensure_column(db, "plants", "plant_form", "TEXT")
     ensure_column(db, "plants", "height_category", "TEXT")
     ensure_column(db, "plants", "description", "TEXT")
+    ensure_column(db, "plants", "water_needs", "TEXT")
+    ensure_column(db, "plants", "deadheading", "TEXT")
+    ensure_column(db, "plants", "deer_resistant", "TEXT")
     ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "users", "location", "TEXT")
     ensure_column(db, "users", "whats_new_seen", "TEXT")
@@ -4550,6 +4562,12 @@ def apply_lookup_to_form(form_values: dict, details: dict, use_common_name: bool
         form_values["height_category"] = hc
     if details.get("description"):
         form_values["description"] = details["description"]
+    if details.get("watering_needs"):
+        form_values["water_needs"] = details["watering_needs"]
+    if details.get("deadheading"):
+        form_values["deadheading"] = details["deadheading"]
+    if details.get("deer_resistant"):
+        form_values["deer_resistant"] = details["deer_resistant"]
     form_values["lookup_status"] = "draft"
 
 
