@@ -103,8 +103,8 @@
 
     {% if plant.size_info or plant.flowering_schedule or plant.sun_exposure or plant.lifecycle or plant.evergreen_status or plant.plant_form or plant.height_category or plant.lookup_query or plant.water_needs or plant.deadheading or plant.deer_resistant %}
       <dl>
-        {% if plant.lookup_query %}
-          <dt>Query</dt>
+        {% if plant.lookup_query and plant.lookup_query != plant.scientific_name %}
+          <dt>Also known as</dt>
           <dd>{{ plant.lookup_query }}</dd>
         {% endif %}
         {% if plant.plant_form %}
