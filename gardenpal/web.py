@@ -3347,8 +3347,9 @@ def create_app() -> Flask:
             """
             INSERT INTO plants
             (user_id, name, scientific_name, lookup_query, source_type, image_url,
-             sun_exposure, lifecycle, description, water_needs, plant_form, lookup_status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             sun_exposure, lifecycle, description, water_needs, plant_form,
+             size_info, flowering_schedule, lookup_status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             """,
             (
@@ -3363,6 +3364,8 @@ def create_app() -> Flask:
                 suggestion.get("description") or None,
                 water or None,
                 suggestion.get("plant_form") or None,
+                suggestion.get("size_info") or None,
+                suggestion.get("flowering_schedule") or None,
                 "draft",
                 datetime.utcnow().isoformat(timespec="seconds"),
             ),

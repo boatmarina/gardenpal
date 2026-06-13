@@ -41,11 +41,19 @@
     </div>
 
     <!-- Detail chips -->
-    {% if suggestion.sun_needs or suggestion.watering_needs or suggestion.lifecycle or suggestion.plant_form %}
+    {% if suggestion.sun_needs or suggestion.watering_needs or suggestion.lifecycle or suggestion.plant_form or suggestion.size_info or suggestion.flowering_schedule %}
     <dl>
       {% if suggestion.plant_form %}
         <dt>Form</dt>
         <dd>{{ suggestion.plant_form | replace("-", " ") | capitalize }}</dd>
+      {% endif %}
+      {% if suggestion.size_info %}
+        <dt>Size</dt>
+        <dd>{{ suggestion.size_info }}</dd>
+      {% endif %}
+      {% if suggestion.flowering_schedule %}
+        <dt>Flowering</dt>
+        <dd>{{ suggestion.flowering_schedule }}</dd>
       {% endif %}
       {% if suggestion.sun_needs %}
         <dt>Sun</dt>

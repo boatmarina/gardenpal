@@ -596,7 +596,9 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
         '  "sun_needs": "full-sun or part-sun or shade",\n'
         '  "watering_needs": "frequent or average or minimal",\n'
         '  "lifecycle": "annual or perennial or biennial",\n'
-        '  "plant_form": "tree or shrub or perennial or annual or climber or ground-cover or grass or fern or bulb or succulent or herb or bamboo"\n'
+        '  "plant_form": "tree or shrub or perennial or annual or climber or ground-cover or grass or fern or bulb or succulent or herb or bamboo",\n'
+        f'  "size_info": "typical height and spread, e.g. \'3–4 ft tall, 2–3 ft wide\'",\n'
+        f'  "flowering_schedule": "when it blooms in {loc}, e.g. \'July to September\' — empty string if non-flowering"\n'
         "}"
     )
 
@@ -604,7 +606,7 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
     try:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=400,
+            max_tokens=500,
             system=(
                 "You are a knowledgeable gardening advisor. "
                 "Respond ONLY with a valid JSON object — no markdown, no explanation, nothing else."
@@ -622,15 +624,17 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
             return None, "Unexpected response format"
 
         suggestion = {
-            "name":          data.get("name", ""),
-            "scientific_name": data.get("scientific_name", ""),
-            "description":   data.get("description", ""),
-            "why":           data.get("why", ""),
-            "sun_needs":     data.get("sun_needs", ""),
-            "watering_needs": data.get("watering_needs", ""),
-            "lifecycle":     data.get("lifecycle", ""),
-            "plant_form":    data.get("plant_form", ""),
-            "photo_url":     None,
+            "name":               data.get("name", ""),
+            "scientific_name":    data.get("scientific_name", ""),
+            "description":        data.get("description", ""),
+            "why":                data.get("why", ""),
+            "sun_needs":          data.get("sun_needs", ""),
+            "watering_needs":     data.get("watering_needs", ""),
+            "lifecycle":          data.get("lifecycle", ""),
+            "plant_form":         data.get("plant_form", ""),
+            "size_info":          data.get("size_info", ""),
+            "flowering_schedule": data.get("flowering_schedule", ""),
+            "photo_url":          None,
         }
 
         # Fetch a photo — try progressively simplified queries so cultivar/hybrid
