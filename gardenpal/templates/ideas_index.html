@@ -25,13 +25,20 @@
     </a>
   </section>
 
-  <!-- Always-visible search bar -->
+  <!-- Always-visible search bar + sort toggle -->
   <div class="library-search" style="margin-bottom:14px">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.45">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
     </svg>
     <input type="text" id="library-search-input" placeholder="Search plants…" autocomplete="off"
-           value="{{ active_filters.q }}" />
+           style="font-size:16px" value="{{ active_filters.q }}" />
+    <!-- Sort toggle: segmented control -->
+    <div style="display:flex;flex-shrink:0;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;margin-left:4px">
+      <button id="lib-sort-date" type="button"
+              style="font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#1C3829;color:#fff;white-space:nowrap">Date</button>
+      <button id="lib-sort-az" type="button"
+              style="font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap">A–Z</button>
+    </div>
   </div>
 
   <!-- Expandable filter panel -->
@@ -111,7 +118,7 @@
   {% if plants %}
     <div class="cards">
       {% for plant in plants %}
-        <article class="card" data-search="{{ plant.name | lower | e }} {{ (plant.scientific_name or '') | lower | e }}">
+        <article class="card" data-name="{{ plant.name | lower | e }}" data-search="{{ plant.name | lower | e }} {{ (plant.scientific_name or '') | lower | e }}">
           <a href="{{ url_for('idea_detail', plant_id=plant.id) }}" class="card-link">
             <div class="thumb">
               {% set first_photo = plant.photo_urls | first_photo %}
@@ -168,15 +175,15 @@
   var toggle = document.getElementById('filter-toggle');
   var panel  = document.getElementById('filter-panel');
   if (toggle && panel) {
-    toggle.addEventListener('click', function () {
-      panel.hidden = !panel.hidden;
-    });
+    toggle.addEventListener('click', function () { panel.hidden = !panel.hidden; });
   }
 
-  /* Client-side search — filter cards instantly, no page reload */
-  var searchInput = document.getElementById('library-search-input');
-  var cards = Array.from(document.querySelectorAll('.cards .card'));
-  var emptyMsg = document.getElementById('search-empty');
+  /* Cards + search */
+  var searchInput    = document.getElementById('library-search-input');
+  var cardsContainer = document.querySelector('.cards');
+  var cards          = Array.from(document.querySelectorAll('.cards .card'));
+  var originalOrder  = cards.slice();
+  var emptyMsg       = document.getElementById('search-empty');
 
   function filterCards() {
     var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
@@ -192,11 +199,42 @@
 
   if (searchInput) {
     searchInput.addEventListener('input', filterCards);
-    /* Run on load to apply any server-rendered ?q= value */
     filterCards();
   }
 
-  /* Tag filter pills — preserve other active params */
+  /* Sort toggle */
+  var SORT_KEY   = 'library_sort';
+  var sortDateBtn = document.getElementById('lib-sort-date');
+  var sortAzBtn   = document.getElementById('lib-sort-az');
+
+  var ACTIVE_STYLE   = 'font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#1C3829;color:#fff;white-space:nowrap';
+  var INACTIVE_STYLE = 'font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap';
+
+  var sortMode = 'date';
+  try { sortMode = sessionStorage.getItem(SORT_KEY) || 'date'; } catch(_) {}
+  if (sortMode !== 'date' && sortMode !== 'az') sortMode = 'date';
+
+  function applySort(mode) {
+    sortMode = mode;
+    try { sessionStorage.setItem(SORT_KEY, mode); } catch(_) {}
+    if (sortDateBtn) sortDateBtn.style.cssText = mode === 'date' ? ACTIVE_STYLE : INACTIVE_STYLE;
+    if (sortAzBtn)   sortAzBtn.style.cssText   = mode === 'az'   ? ACTIVE_STYLE : INACTIVE_STYLE;
+    if (!cardsContainer) return;
+    var ordered = mode === 'az'
+      ? cards.slice().sort(function(a, b) {
+          return (a.getAttribute('data-name') || '').localeCompare(b.getAttribute('data-name') || '');
+        })
+      : originalOrder.slice();
+    ordered.forEach(function(card) { cardsContainer.appendChild(card); });
+    filterCards();
+  }
+
+  if (sortDateBtn) sortDateBtn.addEventListener('click', function() { applySort('date'); });
+  if (sortAzBtn)   sortAzBtn.addEventListener('click',   function() { applySort('az'); });
+
+  applySort(sortMode);
+
+  /* Tag filter pills */
   document.querySelectorAll('.tag-filter-pill').forEach(function (pill) {
     pill.addEventListener('click', function (e) {
       e.preventDefault();
