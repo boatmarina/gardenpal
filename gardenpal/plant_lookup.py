@@ -633,11 +633,27 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
             "photo_url":     None,
         }
 
-        # Fetch a photo
-        for q in filter(None, [suggestion["scientific_name"], suggestion["name"]]):
-            photos = lookup_plant_photos(q, count=1)
-            if photos:
-                suggestion["photo_url"] = photos[0]
+        # Fetch a photo — try progressively simplified queries so cultivar/hybrid
+        # names that iNaturalist doesn't index still fall back to the species level.
+        sci = suggestion["scientific_name"]
+        queries_to_try: List[str] = []
+        if sci:
+            queries_to_try.append(sci)
+            # Strip cultivar: Anemone × hybrida 'Honorine Jobert' -> Anemone × hybrida
+            species = sci.split("'")[0].split('"')[0].strip()
+            if species and species != sci:
+                queries_to_try.append(species)
+            # Strip hybrid symbol: Anemone × hybrida -> Anemone hybrida
+            plain = species.replace("×", "").replace(" x ", " ").strip()
+            if plain and plain != species:
+                queries_to_try.append(plain)
+        if suggestion["name"]:
+            queries_to_try.append(suggestion["name"])
+
+        for q in queries_to_try:
+            _, _, photo_url = _lookup_via_inat(q)
+            if photo_url:
+                suggestion["photo_url"] = photo_url
                 break
 
         return suggestion, None
