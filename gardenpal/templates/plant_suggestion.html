@@ -10,17 +10,11 @@
 
   <article class="card detail">
 
-    <!-- Photos -->
-    <div id="suggestion-photos" class="photos-grid"
+    <!-- Photos — kept hidden; JS prepends seed then fills from API so renderPhotosInGrid owns all markup -->
+    <div id="suggestion-photos" class="photos-grid" hidden
          style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
          data-query="{{ (suggestion.scientific_name or suggestion.name) | e }}"
          data-seed="{{ suggestion.photo_url or '' }}">
-      {% if suggestion.photo_url %}
-      <img src="{{ suggestion.photo_url }}" alt="{{ suggestion.name }}"
-           style="cursor:zoom-in"
-           onclick="GP.openLightbox(this.src)"
-           onerror="this.style.display='none'" />
-      {% endif %}
     </div>
 
     <!-- Header -->
@@ -91,11 +85,15 @@
   var seed  = grid.dataset.seed;
   if (!query) return;
 
+  // Show seed immediately so there's no photo-less flash while the API loads
+  if (seed) GP.renderPhotosInGrid(grid, [seed], query);
+
   fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      var photos = (d.photos || []).filter(function(u) { return u !== seed; });
-      GP.renderPhotosInGrid(grid, photos, query);
+      var extras = (d.photos || []).filter(function(u) { return u !== seed; });
+      var all = seed ? [seed].concat(extras) : extras;
+      if (all.length) GP.renderPhotosInGrid(grid, all, query);
     })
     .catch(function() {});
 })();
