@@ -247,7 +247,31 @@ def _log_chat_error(db, user_id, username, user_message, error_type, error_detai
 
 
 def create_app() -> Flask:
-    WHATS_NEW_VERSION = "2025-06-b"  # bump this string to show the dialog again to all users
+    # Newest first. Add a new entry at the top when releasing a feature.
+    # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
+    WHATS_NEW_CHANGELOG = [
+        {
+            "version": "2026-06-c",
+            "title": "Ask AI on ornamental plants",
+            "body": "Every ornamental plant detail page now has an Ask AI panel at the bottom. Ask care questions, pruning tips, or anything about the plant — it knows your location and any notes you've logged.",
+        },
+        {
+            "version": "2026-06-b",
+            "title": "Garden assistant knows your zones",
+            "body": "The edibles garden assistant can now assign or change the yard zone for any plant. Try: \"Put my tomatoes in the Front Bed zone.\"",
+        },
+        {
+            "version": "2026-06-a",
+            "title": "Impersonate users (admin)",
+            "body": "Admins can now tap View As on any user's profile to see the app exactly as they see it, without logging out.",
+        },
+        {
+            "version": "2025-06-b",
+            "title": "Edible plants now in zones",
+            "body": "You can now assign edible garden plants to a yard zone. Head to any zone in the Yard tab and tap Add Edible — or assign a zone directly from a plant's detail page.",
+        },
+    ]
+    WHATS_NEW_VERSION = WHATS_NEW_CHANGELOG[0]["version"]
 
     app = Flask(__name__, instance_relative_config=True)
     upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
@@ -360,8 +384,21 @@ def create_app() -> Flask:
     @app.context_processor
     def inject_auth_user():
         user = g.get("user")
-        show_whats_new = bool(user) and not g.get("real_admin") and user.get("whats_new_seen") != WHATS_NEW_VERSION
-        return {"current_user": user, "show_whats_new": show_whats_new, "real_admin": g.get("real_admin")}
+        real_admin = g.get("real_admin")
+        whats_new_entries = []
+        if user and not real_admin:
+            seen = user.get("whats_new_seen")
+            seen_idx = next(
+                (i for i, e in enumerate(WHATS_NEW_CHANGELOG) if e["version"] == seen),
+                len(WHATS_NEW_CHANGELOG),
+            )
+            whats_new_entries = WHATS_NEW_CHANGELOG[:seen_idx][:5]
+        return {
+            "current_user": user,
+            "show_whats_new": bool(whats_new_entries),
+            "whats_new_entries": whats_new_entries,
+            "real_admin": real_admin,
+        }
 
     @app.route("/auth/signup", methods=["GET", "POST"])
     def signup():
