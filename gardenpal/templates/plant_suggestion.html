@@ -10,14 +10,18 @@
 
   <article class="card detail">
 
-    <!-- Photo -->
-    {% if suggestion.photo_url %}
-    <div style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;aspect-ratio:16/9;background:var(--bg)">
+    <!-- Photos -->
+    <div id="suggestion-photos" class="photos-grid"
+         style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
+         data-query="{{ (suggestion.scientific_name or suggestion.name) | e }}"
+         data-seed="{{ suggestion.photo_url or '' }}">
+      {% if suggestion.photo_url %}
       <img src="{{ suggestion.photo_url }}" alt="{{ suggestion.name }}"
-           style="width:100%;height:100%;object-fit:cover"
-           onerror="this.closest('div').style.display='none'" />
+           style="cursor:zoom-in"
+           onclick="GP.openLightbox(this.src)"
+           onerror="this.style.display='none'" />
+      {% endif %}
     </div>
-    {% endif %}
 
     <!-- Header -->
     <div class="detail-header">
@@ -68,4 +72,24 @@
     </div>
 
   </article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var grid  = document.getElementById('suggestion-photos');
+  if (!grid) return;
+  var query = grid.dataset.query;
+  var seed  = grid.dataset.seed;
+  if (!query) return;
+
+  fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var photos = (d.photos || []).filter(function(u) { return u !== seed; });
+      GP.renderPhotosInGrid(grid, photos, query);
+    })
+    .catch(function() {});
+})();
+</script>
 {% endblock %}
