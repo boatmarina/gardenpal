@@ -80,9 +80,9 @@
     <!-- Sort toggle -->
     <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px">
       <button id="sort-date" type="button"
-              style="font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--green-dark);background:var(--green-dark);color:#fff">Date</button>
+              style="font-size:0.72rem;font-weight:600;padding:4px 0;min-width:40px;text-align:center;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--green-dark);background:var(--green-dark);color:#fff">Date</button>
       <button id="sort-az" type="button"
-              style="font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:none;color:var(--muted)">A–Z</button>
+              style="font-size:0.72rem;font-weight:600;padding:4px 0;min-width:40px;text-align:center;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:none;color:var(--muted)">A–Z</button>
     </div>
   </div>
   <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
@@ -202,8 +202,8 @@
   /* All original timeline cards, captured before any DOM moves */
   var allCards = Array.from(document.querySelectorAll('.timeline-section .card[data-search]'));
 
-  var ACTIVE_STYLE   = 'font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--green-dark);background:var(--green-dark);color:#fff';
-  var INACTIVE_STYLE = 'font-size:0.72rem;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:none;color:var(--muted)';
+  var ACTIVE_STYLE   = 'font-size:0.72rem;font-weight:600;padding:4px 0;min-width:40px;text-align:center;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--green-dark);background:var(--green-dark);color:#fff';
+  var INACTIVE_STYLE = 'font-size:0.72rem;font-weight:600;padding:4px 0;min-width:40px;text-align:center;border-radius:999px;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:none;color:var(--muted)';
 
   function buildAzCards() {
     var sorted = allCards.slice().sort(function(a, b) {
