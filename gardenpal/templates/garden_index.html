@@ -69,7 +69,7 @@
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input id="garden-search" type="search" placeholder="Search plants…" autocomplete="off"
-             style="flex:1;border:none;background:none;font-size:0.88rem;color:var(--fg);outline:none;min-width:0;padding:0" />
+             style="flex:1;border:none;background:none;font-size:16px;color:var(--fg);outline:none;min-width:0;padding:0" />
       <button id="garden-search-clear" type="button" hidden
               style="flex-shrink:0;background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -78,11 +78,11 @@
       </button>
     </div>
     <!-- Sort toggle: segmented control -->
-    <div style="display:flex;flex-shrink:0;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:2px;gap:2px;margin-right:8px">
+    <div style="display:flex;flex-shrink:0;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;margin-right:8px">
       <button id="sort-date" type="button"
-              style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:var(--green-dark);color:#fff;white-space:nowrap">Date</button>
+              style="font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#1C3829;color:#fff;white-space:nowrap">Date</button>
       <button id="sort-az" type="button"
-              style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap">A–Z</button>
+              style="font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap">A–Z</button>
     </div>
   </div>
   <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
@@ -202,8 +202,8 @@
   /* All original timeline cards, captured before any DOM moves */
   var allCards = Array.from(document.querySelectorAll('.timeline-section .card[data-search]'));
 
-  var ACTIVE_STYLE   = 'font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:var(--green-dark);color:#fff;white-space:nowrap';
-  var INACTIVE_STYLE = 'font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap';
+  var ACTIVE_STYLE   = 'font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#1C3829;color:#fff;white-space:nowrap';
+  var INACTIVE_STYLE = 'font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap';
 
   function buildAzCards() {
     var sorted = allCards.slice().sort(function(a, b) {
