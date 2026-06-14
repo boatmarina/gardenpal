@@ -121,9 +121,15 @@
         {% endif %}
         <form method="post" action="{{ url_for('garden_plan_fertilize', entry_id=entry.id) }}"
               style="display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+            Update last fertilized date
+            <input type="date" name="last_fertilized_date"
+                   value="{{ entry.last_fertilized_date or '' }}"
+                   style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+          </label>
           <div id="plan-date-section" {% if next_fertilization.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:8px">
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Plan a different date
+              Update next fertilization date
               <input type="date" name="planned_date"
                      value="{{ next_fertilization.planned_date or '' }}"
                      style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
