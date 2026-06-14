@@ -17,7 +17,7 @@ from flask import Flask, Response, flash, g, jsonify, redirect, render_template,
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, generate_plant_suggestion, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
+from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, fetch_photos_for_suggestion, generate_plant_suggestion, generate_plant_suggestions_batch, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -4164,45 +4164,71 @@ def create_app() -> Flask:
         user_id = g.user["id"]
         ids = _shared_user_ids(db, user_id)
         ph, id_args = _in_ids(ids)
-        ornamental_rows = db.execute(
-            f"SELECT name FROM plants WHERE user_id IN {ph} ORDER BY created_at DESC LIMIT 40",
-            id_args,
-        ).fetchall()
-        edible_rows = db.execute(
-            f"SELECT DISTINCT plant_name FROM garden_entries WHERE user_id IN {ph} ORDER BY plant_name LIMIT 30",
-            id_args,
-        ).fetchall()
-        # Which ornamentals are actively placed in a yard zone (actually planted)
-        zone_rows = db.execute(
-            f"SELECT DISTINCT plant_name FROM yard_plants WHERE user_id IN {ph}",
-            id_args,
-        ).fetchall()
-        ornamental_names = [r["name"] for r in ornamental_rows]
-        edible_names = [r["plant_name"] for r in edible_rows]
-        planted_in_zone = set(r["plant_name"] for r in zone_rows)
-        planted_ornamental_names = [n for n in ornamental_names if n in planted_in_zone]
-        location = g.user.get("location") or ""
-        history_row = db.execute("SELECT suggestion_history FROM users WHERE id = ?", (user_id,)).fetchone()
-        history_json = (history_row["suggestion_history"] if history_row else None) or "[]"
+
+        user_row = db.execute(
+            "SELECT suggestion_history, suggestion_queue FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
         try:
-            recent_suggestions = json.loads(history_json)
+            recent_suggestions = json.loads((user_row["suggestion_history"] if user_row else None) or "[]")
             if not isinstance(recent_suggestions, list):
                 recent_suggestions = []
         except Exception:
             recent_suggestions = []
-        suggestion, err = generate_plant_suggestion(
-            location, ornamental_names, edible_names,
-            recent_suggestions=recent_suggestions,
-            planted_ornamental_names=planted_ornamental_names,
-        )
-        if err or not suggestion:
-            return jsonify(error=err or "Could not generate suggestion"), 500
-        recent_suggestions.append(suggestion["name"])
-        db.execute(
-            "UPDATE users SET suggestion_history = ? WHERE id = ?",
-            (json.dumps(recent_suggestions[-5:]), user_id),
-        )
-        db.commit()
+        try:
+            queue = json.loads((user_row["suggestion_queue"] if user_row else None) or "[]")
+            if not isinstance(queue, list):
+                queue = []
+        except Exception:
+            queue = []
+
+        if queue:
+            # Pop the next queued suggestion and fetch its photos
+            raw = queue.pop(0)
+            db.execute(
+                "UPDATE users SET suggestion_queue = ? WHERE id = ?",
+                (json.dumps(queue), user_id),
+            )
+            db.commit()
+            suggestion = fetch_photos_for_suggestion(raw)
+        else:
+            # Queue empty — generate a fresh batch of 5
+            ornamental_rows = db.execute(
+                f"SELECT name FROM plants WHERE user_id IN {ph} ORDER BY created_at DESC LIMIT 40",
+                id_args,
+            ).fetchall()
+            edible_rows = db.execute(
+                f"SELECT DISTINCT plant_name FROM garden_entries WHERE user_id IN {ph} ORDER BY plant_name LIMIT 30",
+                id_args,
+            ).fetchall()
+            zone_rows = db.execute(
+                f"SELECT DISTINCT plant_name FROM yard_plants WHERE user_id IN {ph}",
+                id_args,
+            ).fetchall()
+            ornamental_names = [r["name"] for r in ornamental_rows]
+            edible_names = [r["plant_name"] for r in edible_rows]
+            planted_in_zone = set(r["plant_name"] for r in zone_rows)
+            planted_ornamental_names = [n for n in ornamental_names if n in planted_in_zone]
+            location = g.user.get("location") or ""
+
+            batch, err = generate_plant_suggestions_batch(
+                location, ornamental_names, edible_names,
+                recent_suggestions=recent_suggestions,
+                planted_ornamental_names=planted_ornamental_names,
+                count=5,
+            )
+            if err or not batch:
+                return jsonify(error=err or "Could not generate suggestion"), 500
+
+            # Record all 5 names in history, store 4 in queue, use 1 now
+            new_names = [s["name"] for s in batch]
+            recent_suggestions = (recent_suggestions + new_names)[-10:]
+            db.execute(
+                "UPDATE users SET suggestion_history = ?, suggestion_queue = ? WHERE id = ?",
+                (json.dumps(recent_suggestions), json.dumps(batch[1:]), user_id),
+            )
+            db.commit()
+            suggestion = fetch_photos_for_suggestion(batch[0])
+
         session["plant_suggestion"] = suggestion
         session.modified = True
         return jsonify(suggestion)
@@ -4646,6 +4672,7 @@ def init_db():
     ensure_column(db, "users", "location", "TEXT")
     ensure_column(db, "users", "whats_new_seen", "TEXT")
     ensure_column(db, "users", "suggestion_history", "TEXT")
+    ensure_column(db, "users", "suggestion_queue", "TEXT")
     ensure_column(db, "garden_shares", "confirmed", "INTEGER NOT NULL DEFAULT 1")
     ensure_column(db, "garden_shares", "requested_by", "INTEGER")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")

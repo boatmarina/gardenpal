@@ -602,33 +602,26 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
 # Plant suggestion (home screen "you might like")
 # ---------------------------------------------------------------------------
 
-def generate_plant_suggestion(
-    location: Optional[str],
+def _build_suggestion_context(
+    loc: str,
     existing_names: List[str],
-    edible_names: Optional[List[str]] = None,
-    recent_suggestions: Optional[List[str]] = None,
-    planted_ornamental_names: Optional[List[str]] = None,
-) -> Tuple[Optional[Dict], Optional[str]]:
-    """Return (suggestion_dict, error). suggestion_dict includes photo_url.
-
-    planted_ornamental_names: ornamentals actually placed in a yard zone (actively growing).
-    existing_names: all library ornamentals (planted + library-only saves).
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        return None, "ANTHROPIC_API_KEY not set"
-
-    loc = (location or "").strip() or "Pacific Northwest"
+    edible_names: Optional[List[str]],
+    recent_suggestions: Optional[List[str]],
+    planted_ornamental_names: Optional[List[str]],
+    count: int,
+) -> str:
+    """Build the shared context paragraph used by both single and batch suggestion prompts."""
     has_ornamentals = bool(existing_names)
     has_edibles = bool(edible_names)
     edibles_str = ", ".join((edible_names or [])[:30]) if has_edibles else ""
+    noun = "ONE ornamental plant" if count == 1 else f"exactly {count} distinct ornamental plants"
 
     if not has_ornamentals and not has_edibles:
         context = (
             f"The user lives in {loc} and is just getting started — they have no plants yet.\n\n"
-            f"Suggest ONE popular, easy-to-grow ornamental perennial flower that is commonly "
-            f"sold at garden centres in {loc} and thrives there. Choose something widely available "
-            f"and rewarding for a beginner."
+            f"Suggest {noun} that are popular, easy-to-grow ornamental perennial flowers "
+            f"commonly sold at garden centres in {loc} and thriving there. "
+            f"Choose something widely available and rewarding for a beginner."
         )
     else:
         context = f"The user lives in {loc}.\n"
@@ -653,7 +646,7 @@ def generate_plant_suggestion(
         if edibles_str:
             context += f"Their edible garden includes: {edibles_str}.\n"
         context += (
-            "\nSuggest ONE ornamental plant they don't already have (not in their planted garden or wishlist). "
+            f"\nSuggest {noun} they don't already have (not in their planted garden or wishlist). "
             "If their edible garden includes plants that have good companion flowers "
             "(e.g. flowers that attract pollinators, repel pests, or look beautiful alongside vegetables), "
             "favour those — otherwise complement what they already grow. "
@@ -663,34 +656,113 @@ def generate_plant_suggestion(
     if recent_suggestions:
         context += (
             f"\n\nRecently suggested (DO NOT suggest any of these or anything closely related): "
-            f"{', '.join(recent_suggestions[:5])}. "
+            f"{', '.join(recent_suggestions[:10])}. "
             f"Choose something meaningfully different in type, colour, or season."
         )
+    return context
 
+
+def fetch_photos_for_suggestion(suggestion: Dict) -> Dict:
+    """Fetch iNaturalist photos for a suggestion dict in-place; returns the updated dict."""
+    suggestion.setdefault("photo_url", None)
+    suggestion.setdefault("photo_urls", [])
+    suggestion.setdefault("taxon_id", None)
+
+    sci = suggestion.get("scientific_name", "")
+    queries_to_try: List[str] = []
+    if sci:
+        queries_to_try.append(sci)
+        species = sci.split("'")[0].split('"')[0].strip()
+        if species and species != sci:
+            queries_to_try.append(species)
+        plain = species.replace("×", "").replace(" x ", " ").strip()
+        if plain and plain != species:
+            queries_to_try.append(plain)
+    if suggestion.get("name"):
+        queries_to_try.append(suggestion["name"])
+
+    for q in queries_to_try:
+        _, _, taxon_default_url, taxon_id = _lookup_via_inat(q)
+        if taxon_id:
+            suggestion["taxon_id"] = taxon_id
+            obs = lookup_plant_photos("", count=6, taxon_id=taxon_id)
+            if obs:
+                suggestion["photo_urls"] = obs
+                suggestion["photo_url"] = obs[0]
+                break
+            if taxon_default_url:
+                suggestion["photo_url"] = taxon_default_url
+                break
+        elif taxon_default_url:
+            suggestion["photo_url"] = taxon_default_url
+            break
+
+    return suggestion
+
+
+def _parse_suggestion_dict(data: Dict, loc: str) -> Dict:
+    return {
+        "name":               data.get("name", ""),
+        "scientific_name":    data.get("scientific_name", ""),
+        "description":        data.get("description", ""),
+        "why":                data.get("why", ""),
+        "sun_needs":          data.get("sun_needs", ""),
+        "watering_needs":     data.get("watering_needs", ""),
+        "lifecycle":          data.get("lifecycle", ""),
+        "plant_form":         data.get("plant_form", ""),
+        "size_info":          data.get("size_info", ""),
+        "flowering_schedule": data.get("flowering_schedule", ""),
+        "photo_url":          None,
+        "photo_urls":         [],
+        "taxon_id":           None,
+    }
+
+
+_SUGGESTION_FIELDS = (
+    '  "name": "common English name (include cultivar if applicable)",\n'
+    '  "scientific_name": "Genus species or Genus species \'Cultivar\'",\n'
+    '  "description": "2 sentences: what it looks like and what makes it special.",\n'
+    '  "why": "1 sentence explaining why it suits this garden and thrives in {loc}.",\n'
+    '  "sun_needs": "full-sun or part-sun or shade",\n'
+    '  "watering_needs": "frequent or average or minimal",\n'
+    '  "lifecycle": "annual or perennial or biennial",\n'
+    '  "plant_form": "tree or shrub or perennial or annual or climber or ground-cover or grass or fern or bulb or succulent or herb or bamboo",\n'
+    '  "size_info": "typical height and spread, e.g. \'3–4 ft tall, 2–3 ft wide\'",\n'
+    '  "flowering_schedule": "when it blooms in {loc}, e.g. \'July to September\' — empty string if non-flowering"\n'
+)
+
+
+def generate_plant_suggestions_batch(
+    location: Optional[str],
+    existing_names: List[str],
+    edible_names: Optional[List[str]] = None,
+    recent_suggestions: Optional[List[str]] = None,
+    planted_ornamental_names: Optional[List[str]] = None,
+    count: int = 5,
+) -> Tuple[Optional[List[Dict]], Optional[str]]:
+    """Generate `count` suggestions in a single Claude call. Returns (list_of_dicts, error).
+    Dicts do NOT include photos — call fetch_photos_for_suggestion() separately."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        return None, "ANTHROPIC_API_KEY not set"
+
+    loc = (location or "").strip() or "Pacific Northwest"
+    context = _build_suggestion_context(loc, existing_names, edible_names, recent_suggestions, planted_ornamental_names, count)
+    fields = _SUGGESTION_FIELDS.replace("{loc}", loc)
     prompt = (
-        context + "\n\nReturn ONLY a JSON object:\n"
-        "{\n"
-        '  "name": "common English name (include cultivar if applicable)",\n'
-        '  "scientific_name": "Genus species or Genus species \'Cultivar\'",\n'
-        '  "description": "2 sentences: what it looks like and what makes it special.",\n'
-        f'  "why": "1 sentence explaining why it suits this garden and thrives in {loc}.",\n'
-        '  "sun_needs": "full-sun or part-sun or shade",\n'
-        '  "watering_needs": "frequent or average or minimal",\n'
-        '  "lifecycle": "annual or perennial or biennial",\n'
-        '  "plant_form": "tree or shrub or perennial or annual or climber or ground-cover or grass or fern or bulb or succulent or herb or bamboo",\n'
-        f'  "size_info": "typical height and spread, e.g. \'3–4 ft tall, 2–3 ft wide\'",\n'
-        f'  "flowering_schedule": "when it blooms in {loc}, e.g. \'July to September\' — empty string if non-flowering"\n'
-        "}"
+        context + f"\n\nReturn ONLY a JSON array of exactly {count} objects, each with these fields:\n"
+        "[\n  {\n" + fields + "  },\n  ...\n]\n"
+        "All plants must be distinct. Respond ONLY with valid JSON — no explanation, nothing else."
     )
 
-    client = anthropic.Anthropic(api_key=api_key, timeout=10.0)
+    client = anthropic.Anthropic(api_key=api_key, timeout=20.0)
     try:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=500,
+            max_tokens=count * 400,
             system=(
                 "You are a knowledgeable gardening advisor. "
-                "Respond ONLY with a valid JSON object — no markdown, no explanation, nothing else."
+                "Respond ONLY with a valid JSON array — no markdown, no explanation, nothing else."
             ),
             messages=[{"role": "user", "content": prompt}],
         )
@@ -701,59 +773,12 @@ def generate_plant_suggestion(
                 text = text[4:]
             text = text.strip()
         data = json.loads(text)
-        if not isinstance(data, dict) or not data.get("name"):
+        if not isinstance(data, list) or not data:
             return None, "Unexpected response format"
-
-        suggestion = {
-            "name":               data.get("name", ""),
-            "scientific_name":    data.get("scientific_name", ""),
-            "description":        data.get("description", ""),
-            "why":                data.get("why", ""),
-            "sun_needs":          data.get("sun_needs", ""),
-            "watering_needs":     data.get("watering_needs", ""),
-            "lifecycle":          data.get("lifecycle", ""),
-            "plant_form":         data.get("plant_form", ""),
-            "size_info":          data.get("size_info", ""),
-            "flowering_schedule": data.get("flowering_schedule", ""),
-            "photo_url":          None,
-            "photo_urls":         [],
-            "taxon_id":           None,
-        }
-
-        # Fetch photos — try progressively simplified queries so cultivar/hybrid
-        # names that iNaturalist doesn't index still fall back to the species level.
-        # Fetch 6 photos upfront so the detail page can use them from the session
-        # without an additional API round-trip.
-        sci = suggestion["scientific_name"]
-        queries_to_try: List[str] = []
-        if sci:
-            queries_to_try.append(sci)
-            species = sci.split("'")[0].split('"')[0].strip()
-            if species and species != sci:
-                queries_to_try.append(species)
-            plain = species.replace("×", "").replace(" x ", " ").strip()
-            if plain and plain != species:
-                queries_to_try.append(plain)
-        if suggestion["name"]:
-            queries_to_try.append(suggestion["name"])
-
-        for q in queries_to_try:
-            _, _, taxon_default_url, taxon_id = _lookup_via_inat(q)
-            if taxon_id:
-                suggestion["taxon_id"] = taxon_id
-                obs = lookup_plant_photos("", count=6, taxon_id=taxon_id)
-                if obs:
-                    suggestion["photo_urls"] = obs
-                    suggestion["photo_url"] = obs[0]
-                    break
-                if taxon_default_url:
-                    suggestion["photo_url"] = taxon_default_url
-                    break
-            elif taxon_default_url:
-                suggestion["photo_url"] = taxon_default_url
-                break
-
-        return suggestion, None
+        results = [_parse_suggestion_dict(d, loc) for d in data if isinstance(d, dict) and d.get("name")]
+        if not results:
+            return None, "No valid suggestions in response"
+        return results, None
 
     except json.JSONDecodeError as exc:
         return None, f"Invalid JSON from Claude: {exc}"
@@ -761,3 +786,19 @@ def generate_plant_suggestion(
         return None, f"Claude API error: {exc}"
     except Exception as exc:
         return None, f"Suggestion failed: {exc}"
+
+
+def generate_plant_suggestion(
+    location: Optional[str],
+    existing_names: List[str],
+    edible_names: Optional[List[str]] = None,
+    recent_suggestions: Optional[List[str]] = None,
+    planted_ornamental_names: Optional[List[str]] = None,
+) -> Tuple[Optional[Dict], Optional[str]]:
+    """Return (suggestion_dict_with_photos, error). Kept for backward compatibility."""
+    results, err = generate_plant_suggestions_batch(
+        location, existing_names, edible_names, recent_suggestions, planted_ornamental_names, count=1
+    )
+    if err or not results:
+        return None, err or "No suggestion returned"
+    return fetch_photos_for_suggestion(results[0]), None
