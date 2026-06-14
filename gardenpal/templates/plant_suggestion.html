@@ -12,12 +12,7 @@
 
     <!-- Photos — pre-fetched at suggestion time; stored in session and used directly -->
     <div id="suggestion-photos" class="photos-grid" hidden
-         style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
-         data-query="{{ (suggestion.scientific_name or suggestion.name) | e }}"
-         data-name="{{ suggestion.name | e }}"
-         data-seed="{{ suggestion.photo_url or '' }}"
-         data-taxon-id="{{ suggestion.taxon_id or '' }}"
-         data-stored-photos="{{ (suggestion.photo_urls or []) | tojson | e }}">
+         style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px">
     </div>
 
     <!-- Photo debug panel -->
@@ -90,20 +85,30 @@
 
 {% block scripts %}
 <script>
+window._GP_suggestion = {
+  name:     {{ suggestion.name | tojson }},
+  query:    {{ (suggestion.scientific_name or suggestion.name) | tojson }},
+  seed:     {{ (suggestion.photo_url or '') | tojson }},
+  taxonId:  {{ (suggestion.taxon_id or '') | tojson }},
+  photos:   {{ (suggestion.photo_urls or []) | tojson }}
+};
+</script>
+<script>
 (function () {
-  var grid  = document.getElementById('suggestion-photos');
-  var dbg   = document.getElementById('debug-js');
+  var s    = window._GP_suggestion || {};
+  var grid = document.getElementById('suggestion-photos');
+  var dbg  = document.getElementById('debug-js');
   function log(msg) { if (dbg) dbg.textContent = 'JS: ' + msg; }
 
   if (!grid) { log('grid element not found'); return; }
-  var query = grid.dataset.query || '';
-  var name  = grid.dataset.name || '';
-  var seed  = grid.dataset.seed || '';
 
-  var stored = [];
-  try { stored = JSON.parse(grid.dataset.storedPhotos || '[]'); } catch(e) { log('JSON parse error: ' + e); return; }
+  var stored  = s.photos  || [];
+  var seed    = s.seed    || '';
+  var name    = s.name    || '';
+  var query   = s.query   || '';
+  var taxonId = s.taxonId || '';
 
-  log('parsed ' + stored.length + ' stored photo(s); seed=' + (seed ? 'yes' : 'no'));
+  log('have ' + stored.length + ' stored; seed=' + (seed ? 'yes' : 'no') + '; taxon=' + (taxonId || 'none'));
 
   if (stored.length) {
     GP.renderPhotosInGrid(grid, stored, name || query);
@@ -118,17 +123,16 @@
     log('no stored photos, no seed — trying API…');
   }
 
-  if (!query && !grid.dataset.taxonId) { log('no stored, no seed, no query/taxon — nothing to show'); return; }
+  if (!query && !taxonId) { log('no stored, no seed, no query/taxon — nothing to show'); return; }
 
-  var taxonId = grid.dataset.taxonId || '';
-  var primaryUrl = taxonId
+  var apiUrl = taxonId
     ? '/api/plant-photos?taxon_id=' + encodeURIComponent(taxonId) + '&count=6'
     : '/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6';
 
-  fetch(primaryUrl)
+  fetch(apiUrl)
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      var photos = (d.photos || []);
+      var photos = d.photos || [];
       log('API returned ' + photos.length + ' photo(s)');
       if (!photos.length) return;
       var all = seed ? [seed].concat(photos.filter(function(u) { return u !== seed; })) : photos;
