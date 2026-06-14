@@ -1628,7 +1628,7 @@ def create_app() -> Flask:
             return day_data.setdefault(day_str, {
                 "logins": 0, "plant_entries": [], "yard_entries": [],
                 "zones": [], "garden_entries": [], "chat_queries": [],
-                "garden_notes": [], "tags": [],
+                "garden_notes": [], "tags": [], "suggestion_adds": [],
                 "_sp": set(), "_sy": set(),
             })
 
@@ -1659,6 +1659,8 @@ def create_app() -> Flask:
                 d["chat_queries"].append(name)
             elif act == "tag_applied":
                 d["tags"].append(name)
+            elif act == "suggestion_added" and name not in d.get("suggestion_adds", []):
+                d.setdefault("suggestion_adds", []).append(name)
 
         note_rows = db.execute(
             "SELECT gp.created_at, gp.image_path, gp.is_fertilization, gp.fertilizer_type,"
@@ -1693,6 +1695,7 @@ def create_app() -> Flask:
                 date_label = day_date.strftime("%a %b %-d")
             entry = {k: v for k, v in day_data[day_str].items() if not k.startswith("_")}
             entry["date_label"] = date_label
+            entry["day_str"] = day_str
             week_activity.append(entry)
 
         return {
@@ -1730,8 +1733,15 @@ def create_app() -> Flask:
                 "SELECT username, context, plant_name, user_message, logged_at"
                 " FROM ai_chat_log ORDER BY logged_at DESC LIMIT 300"
             ).fetchall()
+            suggestion_adds = db.execute(
+                "SELECT al.item_name, al.logged_at, u.username"
+                " FROM activity_log al JOIN users u ON u.id = al.user_id"
+                " WHERE al.action = 'suggestion_added'"
+                " ORDER BY al.logged_at DESC LIMIT 100"
+            ).fetchall()
         else:
             ai_chat_entries = []
+            suggestion_adds = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -1747,6 +1757,7 @@ def create_app() -> Flask:
                                perenual_log=perenual_log,
                                chat_error_log=chat_error_log,
                                ai_chat_entries=ai_chat_entries,
+                               suggestion_adds=suggestion_adds,
                                garden_shares=garden_shares,
                                garden_shares_in=garden_shares_in,
                                garden_shares_out=garden_shares_out,
@@ -3470,8 +3481,6 @@ def create_app() -> Flask:
     @app.route("/api/home-chat", methods=["POST"])
     @login_required
     def home_chat():
-        if not _feature_home_assistant(g.user):
-            return jsonify(error="Not available."), 403
         try:
             import anthropic as _anthropic
         except ImportError:
@@ -3985,6 +3994,8 @@ def create_app() -> Flask:
                 datetime.utcnow().isoformat(timespec="seconds"),
             ),
         ).fetchone()["id"]
+        db.commit()
+        _log_activity(db, user_id, "suggestion_added", suggestion["name"])
         db.commit()
         session.pop("plant_suggestion", None)
         session.modified = True
@@ -5079,8 +5090,8 @@ def _feature_fertilization(user):
 
 
 def _feature_home_assistant(user):
-    """Feature flag: home-screen garden assistant. Admin-only early access."""
-    return bool((user or {}).get("is_admin") and (user or {}).get("username") == "boatmarina")
+    """Home-screen garden assistant — available to all users."""
+    return True
 
 
 def _feature_garden_zones(user):

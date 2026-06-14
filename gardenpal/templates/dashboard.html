@@ -45,17 +45,33 @@
     </a>
   </div>
 
-  {% if feature_home_assistant %}
   <!-- Home garden assistant -->
   <div class="card" style="padding:0;margin-bottom:20px;overflow:hidden">
     <button id="home-chat-toggle" type="button"
-            style="width:100%;display:flex;align-items:center;gap:9px;padding:13px 16px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--fg);text-align:left">
+            style="width:100%;display:flex;align-items:center;gap:9px;padding:13px 16px 10px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--fg);text-align:left">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
       Ask your garden assistant
       <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
     </button>
+    <div id="home-chat-examples" style="padding:0 14px 13px;display:flex;flex-wrap:wrap;gap:6px">
+      <button type="button" class="home-chat-chip"
+              data-msg="Add zucchini variety 'Black Beauty' to my edibles, planted today in raised bed 1"
+              style="font-size:0.73rem;font-family:inherit;padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">
+        Add zucchini to raised bed…
+      </button>
+      <button type="button" class="home-chat-chip"
+              data-msg="Add a note to my rose that it's starting to bloom"
+              style="font-size:0.73rem;font-family:inherit;padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">
+        Note on an ornamental…
+      </button>
+      <button type="button" class="home-chat-chip"
+              data-msg="When should I fertilize my tomatoes, and what type of fertilizer works best?"
+              style="font-size:0.73rem;font-family:inherit;padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">
+        When to fertilize tomatoes?
+      </button>
+    </div>
     <div id="home-chat-panel" hidden>
       <div id="home-chat-messages" style="padding:4px 14px 10px;display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto"></div>
       <div style="display:flex;gap:8px;padding:10px 14px 14px;border-top:1px solid var(--border);align-items:flex-end">
@@ -71,7 +87,6 @@
       </div>
     </div>
   </div>
-  {% endif %}
 
   <div class="action-cards" style="grid-template-columns:repeat(3,1fr)">
     <a href="{{ url_for('new_idea') }}" class="action-card dark">
@@ -168,12 +183,12 @@
 })();
 </script>
 
-{% if feature_home_assistant %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var toggle   = document.getElementById('home-chat-toggle');
   var panel    = document.getElementById('home-chat-panel');
   var chevron  = document.getElementById('home-chat-chevron');
+  var examples = document.getElementById('home-chat-examples');
   var messages = document.getElementById('home-chat-messages');
   var input    = document.getElementById('home-chat-input');
   var sendBtn  = document.getElementById('home-chat-send');
@@ -189,9 +204,29 @@ document.addEventListener('DOMContentLoaded', function() {
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({open: isOpen, history: history.slice(-20)})); } catch(_) {}
   }
 
-  function openPanel() { panel.hidden = false; chevron.style.transform = 'rotate(180deg)'; isOpen = true; save(); }
-  function closePanel() { panel.hidden = true;  chevron.style.transform = '';              isOpen = false; save(); }
+  function openPanel() {
+    panel.hidden = false;
+    if (examples) examples.hidden = true;
+    chevron.style.transform = 'rotate(180deg)';
+    isOpen = true; save();
+  }
+  function closePanel() {
+    panel.hidden = true;
+    if (examples) examples.hidden = false;
+    chevron.style.transform = '';
+    isOpen = false; save();
+  }
   toggle.addEventListener('click', function() { if (panel.hidden) openPanel(); else closePanel(); });
+
+  document.querySelectorAll('.home-chat-chip').forEach(function(chip) {
+    chip.addEventListener('click', function(e) {
+      e.stopPropagation();
+      input.value = chip.dataset.msg || '';
+      openPanel();
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    });
+  });
 
   function bubble(role, text) {
     var div = document.createElement('div');
@@ -266,5 +301,4 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
-{% endif %}
 {% endblock %}
