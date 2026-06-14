@@ -94,7 +94,7 @@ window._GP_suggestion = {
 };
 </script>
 <script>
-(function () {
+document.addEventListener('DOMContentLoaded', function () {
   var s    = window._GP_suggestion || {};
   var grid = document.getElementById('suggestion-photos');
   var dbg  = document.getElementById('debug-js');
@@ -139,6 +139,6 @@ window._GP_suggestion = {
       if (all.length) GP.renderPhotosInGrid(grid, all, name || query);
     })
     .catch(function(e) { log('API fetch failed: ' + e); });
-})();
+});
 </script>
 {% endblock %}
