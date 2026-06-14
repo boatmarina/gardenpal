@@ -76,6 +76,41 @@
     </div>
   </div>
 
+  {% if ff_fert and fert_alerts %}
+  <div style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Fertilization due</span>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      {% for alert in fert_alerts %}
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+        <div style="flex:1;min-width:0">
+          <a href="{{ url_for('garden_detail', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_detail', plant_id=alert.id) }}"
+             style="font-size:0.88rem;font-weight:600;color:var(--fg);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</a>
+          <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          {% if alert.overdue %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;white-space:nowrap">Overdue</span>
+          {% else %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFF3E0;color:#C15400;border:1px solid #FFB74D;white-space:nowrap">Due {{ alert.date | planted_date }}</span>
+          {% endif %}
+          <form method="post" action="{{ url_for('fert_never') }}" style="margin:0">
+            <input type="hidden" name="kind" value="{{ alert.kind }}" />
+            <input type="hidden" name="id" value="{{ alert.id }}" />
+            <button type="submit" title="I don't plan to fertilize this plant"
+                    style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap">Skip</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="action-cards" style="grid-template-columns:repeat(3,1fr)">
     <a href="{{ url_for('new_idea') }}" class="action-card">
       <div class="action-card-icon">

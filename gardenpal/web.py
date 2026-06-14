@@ -528,6 +528,38 @@ def create_app() -> Flask:
             f"SELECT COUNT(*) AS count FROM garden_entries WHERE user_id IN {ph}",
             id_args,
         ).fetchone()["count"]
+
+        fert_alerts = []
+        ff_fert = _feature_fertilization(g.user)
+        if ff_fert:
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            deadline = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
+            edible_rows = db.execute(
+                f"SELECT id, plant_name AS name, next_fertilization_date, planned_fertilization_date"
+                f" FROM garden_entries WHERE user_id IN {ph}"
+                f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                f" AND next_fertilization_date IS NOT NULL"
+                f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?",
+                id_args + (deadline,),
+            ).fetchall()
+            for r in edible_rows:
+                eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
+                fert_alerts.append({"kind": "edible", "id": r["id"], "name": r["name"],
+                                    "date": eff, "overdue": eff < today})
+            ornamental_rows = db.execute(
+                f"SELECT id, name, next_fertilization_date, planned_fertilization_date"
+                f" FROM plants WHERE user_id IN {ph}"
+                f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                f" AND next_fertilization_date IS NOT NULL"
+                f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?",
+                id_args + (deadline,),
+            ).fetchall()
+            for r in ornamental_rows:
+                eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
+                fert_alerts.append({"kind": "ornamental", "id": r["id"], "name": r["name"],
+                                    "date": eff, "overdue": eff < today})
+            fert_alerts.sort(key=lambda x: x["date"])
+
         return render_template(
             "dashboard.html",
             idea_count=idea_count,
@@ -535,7 +567,40 @@ def create_app() -> Flask:
             yard_plant_count=yard_plant_count,
             garden_count=garden_count,
             feature_home_assistant=_feature_home_assistant(g.user),
+            ff_fert=ff_fert,
+            fert_alerts=fert_alerts,
         )
+
+    @app.route("/fert-never", methods=["POST"])
+    @login_required
+    def fert_never():
+        kind = request.form.get("kind", "")
+        item_id = request.form.get("id", "")
+        if not item_id.isdigit():
+            return redirect(url_for("dashboard"))
+        item_id = int(item_id)
+        db = get_db()
+        user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+        if kind == "edible":
+            db.execute(
+                f"UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
+                f" next_fertilization_date = NULL, next_fertilization_note = NULL,"
+                f" next_fertilization_generated_at = NULL"
+                f" WHERE id = ? AND user_id IN {ph}",
+                [item_id] + id_args,
+            )
+        elif kind == "ornamental":
+            db.execute(
+                f"UPDATE plants SET never_fertilize = 1, planned_fertilization_date = NULL,"
+                f" next_fertilization_date = NULL, next_fertilization_note = NULL,"
+                f" next_fertilization_generated_at = NULL"
+                f" WHERE id = ? AND user_id IN {ph}",
+                [item_id] + id_args,
+            )
+        db.commit()
+        return redirect(url_for("dashboard"))
 
     @app.route("/ideas")
     @login_required
