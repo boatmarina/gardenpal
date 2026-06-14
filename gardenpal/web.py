@@ -3407,7 +3407,7 @@ def create_app() -> Flask:
     @login_required
     def api_plant_suggestion():
         cached = session.get("plant_suggestion")
-        if cached:
+        if cached and "photo_urls" in cached:
             return jsonify(cached)
         db = get_db()
         user_id = g.user["id"]
