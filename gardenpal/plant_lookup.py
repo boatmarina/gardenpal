@@ -671,6 +671,7 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
             "size_info":          data.get("size_info", ""),
             "flowering_schedule": data.get("flowering_schedule", ""),
             "photo_url":          None,
+            "taxon_id":           None,
         }
 
         # Fetch a photo — try progressively simplified queries so cultivar/hybrid
@@ -693,8 +694,7 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
         for q in queries_to_try:
             _, _, taxon_default_url, taxon_id = _lookup_via_inat(q)
             if taxon_id:
-                # Prefer stable S3 observation photos over the taxon default_photo which
-                # may live on static.inaturalist.org CDN and can go stale.
+                suggestion["taxon_id"] = taxon_id
                 obs = lookup_plant_photos("", count=1, taxon_id=taxon_id)
                 if obs:
                     suggestion["photo_url"] = obs[0]
