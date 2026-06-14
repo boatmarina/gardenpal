@@ -911,6 +911,14 @@ function gpToggleNote(pzId) {
       spin.remove();
       var reply = data.reply || data.error || 'Something went wrong.';
       bubble('assistant', reply);
+      if (data.note_saved) {
+        var conf = document.createElement('div');
+        conf.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:0.78rem;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:6px 11px;margin-right:auto;max-width:88%';
+        conf.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+          + 'Note saved — <button style="background:none;border:none;padding:0;color:var(--green-dark);font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px" onclick="window.location.reload()">refresh to see it</button>';
+        messages.appendChild(conf);
+        messages.scrollTop = messages.scrollHeight;
+      }
       history.push({role: 'user', content: text});
       history.push({role: 'assistant', content: reply});
       if (history.length > 20) history = history.slice(-20);
