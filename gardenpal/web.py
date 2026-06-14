@@ -5086,7 +5086,7 @@ def _build_plant_autocomplete_data(db, user_ids):
 
 def _feature_fertilization(user):
     """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
-    return (user or {}).get("username") in {"boatmarina"}
+    return (user or {}).get("username") in {"boatmarina", "holval@gmail.com"}
 
 
 def _feature_home_assistant(user):
