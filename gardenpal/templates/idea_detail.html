@@ -205,20 +205,20 @@
         <form method="post" action="{{ url_for('idea_plan_fertilize', plant_id=plant.id) }}"
               style="display:flex;flex-direction:column;gap:10px">
           <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-            Last fertilized
+            Update last fertilized date
             <input type="date" name="last_fertilized_date"
                    value="{{ last_fertilized.date if last_fertilized and last_fertilized.date else '' }}"
                    style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
           </label>
           <div id="plan-date-section" {% if next_fertilization and next_fertilization.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:10px">
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Plan a different date
+              Update next fertilization date
               <input type="date" name="planned_date"
                      value="{{ next_fertilization.planned_date if next_fertilization else '' }}"
                      style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
             </label>
           </div>
-          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text);cursor:pointer">
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
             <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
                    {% if next_fertilization and next_fertilization.never %}checked{% endif %}
                    style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
