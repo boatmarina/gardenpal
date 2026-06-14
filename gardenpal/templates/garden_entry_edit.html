@@ -74,63 +74,6 @@
         Notes
         <textarea name="notes" rows="3" placeholder="Seed source, spacing, observations…">{{ form_values.notes or '' }}</textarea>
       </label>
-      <div style="border-top:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:8px;padding:11px 16px">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
-            <path d="M12 22V12"/>
-            <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
-            <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
-          </svg>
-          <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex:1">Fertilization</span>
-          <button type="button" id="fert-edit-btn"
-                  style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1"
-                  title="Edit fertilization">
-            <svg id="fert-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-        </div>
-        <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
-            <span style="color:var(--muted);font-size:0.82rem">Last fertilized</span>
-            {% if last_fertilized and last_fertilized.date %}
-              <span>{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}</span>
-            {% else %}
-              <span style="color:var(--muted)">Never</span>
-            {% endif %}
-          </div>
-          {% if next_fertilization and (next_fertilization.date or next_fertilization.planned_date) %}
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;flex-wrap:wrap;gap:4px">
-            <span style="color:var(--muted);font-size:0.82rem">Next fertilization</span>
-            <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-              {% if next_fertilization.planned_date %}
-                <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap">Planned</span>
-              {% endif %}
-              {{ (next_fertilization.planned_date or next_fertilization.date) | planted_date }}
-            </span>
-          </div>
-          {% endif %}
-        </div>
-        <div id="fert-edit-panel" hidden style="padding:14px 16px 16px">
-          <div id="fert-tracking-section" class="stack">
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Update last fertilized date
-              <input type="date" name="last_fertilized_date" value="{{ form_values.last_fertilized_date or '' }}"
-                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
-            </label>
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Fertilizer type
-              <input type="text" name="last_fertilizer_type" value="{{ form_values.last_fertilizer_type or '' }}"
-                     placeholder="e.g. Worm castings, Fish emulsion…"
-                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
-            </label>
-          </div>
-          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer;margin-top:10px">
-            <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
-                   {% if entry.never_fertilize %}checked{% endif %}
-                   style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
-            I don't plan to fertilize this plant
-          </label>
-        </div>
-      </div>
       <button type="submit" style="margin-top:4px">Save Changes</button>
     </form>
   </div>
@@ -138,30 +81,6 @@
 
 {% block scripts %}
 <script>
-(function() {
-  var btn = document.getElementById('fert-edit-btn');
-  var panel = document.getElementById('fert-edit-panel');
-  var chevron = document.getElementById('fert-edit-chevron');
-  var cb = document.getElementById('never-fert-cb');
-  var section = document.getElementById('fert-tracking-section');
-  if (btn && panel) {
-    btn.addEventListener('click', function() {
-      panel.hidden = !panel.hidden;
-      if (chevron) chevron.style.transform = panel.hidden ? '' : 'rotate(180deg)';
-    });
-    /* auto-expand if a date is already set */
-    var dateInp = panel.querySelector('input[type="date"]');
-    if (dateInp && dateInp.value) {
-      panel.hidden = false;
-      if (chevron) chevron.style.transform = 'rotate(180deg)';
-    }
-  }
-  if (cb && section) {
-    function syncSection() { section.style.display = cb.checked ? 'none' : ''; }
-    syncSection();
-    cb.addEventListener('change', syncSection);
-  }
-})();
 (function() {
   var inp = document.getElementById('zone-name-input');
   var hiddenId = document.getElementById('zone-id-hidden');
