@@ -67,7 +67,12 @@
       <div style="display:flex;flex-direction:column;gap:14px">
         {% for day in stats.week_activity %}
         <div>
-          <p style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin:0 0 7px">{{ day.date_label }}</p>
+          <p style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin:0 0 7px">
+            {{ day.date_label }}
+            {% if day.day_str and day.date_label in ('Today', 'Yesterday') %}
+            <span style="font-weight:400;font-size:0.7rem;letter-spacing:0;text-transform:none;opacity:0.7">· {{ day.day_str }}</span>
+            {% endif %}
+          </p>
           <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px">
             {% if day.logins %}
             <li style="font-size:0.85rem;color:var(--muted)">Logged in {{ day.logins }} time{{ 's' if day.logins != 1 else '' }}</li>
@@ -155,7 +160,13 @@
               <span style="color:var(--muted)"> — {{ day.tags | join(', ') }}</span>
             </li>
             {% endif %}
-            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags %}
+            {% if day.suggestion_adds %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--green-dark)">Added {{ day.suggestion_adds | length }} suggested plant{{ 's' if day.suggestion_adds | length != 1 else '' }} to library</span>
+              <span style="color:var(--muted)"> — {{ day.suggestion_adds | join(', ') }}</span>
+            </li>
+            {% endif %}
+            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags and not day.suggestion_adds %}
               <li style="font-size:0.85rem;color:var(--muted)">No recorded activity.</li>
             {% endif %}
           </ul>
