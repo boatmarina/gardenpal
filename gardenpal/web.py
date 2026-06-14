@@ -3848,12 +3848,25 @@ def create_app() -> Flask:
             orn_lines.append(ln)
         ornamentals_text = "\n".join(orn_lines) if orn_lines else "  (none yet)"
 
+        suggestion = session.get("plant_suggestion") or {}
+        suggestion_text = ""
+        if suggestion.get("name"):
+            suggestion_text = (
+                f"\n=== SUGGESTED PLANT (shown to user this session) ===\n"
+                f"  {suggestion['name']}"
+                + (f" ({suggestion['scientific_name']})" if suggestion.get("scientific_name") else "")
+                + (f": {suggestion['description']}" if suggestion.get("description") else "")
+                + (f" Suggested because: {suggestion['why']}" if suggestion.get("why") else "")
+                + "\n"
+            )
+
         system = (
             f"You are a comprehensive garden assistant for GardenPal. Today is {today}.\n"
             + (f"The user's location: {user_location}\n" if user_location else "")
             + f"\n=== EDIBLES (tracked plants) ===\n{edibles_text}\n"
             + f"\n=== YARD ZONES ===\n{zones_text}\n"
-            + f"\n=== ORNAMENTALS (library + yard placements) ===\n{ornamentals_text}\n\n"
+            + f"\n=== ORNAMENTALS (library + yard placements) ===\n{ornamentals_text}\n"
+            + suggestion_text + "\n"
             "You can answer questions about any plant across both edibles and ornamentals. "
             "You can also act: add notes, update edible entries, change zones, save ornamental notes. "
             "Entries marked [partner's — read only] are read-only. "
