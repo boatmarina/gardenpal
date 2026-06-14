@@ -15,14 +15,6 @@
          style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px">
     </div>
 
-    <!-- Photo debug panel -->
-    <div id="photo-debug" style="margin:12px 16px 0;padding:10px 12px;background:#f0f4f0;border-radius:8px;border:1px solid #c8d8c8;font-size:0.75rem;font-family:monospace;color:#333;line-height:1.7">
-      <strong style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em">Photo debug</strong><br>
-      Server: <strong>{{ (suggestion.photo_urls or []) | length }}</strong> stored photo(s)
-      {% if suggestion.photo_url %} · seed: {{ suggestion.photo_url[:60] }}…{% else %} · no seed{% endif %}
-      {% if suggestion.taxon_id %} · taxon_id: {{ suggestion.taxon_id }}{% else %} · no taxon_id{% endif %}<br>
-      <span id="debug-js">JS: loading…</span>
-    </div>
 
     <!-- Header -->
     <div class="detail-header">
@@ -97,10 +89,7 @@ window._GP_suggestion = {
 document.addEventListener('DOMContentLoaded', function () {
   var s    = window._GP_suggestion || {};
   var grid = document.getElementById('suggestion-photos');
-  var dbg  = document.getElementById('debug-js');
-  function log(msg) { if (dbg) dbg.textContent = 'JS: ' + msg; }
-
-  if (!grid) { log('grid element not found'); return; }
+  if (!grid) return;
 
   var stored  = s.photos  || [];
   var seed    = s.seed    || '';
@@ -108,22 +97,14 @@ document.addEventListener('DOMContentLoaded', function () {
   var query   = s.query   || '';
   var taxonId = s.taxonId || '';
 
-  log('have ' + stored.length + ' stored; seed=' + (seed ? 'yes' : 'no') + '; taxon=' + (taxonId || 'none'));
-
   if (stored.length) {
     GP.renderPhotosInGrid(grid, stored, name || query);
-    log('rendered ' + stored.length + ' stored photo(s) ✓');
     return;
   }
 
-  if (seed) {
-    GP.renderPhotosInGrid(grid, [seed], name || query);
-    log('rendered seed photo, trying API for more…');
-  } else {
-    log('no stored photos, no seed — trying API…');
-  }
+  if (seed) GP.renderPhotosInGrid(grid, [seed], name || query);
 
-  if (!query && !taxonId) { log('no stored, no seed, no query/taxon — nothing to show'); return; }
+  if (!query && !taxonId) return;
 
   var apiUrl = taxonId
     ? '/api/plant-photos?taxon_id=' + encodeURIComponent(taxonId) + '&count=6'
@@ -133,12 +114,11 @@ document.addEventListener('DOMContentLoaded', function () {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       var photos = d.photos || [];
-      log('API returned ' + photos.length + ' photo(s)');
       if (!photos.length) return;
       var all = seed ? [seed].concat(photos.filter(function(u) { return u !== seed; })) : photos;
       if (all.length) GP.renderPhotosInGrid(grid, all, name || query);
     })
-    .catch(function(e) { log('API fetch failed: ' + e); });
+    .catch(function() {});
 });
 </script>
 {% endblock %}
