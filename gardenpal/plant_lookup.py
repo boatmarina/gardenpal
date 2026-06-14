@@ -716,20 +716,21 @@ def generate_plant_suggestion(
             "size_info":          data.get("size_info", ""),
             "flowering_schedule": data.get("flowering_schedule", ""),
             "photo_url":          None,
+            "photo_urls":         [],
             "taxon_id":           None,
         }
 
-        # Fetch a photo — try progressively simplified queries so cultivar/hybrid
+        # Fetch photos — try progressively simplified queries so cultivar/hybrid
         # names that iNaturalist doesn't index still fall back to the species level.
+        # Fetch 6 photos upfront so the detail page can use them from the session
+        # without an additional API round-trip.
         sci = suggestion["scientific_name"]
         queries_to_try: List[str] = []
         if sci:
             queries_to_try.append(sci)
-            # Strip cultivar: Anemone × hybrida 'Honorine Jobert' -> Anemone × hybrida
             species = sci.split("'")[0].split('"')[0].strip()
             if species and species != sci:
                 queries_to_try.append(species)
-            # Strip hybrid symbol: Anemone × hybrida -> Anemone hybrida
             plain = species.replace("×", "").replace(" x ", " ").strip()
             if plain and plain != species:
                 queries_to_try.append(plain)
@@ -740,8 +741,9 @@ def generate_plant_suggestion(
             _, _, taxon_default_url, taxon_id = _lookup_via_inat(q)
             if taxon_id:
                 suggestion["taxon_id"] = taxon_id
-                obs = lookup_plant_photos("", count=1, taxon_id=taxon_id)
+                obs = lookup_plant_photos("", count=6, taxon_id=taxon_id)
                 if obs:
+                    suggestion["photo_urls"] = obs
                     suggestion["photo_url"] = obs[0]
                     break
                 if taxon_default_url:
