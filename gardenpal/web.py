@@ -911,12 +911,50 @@ def create_app() -> Flask:
             for pz in plant_zones:
                 pz["yard_notes"] = notes_by_pz.get(pz["id"], [])
         today = datetime.utcnow().date().isoformat()
+
+        ff_fert = _feature_fertilization(g.user)
+        last_fertilized = None
+        next_fertilization = None
+        from datetime import timedelta as _td
+        fert_deadline = (datetime.utcnow() + _td(days=3)).strftime("%Y-%m-%d")
+        if ff_fert:
+            last_fert_date = plant["last_fertilized_date"] if plant.get("last_fertilized_date") else None
+            last_fertilized = {"date": last_fert_date, "type": None}
+            never = bool(plant.get("never_fertilize"))
+            if not never:
+                gen_at = plant.get("next_fertilization_generated_at") or None
+                needs_regen = (
+                    not gen_at
+                    or (last_fert_date and last_fert_date > gen_at[:10])
+                    or (plant.get("next_fertilization_date") and plant["next_fertilization_date"] < today)
+                )
+                if needs_regen:
+                    fert_allowed, _ = _check_api_rate(db, g.user["id"], "fertilization")
+                    if fert_allowed:
+                        user_location = g.user.get("location", "")
+                        _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_date)
+                        plant = db.execute(
+                            f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}",
+                            (plant_id, *id_args),
+                        ).fetchone()
+                next_fertilization = {
+                    "date": plant.get("next_fertilization_date"),
+                    "note": plant.get("next_fertilization_note"),
+                    "planned_date": plant.get("planned_fertilization_date"),
+                    "never": False,
+                }
+            else:
+                next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
+
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
                                plant_tags=plant_tags, user_tags=user_tags,
                                all_zones=all_zones, is_owner=is_owner,
                                shared_names=shared_names, today=today,
-                               plant_zones=plant_zones)
+                               plant_zones=plant_zones,
+                               ff_fert=ff_fert, last_fertilized=last_fertilized,
+                               next_fertilization=next_fertilization,
+                               fert_deadline=fert_deadline)
 
     @app.route("/ideas/<int:plant_id>/add-to-zone", methods=["POST"])
     @login_required
@@ -973,6 +1011,35 @@ def create_app() -> Flask:
         _log_activity(db, g.user["id"], "yard_plant_added", plant["name"])
         db.commit()
         flash("Added to zone.")
+        return redirect(url_for("idea_detail", plant_id=plant_id))
+
+    @app.route("/ideas/<int:plant_id>/plan-fertilize", methods=["POST"])
+    @login_required
+    def idea_plan_fertilize(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id, user_id, last_fertilized_date FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        planned_date = request.form.get("planned_date", "").strip()
+        never_fertilize = 1 if request.form.get("never_fertilize") else 0
+        last_fertilized_date = request.form.get("last_fertilized_date", "").strip()
+        if planned_date and not _ISO_DATE_RE.match(planned_date):
+            planned_date = ""
+        if last_fertilized_date and not _ISO_DATE_RE.match(last_fertilized_date):
+            last_fertilized_date = ""
+        invalidate = bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")
+        db.execute(
+            "UPDATE plants SET planned_fertilization_date = ?, never_fertilize = ?,"
+            " last_fertilized_date = ?"
+            + (", next_fertilization_generated_at = NULL" if invalidate else "")
+            + " WHERE id = ?",
+            (planned_date or None, never_fertilize, last_fertilized_date or None, plant_id),
+        )
+        db.commit()
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
     @app.route("/yard")
@@ -3750,6 +3817,12 @@ def init_db():
     ensure_column(db, "plants", "water_needs", "TEXT")
     ensure_column(db, "plants", "deadheading", "TEXT")
     ensure_column(db, "plants", "deer_resistant", "TEXT")
+    ensure_column(db, "plants", "last_fertilized_date", "TEXT")
+    ensure_column(db, "plants", "next_fertilization_date", "TEXT")
+    ensure_column(db, "plants", "next_fertilization_note", "TEXT")
+    ensure_column(db, "plants", "next_fertilization_generated_at", "TEXT")
+    ensure_column(db, "plants", "planned_fertilization_date", "TEXT")
+    ensure_column(db, "plants", "never_fertilize", "INTEGER")
     ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "users", "location", "TEXT")
     ensure_column(db, "users", "whats_new_seen", "TEXT")
@@ -4594,6 +4667,69 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
             "UPDATE garden_entries SET next_fertilization_date = ?, next_fertilization_note = ?,"
             " next_fertilization_generated_at = ? WHERE id = ?",
             (date_line, note_text or None, generated_at, entry["id"]),
+        )
+        db.commit()
+        return {"date": date_line, "note": note_text or None}
+    except Exception:
+        return None
+
+
+def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_date):
+    """Call Claude Haiku to suggest the next fertilization date for an ornamental plant. Caches in DB."""
+    import anthropic as _anthropic
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    try:
+        today_str = datetime.utcnow().date().isoformat()
+        plant_name = plant["name"] or ""
+        sci_name = plant.get("scientific_name") or ""
+        plant_form = (plant.get("plant_form") or "").replace("-", " ")
+        lifecycle = plant.get("lifecycle") or ""
+        flowering = plant.get("flowering_schedule") or ""
+        sun = plant.get("sun_exposure") or ""
+        water = plant.get("water_needs") or ""
+        last_fert_str = last_fert_date or "never"
+
+        user_msg = (
+            f"Plant: {plant_name}" + (f" ({sci_name})" if sci_name else "") + "\n"
+            + (f"Form: {plant_form}\n" if plant_form else "")
+            + (f"Lifecycle: {lifecycle}\n" if lifecycle else "")
+            + (f"Flowering: {flowering}\n" if flowering else "")
+            + (f"Sun: {sun}\n" if sun else "")
+            + (f"Water needs: {water}\n" if water else "")
+            + f"User's location: {user_location or 'unknown'}\n"
+            + f"Last fertilized: {last_fert_str}\n"
+            + f"Today is {today_str}."
+        )
+
+        client = _anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=250,
+            system=(
+                "You are a gardening advisor. Given ornamental plant details, "
+                "suggest the next fertilization date.\n"
+                "Reply with ONLY:\n"
+                "Line 1: YYYY-MM-DD (the suggested date, today or in the future)\n"
+                "Line 2+: 2-3 sentence explanation of your reasoning.\n"
+                "No labels, no extra text."
+            ),
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        raw = resp.content[0].text.strip()
+        lines = raw.splitlines()
+        date_line = lines[0].strip() if lines else ""
+        if not _ISO_DATE_RE.match(date_line):
+            return None
+        if date_line < today_str:
+            date_line = today_str
+        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        generated_at = datetime.utcnow().isoformat(timespec="seconds")
+        db.execute(
+            "UPDATE plants SET next_fertilization_date = ?, next_fertilization_note = ?,"
+            " next_fertilization_generated_at = ? WHERE id = ?",
+            (date_line, note_text or None, generated_at, plant["id"]),
         )
         db.commit()
         return {"date": date_line, "note": note_text or None}
