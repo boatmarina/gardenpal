@@ -3576,7 +3576,9 @@ def create_app() -> Flask:
 
         orn_lines = []
         for p in orn_plants:
+            added = (p["created_at"] or "")[:10]
             ln = f"  {p['name']}"
+            if added: ln += f" [added {added}]"
             if p["scientific_name"]: ln += f" ({p['scientific_name']})"
             if p["lifecycle"]: ln += f" [{p['lifecycle']}]"
             if p["sun_exposure"]: ln += f" [sun: {p['sun_exposure']}]"
