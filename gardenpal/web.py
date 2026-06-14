@@ -540,7 +540,7 @@ def create_app() -> Flask:
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
                 f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?",
-                id_args + (deadline,),
+                id_args + [deadline],
             ).fetchall()
             for r in edible_rows:
                 eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
@@ -552,7 +552,7 @@ def create_app() -> Flask:
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
                 f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?",
-                id_args + (deadline,),
+                id_args + [deadline],
             ).fetchall()
             for r in ornamental_rows:
                 eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
