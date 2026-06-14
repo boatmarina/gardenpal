@@ -18,49 +18,6 @@
     </a>
   </section>
 
-  <!-- Garden Assistant (Beta) -->
-  <div style="margin-bottom:14px">
-    <button id="chat-toggle" type="button"
-            style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:var(--text);text-align:left">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--green-dark)">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-      Garden Assistant
-      <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px">Beta</span>
-      <svg id="chat-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div id="chat-panel" hidden
-         style="margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden">
-
-      <!-- Instructions -->
-      <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg)">
-        <p style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:6px">What you can do</p>
-        <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
-          <li style="font-size:0.78rem;color:var(--muted)">"Add zucchini planted today in raised bed 2"</li>
-          <li style="font-size:0.78rem;color:var(--muted)">"Add a note to the beans: first flowers today"</li>
-          <li style="font-size:0.78rem;color:var(--muted)">"Add basil, parsley, and dill planted May 20th in container 1" <em style="font-size:0.73rem">(bulk)</em></li>
-          <li style="font-size:0.78rem;color:var(--muted)">"When should I fertilize my tomatoes?"</li>
-        </ul>
-      </div>
-
-      <!-- Messages -->
-      <div id="chat-messages" style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto"></div>
-
-      <!-- Input -->
-      <div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);align-items:flex-end">
-        <textarea id="chat-input" rows="2" placeholder="Ask or type a change…"
-                  enterkeyhint="send"
-                  style="flex:1;font-size:16px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--text);font-family:inherit;resize:none;line-height:1.4;max-height:120px;overflow-y:auto"></textarea>
-        <button id="chat-send"
-                style="flex-shrink:0;width:40px;height:40px;background:#1C3829;color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.18)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Nav bar: search + sort toggle -->
   <div class="garden-nav-bar" style="margin-bottom:14px">
     <!-- Search (always visible) -->
@@ -298,13 +255,8 @@
 
 <script>
 (function () {
-  var toggle   = document.getElementById('chat-toggle');
-  var panel    = document.getElementById('chat-panel');
-  var chevron  = document.getElementById('chat-chevron');
-  var messages = document.getElementById('chat-messages');
-  var input    = document.getElementById('chat-input');
-  var sendBtn  = document.getElementById('chat-send');
-  if (!toggle || !panel) return;
+  // garden-chat removed — assistant moved to entry detail pages
+  return;
 
   var STORAGE_KEY = 'garden_chat';
 

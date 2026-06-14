@@ -2875,6 +2875,187 @@ def create_app() -> Flask:
                 pass
             return jsonify(error="Assistant unavailable — please try again."), 503
 
+    @app.route("/api/entry-chat", methods=["POST"])
+    @login_required
+    def entry_chat():
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            return jsonify(error="Chat assistant not available."), 503
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return jsonify(error="Chat assistant not configured."), 503
+
+        data = request.get_json(silent=True) or {}
+        message = (data.get("message") or "").strip()
+        entry_id = data.get("entry_id")
+        history = (data.get("history") or [])[-10:]
+        if not message or not entry_id:
+            return jsonify(error="message and entry_id are required."), 400
+
+        db = get_db()
+        user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+
+        entry = db.execute(
+            f"SELECT ge.*, yz.name AS zone_name"
+            f" FROM garden_entries ge"
+            f" LEFT JOIN yard_zones yz ON yz.id = ge.zone_id"
+            f" WHERE ge.id = ? AND ge.user_id IN {ph}",
+            (entry_id, *id_args),
+        ).fetchone()
+        if entry is None:
+            return jsonify(error="Entry not found."), 404
+
+        allowed, reason = _check_api_rate(db, user_id, "chat")
+        if not allowed:
+            return jsonify(error=reason), 429
+
+        _log_activity(db, user_id, "garden_chat", message[:200])
+        db.commit()
+
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        user_location = (g.user.get("location") or "").strip()
+
+        # Build entry context
+        lines = [f"Plant: {entry['plant_name']}"]
+        if entry["variety"]:       lines.append(f"Variety: {entry['variety']}")
+        if entry["location_type"]: lines.append(f"Location type: {entry['location_type'].replace('_', ' ')}")
+        if entry["location_name"]: lines.append(f"Location name: {entry['location_name']}")
+        if entry["zone_name"]:     lines.append(f"Yard zone: {entry['zone_name']}")
+        if entry["planted_date"]:  lines.append(f"Planted: {entry['planted_date']}")
+        if entry["notes"]:         lines.append(f"Entry notes: {entry['notes']}")
+
+        # Last fertilization
+        last_fert_photo = db.execute(
+            "SELECT COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
+            " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1"
+            " ORDER BY COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC LIMIT 1",
+            (entry_id,),
+        ).fetchone()
+        explicit_date = (entry["last_fertilized_date"] or "") if entry["last_fertilized_date"] else ""
+        photo_fert_date = (last_fert_photo["fert_date"] or "") if last_fert_photo else ""
+        if explicit_date and (not photo_fert_date or explicit_date >= photo_fert_date):
+            fert_str = explicit_date
+            fert_type = entry["last_fertilizer_type"]
+        elif last_fert_photo:
+            fert_str = photo_fert_date or None
+            fert_type = last_fert_photo["fertilizer_type"]
+        else:
+            fert_str = None
+            fert_type = None
+        if fert_str:
+            ft = f" ({fert_type})" if fert_type else ""
+            lines.append(f"Last fertilized: {fert_str}{ft}")
+
+        # Growth log notes
+        note_rows = db.execute(
+            "SELECT photo_date, notes FROM garden_photos"
+            " WHERE entry_id = ? AND notes IS NOT NULL"
+            " ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+            (entry_id,),
+        ).fetchall()
+        if note_rows:
+            lines.append("Growth log:")
+            for r in note_rows:
+                date_part = f" ({r['photo_date']})" if r["photo_date"] else ""
+                lines.append(f"  Log{date_part}: {r['notes']}")
+
+        entry_context = "\n".join(lines)
+
+        system = (
+            f"You are a knowledgeable gardening assistant helping with a specific edible plant. Today is {today}.\n"
+            + (f"The user's location: {user_location}\n" if user_location else "")
+            + f"\nPlant details:\n{entry_context}\n\n"
+            "Answer questions about this plant — care, watering, fertilizing, pests, harvesting, companion planting, seasonal needs, etc. "
+            "Use the growth log notes and location to give specific, relevant advice. "
+            "Keep replies concise and practical. "
+            "When the user wants to record an observation or care note, use the save_note tool. "
+            "Never use markdown bold (**text**) or other markdown formatting. "
+            "Always format dates as 'Month Day' (e.g. 'May 17'), never as YYYY-MM-DD."
+        )
+
+        tools = [
+            {
+                "name": "save_note",
+                "description": "Save an observation, care note, or milestone to this plant's growth log.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "note_text": {"type": "string", "description": "The note to save"},
+                        "note_date": {"type": "string", "description": "Date in YYYY-MM-DD format, defaults to today"},
+                    },
+                    "required": ["note_text"],
+                },
+            }
+        ]
+
+        messages = [{"role": m["role"], "content": m["content"]} for m in history if m.get("role") in ("user", "assistant")]
+        messages.append({"role": "user", "content": message})
+
+        note_saved = None
+        client = _anthropic.Anthropic(api_key=api_key)
+        try:
+            for _ in range(4):
+                resp = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=512,
+                    system=system,
+                    tools=tools,
+                    messages=messages,
+                )
+                messages.append({"role": "assistant", "content": resp.content})
+
+                if resp.stop_reason != "tool_use":
+                    reply = next((b.text for b in resp.content if hasattr(b, "text")), "").strip()
+                    _log_ai_chat(db, user_id, g.user["username"], "edible", message, plant_name=entry["plant_name"])
+                    result = {"reply": reply}
+                    if note_saved:
+                        result["note_saved"] = note_saved
+                    return jsonify(result)
+
+                tool_results = []
+                for block in resp.content:
+                    if not hasattr(block, "type") or block.type != "tool_use":
+                        continue
+                    inp = block.input
+                    if block.name == "save_note":
+                        note_text = (inp.get("note_text") or "").strip()
+                        raw_date = (inp.get("note_date") or today).strip()
+                        note_date = raw_date if _ISO_DATE_RE.match(raw_date) else today
+                        if note_text and entry["user_id"] == user_id:
+                            planted_date = entry["planted_date"]
+                            is_fert, fert_type_det, fert_date_det = _detect_fertilization(note_text)
+                            db.execute(
+                                "INSERT INTO garden_photos"
+                                " (entry_id, user_id, image_path, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
+                                " VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)",
+                                (entry_id, user_id, note_date, note_text,
+                                 datetime.utcnow().isoformat(timespec="seconds"),
+                                 is_fert, fert_type_det, fert_date_det),
+                            )
+                            db.commit()
+                            note_saved = {"text": note_text, "date": note_date}
+                            tool_result = "Note saved."
+                        else:
+                            tool_result = "Error: note text was empty or entry is read-only."
+                    else:
+                        tool_result = "Unknown tool."
+                    tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": tool_result})
+
+                messages.append({"role": "user", "content": tool_results})
+
+            _log_ai_chat(db, user_id, g.user["username"], "edible", message, plant_name=entry["plant_name"])
+            result = {"reply": "Done."}
+            if note_saved:
+                result["note_saved"] = note_saved
+            return jsonify(result)
+
+        except Exception as exc:
+            _log_chat_error(db, user_id, g.user["username"], message, type(exc).__name__, str(exc)[:500])
+            return jsonify(error="Assistant unavailable — please try again."), 503
+
     @app.route("/api/garden-chat", methods=["POST"])
     @login_required
     def garden_chat():
@@ -3967,6 +4148,9 @@ def create_app() -> Flask:
         sun = normalize_sun_value(suggestion.get("sun_needs") or "")
         wn = suggestion.get("watering_needs") or ""
         water = "minimal" if wn == "minimal" else ("frequent" if wn == "frequent" else wn)
+        _desc = suggestion.get("description") or ""
+        _why = suggestion.get("why") or ""
+        _desc_combined = "\n\n".join(filter(None, [_desc, f"Suggested because: {_why}" if _why else ""])) or None
         plant_id = db.execute(
             """
             INSERT INTO plants
@@ -3985,7 +4169,7 @@ def create_app() -> Flask:
                 suggestion.get("photo_url") or None,
                 sun or None,
                 suggestion.get("lifecycle") or None,
-                suggestion.get("description") or None,
+                _desc_combined,
                 water or None,
                 suggestion.get("plant_form") or None,
                 suggestion.get("size_info") or None,
