@@ -534,6 +534,7 @@ def create_app() -> Flask:
             zone_count=zone_count,
             yard_plant_count=yard_plant_count,
             garden_count=garden_count,
+            feature_home_assistant=_feature_home_assistant(g.user),
         )
 
     @app.route("/ideas")
@@ -3466,6 +3467,423 @@ def create_app() -> Flask:
             return jsonify(error=error), 200
         return jsonify(result)
 
+    @app.route("/api/home-chat", methods=["POST"])
+    @login_required
+    def home_chat():
+        if not _feature_home_assistant(g.user):
+            return jsonify(error="Not available."), 403
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            return jsonify(error="Chat assistant not available."), 503
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return jsonify(error="Chat assistant not configured."), 503
+
+        data = request.get_json(silent=True) or {}
+        message = (data.get("message") or "").strip()
+        history = (data.get("history") or [])[-14:]
+        if not message:
+            return jsonify(error="Message is required."), 400
+
+        db = get_db()
+        user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+
+        allowed, reason = _check_api_rate(db, user_id, "chat")
+        if not allowed:
+            return jsonify(error=reason), 429
+
+        _log_activity(db, user_id, "home_chat", message[:200])
+        db.commit()
+
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        user_location = (g.user.get("location") or "").strip()
+
+        # ── Edibles ───────────────────────────────────────────────────────────
+        entries = db.execute(
+            f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
+                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name
+                FROM garden_entries ge
+                LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
+                WHERE ge.user_id IN {ph}
+                ORDER BY CASE WHEN ge.planted_date IS NULL THEN 1 ELSE 0 END, ge.planted_date DESC""",
+            id_args,
+        ).fetchall()
+        growth_notes: dict = {}
+        if entries:
+            eids = [e["id"] for e in entries]
+            eid_ph = "({})".format(",".join(["?"] * len(eids)))
+            for row in db.execute(
+                f"SELECT entry_id, photo_date, notes FROM garden_photos"
+                f" WHERE entry_id IN {eid_ph} AND notes IS NOT NULL"
+                f" ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                eids,
+            ).fetchall():
+                growth_notes.setdefault(row["entry_id"], []).append((row["photo_date"], row["notes"]))
+
+        if entries:
+            edible_lines = []
+            for e in entries:
+                ln = f"  ID {e['id']}: {e['plant_name']}"
+                if e["variety"]: ln += f" ({e['variety']})"
+                if e["location_type"]: ln += f" [{e['location_type'].replace('_', ' ')}]"
+                if e["location_name"]: ln += f" in {e['location_name']}"
+                if e["planted_date"]: ln += f", planted {e['planted_date']}"
+                if e["zone_name"]: ln += f" [zone: {e['zone_name']}]"
+                if e["user_id"] != user_id: ln += " [partner's — read only]"
+                if e["notes"]: ln += f"\n    Notes: {e['notes']}"
+                for nd, nt in growth_notes.get(e["id"], []):
+                    ln += f"\n    Log{' (' + nd + ')' if nd else ''}: {nt}"
+                edible_lines.append(ln)
+            edibles_text = "\n".join(edible_lines)
+        else:
+            edibles_text = "  (none yet)"
+
+        # ── Zones ─────────────────────────────────────────────────────────────
+        zones = db.execute(
+            f"SELECT id, name FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC",
+            id_args,
+        ).fetchall()
+        zones_text = "\n".join(f"  - {z['name']} (ID {z['id']})" for z in zones) or "  (none yet)"
+
+        # ── Ornamentals (library + zone placements + notes) ───────────────────
+        orn_plants = db.execute(
+            f"SELECT * FROM plants WHERE user_id IN {ph} ORDER BY name ASC",
+            id_args,
+        ).fetchall()
+        yard_placements = db.execute(
+            f"""SELECT yp.id, yp.plant_name, z.name AS zone_name
+                FROM yard_plants yp JOIN yard_zones z ON z.id = yp.zone_id
+                WHERE yp.user_id IN {ph} ORDER BY yp.plant_name ASC""",
+            id_args,
+        ).fetchall()
+        yp_notes: dict = {}
+        if yard_placements:
+            yp_ids = [r["id"] for r in yard_placements]
+            yp_ph = "({})".format(",".join(["?"] * len(yp_ids)))
+            for row in db.execute(
+                f"SELECT yard_plant_id, note_date, notes FROM yard_plant_notes"
+                f" WHERE yard_plant_id IN {yp_ph} ORDER BY note_date ASC NULLS LAST, created_at ASC",
+                yp_ids,
+            ).fetchall():
+                yp_notes.setdefault(row["yard_plant_id"], []).append((row["note_date"], row["notes"]))
+
+        placements_by_name: dict = {}
+        for r in yard_placements:
+            placements_by_name.setdefault(r["plant_name"].lower(), []).append(r)
+
+        orn_lines = []
+        for p in orn_plants:
+            ln = f"  {p['name']}"
+            if p["scientific_name"]: ln += f" ({p['scientific_name']})"
+            if p["lifecycle"]: ln += f" [{p['lifecycle']}]"
+            if p["sun_exposure"]: ln += f" [sun: {p['sun_exposure']}]"
+            pls = placements_by_name.get(p["name"].lower(), [])
+            if pls:
+                for pl in pls:
+                    ln += f"\n    Zone: {pl['zone_name']} (yard_plant_id={pl['id']})"
+                    for nd, nt in yp_notes.get(pl["id"], []):
+                        ln += f"\n      Note{' (' + nd + ')' if nd else ''}: {nt}"
+            else:
+                ln += " [library only — not planted in any zone]"
+            orn_lines.append(ln)
+        ornamentals_text = "\n".join(orn_lines) if orn_lines else "  (none yet)"
+
+        system = (
+            f"You are a comprehensive garden assistant for GardenPal. Today is {today}.\n"
+            + (f"The user's location: {user_location}\n" if user_location else "")
+            + f"\n=== EDIBLES (tracked plants) ===\n{edibles_text}\n"
+            + f"\n=== YARD ZONES ===\n{zones_text}\n"
+            + f"\n=== ORNAMENTALS (library + yard placements) ===\n{ornamentals_text}\n\n"
+            "You can answer questions about any plant across both edibles and ornamentals. "
+            "You can also act: add notes, update edible entries, change zones, save ornamental notes. "
+            "Entries marked [partner's — read only] are read-only. "
+            "For bulk changes, call the relevant tool once per item. "
+            "If a tool returns an error, skip and continue — only mention if everything failed. "
+            "Keep replies short. Don't mention internal IDs to the user. "
+            "Always format dates as 'Month Day' (e.g. 'May 17'). "
+            "Never use markdown bold (**text**) or other markdown in your replies."
+        )
+
+        tools = [
+            {
+                "name": "add_garden_entry",
+                "description": "Add a new plant to the user's edible garden.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_name": {"type": "string"},
+                        "variety": {"type": "string"},
+                        "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "other"]},
+                        "location_name": {"type": "string"},
+                        "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "notes": {"type": "string"},
+                        "zone_name": {"type": "string", "description": "Name of an existing yard zone"},
+                    },
+                    "required": ["plant_name"],
+                },
+            },
+            {
+                "name": "add_garden_note",
+                "description": "Add a text note or observation to an existing edible garden entry.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "note": {"type": "string"},
+                        "note_date": {"type": "string", "description": "YYYY-MM-DD, defaults to today"},
+                    },
+                    "required": ["entry_id", "note"],
+                },
+            },
+            {
+                "name": "update_garden_entry",
+                "description": "Update fields of an existing edible garden entry.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "plant_name": {"type": "string"},
+                        "variety": {"type": "string"},
+                        "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "other"]},
+                        "location_name": {"type": "string"},
+                        "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "notes": {"type": "string"},
+                    },
+                    "required": ["entry_id"],
+                },
+            },
+            {
+                "name": "set_entry_zone",
+                "description": "Assign or change the yard zone for an edible garden entry.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "zone_name": {"type": "string", "description": "Zone name, or omit to clear."},
+                    },
+                    "required": ["entry_id"],
+                },
+            },
+            {
+                "name": "save_ornamental_note",
+                "description": "Save an observation or care note about an ornamental plant in a yard zone. Use yard_plant_id from the plant's zone placement.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "yard_plant_id": {"type": "integer", "description": "The yard_plant_id from the ornamental's zone placement"},
+                        "note_text": {"type": "string"},
+                        "note_date": {"type": "string", "description": "YYYY-MM-DD, defaults to today"},
+                    },
+                    "required": ["yard_plant_id", "note_text"],
+                },
+            },
+        ]
+
+        messages = list(history) + [{"role": "user", "content": message}]
+        changed = False
+        client = _anthropic.Anthropic(api_key=api_key)
+
+        try:
+            for _ in range(10):
+                response = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=1024,
+                    system=system,
+                    tools=tools,
+                    messages=messages,
+                )
+                messages.append({"role": "assistant", "content": response.content})
+
+                if response.stop_reason != "tool_use":
+                    text = next((b.text for b in response.content if hasattr(b, "text")), "Done.")
+                    _log_ai_chat(db, user_id, g.user["username"], "home", message)
+                    return jsonify(reply=text, changed=changed)
+
+                tool_results = []
+                for block in response.content:
+                    if not hasattr(block, "type") or block.type != "tool_use":
+                        continue
+                    inp = block.input
+                    result = {}
+                    try:
+                        if block.name == "add_garden_entry":
+                            pname = (inp.get("plant_name") or "").strip()
+                            if not pname:
+                                result = {"error": "plant_name is required"}
+                            else:
+                                zone_id_val = None
+                                zname = (inp.get("zone_name") or "").strip()
+                                if zname:
+                                    zrow = db.execute(
+                                        f"SELECT id FROM yard_zones WHERE user_id IN {ph} AND lower(name) = lower(?)",
+                                        (*id_args, zname),
+                                    ).fetchone()
+                                    if zrow:
+                                        zone_id_val = zrow["id"]
+                                now = datetime.utcnow().isoformat(timespec="seconds")
+                                row = db.execute(
+                                    "INSERT INTO garden_entries (user_id, plant_name, variety, location_type, location_name, planted_date, notes, zone_id, created_at, updated_at)"
+                                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                                    (
+                                        user_id, pname,
+                                        (inp.get("variety") or "").strip() or None,
+                                        (inp.get("location_type") or "").strip() or None,
+                                        (inp.get("location_name") or "").strip() or None,
+                                        _parse_date_to_iso((inp.get("planted_date") or "").strip(), today),
+                                        (inp.get("notes") or "").strip() or None,
+                                        zone_id_val, now, now,
+                                    ),
+                                ).fetchone()
+                                _log_activity(db, user_id, "garden_entry_added", pname)
+                                db.commit()
+                                changed = True
+                                result = {"ok": True, "entry_id": row["id"]}
+
+                        elif block.name == "add_garden_note":
+                            eid = inp.get("entry_id")
+                            note = (inp.get("note") or "").strip()
+                            if not eid or not note:
+                                result = {"error": "entry_id and note are required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id, user_id, planted_date FROM garden_entries WHERE id = ?", (eid,)
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} is read-only (partner's)"}
+                                else:
+                                    note_date = _parse_date_to_iso(inp.get("note_date") or today, today)
+                                    planted_date = entry["planted_date"]
+                                    is_fert, fert_type, fert_date = _detect_fertilization(note)
+                                    if is_fert and _has_date_hint(note):
+                                        fert_date = _extract_fertilization_date(note, note_date, planted_date)
+                                    elif not is_fert:
+                                        is_fert, fert_type, fert_date = _ai_detect_fertilization(note, note_date, planted_date)
+                                    db.execute(
+                                        "INSERT INTO garden_photos (entry_id, user_id, photo_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+                                        (eid, user_id, note_date, note, datetime.utcnow().isoformat(timespec="seconds")),
+                                    )
+                                    if is_fert and fert_date:
+                                        db.execute(
+                                            "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
+                                            " next_fertilization_generated_at = NULL WHERE id = ? AND (last_fertilized_date IS NULL OR last_fertilized_date <= ?)",
+                                            (fert_date, fert_type or None, eid, fert_date),
+                                        )
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True}
+
+                        elif block.name == "update_garden_entry":
+                            eid = inp.get("entry_id")
+                            if not eid:
+                                result = {"error": "entry_id is required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id, user_id FROM garden_entries WHERE id = ?", (eid,)
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} is read-only (partner's)"}
+                                else:
+                                    fields, vals = [], []
+                                    for col in ("plant_name", "variety", "location_type", "location_name", "notes"):
+                                        if col in inp and inp[col] is not None:
+                                            fields.append(f"{col} = ?")
+                                            vals.append((inp[col] or "").strip() or None)
+                                    if "planted_date" in inp:
+                                        fields.append("planted_date = ?")
+                                        vals.append(_parse_date_to_iso((inp["planted_date"] or "").strip(), today))
+                                    if fields:
+                                        now = datetime.utcnow().isoformat(timespec="seconds")
+                                        fields.append("updated_at = ?")
+                                        vals.append(now)
+                                        db.execute(f"UPDATE garden_entries SET {', '.join(fields)} WHERE id = ?", (*vals, eid))
+                                        db.commit()
+                                        changed = True
+                                    result = {"ok": True}
+
+                        elif block.name == "set_entry_zone":
+                            eid = inp.get("entry_id")
+                            if not eid:
+                                result = {"error": "entry_id is required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id, user_id FROM garden_entries WHERE id = ?", (eid,)
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} is read-only (partner's)"}
+                                else:
+                                    zname = (inp.get("zone_name") or "").strip()
+                                    zone_id_val = None
+                                    if zname:
+                                        zrow = db.execute(
+                                            f"SELECT id FROM yard_zones WHERE user_id IN {ph} AND lower(name) = lower(?)",
+                                            (*id_args, zname),
+                                        ).fetchone()
+                                        if zrow:
+                                            zone_id_val = zrow["id"]
+                                        else:
+                                            result = {"error": f"Zone '{zname}' not found"}
+                                    if "error" not in result:
+                                        db.execute("UPDATE garden_entries SET zone_id = ? WHERE id = ?", (zone_id_val, eid))
+                                        db.commit()
+                                        changed = True
+                                        result = {"ok": True}
+
+                        elif block.name == "save_ornamental_note":
+                            yp_id = inp.get("yard_plant_id")
+                            note_text = (inp.get("note_text") or "").strip()
+                            if not yp_id or not note_text:
+                                result = {"error": "yard_plant_id and note_text are required"}
+                            else:
+                                yp_row = db.execute(
+                                    f"SELECT id FROM yard_plants WHERE id = ? AND user_id IN {ph}",
+                                    (yp_id, *id_args),
+                                ).fetchone()
+                                if not yp_row:
+                                    result = {"error": f"yard_plant_id {yp_id} not found"}
+                                else:
+                                    raw_date = (inp.get("note_date") or today).strip()
+                                    note_date = raw_date if _ISO_DATE_RE.match(raw_date) else today
+                                    db.execute(
+                                        "INSERT INTO yard_plant_notes (yard_plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+                                        (yp_id, user_id, note_date, note_text, datetime.utcnow().isoformat(timespec="seconds")),
+                                    )
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True}
+
+                        else:
+                            result = {"error": "Unknown tool"}
+
+                    except Exception as tool_exc:
+                        result = {"error": str(tool_exc)[:200]}
+
+                    tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(result)})
+
+                messages.append({"role": "user", "content": tool_results})
+
+            _log_ai_chat(db, user_id, g.user["username"], "home", message)
+            return jsonify(reply="Done.", changed=changed)
+
+        except Exception as exc:
+            try:
+                db.execute(
+                    "INSERT INTO chat_error_log (user_id, error_type, error_message, logged_at) VALUES (?, ?, ?, ?)",
+                    (user_id, type(exc).__name__, str(exc)[:500], datetime.utcnow().isoformat(timespec="seconds")),
+                )
+                db.commit()
+            except Exception:
+                pass
+            return jsonify(error="Assistant unavailable — please try again."), 503
+
     @app.route("/api/plant-suggestion")
     @login_required
     def api_plant_suggestion():
@@ -4656,6 +5074,11 @@ def _build_plant_autocomplete_data(db, user_ids):
 def _feature_fertilization(user):
     """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
     return (user or {}).get("username") in {"boatmarina"}
+
+
+def _feature_home_assistant(user):
+    """Feature flag: home-screen garden assistant. Admin-only early access."""
+    return bool((user or {}).get("is_admin") and (user or {}).get("username") == "boatmarina")
 
 
 def _feature_garden_zones(user):
