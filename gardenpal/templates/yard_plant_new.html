@@ -559,7 +559,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       const preview = document.getElementById('yard-label-photo-preview');
       if (preview) { preview.querySelector('img').src = URL.createObjectURL(f); preview.hidden = false; }
       if (yardLabelUploadBtn) {
-        yardLabelUploadBtn.textContent = 'Photo ready';
+        yardLabelUploadBtn.textContent = 'Change photo';
         yardLabelUploadBtn.style.background = 'var(--green)';
         yardLabelUploadBtn.style.color = '#fff';
         yardLabelUploadBtn.style.border = 'none';
