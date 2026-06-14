@@ -15,7 +15,8 @@
          style="border-radius:var(--r-xl) var(--r-xl) 0 0;overflow:hidden;gap:3px"
          data-query="{{ (suggestion.scientific_name or suggestion.name) | e }}"
          data-name="{{ suggestion.name | e }}"
-         data-seed="{{ suggestion.photo_url or '' }}">
+         data-seed="{{ suggestion.photo_url or '' }}"
+         data-taxon-id="{{ suggestion.taxon_id or '' }}">
     </div>
 
     <!-- Header -->
@@ -80,33 +81,50 @@
 {% block scripts %}
 <script>
 (function () {
-  var grid     = document.getElementById('suggestion-photos');
+  var grid    = document.getElementById('suggestion-photos');
   if (!grid) return;
-  var query    = grid.dataset.query;
-  var name     = grid.dataset.name || '';
-  var seed     = grid.dataset.seed;
-  if (!query) return;
+  var query   = grid.dataset.query;
+  var name    = grid.dataset.name || '';
+  var seed    = grid.dataset.seed || '';
+  var taxonId = grid.dataset.taxonId || '';
+  if (!query && !taxonId) return;
 
   // Show seed immediately so there's no photo-less flash while the API loads
-  if (seed) GP.renderPhotosInGrid(grid, [seed], query);
+  if (seed) GP.renderPhotosInGrid(grid, [seed], name || query);
 
   function applyPhotos(photos, label) {
     var extras = (photos || []).filter(function(u) { return u !== seed; });
     var all    = seed ? [seed].concat(extras) : extras;
-    if (all.length) GP.renderPhotosInGrid(grid, all, label || query);
-    return all.length > 0;
+    if (all.length) GP.renderPhotosInGrid(grid, all, label || name || query);
+    // Return true only if the API found NEW photos (not just the seed we already had)
+    return extras.length > 0;
   }
 
-  fetch('/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6')
+  // If taxon_id is known, hit the API directly without a taxa lookup round-trip
+  var primaryUrl = taxonId
+    ? '/api/plant-photos?taxon_id=' + encodeURIComponent(taxonId) + '&count=6'
+    : '/api/plant-photos?q=' + encodeURIComponent(query) + '&count=6';
+
+  fetch(primaryUrl)
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      if (applyPhotos(d.photos, query)) return;
-      // Scientific name returned nothing — retry with common name
-      var fallback = name && name !== query ? name : '';
-      if (!fallback) return;
-      return fetch('/api/plant-photos?q=' + encodeURIComponent(fallback) + '&count=6')
-        .then(function(r2) { return r2.json(); })
-        .then(function(d2) { applyPhotos(d2.photos, fallback); });
+      if (applyPhotos(d.photos, name || query)) return;
+      // No new photos found — if we used taxon_id, retry with the scientific name text
+      var fallback1 = taxonId && query ? query : '';
+      var fallback2 = name && name !== query ? name : '';
+      var chain = Promise.resolve(false);
+      if (fallback1) {
+        chain = fetch('/api/plant-photos?q=' + encodeURIComponent(fallback1) + '&count=6')
+          .then(function(r2) { return r2.json(); })
+          .then(function(d2) { return applyPhotos(d2.photos, name || fallback1); });
+      }
+      chain.then(function(found) {
+        if (found || !fallback2 || fallback2 === fallback1) return;
+        fetch('/api/plant-photos?q=' + encodeURIComponent(fallback2) + '&count=6')
+          .then(function(r3) { return r3.json(); })
+          .then(function(d3) { applyPhotos(d3.photos, fallback2); })
+          .catch(function() {});
+      }).catch(function() {});
     })
     .catch(function() {});
 })();
