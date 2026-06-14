@@ -933,7 +933,7 @@ def create_app() -> Flask:
         fert_deadline = (datetime.utcnow() + _td(days=3)).strftime("%Y-%m-%d")
         if ff_fert:
             last_fert_date = plant["last_fertilized_date"] if plant.get("last_fertilized_date") else None
-            last_fertilized = {"date": last_fert_date, "type": None}
+            last_fertilized = {"date": last_fert_date, "type": plant.get("last_fertilizer_type")}
             never = bool(plant.get("never_fertilize"))
             if not never:
                 gen_at = plant.get("next_fertilization_generated_at") or None
@@ -1041,6 +1041,7 @@ def create_app() -> Flask:
         planned_date = request.form.get("planned_date", "").strip()
         never_fertilize = 1 if request.form.get("never_fertilize") else 0
         last_fertilized_date = request.form.get("last_fertilized_date", "").strip()
+        last_fertilizer_type = request.form.get("last_fertilizer_type", "").strip() or None
         if planned_date and not _ISO_DATE_RE.match(planned_date):
             planned_date = ""
         if last_fertilized_date and not _ISO_DATE_RE.match(last_fertilized_date):
@@ -1048,10 +1049,10 @@ def create_app() -> Flask:
         invalidate = bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")
         db.execute(
             "UPDATE plants SET planned_fertilization_date = ?, never_fertilize = ?,"
-            " last_fertilized_date = ?"
+            " last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type)"
             + (", next_fertilization_generated_at = NULL" if invalidate else "")
             + " WHERE id = ?",
-            (planned_date or None, never_fertilize, last_fertilized_date or None, plant_id),
+            (planned_date or None, never_fertilize, last_fertilized_date or None, last_fertilizer_type, plant_id),
         )
         db.commit()
         return redirect(url_for("idea_detail", plant_id=plant_id))
@@ -2593,6 +2594,7 @@ def create_app() -> Flask:
         planned_date = request.form.get("planned_date", "").strip() or None
         never = 1 if request.form.get("never_fertilize") else 0
         last_fert_date = request.form.get("last_fertilized_date", "").strip() or None
+        last_fert_type = request.form.get("last_fertilizer_type", "").strip() or None
         if last_fert_date and not _ISO_DATE_RE.match(last_fert_date):
             last_fert_date = None
         fert_date_changed = last_fert_date != (entry["last_fertilized_date"] or None)
@@ -2601,16 +2603,18 @@ def create_app() -> Flask:
                 "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
                 " next_fertilization_date = NULL, next_fertilization_note = NULL,"
                 " next_fertilization_generated_at = NULL,"
-                " last_fertilized_date = COALESCE(?, last_fertilized_date) WHERE id = ?",
-                (last_fert_date, entry_id),
+                " last_fertilized_date = COALESCE(?, last_fertilized_date),"
+                " last_fertilizer_type = COALESCE(?, last_fertilizer_type) WHERE id = ?",
+                (last_fert_date, last_fert_type, entry_id),
             )
         else:
             db.execute(
                 "UPDATE garden_entries SET planned_fertilization_date = ?, never_fertilize = 0,"
-                " last_fertilized_date = COALESCE(?, last_fertilized_date)"
+                " last_fertilized_date = COALESCE(?, last_fertilized_date),"
+                " last_fertilizer_type = COALESCE(?, last_fertilizer_type)"
                 + (", next_fertilization_generated_at = NULL" if fert_date_changed else "")
                 + " WHERE id = ?",
-                (planned_date, last_fert_date, entry_id),
+                (planned_date, last_fert_date, last_fert_type, entry_id),
             )
         db.commit()
         return redirect(url_for("garden_detail", entry_id=entry_id))
@@ -3876,6 +3880,7 @@ def init_db():
     ensure_column(db, "plants", "deadheading", "TEXT")
     ensure_column(db, "plants", "deer_resistant", "TEXT")
     ensure_column(db, "plants", "last_fertilized_date", "TEXT")
+    ensure_column(db, "plants", "last_fertilizer_type", "TEXT")
     ensure_column(db, "plants", "next_fertilization_date", "TEXT")
     ensure_column(db, "plants", "next_fertilization_note", "TEXT")
     ensure_column(db, "plants", "next_fertilization_generated_at", "TEXT")

@@ -169,7 +169,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
           <span style="color:var(--muted);font-size:0.82rem">Last fertilized</span>
           {% if last_fertilized and last_fertilized.date %}
-            <span>{{ last_fertilized.date | planted_date }}</span>
+            <span>{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}</span>
           {% else %}
             <span style="color:var(--muted)">Never</span>
           {% endif %}
@@ -198,7 +198,7 @@
         {% endif %}
       </div>
       <!-- Expandable edit panel -->
-      <div id="fert-edit-panel" hidden style="border-top:1px solid var(--border);padding:14px 16px 16px">
+      <div id="fert-edit-panel" hidden style="padding:14px 16px 16px">
         {% if next_fertilization and next_fertilization.note and not next_fertilization.never %}
         <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;line-height:1.55">{{ next_fertilization.note }}</p>
         {% endif %}
@@ -208,6 +208,13 @@
             Update last fertilized date
             <input type="date" name="last_fertilized_date"
                    value="{{ last_fertilized.date if last_fertilized and last_fertilized.date else '' }}"
+                   style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+          </label>
+          <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+            Fertilizer type
+            <input type="text" name="last_fertilizer_type"
+                   value="{{ last_fertilized.type if last_fertilized and last_fertilized.type else '' }}"
+                   placeholder="e.g. Worm castings, Fish emulsion…"
                    style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
           </label>
           <div id="plan-date-section" {% if next_fertilization and next_fertilization.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:10px">
