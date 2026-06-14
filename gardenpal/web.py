@@ -4148,6 +4148,9 @@ def create_app() -> Flask:
         sun = normalize_sun_value(suggestion.get("sun_needs") or "")
         wn = suggestion.get("watering_needs") or ""
         water = "minimal" if wn == "minimal" else ("frequent" if wn == "frequent" else wn)
+        _desc = suggestion.get("description") or ""
+        _why = suggestion.get("why") or ""
+        _desc_combined = "\n\n".join(filter(None, [_desc, f"Suggested because: {_why}" if _why else ""])) or None
         plant_id = db.execute(
             """
             INSERT INTO plants
@@ -4166,7 +4169,7 @@ def create_app() -> Flask:
                 suggestion.get("photo_url") or None,
                 sun or None,
                 suggestion.get("lifecycle") or None,
-                suggestion.get("description") or None,
+                _desc_combined,
                 water or None,
                 suggestion.get("plant_form") or None,
                 suggestion.get("size_info") or None,
