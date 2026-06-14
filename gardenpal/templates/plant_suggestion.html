@@ -20,6 +20,15 @@
          data-stored-photos="{{ (suggestion.photo_urls or []) | tojson | e }}">
     </div>
 
+    <!-- Photo debug panel -->
+    <div id="photo-debug" style="margin:12px 16px 0;padding:10px 12px;background:#f0f4f0;border-radius:8px;border:1px solid #c8d8c8;font-size:0.75rem;font-family:monospace;color:#333;line-height:1.7">
+      <strong style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em">Photo debug</strong><br>
+      Server: <strong>{{ (suggestion.photo_urls or []) | length }}</strong> stored photo(s)
+      {% if suggestion.photo_url %} · seed: {{ suggestion.photo_url[:60] }}…{% else %} · no seed{% endif %}
+      {% if suggestion.taxon_id %} · taxon_id: {{ suggestion.taxon_id }}{% else %} · no taxon_id{% endif %}<br>
+      <span id="debug-js">JS: loading…</span>
+    </div>
+
     <!-- Header -->
     <div class="detail-header">
       <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:6px">
@@ -83,26 +92,33 @@
 <script>
 (function () {
   var grid  = document.getElementById('suggestion-photos');
-  if (!grid) return;
+  var dbg   = document.getElementById('debug-js');
+  function log(msg) { if (dbg) dbg.textContent = 'JS: ' + msg; }
+
+  if (!grid) { log('grid element not found'); return; }
   var query = grid.dataset.query || '';
   var name  = grid.dataset.name || '';
   var seed  = grid.dataset.seed || '';
 
-  // Use photos pre-fetched at suggestion time (stored in the session) — no API call needed.
   var stored = [];
-  try { stored = JSON.parse(grid.dataset.storedPhotos || '[]'); } catch(e) {}
+  try { stored = JSON.parse(grid.dataset.storedPhotos || '[]'); } catch(e) { log('JSON parse error: ' + e); return; }
+
+  log('parsed ' + stored.length + ' stored photo(s); seed=' + (seed ? 'yes' : 'no'));
 
   if (stored.length) {
     GP.renderPhotosInGrid(grid, stored, name || query);
+    log('rendered ' + stored.length + ' stored photo(s) ✓');
     return;
   }
 
-  // Fallback: seed only (CDN URL), then try API if seed is missing or fails
   if (seed) {
     GP.renderPhotosInGrid(grid, [seed], name || query);
+    log('rendered seed photo, trying API for more…');
+  } else {
+    log('no stored photos, no seed — trying API…');
   }
 
-  if (!query && !grid.dataset.taxonId) return;
+  if (!query && !grid.dataset.taxonId) { log('no stored, no seed, no query/taxon — nothing to show'); return; }
 
   var taxonId = grid.dataset.taxonId || '';
   var primaryUrl = taxonId
@@ -113,11 +129,12 @@
     .then(function(r) { return r.json(); })
     .then(function(d) {
       var photos = (d.photos || []);
+      log('API returned ' + photos.length + ' photo(s)');
       if (!photos.length) return;
       var all = seed ? [seed].concat(photos.filter(function(u) { return u !== seed; })) : photos;
       if (all.length) GP.renderPhotosInGrid(grid, all, name || query);
     })
-    .catch(function() {});
+    .catch(function(e) { log('API fetch failed: ' + e); });
 })();
 </script>
 {% endblock %}
