@@ -109,13 +109,7 @@
           </div>
           {% endif %}
         </div>
-        <div id="fert-edit-panel" hidden style="border-top:1px solid var(--border);padding:14px 16px 16px">
-          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text);cursor:pointer;margin-bottom:10px">
-            <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
-                   {% if entry.never_fertilize %}checked{% endif %}
-                   style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
-            I don't plan to fertilize this plant
-          </label>
+        <div id="fert-edit-panel" hidden style="padding:14px 16px 16px">
           <div id="fert-tracking-section" class="stack">
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
               Update last fertilized date
@@ -129,6 +123,12 @@
                      style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
             </label>
           </div>
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer;margin-top:10px">
+            <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
+                   {% if entry.never_fertilize %}checked{% endif %}
+                   style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
+            I don't plan to fertilize this plant
+          </label>
         </div>
       </div>
       <button type="submit" style="margin-top:4px">Save Changes</button>

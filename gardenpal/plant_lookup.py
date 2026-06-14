@@ -460,9 +460,28 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
             if len(photos) >= count:
                 break
 
-        # If no observation photos found, fall back to the curated taxon_photos
-        if not photos and taxon_photos:
-            return taxon_photos[:count]
+        # If no observation photos found, fall back to taxon_photos.
+        # When taxon_id was provided directly, we skipped the taxa lookup so
+        # taxon_photos is empty — fetch the taxon record now to fill it in.
+        if not photos:
+            if not taxon_photos:
+                try:
+                    t_resp = requests.get(
+                        f"https://api.inaturalist.org/v1/taxa/{taxon_id}",
+                        timeout=8,
+                    )
+                    t_resp.raise_for_status()
+                    t_results = t_resp.json().get("results", [])
+                    if t_results:
+                        for tp in (t_results[0].get("taxon_photos") or [])[:count]:
+                            p = (tp.get("photo") or {})
+                            url = p.get("medium_url") or p.get("square_url") or ""
+                            if url:
+                                taxon_photos.append(url)
+                except Exception:
+                    pass
+            if taxon_photos:
+                return taxon_photos[:count]
 
         return photos
     except Exception:
@@ -583,8 +602,18 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
 # Plant suggestion (home screen "you might like")
 # ---------------------------------------------------------------------------
 
-def generate_plant_suggestion(location: Optional[str], existing_names: List[str], edible_names: Optional[List[str]] = None, recent_suggestions: Optional[List[str]] = None) -> Tuple[Optional[Dict], Optional[str]]:
-    """Return (suggestion_dict, error). suggestion_dict includes photo_url."""
+def generate_plant_suggestion(
+    location: Optional[str],
+    existing_names: List[str],
+    edible_names: Optional[List[str]] = None,
+    recent_suggestions: Optional[List[str]] = None,
+    planted_ornamental_names: Optional[List[str]] = None,
+) -> Tuple[Optional[Dict], Optional[str]]:
+    """Return (suggestion_dict, error). suggestion_dict includes photo_url.
+
+    planted_ornamental_names: ornamentals actually placed in a yard zone (actively growing).
+    existing_names: all library ornamentals (planted + library-only saves).
+    """
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
         return None, "ANTHROPIC_API_KEY not set"
@@ -592,7 +621,6 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
     loc = (location or "").strip() or "Pacific Northwest"
     has_ornamentals = bool(existing_names)
     has_edibles = bool(edible_names)
-    names_str = ", ".join(existing_names[:40]) if has_ornamentals else "none yet"
     edibles_str = ", ".join((edible_names or [])[:30]) if has_edibles else ""
 
     if not has_ornamentals and not has_edibles:
@@ -604,14 +632,31 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
         )
     else:
         context = f"The user lives in {loc}.\n"
-        context += f"Their ornamental plant collection: {names_str}.\n"
+        if planted_ornamental_names is not None:
+            planted_set = set(planted_ornamental_names)
+            library_only = [n for n in existing_names if n not in planted_set]
+            if planted_ornamental_names:
+                context += (
+                    f"Ornamentals they have actively planted in their yard or garden: "
+                    f"{', '.join(planted_ornamental_names[:30])}.\n"
+                )
+            if library_only:
+                context += (
+                    f"Ornamentals saved to their wishlist/library (they like these but haven't planted them yet): "
+                    f"{', '.join(library_only[:20])}.\n"
+                )
+            if not planted_ornamental_names and not library_only:
+                context += "They have no ornamentals yet.\n"
+        else:
+            names_str = ", ".join(existing_names[:40]) if has_ornamentals else "none yet"
+            context += f"Their ornamental plant collection: {names_str}.\n"
         if edibles_str:
             context += f"Their edible garden includes: {edibles_str}.\n"
         context += (
-            "\nSuggest ONE ornamental plant they don't have yet. "
+            "\nSuggest ONE ornamental plant they don't already have (not in their planted garden or wishlist). "
             "If their edible garden includes plants that have good companion flowers "
             "(e.g. flowers that attract pollinators, repel pests, or look beautiful alongside vegetables), "
-            "favour those — otherwise complement their ornamental collection. "
+            "favour those — otherwise complement what they already grow. "
             "Be specific; include a cultivar if it makes the suggestion more interesting."
         )
 

@@ -68,7 +68,7 @@
         <span class="meta-value">{{ entry.planted_date | planted_date }}</span>
       </div>
       {% endif %}
-      <div class="meta-item">
+      <div class="meta-item" style="border-top:none">
         <span class="meta-icon">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22V12"/>
@@ -135,7 +135,7 @@
                      style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
             </label>
           </div>
-          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--text);cursor:pointer">
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
             <input type="checkbox" id="never-fert-detail-cb" name="never_fertilize" value="1"
                    {% if next_fertilization.never %}checked{% endif %}
                    style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />

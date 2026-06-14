@@ -3417,8 +3417,15 @@ def create_app() -> Flask:
             f"SELECT DISTINCT plant_name FROM garden_entries WHERE user_id IN {ph} ORDER BY plant_name LIMIT 30",
             id_args,
         ).fetchall()
+        # Which ornamentals are actively placed in a yard zone (actually planted)
+        zone_rows = db.execute(
+            f"SELECT DISTINCT plant_name FROM yard_plants WHERE user_id IN {ph}",
+            id_args,
+        ).fetchall()
         ornamental_names = [r["name"] for r in ornamental_rows]
         edible_names = [r["plant_name"] for r in edible_rows]
+        planted_in_zone = set(r["plant_name"] for r in zone_rows)
+        planted_ornamental_names = [n for n in ornamental_names if n in planted_in_zone]
         location = g.user.get("location") or ""
         history_row = db.execute("SELECT suggestion_history FROM users WHERE id = ?", (user_id,)).fetchone()
         history_json = (history_row["suggestion_history"] if history_row else None) or "[]"
@@ -3428,7 +3435,11 @@ def create_app() -> Flask:
                 recent_suggestions = []
         except Exception:
             recent_suggestions = []
-        suggestion, err = generate_plant_suggestion(location, ornamental_names, edible_names, recent_suggestions=recent_suggestions)
+        suggestion, err = generate_plant_suggestion(
+            location, ornamental_names, edible_names,
+            recent_suggestions=recent_suggestions,
+            planted_ornamental_names=planted_ornamental_names,
+        )
         if err or not suggestion:
             return jsonify(error=err or "Could not generate suggestion"), 500
         recent_suggestions.append(suggestion["name"])
