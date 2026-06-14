@@ -55,22 +55,10 @@
       Ask your garden assistant
       <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <div id="home-chat-examples" style="padding:0 14px 13px;display:flex;flex-wrap:wrap;gap:6px">
-      <button type="button" class="home-chat-chip"
-              data-msg="Add zucchini variety 'Black Beauty' to my edibles, planted today in raised bed 1"
-              style="font-size:0.73rem;font-family:inherit;padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">
-        Add zucchini to raised bed…
-      </button>
-      <button type="button" class="home-chat-chip"
-              data-msg="Add a note to my rose that it's starting to bloom"
-              style="font-size:0.73rem;font-family:inherit;padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">
-        Note on an ornamental…
-      </button>
-      <button type="button" class="home-chat-chip"
-              data-msg="When should I fertilize my tomatoes, and what type of fertilizer works best?"
-              style="font-size:0.73rem;font-family:inherit;padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--bg);color:var(--muted);cursor:pointer;white-space:nowrap">
-        When to fertilize tomatoes?
-      </button>
+    <div id="home-chat-examples" style="padding:0 14px 13px;display:flex;flex-direction:column;gap:4px">
+      <p style="font-size:0.72rem;color:var(--muted);margin:0;line-height:1.5">Add zucchini planted today in front yard zone, variety spineless beauty</p>
+      <p style="font-size:0.72rem;color:var(--muted);margin:0;line-height:1.5">Add a note to my Shasta Daisy — deadheaded today</p>
+      <p style="font-size:0.72rem;color:var(--muted);margin:0;line-height:1.5">When should I fertilize my tomatoes next?</p>
     </div>
     <div id="home-chat-panel" hidden>
       <div id="home-chat-messages" style="padding:4px 14px 10px;display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto"></div>
@@ -218,15 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   toggle.addEventListener('click', function() { if (panel.hidden) openPanel(); else closePanel(); });
 
-  document.querySelectorAll('.home-chat-chip').forEach(function(chip) {
-    chip.addEventListener('click', function(e) {
-      e.stopPropagation();
-      input.value = chip.dataset.msg || '';
-      openPanel();
-      input.focus();
-      input.dispatchEvent(new Event('input'));
-    });
-  });
 
   function bubble(role, text) {
     var div = document.createElement('div');
