@@ -2582,7 +2582,7 @@ def create_app() -> Flask:
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         entry = db.execute(
-            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            f"SELECT id, last_fertilized_date FROM garden_entries WHERE id = ? AND user_id IN {ph}",
             [entry_id] + id_args,
         ).fetchone()
         if entry is None:
@@ -2590,17 +2590,25 @@ def create_app() -> Flask:
             return redirect(url_for("garden_index"))
         planned_date = request.form.get("planned_date", "").strip() or None
         never = 1 if request.form.get("never_fertilize") else 0
+        last_fert_date = request.form.get("last_fertilized_date", "").strip() or None
+        if last_fert_date and not _ISO_DATE_RE.match(last_fert_date):
+            last_fert_date = None
+        fert_date_changed = last_fert_date != (entry["last_fertilized_date"] or None)
         if never:
             db.execute(
                 "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
                 " next_fertilization_date = NULL, next_fertilization_note = NULL,"
-                " next_fertilization_generated_at = NULL WHERE id = ?",
-                (entry_id,),
+                " next_fertilization_generated_at = NULL,"
+                " last_fertilized_date = COALESCE(?, last_fertilized_date) WHERE id = ?",
+                (last_fert_date, entry_id),
             )
         else:
             db.execute(
-                "UPDATE garden_entries SET planned_fertilization_date = ?, never_fertilize = 0 WHERE id = ?",
-                (planned_date, entry_id),
+                "UPDATE garden_entries SET planned_fertilization_date = ?, never_fertilize = 0,"
+                " last_fertilized_date = COALESCE(?, last_fertilized_date)"
+                + (", next_fertilization_generated_at = NULL" if fert_date_changed else "")
+                + " WHERE id = ?",
+                (planned_date, last_fert_date, entry_id),
             )
         db.commit()
         return redirect(url_for("garden_detail", entry_id=entry_id))
