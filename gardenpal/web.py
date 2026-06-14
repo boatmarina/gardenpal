@@ -246,6 +246,20 @@ def _log_chat_error(db, user_id, username, user_message, error_type, error_detai
         pass  # never let logging break the response
 
 
+def _log_ai_chat(db, user_id, username, context, user_message, plant_name=None):
+    """Log a successful AI chat message for admin visibility."""
+    try:
+        db.execute(
+            "INSERT INTO ai_chat_log (user_id, username, context, plant_name, user_message, logged_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, username, context, plant_name, (user_message or "")[:1000],
+             datetime.utcnow().isoformat(timespec="seconds")),
+        )
+        db.commit()
+    except Exception:
+        pass
+
+
 def create_app() -> Flask:
     # Newest first. Add a new entry at the top when releasing a feature.
     # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
@@ -1710,24 +1724,12 @@ def create_app() -> Flask:
                 "SELECT username, user_message, error_type, error_detail, logged_at"
                 " FROM chat_error_log ORDER BY logged_at DESC LIMIT 200"
             ).fetchall()
-            ai_usage_rows = db.execute(
-                "SELECT u.username, au.feature, SUM(au.count) AS total, MAX(au.last_used_at) AS last_used"
-                " FROM api_usage au JOIN users u ON u.id = au.user_id"
-                " GROUP BY u.username, au.feature"
-                " ORDER BY u.username, au.feature"
+            ai_chat_entries = db.execute(
+                "SELECT username, context, plant_name, user_message, logged_at"
+                " FROM ai_chat_log ORDER BY logged_at DESC LIMIT 300"
             ).fetchall()
-            ai_usage_by_user: dict = {}
-            for r in ai_usage_rows:
-                uname = r["username"]
-                if uname not in ai_usage_by_user:
-                    ai_usage_by_user[uname] = []
-                ai_usage_by_user[uname].append({
-                    "feature": r["feature"],
-                    "total": r["total"],
-                    "last_used": r["last_used"],
-                })
         else:
-            ai_usage_by_user = {}
+            ai_chat_entries = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -1742,7 +1744,7 @@ def create_app() -> Flask:
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
                                perenual_log=perenual_log,
                                chat_error_log=chat_error_log,
-                               ai_usage_by_user=ai_usage_by_user,
+                               ai_chat_entries=ai_chat_entries,
                                garden_shares=garden_shares,
                                garden_shares_in=garden_shares_in,
                                garden_shares_out=garden_shares_out,
@@ -2781,6 +2783,7 @@ def create_app() -> Flask:
                 messages=messages,
             )
             reply = next((b.text for b in resp.content if hasattr(b, "text")), "").strip()
+            _log_ai_chat(db, user_id, g.user["username"], "ornamental", message, plant_name=plant["name"])
             return jsonify(reply=reply)
         except Exception as exc:
             try:
@@ -2974,6 +2977,7 @@ def create_app() -> Flask:
 
                 if response.stop_reason != "tool_use":
                     text = next((b.text for b in response.content if hasattr(b, "text")), "Done.")
+                    _log_ai_chat(db, user_id, g.user["username"], "edible", message)
                     return jsonify(reply=text, changed=changed)
 
                 # Execute tool calls
@@ -4153,6 +4157,18 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_chat_error_log_at ON chat_error_log(logged_at DESC)",
+    """
+    CREATE TABLE IF NOT EXISTS ai_chat_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        username TEXT,
+        context TEXT NOT NULL,
+        plant_name TEXT,
+        user_message TEXT NOT NULL,
+        logged_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_ai_chat_log_at ON ai_chat_log(logged_at DESC)",
     # --- Indexes for common hot-path queries ---
     "CREATE INDEX IF NOT EXISTS idx_garden_entries_user_id   ON garden_entries(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_garden_entries_user_date ON garden_entries(user_id, planted_date DESC NULLS LAST)",
