@@ -583,7 +583,7 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
 # Plant suggestion (home screen "you might like")
 # ---------------------------------------------------------------------------
 
-def generate_plant_suggestion(location: Optional[str], existing_names: List[str], edible_names: Optional[List[str]] = None) -> Tuple[Optional[Dict], Optional[str]]:
+def generate_plant_suggestion(location: Optional[str], existing_names: List[str], edible_names: Optional[List[str]] = None, recent_suggestions: Optional[List[str]] = None) -> Tuple[Optional[Dict], Optional[str]]:
     """Return (suggestion_dict, error). suggestion_dict includes photo_url."""
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
@@ -613,6 +613,13 @@ def generate_plant_suggestion(location: Optional[str], existing_names: List[str]
             "(e.g. flowers that attract pollinators, repel pests, or look beautiful alongside vegetables), "
             "favour those — otherwise complement their ornamental collection. "
             "Be specific; include a cultivar if it makes the suggestion more interesting."
+        )
+
+    if recent_suggestions:
+        context += (
+            f"\n\nRecently suggested (DO NOT suggest any of these or anything closely related): "
+            f"{', '.join(recent_suggestions[:5])}. "
+            f"Choose something meaningfully different in type, colour, or season."
         )
 
     prompt = (
