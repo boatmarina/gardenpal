@@ -2765,6 +2765,7 @@ def create_app() -> Flask:
 
         plant_context = "\n".join(lines)
 
+        note_zone = pz_rows[0]["zone_name"] if pz_rows else None
         system = (
             f"You are a knowledgeable gardening assistant helping with a specific ornamental plant. Today is {today}.\n"
             + (f"The user's location: {user_location}\n" if user_location else "")
@@ -2773,22 +2774,84 @@ def create_app() -> Flask:
             "Use the notes and location to give specific, relevant advice. "
             "Keep replies concise and practical. "
             "Never use markdown bold (**text**) or other markdown formatting in your replies."
+            + (f" When the user wants to save an observation or care note, use the save_note tool (saves to zone: {note_zone})." if note_zone else "")
         )
+
+        tools = []
+        if pz_rows:
+            tools = [
+                {
+                    "name": "save_note",
+                    "description": "Save an observation, care note, or milestone about this plant. Call this when the user wants to record something they've done or noticed.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "note_text": {"type": "string", "description": "The text of the note to save"},
+                            "note_date": {"type": "string", "description": "Date in YYYY-MM-DD format. Defaults to today if omitted."},
+                        },
+                        "required": ["note_text"],
+                    },
+                }
+            ]
 
         messages = [{"role": m["role"], "content": m["content"]} for m in history if m.get("role") in ("user", "assistant")]
         messages.append({"role": "user", "content": message})
 
+        note_saved = None
+        client = _anthropic.Anthropic(api_key=api_key)
+
         try:
-            client = _anthropic.Anthropic(api_key=api_key)
-            resp = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=512,
-                system=system,
-                messages=messages,
-            )
-            reply = next((b.text for b in resp.content if hasattr(b, "text")), "").strip()
+            for _ in range(4):
+                create_kwargs = dict(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=512,
+                    system=system,
+                    messages=messages,
+                )
+                if tools:
+                    create_kwargs["tools"] = tools
+                resp = client.messages.create(**create_kwargs)
+                messages.append({"role": "assistant", "content": resp.content})
+
+                if resp.stop_reason != "tool_use":
+                    reply = next((b.text for b in resp.content if hasattr(b, "text")), "").strip()
+                    _log_ai_chat(db, user_id, g.user["username"], "ornamental", message, plant_name=plant["name"])
+                    result = {"reply": reply}
+                    if note_saved:
+                        result["note_saved"] = note_saved
+                    return jsonify(result)
+
+                tool_results = []
+                for block in resp.content:
+                    if not hasattr(block, "type") or block.type != "tool_use":
+                        continue
+                    inp = block.input
+                    if block.name == "save_note" and pz_rows:
+                        note_text = (inp.get("note_text") or "").strip()
+                        raw_date = (inp.get("note_date") or today).strip()
+                        note_date = raw_date if _ISO_DATE_RE.match(raw_date) else today
+                        if note_text:
+                            db.execute(
+                                "INSERT INTO yard_plant_notes (yard_plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+                                (pz_rows[0]["id"], g.user["id"], note_date, note_text, datetime.utcnow().isoformat(timespec="seconds")),
+                            )
+                            db.commit()
+                            note_saved = {"text": note_text, "date": note_date, "zone": pz_rows[0]["zone_name"]}
+                            tool_result = "Note saved."
+                        else:
+                            tool_result = "Error: note text was empty."
+                    else:
+                        tool_result = "Unknown tool."
+                    tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": tool_result})
+
+                messages.append({"role": "user", "content": tool_results})
+
             _log_ai_chat(db, user_id, g.user["username"], "ornamental", message, plant_name=plant["name"])
-            return jsonify(reply=reply)
+            result = {"reply": "Done."}
+            if note_saved:
+                result["note_saved"] = note_saved
+            return jsonify(result)
+
         except Exception as exc:
             try:
                 db.execute(
