@@ -295,6 +295,31 @@
     </section>
     {% endif %}
 
+    {% if ai_usage_by_user is defined and ai_usage_by_user %}
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">AI usage by user</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Successful AI feature calls, aggregated across all time.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        {% for username, features in ai_usage_by_user.items() %}
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px">
+          <p style="font-size:0.82rem;font-weight:700;margin-bottom:6px">{{ username }}</p>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            {% for f in features %}
+            <div style="display:flex;align-items:center;gap:8px;font-size:0.8rem">
+              <span style="color:var(--muted);min-width:110px">{{ f.feature | replace('_', ' ') | capitalize }}</span>
+              <span style="font-weight:600">{{ f.total }}</span>
+              {% if f.last_used %}
+              <span style="color:var(--muted);font-size:0.72rem;margin-left:auto">last {{ f.last_used[:10] }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
     {% if chat_error_log is defined %}
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">AI assistant error log</h2>

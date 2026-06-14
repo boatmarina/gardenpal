@@ -1710,6 +1710,24 @@ def create_app() -> Flask:
                 "SELECT username, user_message, error_type, error_detail, logged_at"
                 " FROM chat_error_log ORDER BY logged_at DESC LIMIT 200"
             ).fetchall()
+            ai_usage_rows = db.execute(
+                "SELECT u.username, au.feature, SUM(au.count) AS total, MAX(au.last_used_at) AS last_used"
+                " FROM api_usage au JOIN users u ON u.id = au.user_id"
+                " GROUP BY u.username, au.feature"
+                " ORDER BY u.username, au.feature"
+            ).fetchall()
+            ai_usage_by_user: dict = {}
+            for r in ai_usage_rows:
+                uname = r["username"]
+                if uname not in ai_usage_by_user:
+                    ai_usage_by_user[uname] = []
+                ai_usage_by_user[uname].append({
+                    "feature": r["feature"],
+                    "total": r["total"],
+                    "last_used": r["last_used"],
+                })
+        else:
+            ai_usage_by_user = {}
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -1724,6 +1742,7 @@ def create_app() -> Flask:
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
                                perenual_log=perenual_log,
                                chat_error_log=chat_error_log,
+                               ai_usage_by_user=ai_usage_by_user,
                                garden_shares=garden_shares,
                                garden_shares_in=garden_shares_in,
                                garden_shares_out=garden_shares_out,
@@ -3389,9 +3408,23 @@ def create_app() -> Flask:
         ornamental_names = [r["name"] for r in ornamental_rows]
         edible_names = [r["plant_name"] for r in edible_rows]
         location = g.user.get("location") or ""
-        suggestion, err = generate_plant_suggestion(location, ornamental_names, edible_names)
+        history_row = db.execute("SELECT suggestion_history FROM users WHERE id = ?", (user_id,)).fetchone()
+        history_json = (history_row["suggestion_history"] if history_row else None) or "[]"
+        try:
+            recent_suggestions = json.loads(history_json)
+            if not isinstance(recent_suggestions, list):
+                recent_suggestions = []
+        except Exception:
+            recent_suggestions = []
+        suggestion, err = generate_plant_suggestion(location, ornamental_names, edible_names, recent_suggestions=recent_suggestions)
         if err or not suggestion:
             return jsonify(error=err or "Could not generate suggestion"), 500
+        recent_suggestions.append(suggestion["name"])
+        db.execute(
+            "UPDATE users SET suggestion_history = ? WHERE id = ?",
+            (json.dumps(recent_suggestions[-5:]), user_id),
+        )
+        db.commit()
         session["plant_suggestion"] = suggestion
         session.modified = True
         return jsonify(suggestion)
@@ -3443,6 +3476,8 @@ def create_app() -> Flask:
             ),
         ).fetchone()["id"]
         db.commit()
+        session.pop("plant_suggestion", None)
+        session.modified = True
         flash(f"{suggestion['name']} added to your ornamentals.")
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
@@ -3826,6 +3861,7 @@ def init_db():
     ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "users", "location", "TEXT")
     ensure_column(db, "users", "whats_new_seen", "TEXT")
+    ensure_column(db, "users", "suggestion_history", "TEXT")
     ensure_column(db, "garden_shares", "confirmed", "INTEGER NOT NULL DEFAULT 1")
     ensure_column(db, "garden_shares", "requested_by", "INTEGER")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
