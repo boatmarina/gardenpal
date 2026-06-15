@@ -86,23 +86,66 @@
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       {% for alert in fert_alerts %}
-      <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
-        <div style="flex:1;min-width:0">
-          <a href="{{ url_for('garden_detail', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_detail', plant_id=alert.id) }}"
-             style="font-size:0.88rem;font-weight:600;color:var(--fg);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</a>
-          <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          {% if alert.overdue %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;white-space:nowrap">Overdue</span>
-          {% else %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFF3E0;color:#C15400;border:1px solid #FFB74D;white-space:nowrap">Due {{ alert.date | planted_date }}</span>
-          {% endif %}
-          <form method="post" action="{{ url_for('fert_never') }}" style="margin:0">
+      <div style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+        <!-- Summary row — tap to expand -->
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
+          <button type="button" onclick="fertToggle({{ loop.index }})"
+                  style="flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px">
+            <div style="flex:1;min-width:0">
+              <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
+              <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}</span>
+            </div>
+            {% if alert.overdue %}
+            <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;white-space:nowrap;flex-shrink:0">Overdue</span>
+            {% else %}
+            <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFF3E0;color:#C15400;border:1px solid #FFB74D;white-space:nowrap;flex-shrink:0">Due {{ alert.date | planted_date }}</span>
+            {% endif %}
+            <svg id="fert-chevron-{{ loop.index }}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <form method="post" action="{{ url_for('fert_never') }}" style="margin:0;flex-shrink:0">
             <input type="hidden" name="kind" value="{{ alert.kind }}" />
             <input type="hidden" name="id" value="{{ alert.id }}" />
             <button type="submit" title="I don't plan to fertilize this plant"
                     style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap">Skip</button>
+          </form>
+        </div>
+        <!-- Expandable fertilization form -->
+        <div id="fert-panel-{{ loop.index }}" hidden
+             style="padding:4px 14px 16px;border-top:1px solid var(--border);background:var(--bg-subtle, var(--bg))">
+          {% if alert.next_fertilization_note %}
+          <p style="font-size:0.8rem;color:var(--muted);margin:10px 0 12px;line-height:1.5">{{ alert.next_fertilization_note }}</p>
+          {% endif %}
+          <form method="post"
+                action="{{ url_for('garden_plan_fertilize', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_fertilize', plant_id=alert.id) }}"
+                style="display:flex;flex-direction:column;gap:10px;padding-top:10px">
+            <input type="hidden" name="from_dashboard" value="1" />
+            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+              Last fertilized date
+              <input type="date" name="last_fertilized_date"
+                     value="{{ alert.last_fertilized_date or '' }}"
+                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+            </label>
+            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+              Fertilizer type
+              <input type="text" name="last_fertilizer_type"
+                     value="{{ alert.last_fertilizer_type or '' }}"
+                     placeholder="e.g. Worm castings, Fish emulsion…"
+                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+            </label>
+            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+              Next fertilization date
+              <input type="date" name="planned_date"
+                     value="{{ alert.planned_date or '' }}"
+                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+            </label>
+            <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
+              <input type="checkbox" name="never_fertilize" value="1"
+                     style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
+              I don't plan to fertilize this plant
+            </label>
+            <div>
+              <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
+            </div>
           </form>
         </div>
       </div>
@@ -147,6 +190,15 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+function fertToggle(n) {
+  var panel = document.getElementById('fert-panel-' + n);
+  var chevron = document.getElementById('fert-chevron-' + n);
+  var open = panel.hidden;
+  panel.hidden = !open;
+  chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+</script>
 <style>
 .skel-line { background: linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%); background-size: 200% 100%; animation: skelShimmer 1.6s ease-in-out infinite; }
 #suggestion-leaf { animation: leafPulse 1.6s ease-in-out infinite; }

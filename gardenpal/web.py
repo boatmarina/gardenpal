@@ -535,7 +535,8 @@ def create_app() -> Flask:
             today = datetime.utcnow().strftime("%Y-%m-%d")
             deadline = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
             edible_rows = db.execute(
-                f"SELECT id, plant_name AS name, next_fertilization_date, planned_fertilization_date"
+                f"SELECT id, plant_name AS name, next_fertilization_date, planned_fertilization_date,"
+                f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize"
                 f" FROM garden_entries WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
@@ -544,10 +545,18 @@ def create_app() -> Flask:
             ).fetchall()
             for r in edible_rows:
                 eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
-                fert_alerts.append({"kind": "edible", "id": r["id"], "name": r["name"],
-                                    "date": eff, "overdue": eff < today})
+                fert_alerts.append({
+                    "kind": "edible", "id": r["id"], "name": r["name"],
+                    "date": eff, "overdue": eff < today,
+                    "last_fertilized_date": r["last_fertilized_date"],
+                    "last_fertilizer_type": r["last_fertilizer_type"],
+                    "next_fertilization_note": r["next_fertilization_note"],
+                    "planned_date": r["planned_fertilization_date"],
+                    "never": bool(r["never_fertilize"]),
+                })
             ornamental_rows = db.execute(
-                f"SELECT id, name, next_fertilization_date, planned_fertilization_date"
+                f"SELECT id, name, next_fertilization_date, planned_fertilization_date,"
+                f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize"
                 f" FROM plants WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
@@ -556,8 +565,15 @@ def create_app() -> Flask:
             ).fetchall()
             for r in ornamental_rows:
                 eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
-                fert_alerts.append({"kind": "ornamental", "id": r["id"], "name": r["name"],
-                                    "date": eff, "overdue": eff < today})
+                fert_alerts.append({
+                    "kind": "ornamental", "id": r["id"], "name": r["name"],
+                    "date": eff, "overdue": eff < today,
+                    "last_fertilized_date": r["last_fertilized_date"],
+                    "last_fertilizer_type": r["last_fertilizer_type"],
+                    "next_fertilization_note": r["next_fertilization_note"],
+                    "planned_date": r["planned_fertilization_date"],
+                    "never": bool(r["never_fertilize"]),
+                })
             fert_alerts.sort(key=lambda x: x["date"])
 
         return render_template(
@@ -1121,6 +1137,8 @@ def create_app() -> Flask:
             (planned_date or None, never_fertilize, last_fertilized_date or None, last_fertilizer_type, plant_id),
         )
         db.commit()
+        if request.form.get("from_dashboard"):
+            return redirect(url_for("dashboard"))
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
     @app.route("/yard")
@@ -2694,6 +2712,8 @@ def create_app() -> Flask:
                 (planned_date, last_fert_date, last_fert_type, entry_id),
             )
         db.commit()
+        if request.form.get("from_dashboard"):
+            return redirect(url_for("dashboard"))
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
     @app.route("/garden/<int:entry_id>/duplicate", methods=["POST"])
