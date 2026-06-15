@@ -636,9 +636,8 @@ def create_app() -> Flask:
         tag_id = request.args.get("tag", "").strip()
 
         query = f"""
-            SELECT DISTINCT p.*
+            SELECT p.*
             FROM plants p
-            LEFT JOIN plant_categories pc ON p.id = pc.plant_id
             WHERE p.user_id IN {ph}
         """
         params = list(id_args)
@@ -663,7 +662,7 @@ def create_app() -> Flask:
             query += " AND p.height_category = ?"
             params.append(height_category)
         if category_id:
-            query += " AND pc.category_id = ?"
+            query += " AND EXISTS (SELECT 1 FROM plant_categories WHERE plant_id = p.id AND category_id = ?)"
             params.append(category_id)
         if tag_id:
             query += " AND p.id IN (SELECT plant_id FROM plant_tags WHERE tag_id = ?)"
@@ -4994,6 +4993,18 @@ _SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry_id   ON garden_photos(entry_id)",
     "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry_date ON garden_photos(entry_id, photo_date DESC NULLS LAST)",
     "CREATE INDEX IF NOT EXISTS idx_garden_photos_entry_fert ON garden_photos(entry_id, is_fertilization)",
+    # Filter columns used in ideas_index and yard search
+    "CREATE INDEX IF NOT EXISTS idx_plants_sun_exposure    ON plants(user_id, sun_exposure)",
+    "CREATE INDEX IF NOT EXISTS idx_plants_lifecycle       ON plants(user_id, lifecycle)",
+    "CREATE INDEX IF NOT EXISTS idx_plants_evergreen       ON plants(user_id, evergreen_status)",
+    "CREATE INDEX IF NOT EXISTS idx_plants_form            ON plants(user_id, plant_form)",
+    "CREATE INDEX IF NOT EXISTS idx_plants_height          ON plants(user_id, height_category)",
+    "CREATE INDEX IF NOT EXISTS idx_plants_created_at      ON plants(user_id, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_plant_cats_cat_plant   ON plant_categories(category_id, plant_id)",
+    # Fertilization alert queries (dashboard)
+    "CREATE INDEX IF NOT EXISTS idx_plants_user_next_fert  ON plants(user_id, next_fertilization_date)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_entries_zone_id ON garden_entries(zone_id)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_entries_next_fert ON garden_entries(user_id, next_fertilization_date)",
     # --- API usage tracking (rate limiting + daily spending caps) ---
     """
     CREATE TABLE IF NOT EXISTS api_usage (
