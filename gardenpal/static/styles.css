@@ -53,7 +53,7 @@ body {
 .container {
   max-width: var(--page-w);
   margin: 0 auto;
-  padding: 16px var(--pad) 28px;
+  padding: 16px var(--pad) calc(88px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ================================================================
