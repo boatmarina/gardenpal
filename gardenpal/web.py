@@ -457,7 +457,6 @@ def create_app() -> Flask:
                 (user["id"], datetime.utcnow().isoformat(timespec="seconds")),
             )
             db.commit()
-            flash("Account created. Welcome to GardenPal.")
             return redirect(url_for("dashboard"))
 
         return render_template("signup.html")
