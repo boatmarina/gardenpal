@@ -487,7 +487,6 @@ def create_app() -> Flask:
                 (user["id"], datetime.utcnow().isoformat(timespec="seconds")),
             )
             db.commit()
-            flash("Welcome back.")
             return redirect(url_for("dashboard"))
 
         return render_template("login.html")
