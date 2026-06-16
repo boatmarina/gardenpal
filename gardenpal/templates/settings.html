@@ -226,6 +226,35 @@
       </div>
     </section>
 
+    {% if ai_chat_entries is defined %}
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">AI assistant chat log</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Last 300 successful chat messages across all entry points.</p>
+      {% if ai_chat_entries %}
+        <div style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          {% for row in ai_chat_entries %}
+          <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">
+              <span style="font-size:0.78rem;font-weight:600">{{ row.username or '(deleted)' }}</span>
+              {% if row.context == 'ornamental' %}
+                <span style="font-size:0.7rem;background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;border-radius:4px;padding:1px 6px">ornamental{% if row.plant_name %}: {{ row.plant_name }}{% endif %}</span>
+              {% elif row.context == 'edible' %}
+                <span style="font-size:0.7rem;background:#fff8e1;color:#f57f17;border:1px solid #ffe082;border-radius:4px;padding:1px 6px">edible garden</span>
+              {% else %}
+                <span style="font-size:0.7rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">{{ row.context }}</span>
+              {% endif %}
+              <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+            </div>
+            <p style="font-size:0.82rem;margin:0;color:var(--text);line-height:1.4">{{ row.user_message }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No chat messages logged yet.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:12px">What's new</h2>
       <div style="display:flex;flex-direction:column;gap:0">
@@ -317,35 +346,6 @@
         </div>
       {% else %}
         <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No searches logged yet.</p>
-      {% endif %}
-    </section>
-    {% endif %}
-
-    {% if ai_chat_entries is defined %}
-    <section class="panel" style="margin-bottom:16px">
-      <h2 style="margin-bottom:4px">AI assistant chat log</h2>
-      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Last 300 successful chat messages across all entry points.</p>
-      {% if ai_chat_entries %}
-        <div style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
-          {% for row in ai_chat_entries %}
-          <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">
-              <span style="font-size:0.78rem;font-weight:600">{{ row.username or '(deleted)' }}</span>
-              {% if row.context == 'ornamental' %}
-                <span style="font-size:0.7rem;background:#e8f5e9;color:#2e7d32;border:1px solid #c8e6c9;border-radius:4px;padding:1px 6px">ornamental{% if row.plant_name %}: {{ row.plant_name }}{% endif %}</span>
-              {% elif row.context == 'edible' %}
-                <span style="font-size:0.7rem;background:#fff8e1;color:#f57f17;border:1px solid #ffe082;border-radius:4px;padding:1px 6px">edible garden</span>
-              {% else %}
-                <span style="font-size:0.7rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">{{ row.context }}</span>
-              {% endif %}
-              <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
-            </div>
-            <p style="font-size:0.82rem;margin:0;color:var(--text);line-height:1.4">{{ row.user_message }}</p>
-          </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No chat messages logged yet.</p>
       {% endif %}
     </section>
     {% endif %}
