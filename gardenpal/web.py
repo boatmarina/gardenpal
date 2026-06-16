@@ -265,10 +265,9 @@ def create_app() -> Flask:
     # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
     WHATS_NEW_CHANGELOG = [
         {
-            "version": "2026-06-e",
-            "title": "Your garden assistant, on the home screen",
-            "body": "Tap “Ask your garden assistant” to get instant help with your whole garden — ask care questions, log notes, or make changes hands-free. Try things like “When should I fertilize my tomatoes?” or “Add zucchini to the Front Bed, planted today.”",
-            "draft": True,
+            “version”: “2026-06-e”,
+            “title”: “Your garden assistant, on the home screen”,
+            “body”: “Tap “Ask your garden assistant” to get instant help with your whole garden — ask care questions, log notes, or make changes hands-free. Try things like “When should I fertilize my tomatoes?” or “Add zucchini to the Front Bed, planted today.””,
         },
         {
             "version": "2026-06-d",
