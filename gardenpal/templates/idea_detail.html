@@ -868,8 +868,9 @@ function gpToggleNote(pzId) {
       ? 'margin-left:auto;max-width:85%;background:#1C3829;color:#fff;border-radius:14px 14px 3px 14px;padding:7px 11px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap'
       : 'margin-right:auto;max-width:88%;background:var(--bg);border:1px solid var(--border);border-radius:14px 14px 14px 3px;padding:7px 11px;font-size:0.83rem;line-height:1.45;white-space:pre-wrap;color:var(--text)';
     div.textContent = text;
+    var top = messages.scrollHeight;
     messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
+    messages.scrollTop = role === 'assistant' ? top : messages.scrollHeight;
     return div;
   }
 
