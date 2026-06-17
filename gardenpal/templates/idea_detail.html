@@ -199,7 +199,8 @@
               {% if next_fertilization.planned_date %}
                 <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap">Planned</span>
               {% endif %}
-              {{ (next_fertilization.planned_date or next_fertilization.date) | planted_date }}
+              {% set eff_fert_date = next_fertilization.planned_date or next_fertilization.date %}
+              {% if eff_fert_date == today %}Due today{% else %}{{ eff_fert_date | planted_date }}{% endif %}
             {% endif %}
           </span>
         </div>
@@ -287,7 +288,7 @@
                   <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </button>
-              {{ next_watering.date | planted_date if next_watering.date }}
+              {% if next_watering.date == today %}Due today{% elif next_watering.date %}{{ next_watering.date | planted_date }}{% endif %}
             {% endif %}
           </span>
         </div>
