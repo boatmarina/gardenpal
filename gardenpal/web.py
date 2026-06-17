@@ -5131,7 +5131,6 @@ def login_required(view):
     @wraps(view)
     def wrapped_view(**kwargs):
         if g.get("user") is None:
-            flash("Please log in to access your plant diary.")
             return redirect(url_for("login"))
         return view(**kwargs)
 
