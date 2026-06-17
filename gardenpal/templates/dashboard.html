@@ -56,12 +56,8 @@
       <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="home-chat-examples" style="padding:0 20px 14px">
-      <p style="font-size:0.78rem;font-weight:700;color:var(--fg);margin-bottom:6px">Examples of what you can do</p>
-      <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
-        <li style="font-size:0.78rem;color:var(--muted)">"Add zucchini planted today in front yard zone, variety spineless beauty"</li>
-        <li style="font-size:0.78rem;color:var(--muted)">"Add a note to my Shasta Daisy — deadheaded today"</li>
-        <li style="font-size:0.78rem;color:var(--muted)">"When should I fertilize my tomatoes next?"</li>
-      </ul>
+      <p style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:5px">Try asking</p>
+      <p id="home-chat-example-text" style="font-size:0.82rem;color:var(--fg);margin:0;transition:opacity 0.35s;font-style:italic">"Add zucchini planted today in front yard zone, variety spineless beauty"</p>
     </div>
     <div id="home-chat-panel" hidden>
       <div id="home-chat-messages" style="padding:4px 20px 10px;display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto"></div>
@@ -272,6 +268,25 @@ document.addEventListener('DOMContentLoaded', function() {
     isOpen = false; save();
   }
   toggle.addEventListener('click', function() { if (panel.hidden) openPanel(); else closePanel(); });
+
+  (function() {
+    var exText = document.getElementById('home-chat-example-text');
+    if (!exText) return;
+    var tips = [
+      '"Add zucchini planted today in front yard zone, variety spineless beauty"',
+      '"Add a note to my Shasta Daisy — deadheaded today"',
+      '"When should I fertilize my tomatoes next?"'
+    ];
+    var i = 0;
+    setInterval(function() {
+      exText.style.opacity = '0';
+      setTimeout(function() {
+        i = (i + 1) % tips.length;
+        exText.textContent = tips[i];
+        exText.style.opacity = '1';
+      }, 350);
+    }, 3200);
+  })();
 
 
   function bubble(role, text) {
