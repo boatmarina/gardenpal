@@ -125,7 +125,9 @@
             {% endif %}
           {% endif %}
           <button type="button" id="why-btn"
-                  style="background:none;border:none;padding:0;font-size:0.78rem;font-weight:600;color:var(--green-dark);cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px;white-space:nowrap">{% if next_fertilization.never %}Options{% else %}Why?{% endif %}</button>
+                  style="background:none;border:none;padding:2px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1;flex-shrink:0">
+            <svg id="fert-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
         </span>
       </div>
       <div id="why-panel" hidden
@@ -202,7 +204,9 @@
           {% endif %}
           {{ next_watering.date | planted_date }}{% if next_watering.frequency_days %} <span class="muted" style="font-size:0.75rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}
           <button type="button" id="water-why-btn"
-                  style="background:none;border:none;padding:0;font-size:0.78rem;font-weight:600;color:#1565C0;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px;white-space:nowrap">Why?</button>
+                  style="background:none;border:none;padding:2px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1;flex-shrink:0">
+            <svg id="water-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
         </span>
       </div>
       <div id="water-why-panel" hidden
@@ -341,12 +345,13 @@
 (function() {
   var btn = document.getElementById('why-btn');
   var panel = document.getElementById('why-panel');
-  if (!btn || !panel) return;
-  var defaultLabel = btn.textContent.trim();
-  btn.addEventListener('click', function() {
-    panel.hidden = !panel.hidden;
-    btn.textContent = panel.hidden ? defaultLabel : 'Close';
-  });
+  var fertChevron = document.getElementById('fert-chevron');
+  if (btn && panel) {
+    btn.addEventListener('click', function() {
+      panel.hidden = !panel.hidden;
+      if (fertChevron) fertChevron.style.transform = panel.hidden ? '' : 'rotate(180deg)';
+    });
+  }
   var cb = document.getElementById('never-fert-detail-cb');
   var dateSection = document.getElementById('plan-date-section');
   if (cb && dateSection) {
@@ -356,10 +361,11 @@
   }
   var wBtn = document.getElementById('water-why-btn');
   var wPanel = document.getElementById('water-why-panel');
+  var waterChevron = document.getElementById('water-chevron');
   if (wBtn && wPanel) {
     wBtn.addEventListener('click', function() {
       wPanel.hidden = !wPanel.hidden;
-      wBtn.textContent = wPanel.hidden ? 'Why?' : 'Close';
+      if (waterChevron) waterChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
     });
   }
 })();

@@ -243,7 +243,7 @@
     </div>
     {% endif %}
 
-    {% if ff_water and next_watering and next_watering.date %}
+    {% if ff_water and plant_zones and next_watering and next_watering.date %}
     <div style="border-top:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;padding:11px 16px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
@@ -274,8 +274,6 @@
               </span>
             {% endif %}
             {{ next_watering.date | planted_date }}{% if next_watering.frequency_days %} <span class="muted" style="font-size:0.75rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}
-            <button type="button" id="water-why-idea-btn"
-                    style="background:none;border:none;padding:0;font-size:0.78rem;font-weight:600;color:#1565C0;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px;white-space:nowrap">Why?</button>
           </span>
         </div>
       </div>
@@ -459,19 +457,11 @@
   }
   var wBtn = document.getElementById('water-edit-btn');
   var wChevron = document.getElementById('water-edit-chevron');
-  var wPanel = document.querySelectorAll('[id^="water-why-idea-panel"]')[0];
+  var wPanel = document.getElementById('water-why-idea-panel');
   if (wBtn && wPanel) {
     wBtn.addEventListener('click', function() {
       wPanel.hidden = !wPanel.hidden;
       if (wChevron) wChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
-    });
-  }
-  var wWhyBtn = document.getElementById('water-why-idea-btn');
-  if (wWhyBtn && wPanel) {
-    wWhyBtn.addEventListener('click', function() {
-      wPanel.hidden = !wPanel.hidden;
-      if (wChevron) wChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
-      wWhyBtn.textContent = wPanel.hidden ? 'Why?' : 'Close';
     });
   }
 })();
