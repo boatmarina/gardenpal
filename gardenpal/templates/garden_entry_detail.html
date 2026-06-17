@@ -92,6 +92,13 @@
           <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
         </svg>
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex:1">Fertilization</span>
+        {% if not (next_fertilization and next_fertilization.never) %}
+        <button type="button" id="detail-fert-done-btn"
+                style="background:var(--green-light);border:1px solid var(--green-mid);color:var(--green-dark);border-radius:999px;padding:3px 9px;font-size:0.72rem;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex-shrink:0">
+          <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
+          Done today
+        </button>
+        {% endif %}
         {% if next_fertilization and (next_fertilization.date or next_fertilization.planned_date or next_fertilization.never) %}
         <button type="button" id="fert-edit-btn"
                 style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
@@ -102,11 +109,7 @@
       <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
           <span style="color:var(--muted);font-size:0.82rem">Last fertilized</span>
-          {% if last_fertilized and last_fertilized.date %}
-            <span>{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}</span>
-          {% else %}
-            <span style="color:var(--muted)">Never</span>
-          {% endif %}
+          <span id="detail-last-fert-value">{% if last_fertilized and last_fertilized.date %}{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %} <span class="muted">· {{ last_fertilized.type }}</span>{% endif %}{% else %}<span style="color:var(--muted)">Never</span>{% endif %}</span>
         </div>
         {% if next_fertilization %}
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;flex-wrap:wrap;gap:4px">
@@ -184,6 +187,13 @@
           <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
         </svg>
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+        {% if not next_watering.never %}
+        <button type="button" id="detail-water-done-btn"
+                style="background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;border-radius:999px;padding:3px 9px;font-size:0.72rem;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex-shrink:0">
+          <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
+          Done
+        </button>
+        {% endif %}
         <button type="button" id="water-edit-btn"
                 style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
           <svg id="water-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
@@ -192,11 +202,7 @@
       <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
           <span style="color:var(--muted);font-size:0.82rem">Last watered</span>
-          {% if last_watered and last_watered.date %}
-            <span>{{ last_watered.date | planted_date }}</span>
-          {% else %}
-            <span style="color:var(--muted)">Never</span>
-          {% endif %}
+          <span id="detail-last-water-value">{% if last_watered and last_watered.date %}{{ last_watered.date | planted_date }}{% else %}<span style="color:var(--muted)">Never</span>{% endif %}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
           <span style="color:var(--muted);font-size:0.82rem">Next water{% if next_watering.frequency_days %} <span style="font-size:0.72rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
@@ -369,6 +375,8 @@
   if (cb && dateSection) {
     cb.addEventListener('change', function() {
       dateSection.hidden = cb.checked;
+      var fertDoneBtn = document.getElementById('detail-fert-done-btn');
+      if (fertDoneBtn) fertDoneBtn.hidden = cb.checked;
       var fd = new FormData();
       if (cb.checked) fd.append('never_fertilize', '1');
       fetch('{{ url_for("garden_set_never_fertilize", entry_id=entry.id) }}', {
@@ -398,10 +406,54 @@
           ? '<span style="color:var(--muted)">Not tracking</span>'
           : waterNextOriginal;
       }
+      var waterDoneBtn = document.getElementById('detail-water-done-btn');
+      if (waterDoneBtn) waterDoneBtn.hidden = checked;
       var fd = new FormData();
       if (checked) fd.append('never_water', '1');
       fetch('{{ url_for("garden_set_never_water", entry_id=entry.id) }}', {
         method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd
+      });
+    });
+  }
+
+  function gpFormatDate(iso) {
+    var d = new Date(iso + 'T12:00:00');
+    var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return mo[d.getMonth()] + ' ' + d.getDate();
+  }
+  function gpMarkDone(btn, url, onOk) {
+    var orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = '…';
+    fetch(url, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (d.ok) {
+          onOk(d);
+          btn.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 4 7 9 1"/></svg>';
+          btn.style.background = '#C8E6C9';
+          btn.style.color = '#2E7D32';
+          btn.style.borderColor = '#A5D6A7';
+        } else { btn.innerHTML = orig; btn.disabled = false; }
+      })
+      .catch(function(){ btn.innerHTML = orig; btn.disabled = false; });
+  }
+  var detailFertDoneBtn = document.getElementById('detail-fert-done-btn');
+  if (detailFertDoneBtn) {
+    detailFertDoneBtn.addEventListener('click', function() {
+      gpMarkDone(detailFertDoneBtn, '{{ url_for("garden_fertilized_today", entry_id=entry.id) }}', function(d) {
+        var el = document.getElementById('detail-last-fert-value');
+        if (el) el.textContent = gpFormatDate(d.today);
+      });
+    });
+  }
+  var detailWaterDoneBtn = document.getElementById('detail-water-done-btn');
+  if (detailWaterDoneBtn) {
+    detailWaterDoneBtn.addEventListener('click', function() {
+      gpMarkDone(detailWaterDoneBtn, '{{ url_for("garden_watered_today", entry_id=entry.id) }}', function(d) {
+        var el = document.getElementById('detail-last-water-value');
+        if (el) el.textContent = gpFormatDate(d.today);
+        if (waterNextValue) waterNextValue.textContent = d.next_date ? gpFormatDate(d.next_date) : '—';
       });
     });
   }
