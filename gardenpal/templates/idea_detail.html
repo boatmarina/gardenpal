@@ -204,6 +204,12 @@
         {% endif %}
         <form method="post" action="{{ url_for('idea_plan_fertilize', plant_id=plant.id) }}"
               style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
+            <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
+                   {% if next_fertilization and next_fertilization.never %}checked{% endif %}
+                   style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
+            I don't plan to fertilize this plant
+          </label>
           <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
             Update last fertilized date
             <input type="date" name="last_fertilized_date"
@@ -225,12 +231,6 @@
                      style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
             </label>
           </div>
-          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
-            <input type="checkbox" id="never-fert-cb" name="never_fertilize" value="1"
-                   {% if next_fertilization and next_fertilization.never %}checked{% endif %}
-                   style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
-            I don't plan to fertilize this plant
-          </label>
           <div style="display:flex;gap:8px">
             <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
             {% if next_fertilization and next_fertilization.planned_date and not next_fertilization.never %}
@@ -288,6 +288,12 @@
         <form method="post" action="{{ url_for('idea_plan_watering', plant_id=plant.id) }}"
               style="display:flex;flex-direction:column;gap:10px">
           <input type="hidden" name="has_tracking_update" value="1" />
+          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
+            <input type="checkbox" id="never-water-idea-cb" name="never_water" value="1"
+                   {% if next_watering.never %}checked{% endif %}
+                   style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
+            Don't help me track watering for this plant
+          </label>
           <div id="water-date-section-idea" {% if next_watering.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:10px">
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
               Last watered date
@@ -299,12 +305,6 @@
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
             </div>
           </div>
-          <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
-            <input type="checkbox" id="never-water-idea-cb" name="never_water" value="1"
-                   {% if next_watering.never %}checked{% endif %}
-                   style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
-            Don't help me track watering for this plant
-          </label>
           <div id="water-never-save-idea" {% if not next_watering.never %}hidden{% endif %}>
             <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
           </div>
