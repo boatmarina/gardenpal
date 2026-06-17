@@ -682,6 +682,7 @@ def create_app() -> Flask:
         evergreen = request.args.get("evergreen", "").strip()
         plant_form = request.args.get("plant_form", "").strip()
         height_category = request.args.get("height_category", "").strip()
+        water_needs = request.args.get("water_needs", "").strip()
         category_id = request.args.get("category", "").strip()
         tag_id = request.args.get("tag", "").strip()
 
@@ -711,6 +712,9 @@ def create_app() -> Flask:
         if height_category:
             query += " AND p.height_category = ?"
             params.append(height_category)
+        if water_needs:
+            query += " AND p.water_needs = ?"
+            params.append(water_needs)
         if category_id:
             query += " AND EXISTS (SELECT 1 FROM plant_categories WHERE plant_id = p.id AND category_id = ?)"
             params.append(category_id)
@@ -781,7 +785,7 @@ def create_app() -> Flask:
             user_tags=user_tags,
             categories=categories,
             shared_names=shared_names,
-            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "plant_form": plant_form, "height_category": height_category, "category": category_id, "tag": tag_id},
+            active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "plant_form": plant_form, "height_category": height_category, "water_needs": water_needs, "category": category_id, "tag": tag_id},
             today=_today_str,
             fert_deadline=_fert_deadline,
             ff_fert=_feature_fertilization(g.user),

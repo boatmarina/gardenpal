@@ -3,7 +3,7 @@
 {% block title %}Ornamentals · GardenPal{% endblock %}
 
 {% block content %}
-{% set has_filters = active_filters.sun or active_filters.lifecycle or active_filters.evergreen or active_filters.plant_form or active_filters.height_category %}
+{% set has_filters = active_filters.sun or active_filters.lifecycle or active_filters.evergreen or active_filters.plant_form or active_filters.height_category or active_filters.water_needs %}
   <section class="panel" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <h2>Ornamentals</h2>
@@ -87,6 +87,12 @@
           <option value="medium" {% if active_filters.height_category == "medium" %}selected{% endif %}>Medium (2 – 5 ft)</option>
           <option value="tall"   {% if active_filters.height_category == "tall"   %}selected{% endif %}>Tall (5 – 13 ft)</option>
           <option value="large"  {% if active_filters.height_category == "large"  %}selected{% endif %}>Large (13 ft+)</option>
+        </select>
+        <select name="water_needs" style="flex:1;min-width:130px;font-size:0.85rem" onchange="this.form.submit()">
+          <option value="">Any water needs</option>
+          <option value="minimal"  {% if active_filters.water_needs == "minimal"  %}selected{% endif %}>Drought tolerant</option>
+          <option value="moderate" {% if active_filters.water_needs == "moderate" %}selected{% endif %}>Moderate</option>
+          <option value="frequent" {% if active_filters.water_needs == "frequent" %}selected{% endif %}>Frequent</option>
         </select>
       </div>
       {% if has_filters %}
