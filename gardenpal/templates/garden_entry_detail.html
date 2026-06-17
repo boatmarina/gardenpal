@@ -200,7 +200,7 @@
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
           <span style="color:var(--muted);font-size:0.82rem">Next water{% if next_watering.frequency_days %} <span style="font-size:0.72rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
-          <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <span id="water-next-value" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
             {% if next_watering.never %}
               <span style="color:var(--muted)">Not tracking</span>
             {% else %}
@@ -241,11 +241,9 @@
                    style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
             Don't help me track watering for this plant
           </label>
-          {% if next_watering.never %}
-          <div>
+          <div id="water-never-save" {% if not next_watering.never %}hidden{% endif %}>
             <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
           </div>
-          {% endif %}
         </form>
       </div>
     </div>
@@ -389,9 +387,19 @@
   }
   var neverWaterCb = document.getElementById('never-water-detail-cb');
   var waterDateSection = document.getElementById('water-date-section');
+  var waterNeverSave = document.getElementById('water-never-save');
+  var waterNextValue = document.getElementById('water-next-value');
+  var waterNextOriginal = waterNextValue ? waterNextValue.innerHTML : '';
   if (neverWaterCb && waterDateSection) {
     neverWaterCb.addEventListener('change', function() {
-      waterDateSection.hidden = neverWaterCb.checked;
+      var checked = neverWaterCb.checked;
+      waterDateSection.hidden = checked;
+      if (waterNeverSave) waterNeverSave.hidden = !checked;
+      if (waterNextValue) {
+        waterNextValue.innerHTML = checked
+          ? '<span style="color:var(--muted)">Not tracking</span>'
+          : waterNextOriginal;
+      }
     });
   }
 })();

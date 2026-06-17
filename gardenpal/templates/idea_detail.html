@@ -266,7 +266,7 @@
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
           <span style="color:var(--muted);font-size:0.82rem">Next{% if next_watering.frequency_days %} <span style="font-size:0.72rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
-          <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+          <span id="water-next-value-idea" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end">
             {% if next_watering.never %}
               <span class="muted">Not tracking</span>
             {% else %}
@@ -305,11 +305,9 @@
                    style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
             Don't help me track watering for this plant
           </label>
-          {% if next_watering.never %}
-          <div>
+          <div id="water-never-save-idea" {% if not next_watering.never %}hidden{% endif %}>
             <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
           </div>
-          {% endif %}
         </form>
       </div>
     </div>
@@ -484,9 +482,19 @@
   }
   var neverWaterIdeaCb = document.getElementById('never-water-idea-cb');
   var waterDateSectionIdea = document.getElementById('water-date-section-idea');
+  var waterNeverSaveIdea = document.getElementById('water-never-save-idea');
+  var waterNextValueIdea = document.getElementById('water-next-value-idea');
+  var waterNextOriginalIdea = waterNextValueIdea ? waterNextValueIdea.innerHTML : '';
   if (neverWaterIdeaCb && waterDateSectionIdea) {
     neverWaterIdeaCb.addEventListener('change', function() {
-      waterDateSectionIdea.hidden = neverWaterIdeaCb.checked;
+      var checked = neverWaterIdeaCb.checked;
+      waterDateSectionIdea.hidden = checked;
+      if (waterNeverSaveIdea) waterNeverSaveIdea.hidden = !checked;
+      if (waterNextValueIdea) {
+        waterNextValueIdea.innerHTML = checked
+          ? '<span style="color:var(--muted)">Not tracking</span>'
+          : waterNextOriginalIdea;
+      }
     });
   }
 })();
