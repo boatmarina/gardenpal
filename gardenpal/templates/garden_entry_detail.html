@@ -190,6 +190,12 @@
           <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
         </svg>
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+        {% if not next_watering.never and next_watering.date and next_watering.date <= water_deadline %}
+          <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
+            <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
+            {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
+          </span>
+        {% endif %}
         <button type="button" id="water-edit-btn"
                 style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
           <svg id="water-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
@@ -206,13 +212,6 @@
             {% if next_watering.never %}
               <span style="color:var(--muted)">Not tracking</span>
             {% else %}
-              {% if next_watering.date and next_watering.date <= water_deadline %}
-                <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
-                  <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
-                  {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
-                </span>
-              {% endif %}
-              {{ next_watering.date | planted_date if next_watering.date }}
               <button type="button" id="detail-water-done-btn"
                       style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:6px;padding:3px 5px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;line-height:1"
                       title="Mark watered today">
@@ -221,6 +220,7 @@
                   <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </button>
+              {{ next_watering.date | planted_date if next_watering.date }}
             {% endif %}
           </span>
         </div>
