@@ -239,9 +239,6 @@
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
             </div>
           </div>
-          <div id="water-never-save" {% if not next_watering.never %}hidden{% endif %}>
-            <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
-          </div>
         </form>
       </div>
     </div>
@@ -372,6 +369,11 @@
   if (cb && dateSection) {
     cb.addEventListener('change', function() {
       dateSection.hidden = cb.checked;
+      var fd = new FormData();
+      if (cb.checked) fd.append('never_fertilize', '1');
+      fetch('{{ url_for("garden_set_never_fertilize", entry_id=entry.id) }}', {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd
+      });
     });
   }
   var wBtn = document.getElementById('water-edit-btn');
@@ -385,19 +387,22 @@
   }
   var neverWaterCb = document.getElementById('never-water-detail-cb');
   var waterDateSection = document.getElementById('water-date-section');
-  var waterNeverSave = document.getElementById('water-never-save');
   var waterNextValue = document.getElementById('water-next-value');
   var waterNextOriginal = waterNextValue ? waterNextValue.innerHTML : '';
   if (neverWaterCb && waterDateSection) {
     neverWaterCb.addEventListener('change', function() {
       var checked = neverWaterCb.checked;
       waterDateSection.hidden = checked;
-      if (waterNeverSave) waterNeverSave.hidden = !checked;
       if (waterNextValue) {
         waterNextValue.innerHTML = checked
           ? '<span style="color:var(--muted)">Not tracking</span>'
           : waterNextOriginal;
       }
+      var fd = new FormData();
+      if (checked) fd.append('never_water', '1');
+      fetch('{{ url_for("garden_set_never_water", entry_id=entry.id) }}', {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd
+      });
     });
   }
 })();
