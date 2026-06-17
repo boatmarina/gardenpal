@@ -532,10 +532,10 @@ def create_app() -> Flask:
             id_args,
         ).fetchone()["count"]
 
+        today = datetime.utcnow().strftime("%Y-%m-%d")
         fert_alerts = []
         ff_fert = _feature_fertilization(g.user)
         if ff_fert:
-            today = datetime.utcnow().strftime("%Y-%m-%d")
             deadline = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
             edible_rows = db.execute(
                 f"SELECT id, plant_name AS name, next_fertilization_date, planned_fertilization_date,"
@@ -582,7 +582,7 @@ def create_app() -> Flask:
         watering_alerts = []
         ff_water = _feature_watering(g.user)
         if ff_water:
-            water_today = datetime.utcnow().strftime("%Y-%m-%d")
+            water_today = today
             water_deadline = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
             water_edible_rows = db.execute(
                 f"SELECT id, plant_name AS name, last_watered_date, next_watering_date,"
@@ -635,6 +635,7 @@ def create_app() -> Flask:
             fert_alerts=fert_alerts,
             ff_water=ff_water,
             watering_alerts=watering_alerts,
+            today=today,
         )
 
     @app.route("/fert-never", methods=["POST"])
@@ -4366,6 +4367,9 @@ def create_app() -> Flask:
             "You can answer questions about any plant across both edibles and ornamentals. "
             "You can also act: add notes, update edible entries, change zones, save ornamental notes. "
             "Entries marked [partner's — read only] are read-only. "
+            "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
+            "(e.g. two spinach entries in different zones), always list the options and ask which one they mean "
+            "BEFORE taking any action. Never guess — ambiguity must be resolved first. "
             "For bulk changes, call the relevant tool once per item. "
             "If a tool returns an error, skip and continue — only mention if everything failed. "
             "Keep replies short. Don't mention internal IDs to the user. "
