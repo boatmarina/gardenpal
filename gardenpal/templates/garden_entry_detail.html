@@ -189,9 +189,12 @@
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
         {% if not next_watering.never %}
         <button type="button" id="detail-water-done-btn"
-                style="background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0;border-radius:999px;padding:3px 9px;font-size:0.72rem;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex-shrink:0">
-          <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
-          Done
+                style="background:none;border:none;padding:4px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;line-height:1;opacity:0.65"
+                title="Mark watered today">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
+            <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
         {% endif %}
         <button type="button" id="water-edit-btn"
@@ -450,11 +453,20 @@
   var detailWaterDoneBtn = document.getElementById('detail-water-done-btn');
   if (detailWaterDoneBtn) {
     detailWaterDoneBtn.addEventListener('click', function() {
-      gpMarkDone(detailWaterDoneBtn, '{{ url_for("garden_watered_today", entry_id=entry.id) }}', function(d) {
-        var el = document.getElementById('detail-last-water-value');
-        if (el) el.textContent = gpFormatDate(d.today);
-        if (waterNextValue) waterNextValue.textContent = d.next_date ? gpFormatDate(d.next_date) : '—';
-      });
+      detailWaterDoneBtn.disabled = true;
+      detailWaterDoneBtn.style.opacity = '0.35';
+      fetch('{{ url_for("garden_watered_today", entry_id=entry.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if (d.ok) {
+            var el = document.getElementById('detail-last-water-value');
+            if (el) el.textContent = gpFormatDate(d.today);
+            if (waterNextValue) waterNextValue.textContent = d.next_date ? gpFormatDate(d.next_date) : '—';
+            detailWaterDoneBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0D47A1"/><polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            detailWaterDoneBtn.style.opacity = '1';
+          } else { detailWaterDoneBtn.disabled = false; detailWaterDoneBtn.style.opacity = '0.65'; }
+        })
+        .catch(function(){ detailWaterDoneBtn.disabled = false; detailWaterDoneBtn.style.opacity = '0.65'; });
     });
   }
 })();
