@@ -305,9 +305,6 @@
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
             </div>
           </div>
-          <div id="water-never-save-idea" {% if not next_watering.never %}hidden{% endif %}>
-            <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
-          </div>
         </form>
       </div>
     </div>
@@ -469,6 +466,11 @@
   if (neverCb && planSection) {
     neverCb.addEventListener('change', function() {
       planSection.hidden = neverCb.checked;
+      var fd = new FormData();
+      if (neverCb.checked) fd.append('never_fertilize', '1');
+      fetch('{{ url_for("idea_set_never_fertilize", plant_id=plant.id) }}', {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd
+      });
     });
   }
   var wBtn = document.getElementById('water-edit-btn');
@@ -482,19 +484,22 @@
   }
   var neverWaterIdeaCb = document.getElementById('never-water-idea-cb');
   var waterDateSectionIdea = document.getElementById('water-date-section-idea');
-  var waterNeverSaveIdea = document.getElementById('water-never-save-idea');
   var waterNextValueIdea = document.getElementById('water-next-value-idea');
   var waterNextOriginalIdea = waterNextValueIdea ? waterNextValueIdea.innerHTML : '';
   if (neverWaterIdeaCb && waterDateSectionIdea) {
     neverWaterIdeaCb.addEventListener('change', function() {
       var checked = neverWaterIdeaCb.checked;
       waterDateSectionIdea.hidden = checked;
-      if (waterNeverSaveIdea) waterNeverSaveIdea.hidden = !checked;
       if (waterNextValueIdea) {
         waterNextValueIdea.innerHTML = checked
           ? '<span style="color:var(--muted)">Not tracking</span>'
           : waterNextOriginalIdea;
       }
+      var fd = new FormData();
+      if (checked) fd.append('never_water', '1');
+      fetch('{{ url_for("idea_set_never_water", plant_id=plant.id) }}', {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd
+      });
     });
   }
 })();

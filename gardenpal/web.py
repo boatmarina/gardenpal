@@ -1233,6 +1233,28 @@ def create_app() -> Flask:
             return redirect(url_for("dashboard"))
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
+    @app.route("/ideas/<int:plant_id>/never-fertilize", methods=["POST"])
+    @login_required
+    def idea_set_never_fertilize(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            return jsonify({"error": "Not found"}), 404
+        never = 1 if request.form.get("never_fertilize") else 0
+        if never:
+            db.execute(
+                "UPDATE plants SET never_fertilize = 1, planned_fertilization_date = NULL,"
+                " next_fertilization_date = NULL, next_fertilization_generated_at = NULL WHERE id = ?",
+                (plant_id,),
+            )
+        else:
+            db.execute("UPDATE plants SET never_fertilize = 0 WHERE id = ?", (plant_id,))
+        db.commit()
+        return jsonify({"ok": True})
+
     @app.route("/ideas/<int:plant_id>/plan-watering", methods=["POST"])
     @login_required
     def idea_plan_watering(plant_id: int):
@@ -1274,6 +1296,27 @@ def create_app() -> Flask:
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("idea_detail", plant_id=plant_id))
+
+    @app.route("/ideas/<int:plant_id>/never-water", methods=["POST"])
+    @login_required
+    def idea_set_never_water(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            return jsonify({"error": "Not found"}), 404
+        never = 1 if request.form.get("never_water") else 0
+        if never:
+            db.execute(
+                "UPDATE plants SET never_water = 1, next_watering_date = NULL, watering_generated_at = NULL WHERE id = ?",
+                (plant_id,),
+            )
+        else:
+            db.execute("UPDATE plants SET never_water = 0 WHERE id = ?", (plant_id,))
+        db.commit()
+        return jsonify({"ok": True})
 
     @app.route("/yard")
     @login_required
@@ -2888,6 +2931,31 @@ def create_app() -> Flask:
             return redirect(url_for("dashboard"))
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
+    @app.route("/garden/<int:entry_id>/never-fertilize", methods=["POST"])
+    @login_required
+    def garden_set_never_fertilize(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "Not found"}), 404
+        never = 1 if request.form.get("never_fertilize") else 0
+        if never:
+            db.execute(
+                "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
+                " next_fertilization_date = NULL, next_fertilization_note = NULL,"
+                " next_fertilization_generated_at = NULL WHERE id = ?",
+                (entry_id,),
+            )
+        else:
+            db.execute("UPDATE garden_entries SET never_fertilize = 0 WHERE id = ?", (entry_id,))
+        db.commit()
+        return jsonify({"ok": True})
+
     @app.route("/garden/<int:entry_id>/plan-watering", methods=["POST"])
     @login_required
     def garden_plan_watering(entry_id):
@@ -2931,6 +2999,29 @@ def create_app() -> Flask:
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("garden_detail", entry_id=entry_id))
+
+    @app.route("/garden/<int:entry_id>/never-water", methods=["POST"])
+    @login_required
+    def garden_set_never_water(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "Not found"}), 404
+        never = 1 if request.form.get("never_water") else 0
+        if never:
+            db.execute(
+                "UPDATE garden_entries SET never_water = 1, next_watering_date = NULL, watering_generated_at = NULL WHERE id = ?",
+                (entry_id,),
+            )
+        else:
+            db.execute("UPDATE garden_entries SET never_water = 0 WHERE id = ?", (entry_id,))
+        db.commit()
+        return jsonify({"ok": True})
 
     @app.route("/watering/mark-all-today", methods=["POST"])
     @login_required
