@@ -243,6 +243,62 @@
     </div>
     {% endif %}
 
+    {% if ff_water and next_watering and next_watering.date %}
+    <div style="border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;padding:11px 16px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+        </svg>
+        <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+        <button type="button" id="water-edit-btn"
+                style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
+          <svg id="water-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
+          <span style="color:var(--muted);font-size:0.82rem">Last watered</span>
+          {% if last_watered and last_watered.date %}
+            <span>{{ last_watered.date | planted_date }}</span>
+          {% else %}
+            <span class="muted">Never</span>
+          {% endif %}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
+          <span style="color:var(--muted);font-size:0.82rem">Next</span>
+          <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+            {% if next_watering.date <= water_deadline %}
+              <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
+                <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
+                {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
+              </span>
+            {% endif %}
+            {{ next_watering.date | planted_date }}{% if next_watering.frequency_days %} <span class="muted" style="font-size:0.75rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}
+            <button type="button" id="water-why-idea-btn"
+                    style="background:none;border:none;padding:0;font-size:0.78rem;font-weight:600;color:#1565C0;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px;white-space:nowrap">Why?</button>
+          </span>
+        </div>
+      </div>
+      <div id="water-why-idea-panel" hidden style="padding:10px 16px 16px;border-top:1px solid var(--border)">
+        {% if next_watering.note %}
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;line-height:1.55">{{ next_watering.note }}</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('idea_plan_watering', plant_id=plant.id) }}"
+              style="display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+            Last watered date
+            <input type="date" name="last_watered_date"
+                   value="{{ plant.last_watered_date or '' }}"
+                   style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+          </label>
+          <div style="display:flex;gap:8px">
+            <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
     <div style="border-top:1px solid var(--border);padding:0;background:rgba(28,56,41,0.035)">
       <button id="plant-chat-toggle" type="button"
               style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 20px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:var(--fg);text-align:left">
@@ -399,6 +455,23 @@
   if (neverCb && planSection) {
     neverCb.addEventListener('change', function() {
       planSection.hidden = neverCb.checked;
+    });
+  }
+  var wBtn = document.getElementById('water-edit-btn');
+  var wChevron = document.getElementById('water-edit-chevron');
+  var wPanel = document.querySelectorAll('[id^="water-why-idea-panel"]')[0];
+  if (wBtn && wPanel) {
+    wBtn.addEventListener('click', function() {
+      wPanel.hidden = !wPanel.hidden;
+      if (wChevron) wChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
+    });
+  }
+  var wWhyBtn = document.getElementById('water-why-idea-btn');
+  if (wWhyBtn && wPanel) {
+    wWhyBtn.addEventListener('click', function() {
+      wPanel.hidden = !wPanel.hidden;
+      if (wChevron) wChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
+      wWhyBtn.textContent = wPanel.hidden ? 'Why?' : 'Close';
     });
   }
 })();
