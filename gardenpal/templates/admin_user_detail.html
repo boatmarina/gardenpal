@@ -200,8 +200,9 @@
   var d = new Date(iso.replace(' ', 'T') + 'Z');
   if (isNaN(d)) return;
   var now = new Date();
-  var diffMs = now - d;
-  var diffDays = Math.floor(diffMs / 86400000);
+  var todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  var loginUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  var diffDays = Math.round((todayUTC - loginUTC) / 86400000);
   var label;
   if (diffDays <= 0)       label = 'Today';
   else if (diffDays === 1) label = 'Yesterday';
