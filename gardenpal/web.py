@@ -4902,6 +4902,24 @@ def init_db():
     ensure_column(db, "plants",         "watering_generated_at",     "TEXT")
     ensure_column(db, "plants",         "next_watering_date",        "TEXT")
 
+    # One-time fix: plants/entries that got a watering suggestion before the "never watered → due today"
+    # logic was in place will have a future next_watering_date but no last_watered_date. Reset so they regen.
+    try:
+        today_iso = datetime.utcnow().date().isoformat()
+        db.execute(
+            "UPDATE garden_entries SET watering_generated_at = NULL"
+            " WHERE last_watered_date IS NULL AND next_watering_date > ?",
+            (today_iso,),
+        )
+        db.execute(
+            "UPDATE plants SET watering_generated_at = NULL"
+            " WHERE last_watered_date IS NULL AND next_watering_date > ?",
+            (today_iso,),
+        )
+        db.commit()
+    except Exception:
+        pass
+
     # Backfill existing growth-log notes using keyword detection (one-time, skips already-classified rows)
     unclassified = db.execute(
         "SELECT id, notes FROM garden_photos WHERE is_fertilization IS NULL AND notes IS NOT NULL"
@@ -5875,10 +5893,9 @@ def _suggest_watering_frequency(db, entry, user_location, last_watered, growth_n
         note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
         from datetime import timedelta as _td
         if last_watered and _ISO_DATE_RE.match(last_watered):
-            base = datetime.fromisoformat(last_watered).date()
+            next_date = (datetime.fromisoformat(last_watered).date() + _td(days=freq_days)).isoformat()
         else:
-            base = datetime.utcnow().date()
-        next_date = (base + _td(days=freq_days)).isoformat()
+            next_date = datetime.utcnow().date().isoformat()  # never watered → due today
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         db.execute(
             "UPDATE garden_entries SET watering_frequency_days = ?, watering_note = ?,"
@@ -5937,10 +5954,9 @@ def _suggest_watering_frequency_ornamental(db, plant, user_location, last_watere
         note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
         from datetime import timedelta as _td
         if last_watered and _ISO_DATE_RE.match(last_watered):
-            base = datetime.fromisoformat(last_watered).date()
+            next_date = (datetime.fromisoformat(last_watered).date() + _td(days=freq_days)).isoformat()
         else:
-            base = datetime.utcnow().date()
-        next_date = (base + _td(days=freq_days)).isoformat()
+            next_date = datetime.utcnow().date().isoformat()  # never watered → due today
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         db.execute(
             "UPDATE plants SET watering_frequency_days = ?, watering_note = ?,"

@@ -219,10 +219,9 @@
                    style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
           </label>
           <div style="display:flex;gap:8px">
-            <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
-            <button type="submit" name="last_watered_date" value=""
-                    class="button button-secondary" style="font-size:0.8rem;padding:6px 14px;color:var(--muted)"
-                    onclick="this.form.elements['last_watered_date'].value=new Date().toISOString().split('T')[0];return true">Mark watered today</button>
+            <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save date</button>
+            <button type="submit" class="button" style="font-size:0.8rem;padding:6px 14px"
+                    onclick="this.form.elements['last_watered_date'].value=new Date().toISOString().split('T')[0]">Mark watered today</button>
           </div>
         </form>
       </div>
