@@ -265,7 +265,7 @@
           {% endif %}
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
-          <span style="color:var(--muted);font-size:0.82rem">Next</span>
+          <span style="color:var(--muted);font-size:0.82rem">Next{% if next_watering.frequency_days %} <span style="font-size:0.72rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
           <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end">
             {% if next_watering.date <= water_deadline %}
               <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
@@ -273,7 +273,7 @@
                 {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
               </span>
             {% endif %}
-            {{ next_watering.date | planted_date }}{% if next_watering.frequency_days %} <span class="muted" style="font-size:0.75rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}
+            {{ next_watering.date | planted_date }}
           </span>
         </div>
       </div>
