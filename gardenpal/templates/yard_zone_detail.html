@@ -108,6 +108,12 @@
           </div>
           <div class="card-content">
             <h3>{{ plant.plant_name }}</h3>
+            {% if ff_water and not plant.never_water and plant.next_watering_date and plant.next_watering_date <= water_deadline %}
+              <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if plant.next_watering_date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
+                <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
+                {% if plant.next_watering_date < today %}Water overdue{% else %}Water due{% endif %}
+              </span>
+            {% endif %}
             <p>{{ plant.scientific_name or "" }}</p>
             <p class="muted">{{ plant.sun_needs or "" }}{% if plant.sun_needs and plant.lifecycle %} · {% endif %}{{ plant.lifecycle or "" }}</p>
             {% if plant.notes %}<p class="muted" style="font-size:0.8rem;margin-top:4px">{{ plant.notes }}</p>{% endif %}
@@ -161,6 +167,12 @@
       </div>
       <div class="card-content">
         <h3>{{ ge.plant_name }}</h3>
+        {% if ff_water and not ge.never_water and ge.next_watering_date and ge.next_watering_date <= water_deadline %}
+          <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if ge.next_watering_date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
+            <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
+            {% if ge.next_watering_date < today %}Water overdue{% else %}Water due{% endif %}
+          </span>
+        {% endif %}
         {% if ge.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ ge.variety }}</p>{% endif %}
         {% if ge.location_name %}<p class="muted" style="font-size:0.82rem;margin-top:4px">{{ ge.location_name }}</p>{% endif %}
         {% if ge.planted_date %}<p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ ge.planted_date | planted_date }}</p>{% endif %}

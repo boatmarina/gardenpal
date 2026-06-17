@@ -1444,10 +1444,12 @@ def create_app() -> Flask:
             return redirect(url_for("yard_index"))
         plants = db.execute(
             f"""SELECT yp.*,
-                      p.id          AS lib_plant_id,
-                      p.photo_urls  AS lib_photo_urls,
-                      p.image_path  AS lib_image_path,
-                      p.image_url   AS lib_image_url
+                      p.id                AS lib_plant_id,
+                      p.photo_urls        AS lib_photo_urls,
+                      p.image_path        AS lib_image_path,
+                      p.image_url         AS lib_image_url,
+                      p.next_watering_date AS next_watering_date,
+                      p.never_water        AS never_water
                FROM yard_plants yp
                LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
                WHERE yp.zone_id = ? AND yp.user_id IN {ph}
@@ -1469,13 +1471,18 @@ def create_app() -> Flask:
         garden_entries = []
         if feature_gz:
             garden_entries = db.execute(
-                f"SELECT id, plant_name, variety, location_name, planted_date FROM garden_entries"
+                f"SELECT id, plant_name, variety, location_name, planted_date,"
+                f"       next_watering_date, never_water FROM garden_entries"
                 f" WHERE zone_id = ? AND user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
             ).fetchall()
+        ff_water = _feature_watering(g.user)
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        water_deadline = (datetime.utcnow() + _timedelta(days=1)).strftime("%Y-%m-%d")
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
-                               garden_entries=garden_entries)
+                               garden_entries=garden_entries, ff_water=ff_water,
+                               today=today, water_deadline=water_deadline)
 
     @app.route("/yard/zones/<int:zone_id>/add-edible")
     @login_required
