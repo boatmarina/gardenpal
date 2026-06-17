@@ -184,7 +184,12 @@
                   data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
                   data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
                   title="Mark as watered today"
-                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 7px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Done</button>
+                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
+                    <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Done</button>
         </div>
         <div id="water-panel-{{ loop.index }}" hidden
              style="padding:4px 14px 16px;border-top:1px solid var(--border);background:var(--bg-subtle, var(--bg))">
