@@ -82,61 +82,62 @@
         <span class="meta-value">{{ entry.notes }}</span>
       </div>
       {% endif %}
-      <div class="meta-item" style="border-bottom:none">
-        <span class="meta-icon">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22V12"/>
-            <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
-            <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
-          </svg>
-        </span>
-        <span class="meta-label">Fertilized</span>
-        {% if last_fertilized and last_fertilized.date %}
-          <span class="meta-value">{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %} · {{ last_fertilized.type }}{% endif %}</span>
-        {% else %}
-          <span class="meta-value muted">Never</span>
+    </div>
+
+    <div style="border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;padding:11px 16px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
+          <path d="M12 22V12"/>
+          <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
+          <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
+        </svg>
+        <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex:1">Fertilization</span>
+        {% if next_fertilization and (next_fertilization.date or next_fertilization.planned_date or next_fertilization.never) %}
+        <button type="button" id="fert-edit-btn"
+                style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
+          <svg id="fert-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        {% endif %}
+      </div>
+      <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
+          <span style="color:var(--muted);font-size:0.82rem">Last fertilized</span>
+          {% if last_fertilized and last_fertilized.date %}
+            <span>{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span class="muted"> · {{ last_fertilized.type }}</span>{% endif %}</span>
+          {% else %}
+            <span style="color:var(--muted)">Never</span>
+          {% endif %}
+        </div>
+        {% if next_fertilization %}
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;flex-wrap:wrap;gap:4px">
+          <span style="color:var(--muted);font-size:0.82rem">Next fertilization</span>
+          <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            {% if next_fertilization.never %}
+              <span style="color:var(--muted)">Not planned</span>
+            {% elif next_fertilization.planned_date or next_fertilization.date %}
+              {% set eff_fert = next_fertilization.planned_date or next_fertilization.date %}
+              {% if ff_fert and eff_fert and eff_fert <= fert_deadline %}
+                <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
+                  <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
+                  {% if eff_fert < today %}Overdue{% else %}Due soon{% endif %}
+                </span>
+              {% endif %}
+              {% if next_fertilization.planned_date %}
+                <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap">Planned</span>
+              {% endif %}
+              {{ (next_fertilization.planned_date or next_fertilization.date) | planted_date }}
+            {% endif %}
+          </span>
+        </div>
         {% endif %}
       </div>
       {% if next_fertilization and (next_fertilization.date or next_fertilization.planned_date or next_fertilization.never) %}
-      <div class="meta-item" style="border-top:none">
-        <span class="meta-icon">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
-        </span>
-        <span class="meta-label">Next</span>
-        <span class="meta-value" style="display:flex;align-items:center;gap:7px;justify-content:flex-end;flex-wrap:wrap;min-width:0">
-          {% if next_fertilization.never %}
-            <span class="muted">Not planned</span>
-          {% else %}
-            {% set eff_fert = next_fertilization.planned_date or next_fertilization.date %}
-            {% if ff_fert and eff_fert and eff_fert <= fert_deadline %}
-              <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
-                <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
-                {% if eff_fert < today %}Overdue{% else %}Due soon{% endif %}
-              </span>
-            {% endif %}
-            {% if next_fertilization.planned_date %}
-              <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap">Planned</span>
-              {{ next_fertilization.planned_date | planted_date }}
-            {% else %}
-              {{ next_fertilization.date | planted_date }}
-            {% endif %}
-          {% endif %}
-          <button type="button" id="why-btn"
-                  style="background:none;border:none;padding:2px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1;flex-shrink:0">
-            <svg id="fert-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-        </span>
-      </div>
-      <div id="why-panel" hidden
-           style="padding:10px 0 12px 22px;border-bottom:1px solid var(--border)">
+      <div id="fert-edit-panel" hidden style="padding:14px 16px 16px;border-top:1px solid var(--border)">
         {% if next_fertilization.note and not next_fertilization.never %}
-        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;line-height:1.55">{{ next_fertilization.note }}</p>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;line-height:1.55">{{ next_fertilization.note }}</p>
         {% endif %}
         <form method="post" action="{{ url_for('garden_plan_fertilize', entry_id=entry.id) }}"
-              style="display:flex;flex-direction:column;gap:8px">
+              style="display:flex;flex-direction:column;gap:10px">
           <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
             Update last fertilized date
             <input type="date" name="last_fertilized_date"
@@ -150,7 +151,7 @@
                    placeholder="e.g. Worm castings, Fish emulsion…"
                    style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
           </label>
-          <div id="plan-date-section" {% if next_fertilization.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:8px">
+          <div id="plan-date-section" {% if next_fertilization.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:10px">
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
               Update next fertilization date
               <input type="date" name="planned_date"
@@ -174,48 +175,48 @@
         </form>
       </div>
       {% endif %}
-      {% if ff_water and next_watering and next_watering.date %}
-      <div class="meta-item" style="border-bottom:none">
-        <span class="meta-icon">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-          </svg>
-        </span>
-        <span class="meta-label">Watered</span>
-        {% if last_watered and last_watered.date %}
-          <span class="meta-value">{{ last_watered.date | planted_date }}</span>
-        {% else %}
-          <span class="meta-value muted">Never</span>
-        {% endif %}
+    </div>
+
+    {% if ff_water and next_watering and next_watering.date %}
+    <div style="border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;padding:11px 16px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+        </svg>
+        <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+        <button type="button" id="water-edit-btn"
+                style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
+          <svg id="water-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
       </div>
-      <div class="meta-item" style="border-top:none">
-        <span class="meta-icon">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-        </span>
-        <span class="meta-label">Next water{% if next_watering.frequency_days %} <span class="muted" style="font-size:0.72rem;font-weight:400;letter-spacing:0">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
-        <span class="meta-value" style="display:flex;align-items:center;gap:7px;justify-content:flex-end;flex-wrap:wrap;min-width:0">
-          {% if next_watering.date <= water_deadline %}
-            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
-              <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
-              {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
-            </span>
+      <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
+          <span style="color:var(--muted);font-size:0.82rem">Last watered</span>
+          {% if last_watered and last_watered.date %}
+            <span>{{ last_watered.date | planted_date }}</span>
+          {% else %}
+            <span style="color:var(--muted)">Never</span>
           {% endif %}
-          {{ next_watering.date | planted_date }}
-          <button type="button" id="water-why-btn"
-                  style="background:none;border:none;padding:2px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1;flex-shrink:0">
-            <svg id="water-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-        </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
+          <span style="color:var(--muted);font-size:0.82rem">Next water{% if next_watering.frequency_days %} <span style="font-size:0.72rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
+          <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+            {% if next_watering.date <= water_deadline %}
+              <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
+                <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
+                {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
+              </span>
+            {% endif %}
+            {{ next_watering.date | planted_date }}
+          </span>
+        </div>
       </div>
-      <div id="water-why-panel" hidden
-           style="padding:10px 0 12px 22px;border-bottom:1px solid var(--border)">
+      <div id="water-edit-panel" hidden style="padding:14px 16px 16px;border-top:1px solid var(--border)">
         {% if next_watering.note %}
-        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;line-height:1.55">{{ next_watering.note }}</p>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;line-height:1.55">{{ next_watering.note }}</p>
         {% endif %}
         <form method="post" action="{{ url_for('garden_plan_watering', entry_id=entry.id) }}"
-              style="display:flex;flex-direction:column;gap:8px">
+              style="display:flex;flex-direction:column;gap:10px">
           <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
             Last watered date
             <input type="date" name="last_watered_date"
@@ -229,8 +230,8 @@
           </div>
         </form>
       </div>
-      {% endif %}
     </div>
+    {% endif %}
 
     <div style="margin:12px -20px -20px;border-top:1px solid var(--border);background:rgba(28,56,41,0.035)">
       <button id="entry-chat-toggle" type="button"
@@ -343,13 +344,13 @@
 </style>
 <script>
 (function() {
-  var btn = document.getElementById('why-btn');
-  var panel = document.getElementById('why-panel');
-  var fertChevron = document.getElementById('fert-chevron');
-  if (btn && panel) {
-    btn.addEventListener('click', function() {
-      panel.hidden = !panel.hidden;
-      if (fertChevron) fertChevron.style.transform = panel.hidden ? '' : 'rotate(180deg)';
+  var fertBtn = document.getElementById('fert-edit-btn');
+  var fertPanel = document.getElementById('fert-edit-panel');
+  var fertChevron = document.getElementById('fert-edit-chevron');
+  if (fertBtn && fertPanel) {
+    fertBtn.addEventListener('click', function() {
+      fertPanel.hidden = !fertPanel.hidden;
+      if (fertChevron) fertChevron.style.transform = fertPanel.hidden ? '' : 'rotate(180deg)';
     });
   }
   var cb = document.getElementById('never-fert-detail-cb');
@@ -359,13 +360,13 @@
       dateSection.hidden = cb.checked;
     });
   }
-  var wBtn = document.getElementById('water-why-btn');
-  var wPanel = document.getElementById('water-why-panel');
-  var waterChevron = document.getElementById('water-chevron');
+  var wBtn = document.getElementById('water-edit-btn');
+  var wPanel = document.getElementById('water-edit-panel');
+  var wChevron = document.getElementById('water-edit-chevron');
   if (wBtn && wPanel) {
     wBtn.addEventListener('click', function() {
       wPanel.hidden = !wPanel.hidden;
-      if (waterChevron) waterChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
+      if (wChevron) wChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
     });
   }
 })();
