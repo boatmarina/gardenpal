@@ -1347,18 +1347,25 @@ def create_app() -> Flask:
     def idea_fertilized_today(plant_id: int):
         db = get_db()
         plant = db.execute(
-            "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+            "SELECT id, name, scientific_name, plant_form, lifecycle, flowering_schedule,"
+            " sun_exposure, water_needs FROM plants WHERE id = ? AND user_id = ?",
             (plant_id, g.user["id"]),
         ).fetchone()
         if plant is None:
             return jsonify({"error": "Not found"}), 404
         today = datetime.utcnow().date().isoformat()
+        fertilizer_type = (request.form.get("fertilizer_type") or "").strip() or None
         db.execute(
-            "UPDATE plants SET last_fertilized_date = ?, next_fertilization_generated_at = NULL WHERE id = ?",
-            (today, plant_id),
+            "UPDATE plants SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
+            " next_fertilization_generated_at = NULL WHERE id = ?",
+            (today, fertilizer_type, plant_id),
         )
         db.commit()
-        return jsonify({"ok": True, "today": today})
+        user_location = g.user.get("location") if g.user else None
+        result = _suggest_next_fertilization_ornamental(db, plant, user_location, today)
+        next_date = result["date"] if result else None
+        next_note = result["note"] if result else None
+        return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note})
 
     @app.route("/yard")
     @login_required
@@ -2969,14 +2976,14 @@ def create_app() -> Flask:
                 "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
                 " next_fertilization_date = NULL, next_fertilization_note = NULL,"
                 " next_fertilization_generated_at = NULL,"
-                " last_fertilized_date = COALESCE(?, last_fertilized_date),"
+                " last_fertilized_date = ?,"
                 " last_fertilizer_type = COALESCE(?, last_fertilizer_type) WHERE id = ?",
                 (last_fert_date, last_fert_type, entry_id),
             )
         else:
             db.execute(
                 "UPDATE garden_entries SET planned_fertilization_date = ?, never_fertilize = 0,"
-                " last_fertilized_date = COALESCE(?, last_fertilized_date),"
+                " last_fertilized_date = ?,"
                 " last_fertilizer_type = COALESCE(?, last_fertilizer_type)"
                 + (", next_fertilization_generated_at = NULL" if fert_date_changed else "")
                 + " WHERE id = ?",
@@ -3108,18 +3115,39 @@ def create_app() -> Flask:
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         entry = db.execute(
-            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            f"SELECT * FROM garden_entries WHERE id = ? AND user_id IN {ph}",
             [entry_id] + id_args,
         ).fetchone()
         if entry is None:
             return jsonify({"error": "Not found"}), 404
         today = datetime.utcnow().date().isoformat()
+        fertilizer_type = (request.form.get("fertilizer_type") or "").strip() or None
         db.execute(
-            "UPDATE garden_entries SET last_fertilized_date = ?, next_fertilization_generated_at = NULL WHERE id = ?",
-            (today, entry_id),
+            "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
+            " next_fertilization_generated_at = NULL WHERE id = ?",
+            (today, fertilizer_type, entry_id),
+        )
+        note_text = "Fertilized" + (f" — {fertilizer_type}" if fertilizer_type else "")
+        db.execute(
+            "INSERT INTO garden_photos"
+            " (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
+            " VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+            (entry_id, g.user["id"], today, note_text,
+             datetime.utcnow().isoformat(timespec="seconds"), fertilizer_type, today),
         )
         db.commit()
-        return jsonify({"ok": True, "today": today})
+        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", [entry_id]).fetchone()
+        growth_notes = db.execute(
+            "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ? ORDER BY photo_date",
+            (entry_id,),
+        ).fetchall()
+        growth_notes_list = [(r["photo_date"], r["notes"]) for r in growth_notes]
+        user_location = g.user.get("location") if g.user else None
+        last_fertilized = {"date": today, "type": fertilizer_type}
+        result = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes_list)
+        next_date = result["date"] if result else None
+        next_note = result["note"] if result else None
+        return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note})
 
     @app.route("/watering/mark-all-today", methods=["POST"])
     @login_required

@@ -196,11 +196,20 @@
                   <polyline points="9 9.5 11 11.5 16 7.5" fill="none" stroke="#388E3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </button>
+              <span id="idea-fert-quick-form" style="display:none;align-items:center;gap:4px">
+                <input type="text" id="idea-fert-type-input"
+                       placeholder="Type used? (optional)"
+                       style="font-size:0.78rem;padding:3px 6px;border:1px solid #A5D6A7;border-radius:5px;min-width:0;width:120px" />
+                <button type="button" id="idea-fert-confirm-btn"
+                        style="font-size:0.72rem;padding:3px 7px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:600;color:#2E7D32">Done</button>
+                <button type="button" id="idea-fert-cancel-btn"
+                        style="font-size:0.72rem;padding:3px 6px;background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted)">✕</button>
+              </span>
               {% if next_fertilization.planned_date %}
                 <span style="font-size:0.68rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px;font-weight:700;white-space:nowrap">Planned</span>
               {% endif %}
               {% set eff_fert_date = next_fertilization.planned_date or next_fertilization.date %}
-              {% if eff_fert_date == today %}Due today{% else %}{{ eff_fert_date | planted_date }}{% endif %}
+              <span id="idea-next-fert-date">{% if eff_fert_date == today %}Due today{% else %}{{ eff_fert_date | planted_date }}{% endif %}</span>
             {% endif %}
           </span>
         </div>
@@ -221,9 +230,14 @@
           </label>
           <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
             Update last fertilized date
-            <input type="date" name="last_fertilized_date"
-                   value="{{ last_fertilized.date if last_fertilized and last_fertilized.date else '' }}"
-                   style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="date" name="last_fertilized_date"
+                     id="idea-last-fert-date-input"
+                     value="{{ last_fertilized.date if last_fertilized and last_fertilized.date else '' }}"
+                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;flex:1" />
+              <button type="button" id="idea-clear-fert-date-btn"
+                      style="font-size:0.72rem;padding:3px 8px;background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);white-space:nowrap;flex-shrink:0">Never</button>
+            </div>
           </label>
           <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
             Fertilizer type
@@ -542,21 +556,57 @@
       .catch(function(){ btn.innerHTML = orig; btn.disabled = false; });
   }
   var ideaFertDoneBtn = document.getElementById('idea-fert-done-btn');
-  if (ideaFertDoneBtn) {
+  var ideaFertQuickForm = document.getElementById('idea-fert-quick-form');
+  var ideaFertTypeInput = document.getElementById('idea-fert-type-input');
+  var ideaFertConfirmBtn = document.getElementById('idea-fert-confirm-btn');
+  var ideaFertCancelBtn = document.getElementById('idea-fert-cancel-btn');
+  if (ideaFertDoneBtn && ideaFertQuickForm) {
     ideaFertDoneBtn.addEventListener('click', function() {
-      ideaFertDoneBtn.disabled = true;
-      ideaFertDoneBtn.style.opacity = '0.35';
-      fetch('{{ url_for("idea_fertilized_today", plant_id=plant.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
-        .then(function(r){return r.json();})
-        .then(function(d){
-          if (d.ok) {
-            var el = document.getElementById('idea-last-fert-value');
-            if (el) el.textContent = gpFormatDate(d.today);
-            ideaFertDoneBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#1B5E20"/><path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#1B5E20"/><line x1="12" y1="12" x2="12" y2="19" stroke="#1B5E20" stroke-width="2" stroke-linecap="round"/><rect x="7.5" y="6.5" width="9" height="6" rx="1.5" fill="white"/><polyline points="9 9.5 11 11.5 16 7.5" fill="none" stroke="#1B5E20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-            ideaFertDoneBtn.style.opacity = '1';
-          } else { ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '0.65'; }
-        })
-        .catch(function(){ ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '0.65'; });
+      ideaFertDoneBtn.hidden = true;
+      ideaFertQuickForm.style.display = 'flex';
+      if (ideaFertTypeInput) ideaFertTypeInput.focus();
+    });
+    if (ideaFertCancelBtn) {
+      ideaFertCancelBtn.addEventListener('click', function() {
+        ideaFertQuickForm.style.display = 'none';
+        ideaFertDoneBtn.hidden = false;
+      });
+    }
+    if (ideaFertConfirmBtn) {
+      ideaFertConfirmBtn.addEventListener('click', function() {
+        ideaFertConfirmBtn.disabled = true;
+        if (ideaFertCancelBtn) ideaFertCancelBtn.disabled = true;
+        var fd = new FormData();
+        if (ideaFertTypeInput && ideaFertTypeInput.value.trim()) fd.append('fertilizer_type', ideaFertTypeInput.value.trim());
+        fetch('{{ url_for("idea_fertilized_today", plant_id=plant.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body: fd})
+          .then(function(r){return r.json();})
+          .then(function(d){
+            if (d.ok) {
+              var lastEl = document.getElementById('idea-last-fert-value');
+              if (lastEl) lastEl.textContent = gpFormatDate(d.today);
+              var nextEl = document.getElementById('idea-next-fert-date');
+              if (nextEl && d.next_date) nextEl.textContent = gpFormatDate(d.next_date);
+              ideaFertQuickForm.style.display = 'none';
+              ideaFertDoneBtn.hidden = false;
+              ideaFertDoneBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#1B5E20"/><path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#1B5E20"/><line x1="12" y1="12" x2="12" y2="19" stroke="#1B5E20" stroke-width="2" stroke-linecap="round"/><rect x="7.5" y="6.5" width="9" height="6" rx="1.5" fill="white"/><polyline points="9 9.5 11 11.5 16 7.5" fill="none" stroke="#1B5E20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+              ideaFertDoneBtn.disabled = true;
+            } else {
+              ideaFertConfirmBtn.disabled = false;
+              if (ideaFertCancelBtn) ideaFertCancelBtn.disabled = false;
+            }
+          })
+          .catch(function(){
+            ideaFertConfirmBtn.disabled = false;
+            if (ideaFertCancelBtn) ideaFertCancelBtn.disabled = false;
+          });
+      });
+    }
+  }
+  var ideaClearFertDateBtn = document.getElementById('idea-clear-fert-date-btn');
+  if (ideaClearFertDateBtn) {
+    ideaClearFertDateBtn.addEventListener('click', function() {
+      var inp = document.getElementById('idea-last-fert-date-input');
+      if (inp) inp.value = '';
     });
   }
   var ideaWaterDoneBtn = document.getElementById('idea-water-done-btn');
