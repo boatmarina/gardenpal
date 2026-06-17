@@ -588,6 +588,7 @@ def create_app() -> Flask:
                 f"SELECT id, plant_name AS name, last_watered_date, next_watering_date,"
                 f" watering_note, watering_frequency_days"
                 f" FROM garden_entries WHERE user_id IN {ph}"
+                f" AND (never_water IS NULL OR never_water = 0)"
                 f" AND watering_frequency_days IS NOT NULL"
                 f" AND next_watering_date IS NOT NULL"
                 f" AND next_watering_date <= ?",
@@ -606,6 +607,7 @@ def create_app() -> Flask:
                 f"SELECT id, name, last_watered_date, next_watering_date,"
                 f" watering_note, watering_frequency_days"
                 f" FROM plants WHERE user_id IN {ph}"
+                f" AND (never_water IS NULL OR never_water = 0)"
                 f" AND watering_frequency_days IS NOT NULL"
                 f" AND next_watering_date IS NOT NULL"
                 f" AND next_watering_date <= ?",
@@ -1114,17 +1116,21 @@ def create_app() -> Flask:
         if ff_water and plant_zones:
             last_watered_date = plant.get("last_watered_date") or None
             last_watered = {"date": last_watered_date}
-            needs_regen = not plant.get("watering_generated_at")
-            if needs_regen:
-                water_allowed, _ = _check_api_rate(db, g.user["id"], "watering")
-                if water_allowed:
-                    _suggest_watering_frequency_ornamental(db, plant, g.user.get("location", ""), last_watered_date)
-                    plant = db.execute(f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}", (plant_id, *id_args)).fetchone()
-            next_watering = {
-                "date": plant.get("next_watering_date"),
-                "note": plant.get("watering_note"),
-                "frequency_days": plant.get("watering_frequency_days"),
-            }
+            if plant.get("never_water"):
+                next_watering = {"date": None, "note": None, "frequency_days": None, "never": True}
+            else:
+                needs_regen = not plant.get("watering_generated_at")
+                if needs_regen:
+                    water_allowed, _ = _check_api_rate(db, g.user["id"], "watering")
+                    if water_allowed:
+                        _suggest_watering_frequency_ornamental(db, plant, g.user.get("location", ""), last_watered_date)
+                        plant = db.execute(f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}", (plant_id, *id_args)).fetchone()
+                next_watering = {
+                    "date": plant.get("next_watering_date"),
+                    "note": plant.get("watering_note"),
+                    "frequency_days": plant.get("watering_frequency_days"),
+                    "never": False,
+                }
 
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
@@ -1238,6 +1244,17 @@ def create_app() -> Flask:
         if plant is None:
             flash("Plant not found.")
             return redirect(url_for("ideas_index"))
+        if "has_tracking_update" in request.form:
+            never_water = 1 if request.form.get("never_water") else 0
+            if never_water:
+                db.execute(
+                    "UPDATE plants SET never_water = 1, next_watering_date = NULL, watering_generated_at = NULL WHERE id = ?",
+                    (plant_id,),
+                )
+                db.commit()
+                return redirect(url_for("idea_detail", plant_id=plant_id))
+            else:
+                db.execute("UPDATE plants SET never_water = 0 WHERE id = ?", (plant_id,))
         raw_date = request.form.get("last_watered_date", "").strip()
         if not raw_date:
             raw_date = datetime.utcnow().date().isoformat()
@@ -2469,25 +2486,29 @@ def create_app() -> Flask:
         if ff_water:
             last_watered_date = entry.get("last_watered_date") or None
             last_watered = {"date": last_watered_date}
-            needs_regen = not entry.get("watering_generated_at")
-            if needs_regen:
-                water_allowed, _ = _check_api_rate(db, g.user["id"], "watering")
-                if water_allowed:
-                    water_growth_notes = [
-                        (r["photo_date"], r["notes"])
-                        for r in db.execute(
-                            "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ?"
-                            " AND notes IS NOT NULL ORDER BY photo_date ASC NULLS LAST, created_at ASC",
-                            (entry_id,),
-                        ).fetchall()
-                    ]
-                    _suggest_watering_frequency(db, entry, g.user.get("location", ""), last_watered_date, water_growth_notes)
-                    entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
-            next_watering = {
-                "date": entry.get("next_watering_date"),
-                "note": entry.get("watering_note"),
-                "frequency_days": entry.get("watering_frequency_days"),
-            }
+            if entry.get("never_water"):
+                next_watering = {"date": None, "note": None, "frequency_days": None, "never": True}
+            else:
+                needs_regen = not entry.get("watering_generated_at")
+                if needs_regen:
+                    water_allowed, _ = _check_api_rate(db, g.user["id"], "watering")
+                    if water_allowed:
+                        water_growth_notes = [
+                            (r["photo_date"], r["notes"])
+                            for r in db.execute(
+                                "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ?"
+                                " AND notes IS NOT NULL ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                                (entry_id,),
+                            ).fetchall()
+                        ]
+                        _suggest_watering_frequency(db, entry, g.user.get("location", ""), last_watered_date, water_growth_notes)
+                        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+                next_watering = {
+                    "date": entry.get("next_watering_date"),
+                    "note": entry.get("watering_note"),
+                    "frequency_days": entry.get("watering_frequency_days"),
+                    "never": False,
+                }
 
         feature_gz = _feature_garden_zones(g.user)
         entry_zone = None
@@ -2880,6 +2901,17 @@ def create_app() -> Flask:
         if entry is None:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
+        if "has_tracking_update" in request.form:
+            never_water = 1 if request.form.get("never_water") else 0
+            if never_water:
+                db.execute(
+                    "UPDATE garden_entries SET never_water = 1, next_watering_date = NULL, watering_generated_at = NULL WHERE id = ?",
+                    (entry_id,),
+                )
+                db.commit()
+                return redirect(url_for("garden_detail", entry_id=entry_id))
+            else:
+                db.execute("UPDATE garden_entries SET never_water = 0 WHERE id = ?", (entry_id,))
         raw_date = request.form.get("last_watered_date", "").strip()
         if not raw_date:
             raw_date = datetime.utcnow().date().isoformat()
@@ -4915,6 +4947,7 @@ def init_db():
     ensure_column(db, "plants", "next_fertilization_generated_at", "TEXT")
     ensure_column(db, "plants", "planned_fertilization_date", "TEXT")
     ensure_column(db, "plants", "never_fertilize", "INTEGER")
+    ensure_column(db, "plants", "never_water", "INTEGER")
     ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "users", "location", "TEXT")
     ensure_column(db, "users", "whats_new_seen", "TEXT")
@@ -4941,6 +4974,7 @@ def init_db():
     ensure_column(db, "garden_entries", "next_fertilization_generated_at", "TEXT")
     ensure_column(db, "garden_entries", "planned_fertilization_date", "TEXT")
     ensure_column(db, "garden_entries", "never_fertilize", "INTEGER")
+    ensure_column(db, "garden_entries", "never_water", "INTEGER")
     ensure_column(db, "garden_entries", "zone_id",                  "INTEGER")
     ensure_column(db, "garden_entries", "last_watered_date",         "TEXT")
     ensure_column(db, "garden_entries", "watering_frequency_days",   "INTEGER")
