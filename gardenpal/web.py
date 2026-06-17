@@ -1322,6 +1322,44 @@ def create_app() -> Flask:
         db.commit()
         return jsonify({"ok": True})
 
+    @app.route("/ideas/<int:plant_id>/watered-today", methods=["POST"])
+    @login_required
+    def idea_watered_today(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            return jsonify({"error": "Not found"}), 404
+        today = datetime.utcnow().date().isoformat()
+        freq = plant["watering_frequency_days"]
+        next_date = (datetime.fromisoformat(today).date() + timedelta(days=freq)).isoformat() if freq else None
+        db.execute(
+            "UPDATE plants SET last_watered_date = ?, next_watering_date = ?, never_water = 0 WHERE id = ?",
+            (today, next_date, plant_id),
+        )
+        db.commit()
+        return jsonify({"ok": True, "today": today, "next_date": next_date})
+
+    @app.route("/ideas/<int:plant_id>/fertilized-today", methods=["POST"])
+    @login_required
+    def idea_fertilized_today(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            return jsonify({"error": "Not found"}), 404
+        today = datetime.utcnow().date().isoformat()
+        db.execute(
+            "UPDATE plants SET last_fertilized_date = ?, next_fertilization_generated_at = NULL WHERE id = ?",
+            (today, plant_id),
+        )
+        db.commit()
+        return jsonify({"ok": True, "today": today})
+
     @app.route("/yard")
     @login_required
     def yard_index():
@@ -1444,12 +1482,15 @@ def create_app() -> Flask:
             return redirect(url_for("yard_index"))
         plants = db.execute(
             f"""SELECT yp.*,
-                      p.id                AS lib_plant_id,
-                      p.photo_urls        AS lib_photo_urls,
-                      p.image_path        AS lib_image_path,
-                      p.image_url         AS lib_image_url,
-                      p.next_watering_date AS next_watering_date,
-                      p.never_water        AS never_water
+                      p.id                          AS lib_plant_id,
+                      p.photo_urls                  AS lib_photo_urls,
+                      p.image_path                  AS lib_image_path,
+                      p.image_url                   AS lib_image_url,
+                      p.next_watering_date          AS next_watering_date,
+                      p.never_water                 AS never_water,
+                      p.next_fertilization_date     AS next_fertilization_date,
+                      p.planned_fertilization_date  AS planned_fertilization_date,
+                      p.never_fertilize             AS never_fertilize
                FROM yard_plants yp
                LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
                WHERE yp.zone_id = ? AND yp.user_id IN {ph}
@@ -1472,17 +1513,21 @@ def create_app() -> Flask:
         if feature_gz:
             garden_entries = db.execute(
                 f"SELECT id, plant_name, variety, location_name, planted_date,"
-                f"       next_watering_date, never_water FROM garden_entries"
+                f"       next_watering_date, never_water,"
+                f"       next_fertilization_date, planned_fertilization_date, never_fertilize"
+                f" FROM garden_entries"
                 f" WHERE zone_id = ? AND user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
             ).fetchall()
         ff_water = _feature_watering(g.user)
+        ff_fert = _feature_fertilization(g.user)
         today = datetime.utcnow().strftime("%Y-%m-%d")
         water_deadline = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+        fert_deadline = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
-                               garden_entries=garden_entries, ff_water=ff_water,
-                               today=today, water_deadline=water_deadline)
+                               garden_entries=garden_entries, ff_water=ff_water, ff_fert=ff_fert,
+                               today=today, water_deadline=water_deadline, fert_deadline=fert_deadline)
 
     @app.route("/yard/zones/<int:zone_id>/add-edible")
     @login_required
@@ -3033,6 +3078,48 @@ def create_app() -> Flask:
             db.execute("UPDATE garden_entries SET never_water = 0 WHERE id = ?", (entry_id,))
         db.commit()
         return jsonify({"ok": True})
+
+    @app.route("/garden/<int:entry_id>/watered-today", methods=["POST"])
+    @login_required
+    def garden_watered_today(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id, watering_frequency_days FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "Not found"}), 404
+        today = datetime.utcnow().date().isoformat()
+        freq = entry["watering_frequency_days"]
+        next_date = (datetime.fromisoformat(today).date() + timedelta(days=freq)).isoformat() if freq else None
+        db.execute(
+            "UPDATE garden_entries SET last_watered_date = ?, next_watering_date = ?, never_water = 0 WHERE id = ?",
+            (today, next_date, entry_id),
+        )
+        db.commit()
+        return jsonify({"ok": True, "today": today, "next_date": next_date})
+
+    @app.route("/garden/<int:entry_id>/fertilized-today", methods=["POST"])
+    @login_required
+    def garden_fertilized_today(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "Not found"}), 404
+        today = datetime.utcnow().date().isoformat()
+        db.execute(
+            "UPDATE garden_entries SET last_fertilized_date = ?, next_fertilization_generated_at = NULL WHERE id = ?",
+            (today, entry_id),
+        )
+        db.commit()
+        return jsonify({"ok": True, "today": today})
 
     @app.route("/watering/mark-all-today", methods=["POST"])
     @login_required
