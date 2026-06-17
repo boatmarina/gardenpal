@@ -579,6 +579,49 @@ def create_app() -> Flask:
                 })
             fert_alerts.sort(key=lambda x: x["date"])
 
+        watering_alerts = []
+        ff_water = _feature_watering(g.user)
+        if ff_water:
+            water_today = datetime.utcnow().strftime("%Y-%m-%d")
+            water_deadline = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+            water_edible_rows = db.execute(
+                f"SELECT id, plant_name AS name, last_watered_date, next_watering_date,"
+                f" watering_note, watering_frequency_days"
+                f" FROM garden_entries WHERE user_id IN {ph}"
+                f" AND watering_frequency_days IS NOT NULL"
+                f" AND next_watering_date IS NOT NULL"
+                f" AND next_watering_date <= ?",
+                id_args + [water_deadline],
+            ).fetchall()
+            for r in water_edible_rows:
+                watering_alerts.append({
+                    "kind": "edible", "id": r["id"], "name": r["name"],
+                    "date": r["next_watering_date"],
+                    "overdue": r["next_watering_date"] < water_today,
+                    "last_watered_date": r["last_watered_date"],
+                    "watering_note": r["watering_note"],
+                    "frequency_days": r["watering_frequency_days"],
+                })
+            water_ornamental_rows = db.execute(
+                f"SELECT id, name, last_watered_date, next_watering_date,"
+                f" watering_note, watering_frequency_days"
+                f" FROM plants WHERE user_id IN {ph}"
+                f" AND watering_frequency_days IS NOT NULL"
+                f" AND next_watering_date IS NOT NULL"
+                f" AND next_watering_date <= ?",
+                id_args + [water_deadline],
+            ).fetchall()
+            for r in water_ornamental_rows:
+                watering_alerts.append({
+                    "kind": "ornamental", "id": r["id"], "name": r["name"],
+                    "date": r["next_watering_date"],
+                    "overdue": r["next_watering_date"] < water_today,
+                    "last_watered_date": r["last_watered_date"],
+                    "watering_note": r["watering_note"],
+                    "frequency_days": r["watering_frequency_days"],
+                })
+            watering_alerts.sort(key=lambda x: x["date"])
+
         return render_template(
             "dashboard.html",
             idea_count=idea_count,
@@ -588,6 +631,8 @@ def create_app() -> Flask:
             feature_home_assistant=_feature_home_assistant(g.user),
             ff_fert=ff_fert,
             fert_alerts=fert_alerts,
+            ff_water=ff_water,
+            watering_alerts=watering_alerts,
         )
 
     @app.route("/fert-never", methods=["POST"])
@@ -716,6 +761,10 @@ def create_app() -> Flask:
             """,
             id_args,
         ).fetchall()
+        from datetime import date as _date, timedelta as _tdi
+        _today_str = _date.today().isoformat()
+        _fert_deadline = (_date.today() + _tdi(days=3)).isoformat()
+        _water_deadline = (_date.today() + _tdi(days=1)).isoformat()
         return render_template(
             "ideas_index.html",
             plants=plants,
@@ -724,6 +773,11 @@ def create_app() -> Flask:
             categories=categories,
             shared_names=shared_names,
             active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "plant_form": plant_form, "height_category": height_category, "category": category_id, "tag": tag_id},
+            today=_today_str,
+            fert_deadline=_fert_deadline,
+            ff_fert=_feature_fertilization(g.user),
+            water_deadline=_water_deadline,
+            ff_water=_feature_watering(g.user),
         )
 
     @app.route("/ideas/new", methods=["GET", "POST"])
@@ -1044,6 +1098,26 @@ def create_app() -> Flask:
             else:
                 next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
 
+        ff_water = _feature_watering(g.user)
+        last_watered = None
+        next_watering = None
+        from datetime import timedelta as _tdw
+        water_deadline = (datetime.utcnow() + _tdw(days=1)).isoformat()[:10]
+        if ff_water and plant_zones:
+            last_watered_date = plant.get("last_watered_date") or None
+            last_watered = {"date": last_watered_date}
+            needs_regen = not plant.get("watering_generated_at")
+            if needs_regen:
+                water_allowed, _ = _check_api_rate(db, g.user["id"], "watering")
+                if water_allowed:
+                    _suggest_watering_frequency_ornamental(db, plant, g.user.get("location", ""), last_watered_date)
+                    plant = db.execute(f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}", (plant_id, *id_args)).fetchone()
+            next_watering = {
+                "date": plant.get("next_watering_date"),
+                "note": plant.get("watering_note"),
+                "frequency_days": plant.get("watering_frequency_days"),
+            }
+
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
                                plant_tags=plant_tags, user_tags=user_tags,
@@ -1052,7 +1126,9 @@ def create_app() -> Flask:
                                plant_zones=plant_zones,
                                ff_fert=ff_fert, last_fertilized=last_fertilized,
                                next_fertilization=next_fertilization,
-                               fert_deadline=fert_deadline)
+                               fert_deadline=fert_deadline,
+                               ff_water=ff_water, last_watered=last_watered,
+                               next_watering=next_watering, water_deadline=water_deadline)
 
     @app.route("/ideas/<int:plant_id>/add-to-zone", methods=["POST"])
     @login_required
@@ -1137,6 +1213,37 @@ def create_app() -> Flask:
             + (", next_fertilization_generated_at = NULL" if invalidate else "")
             + " WHERE id = ?",
             (planned_date or None, never_fertilize, last_fertilized_date or None, last_fertilizer_type, plant_id),
+        )
+        db.commit()
+        if request.form.get("from_dashboard"):
+            return redirect(url_for("dashboard"))
+        return redirect(url_for("idea_detail", plant_id=plant_id))
+
+    @app.route("/ideas/<int:plant_id>/plan-watering", methods=["POST"])
+    @login_required
+    def idea_plan_watering(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id, user_id, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        raw_date = request.form.get("last_watered_date", "").strip()
+        if not raw_date:
+            raw_date = datetime.utcnow().date().isoformat()
+        if not _ISO_DATE_RE.match(raw_date):
+            raw_date = datetime.utcnow().date().isoformat()
+        freq = plant["watering_frequency_days"]
+        if freq:
+            from datetime import timedelta as _tdw
+            next_date = (datetime.fromisoformat(raw_date).date() + _tdw(days=freq)).isoformat()
+        else:
+            next_date = None
+        db.execute(
+            "UPDATE plants SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
+            (raw_date, next_date, plant_id),
         )
         db.commit()
         if request.form.get("from_dashboard"):
@@ -2162,6 +2269,8 @@ def create_app() -> Flask:
 
         shared_names = _shared_user_names(db, uid)
         ff_fert = _feature_fertilization(g.user)
+        ff_water = _feature_watering(g.user)
+        water_deadline = (today + timedelta(days=1)).isoformat()
         return render_template(
             "garden_index.html",
             grouped_entries=grouped_entries,
@@ -2171,6 +2280,8 @@ def create_app() -> Flask:
             today=today_str,
             fert_deadline=fert_deadline,
             ff_fert=ff_fert,
+            ff_water=ff_water,
+            water_deadline=water_deadline,
         )
 
     @app.route("/garden/new", methods=["GET", "POST"])
@@ -2342,6 +2453,34 @@ def create_app() -> Flask:
         from datetime import timedelta as _timedelta
         fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
         ff_fert = _feature_fertilization(g.user)
+
+        ff_water = _feature_watering(g.user)
+        last_watered = None
+        next_watering = None
+        water_deadline = (datetime.utcnow() + _timedelta(days=1)).strftime("%Y-%m-%d")
+        if ff_water:
+            last_watered_date = entry.get("last_watered_date") or None
+            last_watered = {"date": last_watered_date}
+            needs_regen = not entry.get("watering_generated_at")
+            if needs_regen:
+                water_allowed, _ = _check_api_rate(db, g.user["id"], "watering")
+                if water_allowed:
+                    water_growth_notes = [
+                        (r["photo_date"], r["notes"])
+                        for r in db.execute(
+                            "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ?"
+                            " AND notes IS NOT NULL ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                            (entry_id,),
+                        ).fetchall()
+                    ]
+                    _suggest_watering_frequency(db, entry, g.user.get("location", ""), last_watered_date, water_growth_notes)
+                    entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+            next_watering = {
+                "date": entry.get("next_watering_date"),
+                "note": entry.get("watering_note"),
+                "frequency_days": entry.get("watering_frequency_days"),
+            }
+
         feature_gz = _feature_garden_zones(g.user)
         entry_zone = None
         if feature_gz and entry["zone_id"]:
@@ -2360,6 +2499,8 @@ def create_app() -> Flask:
         return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today,
                                last_fertilized=last_fertilized, next_fertilization=next_fertilization,
                                fert_deadline=fert_deadline, ff_fert=ff_fert,
+                               ff_water=ff_water, last_watered=last_watered, next_watering=next_watering,
+                               water_deadline=water_deadline,
                                feature_gz=feature_gz, entry_zone=entry_zone,
                                back_href=back_href, back_label=back_label)
 
@@ -2713,6 +2854,39 @@ def create_app() -> Flask:
                 + " WHERE id = ?",
                 (planned_date, last_fert_date, last_fert_type, entry_id),
             )
+        db.commit()
+        if request.form.get("from_dashboard"):
+            return redirect(url_for("dashboard"))
+        return redirect(url_for("garden_detail", entry_id=entry_id))
+
+    @app.route("/garden/<int:entry_id>/plan-watering", methods=["POST"])
+    @login_required
+    def garden_plan_watering(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id, watering_frequency_days FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            flash("Entry not found.")
+            return redirect(url_for("garden_index"))
+        raw_date = request.form.get("last_watered_date", "").strip()
+        if not raw_date:
+            raw_date = datetime.utcnow().date().isoformat()
+        if not _ISO_DATE_RE.match(raw_date):
+            raw_date = datetime.utcnow().date().isoformat()
+        freq = entry["watering_frequency_days"]
+        if freq:
+            from datetime import timedelta as _tdw
+            next_date = (datetime.fromisoformat(raw_date).date() + _tdw(days=freq)).isoformat()
+        else:
+            next_date = None
+        db.execute(
+            "UPDATE garden_entries SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
+            (raw_date, next_date, entry_id),
+        )
         db.commit()
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
@@ -4716,7 +4890,17 @@ def init_db():
     ensure_column(db, "garden_entries", "next_fertilization_generated_at", "TEXT")
     ensure_column(db, "garden_entries", "planned_fertilization_date", "TEXT")
     ensure_column(db, "garden_entries", "never_fertilize", "INTEGER")
-    ensure_column(db, "garden_entries", "zone_id", "INTEGER")
+    ensure_column(db, "garden_entries", "zone_id",                  "INTEGER")
+    ensure_column(db, "garden_entries", "last_watered_date",         "TEXT")
+    ensure_column(db, "garden_entries", "watering_frequency_days",   "INTEGER")
+    ensure_column(db, "garden_entries", "watering_note",             "TEXT")
+    ensure_column(db, "garden_entries", "watering_generated_at",     "TEXT")
+    ensure_column(db, "garden_entries", "next_watering_date",        "TEXT")
+    ensure_column(db, "plants",         "last_watered_date",         "TEXT")
+    ensure_column(db, "plants",         "watering_frequency_days",   "INTEGER")
+    ensure_column(db, "plants",         "watering_note",             "TEXT")
+    ensure_column(db, "plants",         "watering_generated_at",     "TEXT")
+    ensure_column(db, "plants",         "next_watering_date",        "TEXT")
 
     # Backfill existing growth-log notes using keyword detection (one-time, skips already-classified rows)
     unclassified = db.execute(
@@ -5411,6 +5595,11 @@ def _feature_fertilization(user):
     return (user or {}).get("username") in {"boatmarina", "holval@gmail.com"}
 
 
+def _feature_watering(user):
+    """Feature flag: watering tracker. Early-access only."""
+    return (user or {}).get("username") in {"boatmarina"}
+
+
 def _feature_home_assistant(user):
     """Home-screen garden assistant — available to all users."""
     return True
@@ -5425,6 +5614,7 @@ def _feature_garden_zones(user):
 _API_LIMITS = {
     "chat":          {"daily": 40, "burst_secs": 3},
     "fertilization": {"daily": 100, "burst_secs": 0},  # cache already throttles; 100/day covers large gardens
+    "watering":      {"daily": 100, "burst_secs": 0},
 }
 
 
@@ -5630,6 +5820,135 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
         )
         db.commit()
         return {"date": date_line, "note": note_text or None}
+    except Exception:
+        return None
+
+
+def _suggest_watering_frequency(db, entry, user_location, last_watered, growth_notes):
+    """Call Claude Sonnet to suggest watering frequency (days between waterings) for an edible. Caches in DB."""
+    import anthropic as _anthropic
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    try:
+        today_str = datetime.utcnow().date().isoformat()
+        plant_name = entry["plant_name"] or ""
+        variety_str = f" ({entry['variety']})" if entry.get("variety") else ""
+        location_type = (entry.get("location_type") or "").replace("_", " ")
+        location_name = entry.get("location_name") or ""
+        planted_date = entry.get("planted_date") or "unknown"
+        notes_lines = []
+        for photo_date, notes in growth_notes:
+            if notes:
+                notes_lines.append(f"- {photo_date or '?'}: {notes[:200]}")
+        notes_str = "\n".join(notes_lines) if notes_lines else "None"
+        user_msg = (
+            f"Plant: {plant_name}{variety_str}\n"
+            f"Location type: {location_type or 'unknown'}\n"
+            f"Location name: {location_name or 'not specified'}\n"
+            f"User's location: {user_location or 'unknown'}\n"
+            f"Planted: {planted_date}\n"
+            f"Last watered: {last_watered or 'unknown'}\n"
+            f"Growth log notes:\n{notes_str}\n"
+            f"Today is {today_str}."
+        )
+        client = _anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=200,
+            system=(
+                "You are a gardening advisor. Given plant details, suggest how frequently to water.\n"
+                "Consider: plant type, container vs in-ground, raised bed, location and climate, season.\n"
+                "Reply with ONLY:\n"
+                "Line 1: number of days between waterings (integer, e.g. 3)\n"
+                "Line 2+: 1-2 sentence explanation.\n"
+                "No labels, no extra text."
+            ),
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        raw = resp.content[0].text.strip()
+        lines = raw.splitlines()
+        days_line = lines[0].strip() if lines else ""
+        if not days_line.isdigit():
+            return None
+        freq_days = max(1, min(30, int(days_line)))
+        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        from datetime import timedelta as _td
+        if last_watered and _ISO_DATE_RE.match(last_watered):
+            base = datetime.fromisoformat(last_watered).date()
+        else:
+            base = datetime.utcnow().date()
+        next_date = (base + _td(days=freq_days)).isoformat()
+        generated_at = datetime.utcnow().isoformat(timespec="seconds")
+        db.execute(
+            "UPDATE garden_entries SET watering_frequency_days = ?, watering_note = ?,"
+            " watering_generated_at = ?, next_watering_date = ? WHERE id = ?",
+            (freq_days, note_text or None, generated_at, next_date, entry["id"]),
+        )
+        db.commit()
+        return {"days": freq_days, "note": note_text or None, "next_date": next_date}
+    except Exception:
+        return None
+
+
+def _suggest_watering_frequency_ornamental(db, plant, user_location, last_watered):
+    """Call Claude Haiku to suggest watering frequency for an ornamental plant. Caches in DB."""
+    import anthropic as _anthropic
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    try:
+        today_str = datetime.utcnow().date().isoformat()
+        plant_name = plant["name"] or ""
+        sci_name = plant.get("scientific_name") or ""
+        plant_form = (plant.get("plant_form") or "").replace("-", " ")
+        lifecycle = plant.get("lifecycle") or ""
+        sun = plant.get("sun_exposure") or ""
+        water = plant.get("water_needs") or ""
+        user_msg = (
+            f"Plant: {plant_name}" + (f" ({sci_name})" if sci_name else "") + "\n"
+            + (f"Form: {plant_form}\n" if plant_form else "")
+            + (f"Lifecycle: {lifecycle}\n" if lifecycle else "")
+            + (f"Sun: {sun}\n" if sun else "")
+            + (f"Water needs: {water}\n" if water else "")
+            + f"User's location: {user_location or 'unknown'}\n"
+            + f"Last watered: {last_watered or 'unknown'}\n"
+            + f"Today is {today_str}."
+        )
+        client = _anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=150,
+            system=(
+                "You are a gardening advisor. Given ornamental plant details, suggest how frequently to water.\n"
+                "Reply with ONLY:\n"
+                "Line 1: number of days between waterings (integer, e.g. 7)\n"
+                "Line 2+: 1-2 sentence explanation.\n"
+                "No labels, no extra text."
+            ),
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        raw = resp.content[0].text.strip()
+        lines = raw.splitlines()
+        days_line = lines[0].strip() if lines else ""
+        if not days_line.isdigit():
+            return None
+        freq_days = max(1, min(30, int(days_line)))
+        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        from datetime import timedelta as _td
+        if last_watered and _ISO_DATE_RE.match(last_watered):
+            base = datetime.fromisoformat(last_watered).date()
+        else:
+            base = datetime.utcnow().date()
+        next_date = (base + _td(days=freq_days)).isoformat()
+        generated_at = datetime.utcnow().isoformat(timespec="seconds")
+        db.execute(
+            "UPDATE plants SET watering_frequency_days = ?, watering_note = ?,"
+            " watering_generated_at = ?, next_watering_date = ? WHERE id = ?",
+            (freq_days, note_text or None, generated_at, next_date, plant["id"]),
+        )
+        db.commit()
+        return {"days": freq_days, "note": note_text or None, "next_date": next_date}
     except Exception:
         return None
 

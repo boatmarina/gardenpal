@@ -172,6 +172,61 @@
         </form>
       </div>
       {% endif %}
+      {% if ff_water and next_watering and next_watering.date %}
+      <div class="meta-item" style="border-bottom:none">
+        <span class="meta-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+          </svg>
+        </span>
+        <span class="meta-label">Watered</span>
+        {% if last_watered and last_watered.date %}
+          <span class="meta-value">{{ last_watered.date | planted_date }}</span>
+        {% else %}
+          <span class="meta-value muted">Never</span>
+        {% endif %}
+      </div>
+      <div class="meta-item" style="border-top:none">
+        <span class="meta-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </span>
+        <span class="meta-label">Next water</span>
+        <span class="meta-value" style="display:flex;align-items:center;gap:7px;justify-content:flex-end;flex-wrap:wrap;min-width:0">
+          {% if next_watering.date <= water_deadline %}
+            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
+              <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 2.5 0 4.5a3.5 3.5 0 0 0 7 0C7 2.5 3.5 0 3.5 0z"/></svg>
+              {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
+            </span>
+          {% endif %}
+          {{ next_watering.date | planted_date }}{% if next_watering.frequency_days %} <span class="muted" style="font-size:0.75rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}
+          <button type="button" id="water-why-btn"
+                  style="background:none;border:none;padding:0;font-size:0.78rem;font-weight:600;color:#1565C0;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:2px;white-space:nowrap">Why?</button>
+        </span>
+      </div>
+      <div id="water-why-panel" hidden
+           style="padding:10px 0 12px 22px;border-bottom:1px solid var(--border)">
+        {% if next_watering.note %}
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;line-height:1.55">{{ next_watering.note }}</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('garden_plan_watering', entry_id=entry.id) }}"
+              style="display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+            Last watered date
+            <input type="date" name="last_watered_date"
+                   value="{{ entry.last_watered_date or '' }}"
+                   style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+          </label>
+          <div style="display:flex;gap:8px">
+            <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
+            <button type="submit" name="last_watered_date" value=""
+                    class="button button-secondary" style="font-size:0.8rem;padding:6px 14px;color:var(--muted)"
+                    onclick="this.form.elements['last_watered_date'].value=new Date().toISOString().split('T')[0];return true">Mark watered today</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
     </div>
 
     <div style="margin:12px -20px -20px;border-top:1px solid var(--border);background:rgba(28,56,41,0.035)">
@@ -298,6 +353,14 @@
   if (cb && dateSection) {
     cb.addEventListener('change', function() {
       dateSection.hidden = cb.checked;
+    });
+  }
+  var wBtn = document.getElementById('water-why-btn');
+  var wPanel = document.getElementById('water-why-panel');
+  if (wBtn && wPanel) {
+    wBtn.addEventListener('click', function() {
+      wPanel.hidden = !wPanel.hidden;
+      wBtn.textContent = wPanel.hidden ? 'Why?' : 'Close';
     });
   }
 })();
