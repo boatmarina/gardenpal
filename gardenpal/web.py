@@ -765,15 +765,13 @@ def create_app() -> Flask:
         _today_str = _date.today().isoformat()
         _fert_deadline = (_date.today() + _tdi(days=3)).isoformat()
         _water_deadline = (_date.today() + _tdi(days=1)).isoformat()
-        zoned_plant_ids = set()
+        zoned_plant_names = set()
         if plants:
-            _pids = [p["id"] for p in plants]
-            _ph2, _id2 = _in_ids(_pids)
             _zoned = db.execute(
-                f"SELECT DISTINCT plant_id FROM yard_plants WHERE plant_id IN {_ph2}",
-                _id2,
+                f"SELECT DISTINCT lower(plant_name) AS pn FROM yard_plants WHERE user_id IN {ph}",
+                list(id_args),
             ).fetchall()
-            zoned_plant_ids = {r["plant_id"] for r in _zoned}
+            zoned_plant_names = {r["pn"] for r in _zoned}
         return render_template(
             "ideas_index.html",
             plants=plants,
@@ -787,7 +785,7 @@ def create_app() -> Flask:
             ff_fert=_feature_fertilization(g.user),
             water_deadline=_water_deadline,
             ff_water=_feature_watering(g.user),
-            zoned_plant_ids=zoned_plant_ids,
+            zoned_plant_names=zoned_plant_names,
         )
 
     @app.route("/ideas/new", methods=["GET", "POST"])
@@ -2901,6 +2899,49 @@ def create_app() -> Flask:
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("garden_detail", entry_id=entry_id))
+
+    @app.route("/watering/mark-all-today", methods=["POST"])
+    @login_required
+    def watering_mark_all_today():
+        db = get_db()
+        user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+        today = datetime.utcnow().date().isoformat()
+        from datetime import timedelta as _tdw
+        items = request.form.getlist("item")
+        for item in items:
+            try:
+                kind, raw_id = item.split(":", 1)
+                eid = int(raw_id)
+            except (ValueError, AttributeError):
+                continue
+            if kind == "edible":
+                row = db.execute(
+                    f"SELECT id, watering_frequency_days FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+                    [eid] + id_args,
+                ).fetchone()
+                if row:
+                    freq = row["watering_frequency_days"]
+                    next_date = (datetime.fromisoformat(today).date() + _tdw(days=freq)).isoformat() if freq else None
+                    db.execute(
+                        "UPDATE garden_entries SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
+                        (today, next_date, eid),
+                    )
+            elif kind == "ornamental":
+                row = db.execute(
+                    "SELECT id, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?",
+                    (eid, user_id),
+                ).fetchone()
+                if row:
+                    freq = row["watering_frequency_days"]
+                    next_date = (datetime.fromisoformat(today).date() + _tdw(days=freq)).isoformat() if freq else None
+                    db.execute(
+                        "UPDATE plants SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
+                        (today, next_date, eid),
+                    )
+        db.commit()
+        return redirect(url_for("dashboard"))
 
     @app.route("/garden/<int:entry_id>/duplicate", methods=["POST"])
     @login_required

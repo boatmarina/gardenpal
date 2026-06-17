@@ -159,7 +159,13 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD">Watering due</span>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering due</span>
+      <form method="post" action="{{ url_for('watering_mark_all_today') }}" style="margin:0">
+        {% for alert in watering_alerts %}
+        <input type="hidden" name="item" value="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}" />
+        {% endfor %}
+        <button type="submit" style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
+      </form>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       {% for alert in watering_alerts %}
