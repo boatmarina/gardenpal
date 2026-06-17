@@ -154,22 +154,18 @@
   {% endif %}
 
   {% if ff_water and watering_alerts %}
-  <div style="margin-bottom:20px">
+  <div id="water-section" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
       </svg>
       <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering due</span>
-      <form method="post" action="{{ url_for('watering_mark_all_today') }}" style="margin:0">
-        {% for alert in watering_alerts %}
-        <input type="hidden" name="item" value="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}" />
-        {% endfor %}
-        <button type="submit" style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
-      </form>
+      <button type="button" id="water-mark-all-btn"
+              style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
     </div>
-    <div class="card" style="padding:0;overflow:hidden">
+    <div id="water-alert-list" class="card" style="padding:0;overflow:hidden">
       {% for alert in watering_alerts %}
-      <div style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+      <div data-water-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
         <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
           <button type="button" onclick="waterToggle({{ loop.index }})"
                   style="flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px">
@@ -184,13 +180,11 @@
             {% endif %}
             <svg id="water-chevron-{{ loop.index }}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <form method="post"
-                action="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
-                style="margin:0;flex-shrink:0">
-            <input type="hidden" name="from_dashboard" value="1" />
-            <button type="submit" title="Mark as watered today"
-                    style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 7px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Done</button>
-          </form>
+          <button type="button" class="water-done-btn"
+                  data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
+                  data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
+                  title="Mark as watered today"
+                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 7px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Done</button>
         </div>
         <div id="water-panel-{{ loop.index }}" hidden
              style="padding:4px 14px 16px;border-top:1px solid var(--border);background:var(--bg-subtle, var(--bg))">
@@ -268,6 +262,60 @@ function waterToggle(n) {
   var open = panel.hidden;
   panel.hidden = !open;
   chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function removeWaterRow(row) {
+  row.style.transition = 'opacity 0.2s';
+  row.style.opacity = '0';
+  setTimeout(function() {
+    row.remove();
+    var list = document.getElementById('water-alert-list');
+    if (!list) return;
+    var rows = list.querySelectorAll('[data-water-row]');
+    rows.forEach(function(r, i) {
+      r.style.borderBottom = i < rows.length - 1 ? '1px solid var(--border)' : 'none';
+    });
+    if (rows.length === 0) {
+      var section = document.getElementById('water-section');
+      if (section) section.remove();
+    }
+  }, 220);
+}
+
+document.querySelectorAll('.water-done-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var url = btn.dataset.url;
+    var row = btn.closest('[data-water-row]');
+    btn.disabled = true;
+    btn.textContent = '✓';
+    fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'from_dashboard=1'
+    }).then(function() { removeWaterRow(row); }).catch(function() {
+      btn.disabled = false; btn.textContent = 'Done';
+    });
+  });
+});
+
+var markAllBtn = document.getElementById('water-mark-all-btn');
+if (markAllBtn) {
+  markAllBtn.addEventListener('click', function() {
+    markAllBtn.disabled = true;
+    var items = Array.from(document.querySelectorAll('.water-done-btn')).map(function(b) {
+      return 'item=' + encodeURIComponent(b.dataset.item);
+    }).join('&');
+    fetch('{{ url_for("watering_mark_all_today") }}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: items
+    }).then(function() {
+      var list = document.getElementById('water-alert-list');
+      if (list) {
+        Array.from(list.querySelectorAll('[data-water-row]')).forEach(function(r) { removeWaterRow(r); });
+      }
+    }).catch(function() { markAllBtn.disabled = false; });
+  });
 }
 </script>
 <style>
