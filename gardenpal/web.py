@@ -765,6 +765,15 @@ def create_app() -> Flask:
         _today_str = _date.today().isoformat()
         _fert_deadline = (_date.today() + _tdi(days=3)).isoformat()
         _water_deadline = (_date.today() + _tdi(days=1)).isoformat()
+        zoned_plant_ids = set()
+        if plants:
+            _pids = [p["id"] for p in plants]
+            _ph2, _id2 = _in_ids(_pids)
+            _zoned = db.execute(
+                f"SELECT DISTINCT plant_id FROM yard_plants WHERE plant_id IN {_ph2}",
+                _id2,
+            ).fetchall()
+            zoned_plant_ids = {r["plant_id"] for r in _zoned}
         return render_template(
             "ideas_index.html",
             plants=plants,
@@ -778,6 +787,7 @@ def create_app() -> Flask:
             ff_fert=_feature_fertilization(g.user),
             water_deadline=_water_deadline,
             ff_water=_feature_watering(g.user),
+            zoned_plant_ids=zoned_plant_ids,
         )
 
     @app.route("/ideas/new", methods=["GET", "POST"])
