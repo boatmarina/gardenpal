@@ -151,7 +151,7 @@
     {% if ff_fert and plant_zones %}
     <div style="border-top:1px solid var(--border)">
       <!-- Fertilization header row -->
-      <div style="display:flex;align-items:center;gap:8px;padding:11px 16px">
+      <div id="fert-edit-btn" role="button" tabindex="0" style="display:flex;align-items:center;gap:8px;padding:11px 16px;cursor:pointer">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
           <path d="M12 22V12"/>
           <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
@@ -161,16 +161,12 @@
         {% if next_fertilization and not next_fertilization.never %}
           {% set eff_fert_hdr = next_fertilization.planned_date or next_fertilization.date %}
           {% if eff_fert_hdr and eff_fert_hdr <= fert_deadline %}
-            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
+            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#E8F5E9;color:#388E3C;border:1px solid #A5D6A7{% endif %}">
               {% if eff_fert_hdr < today %}Overdue{% else %}Due soon{% endif %}
             </span>
           {% endif %}
         {% endif %}
-        <button type="button" id="fert-edit-btn"
-                style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1"
-                title="Edit fertilization">
-          <svg id="fert-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
+        <svg id="fert-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;color:var(--muted);flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <!-- Sub-rows: Last fertilized + Next fertilization -->
       <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
@@ -268,7 +264,7 @@
 
     {% if ff_water and plant_zones and next_watering %}
     <div style="border-top:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:8px;padding:11px 16px">
+      <div id="water-edit-btn" role="button" tabindex="0" style="display:flex;align-items:center;gap:8px;padding:11px 16px;cursor:pointer">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
           <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
         </svg>
@@ -278,10 +274,7 @@
             {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
           </span>
         {% endif %}
-        <button type="button" id="water-edit-btn"
-                style="background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);display:flex;align-items:center;line-height:1">
-          <svg id="water-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
+        <svg id="water-edit-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s;color:var(--muted);flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <div style="padding:0 16px 13px;display:flex;flex-direction:column;gap:7px">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem">
@@ -486,6 +479,7 @@
       panel.hidden = !panel.hidden;
       if (chevron) chevron.style.transform = panel.hidden ? '' : 'rotate(180deg)';
     });
+    btn.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); } });
   }
   var neverCb = document.getElementById('never-fert-cb');
   var planSection = document.getElementById('plan-date-section');
@@ -509,6 +503,7 @@
       wPanel.hidden = !wPanel.hidden;
       if (wChevron) wChevron.style.transform = wPanel.hidden ? '' : 'rotate(180deg)';
     });
+    wBtn.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wBtn.click(); } });
   }
   var neverWaterIdeaCb = document.getElementById('never-water-idea-cb');
   var waterDateSectionIdea = document.getElementById('water-date-section-idea');
