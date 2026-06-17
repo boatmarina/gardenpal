@@ -4902,10 +4902,45 @@ def init_db():
     ensure_column(db, "plants",         "watering_generated_at",     "TEXT")
     ensure_column(db, "plants",         "next_watering_date",        "TEXT")
 
-    # One-time fix: plants/entries that got a watering suggestion before the "never watered → due today"
-    # logic was in place will have a future next_watering_date but no last_watered_date. Reset so they regen.
+    # Backfill watering frequency for plants that have never had a suggestion.
+    # Uses simple heuristics so home-screen alerts and thumbnail badges appear immediately
+    # without waiting for each detail page to be visited. watering_generated_at is left
+    # NULL so the AI will still produce a proper suggestion on the first detail-page load.
     try:
         today_iso = datetime.utcnow().date().isoformat()
+        # Edibles: frequency based on location type
+        db.execute(
+            """
+            UPDATE garden_entries SET
+              watering_frequency_days = CASE
+                WHEN location_type IN ('raised_bed', 'container', 'grow_bag') THEN 2
+                WHEN location_type = 'greenhouse'                              THEN 3
+                ELSE 4
+              END,
+              next_watering_date = ?,
+              watering_generated_at = NULL
+            WHERE watering_frequency_days IS NULL
+            """,
+            (today_iso,),
+        )
+        # Ornamentals: frequency based on documented water_needs
+        db.execute(
+            """
+            UPDATE plants SET
+              watering_frequency_days = CASE
+                WHEN lower(water_needs) LIKE '%frequent%' OR lower(water_needs) LIKE '%high%' THEN 3
+                WHEN lower(water_needs) LIKE '%drought%' OR lower(water_needs) LIKE '%low%'
+                  OR lower(water_needs) LIKE '%xeric%'  OR lower(water_needs) LIKE '%dry%'  THEN 14
+                ELSE 7
+              END,
+              next_watering_date = ?,
+              watering_generated_at = NULL
+            WHERE watering_frequency_days IS NULL
+            """,
+            (today_iso,),
+        )
+        # Also clear any previously-cached future dates for never-watered entries
+        # (generated before the "never watered → due today" fix was deployed).
         db.execute(
             "UPDATE garden_entries SET watering_generated_at = NULL"
             " WHERE last_watered_date IS NULL AND next_watering_date > ?",
