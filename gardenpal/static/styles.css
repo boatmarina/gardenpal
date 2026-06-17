@@ -42,7 +42,7 @@ body {
   background: var(--bg);
   color: var(--fg);
   min-height: 100dvh;
-  padding-bottom: var(--nav-h);
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
   -webkit-font-smoothing: antialiased;
 }
 
@@ -135,7 +135,7 @@ p  { line-height: 1.55; }
    ================================================================ */
 .bottom-nav {
   position: fixed;
-  bottom: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
