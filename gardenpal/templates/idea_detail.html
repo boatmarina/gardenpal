@@ -160,9 +160,14 @@
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex:1">Fertilization</span>
         {% if not (next_fertilization and next_fertilization.never) %}
         <button type="button" id="idea-fert-done-btn"
-                style="background:var(--green-light);border:1px solid var(--green-mid);color:var(--green-dark);border-radius:999px;padding:3px 9px;font-size:0.72rem;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex-shrink:0">
-          <svg width="7" height="9" viewBox="0 0 7 9" fill="currentColor" style="flex-shrink:0"><path d="M3.5 0C3.5 0 0 3.8 0 6a3.5 3.5 0 0 0 7 0C7 3.8 3.5 0 3.5 0z"/></svg>
-          Done today
+                style="background:none;border:none;padding:4px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;line-height:1;opacity:0.65"
+                title="Mark fertilized today">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#388E3C"/>
+            <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#388E3C"/>
+            <line x1="12" y1="12" x2="12" y2="19" stroke="#388E3C" stroke-width="2" stroke-linecap="round"/>
+            <polyline points="8 8.5 10.5 11 16.5 6.5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
         {% endif %}
         <button type="button" id="fert-edit-btn"
@@ -541,10 +546,19 @@
   var ideaFertDoneBtn = document.getElementById('idea-fert-done-btn');
   if (ideaFertDoneBtn) {
     ideaFertDoneBtn.addEventListener('click', function() {
-      gpMarkDone(ideaFertDoneBtn, '{{ url_for("idea_fertilized_today", plant_id=plant.id) }}', function(d) {
-        var el = document.getElementById('idea-last-fert-value');
-        if (el) el.textContent = gpFormatDate(d.today);
-      });
+      ideaFertDoneBtn.disabled = true;
+      ideaFertDoneBtn.style.opacity = '0.35';
+      fetch('{{ url_for("idea_fertilized_today", plant_id=plant.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if (d.ok) {
+            var el = document.getElementById('idea-last-fert-value');
+            if (el) el.textContent = gpFormatDate(d.today);
+            ideaFertDoneBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#1B5E20"/><path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#1B5E20"/><line x1="12" y1="12" x2="12" y2="19" stroke="#1B5E20" stroke-width="2" stroke-linecap="round"/><polyline points="8 8.5 10.5 11 16.5 6.5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            ideaFertDoneBtn.style.opacity = '1';
+          } else { ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '0.65'; }
+        })
+        .catch(function(){ ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '0.65'; });
     });
   }
   var ideaWaterDoneBtn = document.getElementById('idea-water-done-btn');
