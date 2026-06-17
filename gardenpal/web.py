@@ -1478,7 +1478,7 @@ def create_app() -> Flask:
             ).fetchall()
         ff_water = _feature_watering(g.user)
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        water_deadline = (datetime.utcnow() + _timedelta(days=1)).strftime("%Y-%m-%d")
+        water_deadline = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
                                garden_entries=garden_entries, ff_water=ff_water,
