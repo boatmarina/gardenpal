@@ -2962,18 +2962,21 @@ def create_app() -> Flask:
             return redirect(url_for("garden_index"))
         planned_date = request.form.get("planned_date", "").strip() or None
         never = 1 if request.form.get("never_fertilize") else 0
+        clear_fertilized = bool(request.form.get("clear_fertilized"))
         last_fert_date = request.form.get("last_fertilized_date", "").strip() or None
         last_fert_type = request.form.get("last_fertilizer_type", "").strip() or None
         if last_fert_date and not _ISO_DATE_RE.match(last_fert_date):
             last_fert_date = None
+        if clear_fertilized:
+            last_fert_date = None
+            last_fert_type = None
         fert_date_changed = last_fert_date != (entry["last_fertilized_date"] or None)
         if never:
             db.execute(
                 "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
                 " next_fertilization_date = NULL, next_fertilization_note = NULL,"
                 " next_fertilization_generated_at = NULL,"
-                " last_fertilized_date = ?,"
-                " last_fertilizer_type = COALESCE(?, last_fertilizer_type) WHERE id = ?",
+                " last_fertilized_date = ?, last_fertilizer_type = ? WHERE id = ?",
                 (last_fert_date, last_fert_type, entry_id),
             )
         else:
@@ -2984,6 +2987,16 @@ def create_app() -> Flask:
                 + (", next_fertilization_generated_at = NULL" if fert_date_changed else "")
                 + " WHERE id = ?",
                 (planned_date, last_fert_date, last_fert_type, entry_id),
+            )
+        if clear_fertilized:
+            db.execute(
+                "UPDATE garden_entries SET last_fertilizer_type = NULL WHERE id = ?",
+                (entry_id,),
+            )
+            db.execute(
+                "UPDATE garden_photos SET is_fertilization = 0, fertilization_date = NULL, fertilizer_type = NULL"
+                " WHERE entry_id = ? AND is_fertilization = 1",
+                (entry_id,),
             )
         db.commit()
         if request.form.get("from_dashboard"):
