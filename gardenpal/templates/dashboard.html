@@ -230,6 +230,12 @@
 
 {% block scripts %}
 <script>
+/* Force a fresh load when iOS/Safari restores this page from bfcache so
+   watering/fertilization alerts always reflect the current DB state. */
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted) window.location.reload();
+});
+
 function fertToggle(n) {
   var panel = document.getElementById('fert-panel-' + n);
   var chevron = document.getElementById('fert-chevron-' + n);
