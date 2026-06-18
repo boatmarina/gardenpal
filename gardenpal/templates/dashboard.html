@@ -167,19 +167,15 @@
       {% for alert in watering_alerts %}
       <div data-water-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
         <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
-          <button type="button" onclick="waterToggle({{ loop.index }})"
-                  style="flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px">
-            <div style="flex:1;min-width:0">
-              <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
-              <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
-            </div>
-            {% if alert.overdue %}
-            <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Overdue</span>
-            {% else %}
-            <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
-            {% endif %}
-            <svg id="water-chevron-{{ loop.index }}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
+          <div style="flex:1;min-width:0">
+            <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
+            <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
+          </div>
+          {% if alert.overdue %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Overdue</span>
+          {% else %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
+          {% endif %}
           <button type="button" class="water-done-btn"
                   data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
                   data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
@@ -190,26 +186,6 @@
                     <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                   Done</button>
-        </div>
-        <div id="water-panel-{{ loop.index }}" hidden
-             style="padding:4px 14px 16px;border-top:1px solid var(--border);background:var(--bg-subtle, var(--bg))">
-          {% if alert.watering_note %}
-          <p style="font-size:0.8rem;color:var(--muted);margin:10px 0 12px;line-height:1.5">{{ alert.watering_note }}</p>
-          {% endif %}
-          <form method="post"
-                action="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
-                style="display:flex;flex-direction:column;gap:10px;padding-top:10px">
-            <input type="hidden" name="from_dashboard" value="1" />
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Last watered date
-              <input type="date" name="last_watered_date"
-                     value="{{ alert.last_watered_date or '' }}"
-                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
-            </label>
-            <div>
-              <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
-            </div>
-          </form>
         </div>
       </div>
       {% endfor %}
@@ -257,13 +233,6 @@
 function fertToggle(n) {
   var panel = document.getElementById('fert-panel-' + n);
   var chevron = document.getElementById('fert-chevron-' + n);
-  var open = panel.hidden;
-  panel.hidden = !open;
-  chevron.style.transform = open ? 'rotate(180deg)' : '';
-}
-function waterToggle(n) {
-  var panel = document.getElementById('water-panel-' + n);
-  var chevron = document.getElementById('water-chevron-' + n);
   var open = panel.hidden;
   panel.hidden = !open;
   chevron.style.transform = open ? 'rotate(180deg)' : '';
