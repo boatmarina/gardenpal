@@ -87,7 +87,7 @@ p  { line-height: 1.55; }
 .brand-bar {
   max-width: var(--page-w);
   margin: 0 auto;
-  padding: 16px var(--pad) 0;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) var(--pad) 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
