@@ -566,7 +566,7 @@
   if (ideaClearFertDateBtn) {
     ideaClearFertDateBtn.addEventListener('click', function() {
       var inp = document.getElementById('idea-last-fert-date-input');
-      if (inp) inp.value = '';
+      if (inp) { inp.value = ''; inp.closest('form').submit(); }
     });
   }
   var ideaWaterDoneBtn = document.getElementById('idea-water-done-btn');

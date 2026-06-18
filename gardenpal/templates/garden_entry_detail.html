@@ -470,7 +470,7 @@
   if (detailClearFertDateBtn) {
     detailClearFertDateBtn.addEventListener('click', function() {
       var inp = document.getElementById('detail-last-fert-date-input');
-      if (inp) inp.value = '';
+      if (inp) { inp.value = ''; inp.closest('form').submit(); }
     });
   }
   var detailWaterDoneBtn = document.getElementById('detail-water-done-btn');
