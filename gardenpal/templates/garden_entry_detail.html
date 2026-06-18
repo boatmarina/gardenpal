@@ -144,6 +144,7 @@
         {% endif %}
         <form method="post" action="{{ url_for('garden_plan_fertilize', entry_id=entry.id) }}"
               style="display:flex;flex-direction:column;gap:10px">
+          <input type="hidden" name="clear_fertilized" id="clear-fert-hidden" value="" />
           <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
             <input type="checkbox" id="never-fert-detail-cb" name="never_fertilize" value="1"
                    {% if next_fertilization.never %}checked{% endif %}
@@ -470,6 +471,8 @@
   if (detailClearFertDateBtn) {
     detailClearFertDateBtn.addEventListener('click', function() {
       var inp = document.getElementById('detail-last-fert-date-input');
+      var clrHidden = document.getElementById('clear-fert-hidden');
+      if (clrHidden) clrHidden.value = '1';
       if (inp) { inp.value = ''; inp.closest('form').submit(); }
     });
   }
