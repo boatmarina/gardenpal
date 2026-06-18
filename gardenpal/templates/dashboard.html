@@ -75,6 +75,46 @@
     </div>
   </div>
 
+  {% if ff_water and watering_alerts %}
+  <div id="water-section" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+      </svg>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering due</span>
+      <button type="button" id="water-mark-all-btn"
+              style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
+    </div>
+    <div id="water-alert-list" class="card" style="padding:0;overflow:hidden">
+      {% for alert in watering_alerts %}
+      <div data-water-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
+          <div style="flex:1;min-width:0">
+            <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
+            <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
+          </div>
+          {% if alert.overdue %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Overdue</span>
+          {% else %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
+          {% endif %}
+          <button type="button" class="water-done-btn"
+                  data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
+                  data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
+                  title="Mark as watered today"
+                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
+                    <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Done</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   {% if ff_fert and fert_alerts %}
   <div style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
@@ -146,46 +186,6 @@
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
             </div>
           </form>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  {% if ff_water and watering_alerts %}
-  <div id="water-section" style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-      </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering due</span>
-      <button type="button" id="water-mark-all-btn"
-              style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
-    </div>
-    <div id="water-alert-list" class="card" style="padding:0;overflow:hidden">
-      {% for alert in watering_alerts %}
-      <div data-water-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
-        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
-          <div style="flex:1;min-width:0">
-            <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
-            <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
-          </div>
-          {% if alert.overdue %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Overdue</span>
-          {% else %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
-          {% endif %}
-          <button type="button" class="water-done-btn"
-                  data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
-                  data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
-                  title="Mark as watered today"
-                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
-                  <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
-                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
-                    <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  Done</button>
         </div>
       </div>
       {% endfor %}
