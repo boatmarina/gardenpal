@@ -768,10 +768,9 @@ def create_app() -> Flask:
             """,
             id_args,
         ).fetchall()
-        from datetime import date as _date, timedelta as _tdi
-        _today_str = _date.today().isoformat()
-        _fert_deadline = (_date.today() + _tdi(days=3)).isoformat()
-        _water_deadline = (_date.today() + _tdi(days=1)).isoformat()
+        _today_str = _local_today()
+        _fert_deadline = _local_date_plus(3)
+        _water_deadline = _local_date_plus(1)
         zoned_plant_names = set()
         if plants:
             _zoned = db.execute(
@@ -2367,10 +2366,9 @@ def create_app() -> Flask:
         uid = g.user["id"]
         ids = _shared_user_ids(db, uid)
         ph, id_args = _in_ids(ids)
-        today = date.today()
-        current_year = today.year
-        today_str = today.isoformat()
-        fert_deadline = (today + timedelta(days=3)).isoformat()
+        today_str = _local_today()
+        current_year = date.fromisoformat(today_str).year
+        fert_deadline = _local_date_plus(3)
 
         # All dated entries across all years
         entries = db.execute(
@@ -2399,7 +2397,7 @@ def create_app() -> Flask:
         shared_names = _shared_user_names(db, uid)
         ff_fert = _feature_fertilization(g.user)
         ff_water = _feature_watering(g.user)
-        water_deadline = (today + timedelta(days=1)).isoformat()
+        water_deadline = _local_date_plus(1)
         return render_template(
             "garden_index.html",
             grouped_entries=grouped_entries,
