@@ -6,7 +6,7 @@ import os
 import secrets
 import ssl
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
@@ -532,11 +532,11 @@ def create_app() -> Flask:
             id_args,
         ).fetchone()["count"]
 
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _local_today()
         fert_alerts = []
         ff_fert = _feature_fertilization(g.user)
         if ff_fert:
-            deadline = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
+            deadline = _local_date_plus(3)
             edible_rows = db.execute(
                 f"SELECT id, plant_name AS name, next_fertilization_date, planned_fertilization_date,"
                 f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize"
@@ -583,7 +583,7 @@ def create_app() -> Flask:
         ff_water = _feature_watering(g.user)
         if ff_water:
             water_today = today
-            water_deadline = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+            water_deadline = _local_date_plus(1)
             water_edible_rows = db.execute(
                 f"SELECT id, plant_name AS name, last_watered_date, next_watering_date,"
                 f" watering_note, watering_frequency_days"
@@ -1077,13 +1077,12 @@ def create_app() -> Flask:
                 notes_by_pz.setdefault(n["yard_plant_id"], []).append(n)
             for pz in plant_zones:
                 pz["yard_notes"] = notes_by_pz.get(pz["id"], [])
-        today = datetime.utcnow().date().isoformat()
+        today = _local_today()
 
         ff_fert = _feature_fertilization(g.user)
         last_fertilized = None
         next_fertilization = None
-        from datetime import timedelta as _td
-        fert_deadline = (datetime.utcnow() + _td(days=3)).strftime("%Y-%m-%d")
+        fert_deadline = _local_date_plus(3)
         if ff_fert:
             last_fert_date = plant["last_fertilized_date"] if plant.get("last_fertilized_date") else None
             last_fertilized = {"date": last_fert_date, "type": plant.get("last_fertilizer_type")}
@@ -1116,8 +1115,7 @@ def create_app() -> Flask:
         ff_water = _feature_watering(g.user)
         last_watered = None
         next_watering = None
-        from datetime import timedelta as _tdw
-        water_deadline = (datetime.utcnow() + _tdw(days=1)).isoformat()[:10]
+        water_deadline = _local_date_plus(1)
         if ff_water and plant_zones:
             last_watered_date = plant.get("last_watered_date") or None
             last_watered = {"date": last_watered_date}
@@ -1284,13 +1282,12 @@ def create_app() -> Flask:
                 db.execute("UPDATE plants SET never_water = 0 WHERE id = ?", (plant_id,))
         raw_date = request.form.get("last_watered_date", "").strip()
         if not raw_date:
-            raw_date = datetime.utcnow().date().isoformat()
+            raw_date = _local_today()
         if not _ISO_DATE_RE.match(raw_date):
-            raw_date = datetime.utcnow().date().isoformat()
+            raw_date = _local_today()
         freq = plant["watering_frequency_days"]
         if freq:
-            from datetime import timedelta as _tdw
-            next_date = (datetime.fromisoformat(raw_date).date() + _tdw(days=freq)).isoformat()
+            next_date = (date.fromisoformat(raw_date) + timedelta(days=freq)).isoformat()
         else:
             next_date = None
         db.execute(
@@ -1333,9 +1330,9 @@ def create_app() -> Flask:
         ).fetchone()
         if plant is None:
             return jsonify({"error": "Not found"}), 404
-        today = datetime.utcnow().date().isoformat()
+        today = _local_today()
         freq = plant["watering_frequency_days"]
-        next_date = (datetime.fromisoformat(today).date() + timedelta(days=freq)).isoformat() if freq else None
+        next_date = (date.fromisoformat(today) + timedelta(days=freq)).isoformat() if freq else None
         db.execute(
             "UPDATE plants SET last_watered_date = ?, next_watering_date = ?, never_water = 0 WHERE id = ?",
             (today, next_date, plant_id),
@@ -1354,7 +1351,7 @@ def create_app() -> Flask:
         ).fetchone()
         if plant is None:
             return jsonify({"error": "Not found"}), 404
-        today = datetime.utcnow().date().isoformat()
+        today = _local_today()
         fertilizer_type = (request.form.get("fertilizer_type") or "").strip() or None
         db.execute(
             "UPDATE plants SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
@@ -1529,9 +1526,9 @@ def create_app() -> Flask:
             ).fetchall()
         ff_water = _feature_watering(g.user)
         ff_fert = _feature_fertilization(g.user)
-        today = datetime.utcnow().strftime("%Y-%m-%d")
-        water_deadline = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
-        fert_deadline = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
+        today = _local_today()
+        water_deadline = _local_date_plus(1)
+        fert_deadline = _local_date_plus(3)
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
                                garden_entries=garden_entries, ff_water=ff_water, ff_fert=ff_fert,
@@ -1850,7 +1847,7 @@ def create_app() -> Flask:
             flash("Plant not found.")
             return redirect(url_for("yard_index"))
         notes = request.form.get("notes", "").strip()
-        note_date = request.form.get("note_date", "").strip() or datetime.utcnow().date().isoformat()
+        note_date = request.form.get("note_date", "").strip() or _local_today()
         if notes:
             db.execute(
                 "INSERT INTO yard_plant_notes (yard_plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -2003,7 +2000,7 @@ def create_app() -> Flask:
                 "note_text": (row["notes"] or "")[:120],
             })
 
-        today = datetime.utcnow().date()
+        today = date.fromisoformat(_local_today())
         week_activity = []
         for day_str in sorted(day_data.keys(), reverse=True):
             try:
@@ -2482,7 +2479,7 @@ def create_app() -> Flask:
             db.commit()
             flash("Entry added to your garden tracker.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _local_today()
         location_names = [
             r["location_name"] for r in db.execute(
                 f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC",
@@ -2525,7 +2522,7 @@ def create_app() -> Flask:
             "SELECT * FROM garden_photos WHERE entry_id = ? ORDER BY photo_date DESC NULLS LAST, created_at DESC",
             (entry_id,),
         ).fetchall()
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _local_today()
 
         # Determine last fertilized: most recent of explicit entry field vs detected growth-log note
         # fertilization_date is the AI-inferred actual date; falls back to photo_date if not set
@@ -2582,14 +2579,13 @@ def create_app() -> Flask:
         else:
             next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
 
-        from datetime import timedelta as _timedelta
-        fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
+        fert_deadline = _local_date_plus(3)
         ff_fert = _feature_fertilization(g.user)
 
         ff_water = _feature_watering(g.user)
         last_watered = None
         next_watering = None
-        water_deadline = (datetime.utcnow() + _timedelta(days=1)).strftime("%Y-%m-%d")
+        water_deadline = _local_date_plus(1)
         if ff_water:
             last_watered_date = entry.get("last_watered_date") or None
             last_watered = {"date": last_watered_date}
@@ -2686,7 +2682,7 @@ def create_app() -> Flask:
             ),
         )
         if is_fert:
-            effective_date = fert_date or photo_date or datetime.utcnow().strftime("%Y-%m-%d")
+            effective_date = fert_date or photo_date or _local_today()
             db.execute(
                 "UPDATE garden_entries SET next_fertilization_generated_at = NULL,"
                 " planned_fertilization_date = CASE"
@@ -2930,9 +2926,8 @@ def create_app() -> Flask:
             "planned_date": entry["planned_fertilization_date"],
             "never": bool(entry["never_fertilize"]),
         }
-        from datetime import timedelta as _timedelta
-        _today = datetime.utcnow().strftime("%Y-%m-%d")
-        _fert_deadline = (datetime.utcnow() + _timedelta(days=3)).strftime("%Y-%m-%d")
+        _today = _local_today()
+        _fert_deadline = _local_date_plus(3)
         return render_template("garden_entry_edit.html", entry=entry, form_values=entry,
                                feature_garden_zones=feature_gz, zones_json=zones_json,
                                zone_name=current_zone_name, zone_id=current_zone_id,
@@ -3046,13 +3041,12 @@ def create_app() -> Flask:
                 db.execute("UPDATE garden_entries SET never_water = 0 WHERE id = ?", (entry_id,))
         raw_date = request.form.get("last_watered_date", "").strip()
         if not raw_date:
-            raw_date = datetime.utcnow().date().isoformat()
+            raw_date = _local_today()
         if not _ISO_DATE_RE.match(raw_date):
-            raw_date = datetime.utcnow().date().isoformat()
+            raw_date = _local_today()
         freq = entry["watering_frequency_days"]
         if freq:
-            from datetime import timedelta as _tdw
-            next_date = (datetime.fromisoformat(raw_date).date() + _tdw(days=freq)).isoformat()
+            next_date = (date.fromisoformat(raw_date) + timedelta(days=freq)).isoformat()
         else:
             next_date = None
         db.execute(
@@ -3099,9 +3093,9 @@ def create_app() -> Flask:
         ).fetchone()
         if entry is None:
             return jsonify({"error": "Not found"}), 404
-        today = datetime.utcnow().date().isoformat()
+        today = _local_today()
         freq = entry["watering_frequency_days"]
-        next_date = (datetime.fromisoformat(today).date() + timedelta(days=freq)).isoformat() if freq else None
+        next_date = (date.fromisoformat(today) + timedelta(days=freq)).isoformat() if freq else None
         db.execute(
             "UPDATE garden_entries SET last_watered_date = ?, next_watering_date = ?, never_water = 0 WHERE id = ?",
             (today, next_date, entry_id),
@@ -3121,7 +3115,7 @@ def create_app() -> Flask:
         ).fetchone()
         if entry is None:
             return jsonify({"error": "Not found"}), 404
-        today = datetime.utcnow().date().isoformat()
+        today = _local_today()
         fertilizer_type = (request.form.get("fertilizer_type") or "").strip() or None
         db.execute(
             "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
@@ -3157,8 +3151,7 @@ def create_app() -> Flask:
         user_id = g.user["id"]
         ids = _shared_user_ids(db, user_id)
         ph, id_args = _in_ids(ids)
-        today = datetime.utcnow().date().isoformat()
-        from datetime import timedelta as _tdw
+        today = _local_today()
         items = request.form.getlist("item")
         for item in items:
             try:
@@ -3296,7 +3289,7 @@ def create_app() -> Flask:
         _log_activity(db, user_id, "plant_chat", message[:200])
         db.commit()
 
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _local_today()
         user_location = (g.user.get("location") or "").strip()
 
         # Build plant context
@@ -3477,7 +3470,7 @@ def create_app() -> Flask:
         _log_activity(db, user_id, "garden_chat", message[:200])
         db.commit()
 
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _local_today()
         user_location = (g.user.get("location") or "").strip()
 
         # Build entry context
@@ -3646,7 +3639,7 @@ def create_app() -> Flask:
 
         _log_activity(db, user_id, "garden_chat", message[:200])
         db.commit()
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _local_today()
         ids = _shared_user_ids(db, user_id)
         ph, id_args = _in_ids(ids)
 
@@ -4250,7 +4243,7 @@ def create_app() -> Flask:
         _log_activity(db, user_id, "home_chat", message[:200])
         db.commit()
 
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = _local_today()
         user_location = (g.user.get("location") or "").strip()
 
         # ── Edibles ───────────────────────────────────────────────────────────
@@ -5760,6 +5753,23 @@ _DATE_HINT_RE = _re.compile(
 
 _ISO_DATE_RE = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
+
+def _local_today() -> str:
+    """Return the user's local date as YYYY-MM-DD from the browser cookie, falling back to UTC."""
+    try:
+        local_date = request.cookies.get('gp_local_date', '').strip()
+        if local_date and _ISO_DATE_RE.match(local_date):
+            return local_date
+    except RuntimeError:
+        pass
+    return datetime.utcnow().date().isoformat()
+
+
+def _local_date_plus(days: int) -> str:
+    """Return local today + `days` as YYYY-MM-DD."""
+    return (date.fromisoformat(_local_today()) + timedelta(days=days)).isoformat()
+
+
 # Matches growth-log phrases that indicate a replanting / reseeding event.
 _REPLANT_RE = _re.compile(
     r'\b(re[-\s]?seed(?:ed|ing)?|re[-\s]?sow(?:ed|ing)?|re[-\s]?plant(?:ed|ing)?'
@@ -6026,7 +6036,7 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
     if not api_key:
         return None
     try:
-        today_str = datetime.utcnow().date().isoformat()
+        today_str = _local_today()
         plant_name = entry["plant_name"] or ""
         variety_str = f" ({entry['variety']})" if entry.get("variety") else ""
         location_type = (entry.get("location_type") or "").replace("_", " ")
@@ -6127,7 +6137,7 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
     if not api_key:
         return None
     try:
-        today_str = datetime.utcnow().date().isoformat()
+        today_str = _local_today()
         plant_name = plant["name"] or ""
         sci_name = plant.get("scientific_name") or ""
         plant_form = (plant.get("plant_form") or "").replace("-", " ")
@@ -6190,7 +6200,7 @@ def _suggest_watering_frequency(db, entry, user_location, last_watered, growth_n
     if not api_key:
         return None
     try:
-        today_str = datetime.utcnow().date().isoformat()
+        today_str = _local_today()
         plant_name = entry["plant_name"] or ""
         variety_str = f" ({entry['variety']})" if entry.get("variety") else ""
         location_type = (entry.get("location_type") or "").replace("_", " ")
@@ -6236,7 +6246,7 @@ def _suggest_watering_frequency(db, entry, user_location, last_watered, growth_n
         if last_watered and _ISO_DATE_RE.match(last_watered):
             next_date = (datetime.fromisoformat(last_watered).date() + _td(days=freq_days)).isoformat()
         else:
-            next_date = datetime.utcnow().date().isoformat()  # never watered → due today
+            next_date = _local_today()  # never watered → due today
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         db.execute(
             "UPDATE garden_entries SET watering_frequency_days = ?, watering_note = ?,"
@@ -6256,7 +6266,7 @@ def _suggest_watering_frequency_ornamental(db, plant, user_location, last_watere
     if not api_key:
         return None
     try:
-        today_str = datetime.utcnow().date().isoformat()
+        today_str = _local_today()
         plant_name = plant["name"] or ""
         sci_name = plant.get("scientific_name") or ""
         plant_form = (plant.get("plant_form") or "").replace("-", " ")
@@ -6297,7 +6307,7 @@ def _suggest_watering_frequency_ornamental(db, plant, user_location, last_watere
         if last_watered and _ISO_DATE_RE.match(last_watered):
             next_date = (datetime.fromisoformat(last_watered).date() + _td(days=freq_days)).isoformat()
         else:
-            next_date = datetime.utcnow().date().isoformat()  # never watered → due today
+            next_date = _local_today()  # never watered → due today
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         db.execute(
             "UPDATE plants SET watering_frequency_days = ?, watering_note = ?,"

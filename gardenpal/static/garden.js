@@ -1,4 +1,15 @@
 /* GardenPal shared client utilities — loaded globally via base.html */
+
+/* Set gp_local_date cookie to user's local YYYY-MM-DD so the server can use
+   the correct local date instead of UTC when recording "today" actions. */
+(function () {
+  var d = new Date();
+  var ld = d.getFullYear() + '-'
+    + String(d.getMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getDate()).padStart(2, '0');
+  document.cookie = 'gp_local_date=' + ld + ';path=/;max-age=86400;SameSite=Lax';
+}());
+
 (function (G) {
 
   /* Compress a File/Blob to JPEG. maxPx defaults to 1400, quality to 0.82 */
