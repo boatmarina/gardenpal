@@ -714,8 +714,15 @@ def create_app() -> Flask:
             query += " AND p.height_category = ?"
             params.append(height_category)
         if water_needs:
-            query += " AND p.water_needs = ?"
-            params.append(water_needs)
+            if water_needs == "average":
+                query += " AND lower(p.water_needs) IN ('average', 'moderate', 'medium', 'regular')"
+            elif water_needs == "minimal":
+                query += " AND lower(p.water_needs) IN ('minimal', 'low', 'drought tolerant', 'drought-tolerant', 'xeric', 'dry')"
+            elif water_needs == "frequent":
+                query += " AND lower(p.water_needs) IN ('frequent', 'high', 'moist', 'wet')"
+            else:
+                query += " AND lower(p.water_needs) = lower(?)"
+                params.append(water_needs)
         if category_id:
             query += " AND EXISTS (SELECT 1 FROM plant_categories WHERE plant_id = p.id AND category_id = ?)"
             params.append(category_id)

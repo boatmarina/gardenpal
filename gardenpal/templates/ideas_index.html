@@ -91,7 +91,7 @@
         <select name="water_needs" style="flex:1;min-width:130px;font-size:0.85rem" onchange="this.form.submit()">
           <option value="">Any water needs</option>
           <option value="minimal"  {% if active_filters.water_needs == "minimal"  %}selected{% endif %}>Drought tolerant</option>
-          <option value="moderate" {% if active_filters.water_needs == "moderate" %}selected{% endif %}>Moderate</option>
+          <option value="average"  {% if active_filters.water_needs in ("average", "moderate") %}selected{% endif %}>Average</option>
           <option value="frequent" {% if active_filters.water_needs == "frequent" %}selected{% endif %}>Frequent</option>
         </select>
       </div>
