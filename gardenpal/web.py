@@ -3695,12 +3695,15 @@ def create_app() -> Flask:
             lines = []
             for e in entries:
                 ln = f"  ID {e['id']}: {e['plant_name']}"
-                if e["variety"]: ln += f" ({e['variety']})"
-                if e["location_type"]: ln += f" [{e['location_type'].replace('_', ' ')}]"
-                if e["location_name"]: ln += f" in {e['location_name']}"
-                if e["planted_date"]: ln += f", planted {e['planted_date']}"
-                if e["zone_name"]: ln += f" [zone: {e['zone_name']}]"
                 if e["user_id"] != user_id: ln += " [partner's — read only]"
+                if e["variety"]: ln += f"\n    Variety: {e['variety']}"
+                if e["location_type"] or e["location_name"]:
+                    loc = e["location_type"].replace("_", " ") if e["location_type"] else ""
+                    if e["location_name"]:
+                        loc = f"{loc} — {e['location_name']}" if loc else e["location_name"]
+                    ln += f"\n    Location: {loc}"
+                if e["zone_name"]: ln += f"\n    Zone: {e['zone_name']}"
+                if e["planted_date"]: ln += f"\n    Planted: {e['planted_date']}"
                 if e["notes"]: ln += f"\n    Notes: {e['notes']}"
                 for note_date, note_text in growth_notes.get(e["id"], []):
                     date_part = f" ({note_date})" if note_date else ""
@@ -4290,12 +4293,15 @@ def create_app() -> Flask:
             edible_lines = []
             for e in entries:
                 ln = f"  ID {e['id']}: {e['plant_name']}"
-                if e["variety"]: ln += f" ({e['variety']})"
-                if e["location_type"]: ln += f" [{e['location_type'].replace('_', ' ')}]"
-                if e["location_name"]: ln += f" in {e['location_name']}"
-                if e["planted_date"]: ln += f", planted {e['planted_date']}"
-                if e["zone_name"]: ln += f" [zone: {e['zone_name']}]"
                 if e["user_id"] != user_id: ln += " [partner's — read only]"
+                if e["variety"]: ln += f"\n    Variety: {e['variety']}"
+                if e["location_type"] or e["location_name"]:
+                    loc = e["location_type"].replace("_", " ") if e["location_type"] else ""
+                    if e["location_name"]:
+                        loc = f"{loc} — {e['location_name']}" if loc else e["location_name"]
+                    ln += f"\n    Location: {loc}"
+                if e["zone_name"]: ln += f"\n    Zone: {e['zone_name']}"
+                if e["planted_date"]: ln += f"\n    Planted: {e['planted_date']}"
                 if e["notes"]: ln += f"\n    Notes: {e['notes']}"
                 for nd, nt in growth_notes.get(e["id"], []):
                     ln += f"\n    Log{' (' + nd + ')' if nd else ''}: {nt}"
