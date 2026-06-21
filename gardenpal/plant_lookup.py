@@ -500,7 +500,7 @@ def _lookup_via_claude(query: str, location: Optional[str] = None) -> Tuple[Opti
     client = anthropic.Anthropic(api_key=api_key, timeout=7.0)
     try:
         response = client.messages.create(
-            model="claude-haiku-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=700,
             system=_claude_system(location),
             messages=[{"role": "user", "content": _make_details_prompt(query.strip(), location)}],
@@ -758,7 +758,7 @@ def generate_plant_suggestions_batch(
     client = anthropic.Anthropic(api_key=api_key, timeout=20.0)
     try:
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-4-6",
             max_tokens=count * 400,
             system=(
                 "You are a knowledgeable gardening advisor. "

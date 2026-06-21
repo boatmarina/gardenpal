@@ -3388,7 +3388,7 @@ def create_app() -> Flask:
         try:
             for _ in range(4):
                 create_kwargs = dict(
-                    model="claude-haiku-4-5-20251001",
+                    model="claude-sonnet-4-6",
                     max_tokens=512,
                     system=system,
                     messages=messages,
@@ -3572,7 +3572,7 @@ def create_app() -> Flask:
         try:
             for _ in range(4):
                 resp = client.messages.create(
-                    model="claude-haiku-4-5-20251001",
+                    model="claude-sonnet-4-6",
                     max_tokens=512,
                     system=system,
                     tools=tools,
@@ -3800,7 +3800,7 @@ def create_app() -> Flask:
         try:
             for _ in range(10):
                 response = client.messages.create(
-                    model="claude-haiku-4-5-20251001",
+                    model="claude-sonnet-4-6",
                     max_tokens=1024,
                     system=system,
                     tools=tools,
@@ -4470,7 +4470,7 @@ def create_app() -> Flask:
         try:
             for _ in range(10):
                 response = client.messages.create(
-                    model="claude-haiku-4-5-20251001",
+                    model="claude-sonnet-4-6",
                     max_tokens=1024,
                     system=system,
                     tools=tools,
@@ -6179,7 +6179,7 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
 
         client = _anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-4-6",
             max_tokens=250,
             system=(
                 "You are a gardening advisor. Given ornamental plant details, "
@@ -6303,7 +6303,7 @@ def _suggest_watering_frequency_ornamental(db, plant, user_location, last_watere
         )
         client = _anthropic.Anthropic(api_key=api_key)
         resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-sonnet-4-6",
             max_tokens=150,
             system=(
                 "You are a gardening advisor. Given ornamental plant details, suggest how frequently to water.\n"
