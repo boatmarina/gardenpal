@@ -69,13 +69,20 @@
       </div>
       {% endif %}
       {% if entry.planting_method %}
-        <dt>Started from</dt>
-        <dd>
+      <div class="meta-item">
+        <span class="meta-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22V12"/><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/><path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
+          </svg>
+        </span>
+        <span class="meta-label">Started from</span>
+        <span class="meta-value">
           {%- if entry.planting_method == "direct_sow" %}Direct sow
           {%- elif entry.planting_method == "seed_transplant" %}Seed transplant
           {%- elif entry.planting_method == "young_plant" %}Young plant / starts
           {%- else %}{{ entry.planting_method }}{%- endif -%}
-        </dd>
+        </span>
+      </div>
       {% endif %}
       {% if entry.notes %}
       <div class="meta-item">
