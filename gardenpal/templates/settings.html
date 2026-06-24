@@ -350,6 +350,33 @@
     </section>
     {% endif %}
 
+    {% if app_error_log is defined %}
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">App error log</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+        Unhandled server errors (500s) — last 200 entries. These are bugs worth investigating.
+      </p>
+      {% if app_error_log %}
+        <div style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          {% for row in app_error_log %}
+          <div style="padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <span style="font-size:0.75rem;font-weight:600;font-family:monospace;color:var(--muted)">{{ row.method }} {{ row.path }}</span>
+              <span style="font-size:0.7rem;background:#fce8e8;color:#b04040;border:1px solid #f5c0c0;border-radius:4px;padding:1px 6px;font-weight:600">{{ row.error_type or 'error' }}</span>
+              <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.username or '(anon)' }} · {{ row.logged_at[:16].replace('T', ' ') }}</span>
+            </div>
+            {% if row.error_detail %}
+              <pre style="font-size:0.72rem;color:var(--muted);margin:0;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto">{{ row.error_detail[:600] }}</pre>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No errors logged yet.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
     {% if chat_error_log is defined %}
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">AI assistant error log</h2>
