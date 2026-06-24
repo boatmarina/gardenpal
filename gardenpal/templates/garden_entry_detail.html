@@ -68,6 +68,15 @@
         <span class="meta-value">{{ entry.planted_date | planted_date }}</span>
       </div>
       {% endif %}
+      {% if entry.planting_method %}
+        <dt>Started from</dt>
+        <dd>
+          {%- if entry.planting_method == "direct_sow" %}Direct sow
+          {%- elif entry.planting_method == "seed_transplant" %}Seed transplant
+          {%- elif entry.planting_method == "young_plant" %}Young plant / starts
+          {%- else %}{{ entry.planting_method }}{%- endif -%}
+        </dd>
+      {% endif %}
       {% if entry.notes %}
       <div class="meta-item">
         <span class="meta-icon">

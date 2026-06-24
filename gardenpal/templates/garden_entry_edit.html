@@ -72,6 +72,15 @@
         <input type="date" name="planted_date" value="{{ form_values.planted_date or '' }}" />
       </label>
       <label>
+        Started from
+        <select name="planting_method">
+          <option value="">Choose…</option>
+          <option value="direct_sow"      {% if form_values.planting_method == "direct_sow"      %}selected{% endif %}>Direct sow</option>
+          <option value="seed_transplant" {% if form_values.planting_method == "seed_transplant" %}selected{% endif %}>Seed transplant</option>
+          <option value="young_plant"     {% if form_values.planting_method == "young_plant"     %}selected{% endif %}>Young plant / starts</option>
+        </select>
+      </label>
+      <label>
         Notes
         <textarea name="notes" rows="3" placeholder="Seed source, spacing, observations…">{{ form_values.notes or '' }}</textarea>
       </label>
