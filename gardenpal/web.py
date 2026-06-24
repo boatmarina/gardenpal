@@ -2466,8 +2466,8 @@ def create_app() -> Flask:
             now = datetime.utcnow().isoformat(timespec="seconds")
             entry_id = db.execute(
                 """INSERT INTO garden_entries
-                   (user_id, plant_name, variety, location_type, location_name, planted_date, notes, zone_id, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                   (user_id, plant_name, variety, location_type, location_name, planted_date, planting_method, notes, zone_id, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
                 (
                     g.user["id"],
                     plant_name,
@@ -2475,6 +2475,7 @@ def create_app() -> Flask:
                     request.form.get("location_type", "").strip() or None,
                     request.form.get("location_name", "").strip() or None,
                     request.form.get("planted_date", "").strip() or None,
+                    request.form.get("planting_method", "").strip() or None,
                     request.form.get("notes", "").strip() or None,
                     zone_id_to_save,
                     now, now,
@@ -2864,7 +2865,7 @@ def create_app() -> Flask:
             db.execute(
                 f"""UPDATE garden_entries
                    SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
-                       planted_date = ?, notes = ?, last_fertilized_date = ?, last_fertilizer_type = ?,
+                       planted_date = ?, planting_method = ?, notes = ?, last_fertilized_date = ?, last_fertilizer_type = ?,
                        never_fertilize = ?, zone_id = ?, updated_at = ?
                    WHERE id = ? AND user_id IN {ph}""",
                 [
@@ -2873,6 +2874,7 @@ def create_app() -> Flask:
                     request.form.get("location_type", "").strip() or None,
                     request.form.get("location_name", "").strip() or None,
                     request.form.get("planted_date", "").strip() or None,
+                    request.form.get("planting_method", "").strip() or None,
                     request.form.get("notes", "").strip() or None,
                     request.form.get("last_fertilized_date", "").strip() or None,
                     request.form.get("last_fertilizer_type", "").strip() or None,
@@ -3663,7 +3665,7 @@ def create_app() -> Flask:
 
         entries = db.execute(
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
-                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name
+                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name, ge.planting_method
             FROM garden_entries ge
             LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
             WHERE ge.user_id IN {ph}
@@ -3704,6 +3706,9 @@ def create_app() -> Flask:
                     ln += f"\n    Location: {loc}"
                 if e["zone_name"]: ln += f"\n    Zone: {e['zone_name']}"
                 if e["planted_date"]: ln += f"\n    Planted: {e['planted_date']}"
+                if e.get("planting_method"):
+                    _pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"}
+                    ln += f"\n    Started from: {_pm_labels.get(e['planting_method'], e['planting_method'])}"
                 if e["notes"]: ln += f"\n    Notes: {e['notes']}"
                 for note_date, note_text in growth_notes.get(e["id"], []):
                     date_part = f" ({note_date})" if note_date else ""
@@ -3746,6 +3751,7 @@ def create_app() -> Flask:
                         "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "grow_bag", "other"]},
                         "location_name": {"type": "string", "description": "e.g. 'Raised bed 1'"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "planting_method": {"type": "string", "enum": ["direct_sow", "seed_transplant", "young_plant"], "description": "How the plant was started: direct sow, seed transplant, or young plant/starts"},
                         "notes": {"type": "string"},
                         "zone_name": {"type": "string", "description": "Name of an existing yard zone to assign this plant to"},
                     },
@@ -3777,6 +3783,7 @@ def create_app() -> Flask:
                         "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "grow_bag", "other"]},
                         "location_name": {"type": "string"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "planting_method": {"type": "string", "enum": ["direct_sow", "seed_transplant", "young_plant"]},
                         "notes": {"type": "string"},
                     },
                     "required": ["entry_id"],
@@ -3841,14 +3848,15 @@ def create_app() -> Flask:
                                 now = datetime.utcnow().isoformat(timespec="seconds")
                                 row = db.execute(
                                     """INSERT INTO garden_entries
-                                    (user_id, plant_name, variety, location_type, location_name, planted_date, notes, zone_id, created_at, updated_at)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                                    (user_id, plant_name, variety, location_type, location_name, planted_date, planting_method, notes, zone_id, created_at, updated_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
                                     (
                                         user_id, pname,
                                         (inp.get("variety") or "").strip() or None,
                                         (inp.get("location_type") or "").strip() or None,
                                         (inp.get("location_name") or "").strip() or None,
                                         _parse_date_to_iso((inp.get("planted_date") or "").strip(), today),
+                                        (inp.get("planting_method") or "").strip() or None,
                                         (inp.get("notes") or "").strip() or None,
                                         zone_id_val,
                                         now, now,
@@ -3907,7 +3915,7 @@ def create_app() -> Flask:
                                 elif entry["user_id"] != user_id:
                                     result = {"error": f"Entry {eid} belongs to your garden partner and is read-only — skip it and continue with the user's own entries"}
                                 else:
-                                    fields = ["plant_name", "variety", "location_type", "location_name", "planted_date", "notes"]
+                                    fields = ["plant_name", "variety", "location_type", "location_name", "planted_date", "planting_method", "notes"]
                                     sets, params = [], []
                                     for f in fields:
                                         if f in inp:
@@ -4270,7 +4278,7 @@ def create_app() -> Flask:
         # ── Edibles ───────────────────────────────────────────────────────────
         entries = db.execute(
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
-                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name
+                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name, ge.planting_method
                 FROM garden_entries ge
                 LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
                 WHERE ge.user_id IN {ph}
@@ -4302,6 +4310,9 @@ def create_app() -> Flask:
                     ln += f"\n    Location: {loc}"
                 if e["zone_name"]: ln += f"\n    Zone: {e['zone_name']}"
                 if e["planted_date"]: ln += f"\n    Planted: {e['planted_date']}"
+                if e.get("planting_method"):
+                    _pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"}
+                    ln += f"\n    Started from: {_pm_labels.get(e['planting_method'], e['planting_method'])}"
                 if e["notes"]: ln += f"\n    Notes: {e['notes']}"
                 for nd, nt in growth_notes.get(e["id"], []):
                     ln += f"\n    Log{' (' + nd + ')' if nd else ''}: {nt}"
@@ -4406,6 +4417,7 @@ def create_app() -> Flask:
                         "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "grow_bag", "other"]},
                         "location_name": {"type": "string"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "planting_method": {"type": "string", "enum": ["direct_sow", "seed_transplant", "young_plant"], "description": "How the plant was started: direct sow, seed transplant, or young plant/starts"},
                         "notes": {"type": "string"},
                         "zone_name": {"type": "string", "description": "Name of an existing yard zone"},
                     },
@@ -4437,6 +4449,7 @@ def create_app() -> Flask:
                         "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "grow_bag", "other"]},
                         "location_name": {"type": "string"},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
+                        "planting_method": {"type": "string", "enum": ["direct_sow", "seed_transplant", "young_plant"]},
                         "notes": {"type": "string"},
                     },
                     "required": ["entry_id"],
@@ -4512,14 +4525,15 @@ def create_app() -> Flask:
                                         zone_id_val = zrow["id"]
                                 now = datetime.utcnow().isoformat(timespec="seconds")
                                 row = db.execute(
-                                    "INSERT INTO garden_entries (user_id, plant_name, variety, location_type, location_name, planted_date, notes, zone_id, created_at, updated_at)"
-                                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                                    "INSERT INTO garden_entries (user_id, plant_name, variety, location_type, location_name, planted_date, planting_method, notes, zone_id, created_at, updated_at)"
+                                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                                     (
                                         user_id, pname,
                                         (inp.get("variety") or "").strip() or None,
                                         (inp.get("location_type") or "").strip() or None,
                                         (inp.get("location_name") or "").strip() or None,
                                         _parse_date_to_iso((inp.get("planted_date") or "").strip(), today),
+                                        (inp.get("planting_method") or "").strip() or None,
                                         (inp.get("notes") or "").strip() or None,
                                         zone_id_val, now, now,
                                     ),
@@ -4578,7 +4592,7 @@ def create_app() -> Flask:
                                     result = {"error": f"Entry {eid} is read-only (partner's)"}
                                 else:
                                     fields, vals = [], []
-                                    for col in ("plant_name", "variety", "location_type", "location_name", "notes"):
+                                    for col in ("plant_name", "variety", "location_type", "location_name", "planting_method", "notes"):
                                         if col in inp and inp[col] is not None:
                                             fields.append(f"{col} = ?")
                                             vals.append((inp[col] or "").strip() or None)
@@ -5219,6 +5233,7 @@ def init_db():
     ensure_column(db, "garden_entries", "watering_note",             "TEXT")
     ensure_column(db, "garden_entries", "watering_generated_at",     "TEXT")
     ensure_column(db, "garden_entries", "next_watering_date",        "TEXT")
+    ensure_column(db, "garden_entries", "planting_method",           "TEXT")
     ensure_column(db, "plants",         "last_watered_date",         "TEXT")
     ensure_column(db, "plants",         "watering_frequency_days",   "INTEGER")
     ensure_column(db, "plants",         "watering_note",             "TEXT")
