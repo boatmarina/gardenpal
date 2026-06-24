@@ -246,6 +246,21 @@ def _log_chat_error(db, user_id, username, user_message, error_type, error_detai
         pass  # never let logging break the response
 
 
+def _log_app_error(path, method, user_id, username, error_type, error_detail=""):
+    try:
+        from flask import current_app as _ca
+        db = _connect(_ca.config["DATABASE_URL"])
+        db.execute(
+            """INSERT INTO app_error_log (path, method, user_id, username, error_type, error_detail, logged_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (path, method, user_id, username, error_type, (error_detail or "")[:2000],
+             datetime.utcnow().isoformat(timespec="seconds")),
+        )
+        db.commit()
+    except Exception:
+        pass
+
+
 def _log_ai_chat(db, user_id, username, context, user_message, plant_name=None):
     """Log a successful AI chat message for admin visibility."""
     try:
@@ -2056,6 +2071,10 @@ def create_app() -> Flask:
                 "SELECT username, user_message, error_type, error_detail, logged_at"
                 " FROM chat_error_log ORDER BY logged_at DESC LIMIT 200"
             ).fetchall()
+            app_error_log = db.execute(
+                "SELECT path, method, username, error_type, error_detail, logged_at"
+                " FROM app_error_log ORDER BY logged_at DESC LIMIT 200"
+            ).fetchall()
             ai_chat_entries = db.execute(
                 "SELECT username, context, plant_name, user_message, logged_at"
                 " FROM ai_chat_log ORDER BY logged_at DESC LIMIT 300"
@@ -2069,6 +2088,7 @@ def create_app() -> Flask:
         else:
             ai_chat_entries = []
             suggestion_adds = []
+            app_error_log = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -2083,6 +2103,7 @@ def create_app() -> Flask:
         return render_template("settings.html", user=g.user, all_users=users_with_stats,
                                perenual_log=perenual_log,
                                chat_error_log=chat_error_log,
+                               app_error_log=app_error_log,
                                ai_chat_entries=ai_chat_entries,
                                suggestion_adds=suggestion_adds,
                                garden_shares=garden_shares,
@@ -5136,6 +5157,18 @@ def create_app() -> Flask:
         import traceback
         tb = traceback.format_exc()
         report = f"Error: {e}\n\nTraceback:\n{tb}"
+        try:
+            user = getattr(g, "user", None)
+            _log_app_error(
+                path=request.path,
+                method=request.method,
+                user_id=user["id"] if user else None,
+                username=user.get("username") if user else None,
+                error_type=type(e).__name__,
+                error_detail=report[:2000],
+            )
+        except Exception:
+            pass
         return render_template(
             "error.html",
             code=500,
@@ -5565,6 +5598,19 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_ai_chat_log_at ON ai_chat_log(logged_at DESC)",
+    """
+    CREATE TABLE IF NOT EXISTS app_error_log (
+        id SERIAL PRIMARY KEY,
+        path TEXT,
+        method TEXT,
+        user_id INTEGER,
+        username TEXT,
+        error_type TEXT,
+        error_detail TEXT,
+        logged_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_app_error_log_at ON app_error_log(logged_at DESC)",
     # --- Indexes for common hot-path queries ---
     "CREATE INDEX IF NOT EXISTS idx_garden_entries_user_id   ON garden_entries(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_garden_entries_user_date ON garden_entries(user_id, planted_date DESC NULLS LAST)",
