@@ -1230,7 +1230,7 @@ def create_app() -> Flask:
     def idea_plan_fertilize(plant_id: int):
         db = get_db()
         plant = db.execute(
-            "SELECT id, user_id, last_fertilized_date FROM plants WHERE id = ? AND user_id = ?",
+            "SELECT id, name, user_id, last_fertilized_date FROM plants WHERE id = ? AND user_id = ?",
             (plant_id, g.user["id"]),
         ).fetchone()
         if plant is None:
@@ -1252,6 +1252,8 @@ def create_app() -> Flask:
             + " WHERE id = ?",
             (planned_date or None, never_fertilize, last_fertilized_date or None, last_fertilizer_type, plant_id),
         )
+        if invalidate:
+            _log_activity(db, g.user["id"], "fertilized", plant["name"])
         db.commit()
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
@@ -1284,7 +1286,7 @@ def create_app() -> Flask:
     def idea_plan_watering(plant_id: int):
         db = get_db()
         plant = db.execute(
-            "SELECT id, user_id, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?",
+            "SELECT id, name, user_id, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?",
             (plant_id, g.user["id"]),
         ).fetchone()
         if plant is None:
@@ -1315,6 +1317,7 @@ def create_app() -> Flask:
             "UPDATE plants SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
             (raw_date, next_date, plant_id),
         )
+        _log_activity(db, g.user["id"], "watered", plant["name"])
         db.commit()
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
@@ -1346,7 +1349,7 @@ def create_app() -> Flask:
     def idea_watered_today(plant_id: int):
         db = get_db()
         plant = db.execute(
-            "SELECT id, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?",
+            "SELECT id, name, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?",
             (plant_id, g.user["id"]),
         ).fetchone()
         if plant is None:
@@ -1358,6 +1361,7 @@ def create_app() -> Flask:
             "UPDATE plants SET last_watered_date = ?, next_watering_date = ?, never_water = 0 WHERE id = ?",
             (today, next_date, plant_id),
         )
+        _log_activity(db, g.user["id"], "watered", plant["name"])
         db.commit()
         return jsonify({"ok": True, "today": today, "next_date": next_date})
 
@@ -1379,6 +1383,7 @@ def create_app() -> Flask:
             " next_fertilization_generated_at = NULL WHERE id = ?",
             (today, fertilizer_type, plant_id),
         )
+        _log_activity(db, g.user["id"], "fertilized", plant["name"])
         db.commit()
         user_location = g.user.get("location") if g.user else None
         result = _suggest_next_fertilization_ornamental(db, plant, user_location, today)
@@ -2085,10 +2090,17 @@ def create_app() -> Flask:
                 " WHERE al.action = 'suggestion_added'"
                 " ORDER BY al.logged_at DESC LIMIT 100"
             ).fetchall()
+            care_activity = db.execute(
+                "SELECT al.action, al.item_name, al.logged_at, u.username"
+                " FROM activity_log al JOIN users u ON u.id = al.user_id"
+                " WHERE al.action IN ('watered', 'watered_all', 'fertilized')"
+                " ORDER BY al.logged_at DESC LIMIT 300"
+            ).fetchall()
         else:
             ai_chat_entries = []
             suggestion_adds = []
             app_error_log = []
+            care_activity = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -2104,6 +2116,7 @@ def create_app() -> Flask:
                                perenual_log=perenual_log,
                                chat_error_log=chat_error_log,
                                app_error_log=app_error_log,
+                               care_activity=care_activity,
                                ai_chat_entries=ai_chat_entries,
                                suggestion_adds=suggestion_adds,
                                garden_shares=garden_shares,
@@ -2982,7 +2995,7 @@ def create_app() -> Flask:
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         entry = db.execute(
-            f"SELECT id, last_fertilized_date FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            f"SELECT id, plant_name, last_fertilized_date FROM garden_entries WHERE id = ? AND user_id IN {ph}",
             [entry_id] + id_args,
         ).fetchone()
         if entry is None:
@@ -3026,6 +3039,8 @@ def create_app() -> Flask:
                 " WHERE entry_id = ? AND is_fertilization = 1",
                 (entry_id,),
             )
+        if fert_date_changed and not clear_fertilized:
+            _log_activity(db, g.user["id"], "fertilized", entry["plant_name"])
         db.commit()
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
@@ -3063,7 +3078,7 @@ def create_app() -> Flask:
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         entry = db.execute(
-            f"SELECT id, watering_frequency_days FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            f"SELECT id, plant_name, watering_frequency_days FROM garden_entries WHERE id = ? AND user_id IN {ph}",
             [entry_id] + id_args,
         ).fetchone()
         if entry is None:
@@ -3094,6 +3109,7 @@ def create_app() -> Flask:
             "UPDATE garden_entries SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
             (raw_date, next_date, entry_id),
         )
+        _log_activity(db, g.user["id"], "watered", entry["plant_name"])
         db.commit()
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
@@ -3129,7 +3145,7 @@ def create_app() -> Flask:
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         entry = db.execute(
-            f"SELECT id, watering_frequency_days FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            f"SELECT id, plant_name, watering_frequency_days FROM garden_entries WHERE id = ? AND user_id IN {ph}",
             [entry_id] + id_args,
         ).fetchone()
         if entry is None:
@@ -3141,6 +3157,7 @@ def create_app() -> Flask:
             "UPDATE garden_entries SET last_watered_date = ?, next_watering_date = ?, never_water = 0 WHERE id = ?",
             (today, next_date, entry_id),
         )
+        _log_activity(db, g.user["id"], "watered", entry["plant_name"])
         db.commit()
         return jsonify({"ok": True, "today": today, "next_date": next_date})
 
@@ -3171,6 +3188,7 @@ def create_app() -> Flask:
             (entry_id, g.user["id"], today, note_text,
              datetime.utcnow().isoformat(timespec="seconds"), fertilizer_type, today),
         )
+        _log_activity(db, g.user["id"], "fertilized", entry["plant_name"])
         db.commit()
         entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", [entry_id]).fetchone()
         growth_notes = db.execute(
@@ -3207,7 +3225,7 @@ def create_app() -> Flask:
                 ).fetchone()
                 if row:
                     freq = row["watering_frequency_days"]
-                    next_date = (datetime.fromisoformat(today).date() + _tdw(days=freq)).isoformat() if freq else None
+                    next_date = (date.fromisoformat(today) + timedelta(days=freq)).isoformat() if freq else None
                     db.execute(
                         "UPDATE garden_entries SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
                         (today, next_date, eid),
@@ -3219,11 +3237,13 @@ def create_app() -> Flask:
                 ).fetchone()
                 if row:
                     freq = row["watering_frequency_days"]
-                    next_date = (datetime.fromisoformat(today).date() + _tdw(days=freq)).isoformat() if freq else None
+                    next_date = (date.fromisoformat(today) + timedelta(days=freq)).isoformat() if freq else None
                     db.execute(
                         "UPDATE plants SET last_watered_date = ?, next_watering_date = ? WHERE id = ?",
                         (today, next_date, eid),
                     )
+        if items:
+            _log_activity(db, g.user["id"], "watered_all", f"{len(items)} plants")
         db.commit()
         return redirect(url_for("dashboard"))
 
