@@ -369,7 +369,7 @@ def _lookup_via_inat(query: str) -> Tuple[Optional[str], Optional[str], Optional
         resp = requests.get(
             "https://api.inaturalist.org/v1/taxa",
             params={"q": query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 1},
-            timeout=15,
+            timeout=8,
         )
         resp.raise_for_status()
         results = resp.json().get("results", [])
@@ -755,7 +755,7 @@ def generate_plant_suggestions_batch(
         "All plants must be distinct. Respond ONLY with valid JSON — no explanation, nothing else."
     )
 
-    client = anthropic.Anthropic(api_key=api_key, timeout=20.0)
+    client = anthropic.Anthropic(api_key=api_key, timeout=7.0)
     try:
         response = client.messages.create(
             model="claude-sonnet-4-6",
