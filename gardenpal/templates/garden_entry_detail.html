@@ -134,6 +134,8 @@
           <form method="post" action="{{ url_for('garden_plan_fertilize', entry_id=entry.id) }}"
                 style="display:flex;flex-direction:column;gap:10px">
             <input type="hidden" name="clear_fertilized" id="clear-fert-hidden" value="" />
+            <!-- preserve planned date so submitting this form doesn't wipe it -->
+            <input type="hidden" name="planned_date" value="{{ (next_fertilization.planned_date if next_fertilization else None) or '' }}" />
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
               Last fertilized date
               <div style="display:flex;align-items:center;gap:6px">
@@ -152,12 +154,6 @@
                      placeholder="e.g. Worm castings, Fish emulsion…"
                      style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
             </label>
-            <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
-              <input type="checkbox" id="never-fert-detail-cb" name="never_fertilize" value="1"
-                     {% if next_fertilization and next_fertilization.never %}checked{% endif %}
-                     style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
-              I don't plan to fertilize this plant
-            </label>
             <div>
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
             </div>
@@ -165,50 +161,60 @@
         </div>
       </div>
 
-      <!-- Row 2: Next fertilization — tap date to expand info + update form -->
+      <!-- Row 2: Next fertilization — always tappable -->
       {% if next_fertilization %}
+      {% set eff_fert_date = next_fertilization.planned_date or next_fertilization.date %}
       <div style="padding:0 16px 6px">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;min-height:36px">
           <span style="color:var(--muted);font-size:0.82rem">Next fertilization</span>
-          {% if next_fertilization.never %}
-            <span style="color:var(--muted);font-size:0.85rem">Not planned</span>
-          {% elif next_fertilization.planned_date or next_fertilization.date %}
-            {% set eff_fert_date = next_fertilization.planned_date or next_fertilization.date %}
-            <button type="button" id="fert-next-toggle"
-                    style="background:none;border:none;padding:4px 0 4px 12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">
+          <button type="button" id="fert-next-toggle"
+                  style="background:none;border:none;padding:4px 0 4px 12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">
+            {% if next_fertilization.never %}
+              <span id="detail-next-fert-date" style="font-size:0.85rem;color:var(--muted)">Not planned</span>
+            {% elif eff_fert_date %}
               {% if next_fertilization.planned_date %}
                 <span style="font-size:0.65rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 5px;font-weight:700;white-space:nowrap">Planned</span>
               {% endif %}
               <span id="detail-next-fert-date" style="font-size:0.85rem;color:var(--fg)">{% if eff_fert_date == today %}Due today{% else %}{{ eff_fert_date | planted_date }}{% endif %}</span>
-              <svg id="fert-next-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.18s"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-          {% endif %}
+            {% else %}
+              <span id="detail-next-fert-date" style="font-size:0.85rem;color:var(--muted)">Not set</span>
+            {% endif %}
+            <svg id="fert-next-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.18s"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
         </div>
-        <!-- Inline: why this date + update form -->
-        {% if next_fertilization.planned_date or next_fertilization.date %}
+        <!-- Inline: why this date + update form + never checkbox -->
         <div id="fert-next-panel" hidden style="padding:10px 0 14px;border-top:1px solid var(--border)">
-          {% if next_fertilization.note %}
+          {% if next_fertilization.note and not next_fertilization.never %}
           <p style="font-size:0.82rem;color:var(--muted);margin:0 0 12px;line-height:1.55">{{ next_fertilization.note }}</p>
           {% endif %}
           <form method="post" action="{{ url_for('garden_plan_fertilize', entry_id=entry.id) }}"
                 style="display:flex;flex-direction:column;gap:10px">
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Update next fertilization date
-              <input type="date" name="planned_date"
-                     id="plan-date-section"
-                     value="{{ next_fertilization.planned_date or '' }}"
-                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+            <!-- preserve last fert data so submitting this form doesn't wipe it -->
+            <input type="hidden" name="last_fertilized_date" value="{{ entry.last_fertilized_date or '' }}" />
+            <input type="hidden" name="last_fertilizer_type" value="{{ entry.last_fertilizer_type or '' }}" />
+            <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
+              <input type="checkbox" id="never-fert-detail-cb" name="never_fertilize" value="1"
+                     {% if next_fertilization.never %}checked{% endif %}
+                     style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
+              I don't plan to fertilize this plant
             </label>
+            <div id="fert-next-date-section" {% if next_fertilization.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:10px">
+              <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+                Update next fertilization date
+                <input type="date" name="planned_date"
+                       value="{{ next_fertilization.planned_date or '' }}"
+                       style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
+              </label>
+            </div>
             <div style="display:flex;gap:8px">
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
-              {% if next_fertilization.planned_date %}
+              {% if next_fertilization.planned_date and not next_fertilization.never %}
               <button type="submit" name="planned_date" value=""
                       class="button button-secondary" style="font-size:0.8rem;padding:6px 14px;color:var(--muted)">Clear date</button>
               {% endif %}
             </div>
           </form>
         </div>
-        {% endif %}
       </div>
       {% endif %}
 
@@ -449,10 +455,12 @@
   wireToggle('water-last-toggle', 'water-last-panel', 'water-last-chevron');
   wireToggle('water-next-toggle', 'water-next-panel', 'water-next-chevron');
 
-  // Never-fertilize checkbox: hide/show mark-done button
+  // Never-fertilize checkbox: hide/show date section and mark-done button
   var cb = document.getElementById('never-fert-detail-cb');
+  var fertNextDateSection = document.getElementById('fert-next-date-section');
   if (cb) {
     cb.addEventListener('change', function() {
+      if (fertNextDateSection) fertNextDateSection.hidden = cb.checked;
       var fertDoneBtn = document.getElementById('detail-fert-done-btn');
       if (fertDoneBtn) fertDoneBtn.closest('div').hidden = cb.checked;
       var fd = new FormData();
