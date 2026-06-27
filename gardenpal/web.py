@@ -682,6 +682,8 @@ def create_app() -> Flask:
                 [item_id] + id_args,
             )
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": True})
         return redirect(url_for("dashboard"))
 
     @app.route("/ideas")
