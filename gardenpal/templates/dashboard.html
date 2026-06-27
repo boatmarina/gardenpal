@@ -127,7 +127,7 @@
   {% endif %}
 
   {% if ff_fert %}
-  <div style="margin-bottom:20px">
+  <div data-fert-section style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -137,7 +137,7 @@
     {% if fert_alerts %}
     <div class="card" style="padding:0;overflow:hidden">
       {% for alert in fert_alerts %}
-      <div style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+      <div data-fert-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
         <!-- Summary row — tap to expand -->
         <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
           <button type="button" onclick="fertToggle({{ loop.index }})"
@@ -153,12 +153,10 @@
             {% endif %}
             <svg id="fert-chevron-{{ loop.index }}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <form method="post" action="{{ url_for('fert_never') }}" style="margin:0;flex-shrink:0">
-            <input type="hidden" name="kind" value="{{ alert.kind }}" />
-            <input type="hidden" name="id" value="{{ alert.id }}" />
-            <button type="submit" title="I don't plan to fertilize this plant"
-                    style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap">Skip</button>
-          </form>
+          <button type="button" class="fert-skip-btn"
+                  data-kind="{{ alert.kind }}" data-id="{{ alert.id }}"
+                  title="I don't plan to fertilize this plant"
+                  style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">Skip</button>
         </div>
         <!-- Expandable fertilization form -->
         <div id="fert-panel-{{ loop.index }}" hidden
@@ -166,7 +164,8 @@
           {% if alert.next_fertilization_note %}
           <p style="font-size:0.8rem;color:var(--muted);margin:10px 0 12px;line-height:1.5">{{ alert.next_fertilization_note }}</p>
           {% endif %}
-          <form method="post"
+          <form data-fert-form data-kind="{{ alert.kind }}" data-id="{{ alert.id }}"
+                method="post"
                 action="{{ url_for('garden_plan_fertilize', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_fertilize', plant_id=alert.id) }}"
                 style="display:flex;flex-direction:column;gap:10px;padding-top:10px">
             <input type="hidden" name="from_dashboard" value="1" />
@@ -174,13 +173,6 @@
               Last fertilized date
               <input type="date" name="last_fertilized_date"
                      value="{{ alert.last_fertilized_date or '' }}"
-                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
-            </label>
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Fertilizer type
-              <input type="text" name="last_fertilizer_type"
-                     value="{{ alert.last_fertilizer_type or '' }}"
-                     placeholder="e.g. Worm castings, Fish emulsion…"
                      style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
             </label>
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
@@ -212,6 +204,23 @@
     {% endif %}
   </div>
   {% endif %}
+
+  <!-- Fertilizer type popup (shared for all fert rows) -->
+  <div id="dash-fert-type-overlay" hidden
+       style="position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end"
+       onclick="if(event.target===this)document.getElementById('dash-fert-type-overlay').hidden=true">
+    <div style="width:100%;max-width:520px;margin:0 auto;background:var(--bg);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:20px 20px 32px;box-shadow:0 -4px 24px rgba(0,0,0,0.12)">
+      <p style="font-size:0.95rem;font-weight:600;margin:0 0 14px;color:var(--fg)">What fertilizer did you use?</p>
+      <input id="dash-fert-type-input" type="text" placeholder="e.g. Worm castings, Fish emulsion…"
+             style="width:100%;font-size:16px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--fg);font-family:inherit;box-sizing:border-box;margin-bottom:12px" />
+      <div style="display:flex;gap:10px">
+        <button id="dash-fert-type-skip" type="button"
+                style="flex:1;padding:10px;font-size:0.88rem;font-weight:600;font-family:inherit;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--muted);cursor:pointer">Skip</button>
+        <button id="dash-fert-type-save" type="button"
+                style="flex:2;padding:10px;font-size:0.88rem;font-weight:600;font-family:inherit;border:none;border-radius:var(--r-md);background:var(--green-dark);color:#fff;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
 
   <div class="action-cards" style="grid-template-columns:repeat(3,1fr)">
     <a href="{{ url_for('new_idea') }}" class="action-card">
@@ -263,6 +272,110 @@ function fertToggle(n) {
   panel.hidden = !open;
   chevron.style.transform = open ? 'rotate(180deg)' : '';
 }
+
+var dashFertPendingKind = null;
+var dashFertPendingId = null;
+var dashFertPendingRow = null;
+
+function removeFertRow(row) {
+  row.style.transition = 'opacity 0.2s';
+  row.style.opacity = '0';
+  setTimeout(function() {
+    row.remove();
+    /* Remove section if no rows left */
+    var remaining = document.querySelectorAll('[data-fert-row]');
+    if (!remaining.length) {
+      var section = document.querySelector('[data-fert-section]');
+      if (section) section.remove();
+    }
+  }, 220);
+}
+
+document.querySelectorAll('.fert-skip-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var row = btn.closest('[data-fert-row]');
+    btn.disabled = true;
+    fetch('/fert-never', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+      body: 'kind=' + encodeURIComponent(btn.dataset.kind) + '&id=' + encodeURIComponent(btn.dataset.id)
+    }).then(function(r) { return r.json(); })
+      .then(function(d) { if (d.ok) removeFertRow(row); else btn.disabled = false; })
+      .catch(function() { btn.disabled = false; });
+  });
+});
+
+document.querySelectorAll('[data-fert-form]').forEach(function(form) {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var kind = form.dataset.kind;
+    var id = form.dataset.id;
+    var row = form.closest('[data-fert-row]');
+    var saveBtn = form.querySelector('[type=submit]');
+    var lastFertInput = form.querySelector('[name=last_fertilized_date]');
+    var lastFertDate = lastFertInput ? lastFertInput.value.trim() : '';
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    var body = new URLSearchParams(new FormData(form));
+    fetch(form.action, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+      body: body.toString()
+    }).then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok && lastFertDate) {
+          dashFertPendingKind = kind;
+          dashFertPendingId = id;
+          dashFertPendingRow = row;
+          var inp = document.getElementById('dash-fert-type-input');
+          if (inp) inp.value = '';
+          document.getElementById('dash-fert-type-overlay').hidden = false;
+        } else if (d.ok) {
+          removeFertRow(row);
+        } else {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+        }
+      })
+      .catch(function() {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+      });
+  });
+});
+
+(function() {
+  var skipBtn = document.getElementById('dash-fert-type-skip');
+  var saveBtn = document.getElementById('dash-fert-type-save');
+  var overlay = document.getElementById('dash-fert-type-overlay');
+  if (!overlay) return;
+
+  function closePopup() {
+    overlay.hidden = true;
+    if (dashFertPendingRow) removeFertRow(dashFertPendingRow);
+    dashFertPendingRow = null;
+  }
+
+  if (skipBtn) skipBtn.addEventListener('click', closePopup);
+
+  if (saveBtn) saveBtn.addEventListener('click', function() {
+    var kind = dashFertPendingKind;
+    var id = dashFertPendingId;
+    var row = dashFertPendingRow;
+    var ftype = (document.getElementById('dash-fert-type-input').value || '').trim();
+    var url = kind === 'edible'
+      ? '/garden/' + id + '/fertilizer-type'
+      : '/ideas/' + id + '/fertilizer-type';
+    saveBtn.disabled = true;
+    fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'fertilizer_type=' + encodeURIComponent(ftype)
+    }).finally(function() {
+      saveBtn.disabled = false;
+      overlay.hidden = true;
+      if (row) removeFertRow(row);
+      dashFertPendingRow = null;
+    });
+  });
+})();
 
 function removeWaterRow(row) {
   row.style.transition = 'opacity 0.2s';
