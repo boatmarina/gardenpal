@@ -285,7 +285,9 @@ window.addEventListener('pageshow', function(e) {
 function disableBtn(btn) {
   btn.disabled = true;
   btn.style.filter = 'grayscale(1)';
-  btn.style.opacity = '0.4';
+  btn.style.opacity = '0.5';
+  btn.style.borderColor = '#bbb';
+  btn.style.color = '#999';
   btn.style.cursor = 'not-allowed';
   btn.style.pointerEvents = 'none';
 }
@@ -293,6 +295,8 @@ function enableBtn(btn) {
   btn.disabled = false;
   btn.style.filter = '';
   btn.style.opacity = '';
+  btn.style.borderColor = '';
+  btn.style.color = '';
   btn.style.cursor = '';
   btn.style.pointerEvents = '';
 }
