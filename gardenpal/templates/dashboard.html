@@ -169,12 +169,23 @@
                 action="{{ url_for('garden_plan_fertilize', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_fertilize', plant_id=alert.id) }}"
                 style="display:flex;flex-direction:column;gap:10px;padding-top:10px">
             <input type="hidden" name="from_dashboard" value="1" />
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Last fertilized date
-              <input type="date" name="last_fertilized_date"
-                     value="{{ alert.last_fertilized_date or '' }}"
-                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
-            </label>
+            <div>
+              <button type="button" class="dash-fert-last-btn"
+                      data-panel="dash-fert-last-{{ loop.index }}"
+                      data-chevron="dash-fert-last-chev-{{ loop.index }}"
+                      style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit;text-align:left">
+                <span style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Last fertilized</span>
+                <span style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:0.85rem;color:var(--fg)">{% if alert.last_fertilized_date %}{{ alert.last_fertilized_date | planted_date }}{% else %}Never{% endif %}</span>
+                  <svg id="dash-fert-last-chev-{{ loop.index }}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);transition:transform 0.2s;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
+              </button>
+              <div id="dash-fert-last-{{ loop.index }}" hidden style="padding:4px 0 4px">
+                <input type="date" name="last_fertilized_date"
+                       value="{{ alert.last_fertilized_date or '' }}"
+                       style="font-size:0.85rem;width:100%;box-sizing:border-box" />
+              </div>
+            </div>
             <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
               Next fertilization date
               <input type="date" name="planned_date"
@@ -278,6 +289,16 @@ function fertToggle(n) {
   panel.hidden = !open;
   chevron.style.transform = open ? 'rotate(180deg)' : '';
 }
+
+document.querySelectorAll('.dash-fert-last-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var panel = document.getElementById(btn.dataset.panel);
+    var chev  = document.getElementById(btn.dataset.chevron);
+    var open  = panel.hidden;
+    panel.hidden = !open;
+    if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
+  });
+});
 
 var dashFertPendingKind = null;
 var dashFertPendingId = null;
