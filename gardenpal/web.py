@@ -566,12 +566,31 @@ def create_app() -> Flask:
                 id_args + [deadline],
             ).fetchall()
             for r in edible_candidates:
+                # Mirror detail page: last_fertilized comes from either the explicit field
+                # or the latest garden_photos row with is_fertilization=1, whichever is newer.
+                last_fert_photo_row = db.execute(
+                    "SELECT COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
+                    " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1"
+                    " ORDER BY COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC LIMIT 1",
+                    (r["id"],),
+                ).fetchone()
+                last_fert_explicit = r["last_fertilized_date"] or None
+                photo_fert_date = (last_fert_photo_row["fert_date"] or None) if last_fert_photo_row else None
+                if last_fert_explicit and (not photo_fert_date or last_fert_explicit >= photo_fert_date):
+                    effective_last_fert = last_fert_explicit
+                    effective_fert_type = r["last_fertilizer_type"]
+                elif photo_fert_date:
+                    effective_last_fert = photo_fert_date
+                    effective_fert_type = last_fert_photo_row["fertilizer_type"]
+                else:
+                    effective_last_fert = None
+                    effective_fert_type = None
+
                 gen_at = r["next_fertilization_generated_at"] or None
-                last_fert_date = r["last_fertilized_date"] or None
                 needs_regen = (
                     not gen_at
-                    or (last_fert_date and gen_at and last_fert_date > gen_at[:10])
-                    or (r["next_fertilization_date"] and r["next_fertilization_date"] < today and not last_fert_date)
+                    or (effective_last_fert and gen_at and effective_last_fert > gen_at[:10])
+                    or (r["next_fertilization_date"] and r["next_fertilization_date"] < today and not effective_last_fert)
                 )
                 updated = r
                 if needs_regen:
@@ -590,7 +609,7 @@ def create_app() -> Flask:
                         ]
                         _suggest_next_fertilization(
                             db, full_entry, user_location,
-                            {"date": last_fert_date, "type": r["last_fertilizer_type"]},
+                            {"date": effective_last_fert, "type": effective_fert_type},
                             growth_notes,
                         )
                         updated = db.execute(
@@ -600,6 +619,11 @@ def create_app() -> Flask:
                             " FROM garden_entries WHERE id = ?",
                             (r["id"],),
                         ).fetchone()
+                        # Recompute effective last fert after regen (explicit field may have been updated)
+                        last_fert_explicit = updated["last_fertilized_date"] or last_fert_explicit
+                        if last_fert_explicit and (not photo_fert_date or last_fert_explicit >= photo_fert_date):
+                            effective_last_fert = last_fert_explicit
+                            effective_fert_type = updated["last_fertilizer_type"] or effective_fert_type
                 eff = updated["planned_fertilization_date"] or updated["next_fertilization_date"]
                 if not eff or eff > deadline:
                     continue
@@ -607,8 +631,8 @@ def create_app() -> Flask:
                     "kind": "edible", "id": updated["id"], "name": updated["name"],
                     "variety": updated["variety"] or None,
                     "date": eff, "overdue": eff < today,
-                    "last_fertilized_date": updated["last_fertilized_date"],
-                    "last_fertilizer_type": updated["last_fertilizer_type"],
+                    "last_fertilized_date": effective_last_fert,
+                    "last_fertilizer_type": effective_fert_type,
                     "next_fertilization_note": updated["next_fertilization_note"],
                     "planned_date": updated["planned_fertilization_date"],
                     "never": bool(updated["never_fertilize"]),
