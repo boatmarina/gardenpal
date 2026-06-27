@@ -186,11 +186,11 @@
                        style="font-size:0.85rem;width:100%;box-sizing:border-box" />
               </div>
             </div>
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px">
-              Update next fertilization date
+            <label style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px">
+              <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);flex:1;min-width:0;line-height:1.3">Update next fertilization date</span>
               <input type="date" name="planned_date"
                      value="{{ alert.planned_date or '' }}"
-                     style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;flex-shrink:0" />
+                     style="font-size:0.85rem;width:136px;flex-shrink:0" />
             </label>
             <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
               <input type="checkbox" name="never_fertilize" value="1"
