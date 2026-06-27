@@ -1240,10 +1240,14 @@ def create_app() -> Flask:
         never_fertilize = 1 if request.form.get("never_fertilize") else 0
         last_fertilized_date = request.form.get("last_fertilized_date", "").strip()
         last_fertilizer_type = request.form.get("last_fertilizer_type", "").strip() or None
+        clear_fertilized = bool(request.form.get("clear_fertilized"))
         if planned_date and not _ISO_DATE_RE.match(planned_date):
             planned_date = ""
         if last_fertilized_date and not _ISO_DATE_RE.match(last_fertilized_date):
             last_fertilized_date = ""
+        if clear_fertilized:
+            last_fertilized_date = ""
+            last_fertilizer_type = None
         invalidate = bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")
         db.execute(
             "UPDATE plants SET planned_fertilization_date = ?, never_fertilize = ?,"
@@ -1252,12 +1256,32 @@ def create_app() -> Flask:
             + " WHERE id = ?",
             (planned_date or None, never_fertilize, last_fertilized_date or None, last_fertilizer_type, plant_id),
         )
+        if clear_fertilized:
+            db.execute("UPDATE plants SET last_fertilizer_type = NULL WHERE id = ?", (plant_id,))
         if invalidate:
             _log_activity(db, g.user["id"], "fertilized", plant["name"])
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": True, "last_date": last_fertilized_date or None,
+                            "cleared": bool(clear_fertilized)})
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("idea_detail", plant_id=plant_id))
+
+    @app.route("/ideas/<int:plant_id>/fertilizer-type", methods=["POST"])
+    @login_required
+    def idea_set_fertilizer_type(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            return jsonify({"error": "Not found"}), 404
+        ftype = (request.form.get("fertilizer_type") or "").strip() or None
+        db.execute("UPDATE plants SET last_fertilizer_type = ? WHERE id = ?", (ftype, plant_id))
+        db.commit()
+        return jsonify({"ok": True})
 
     @app.route("/ideas/<int:plant_id>/never-fertilize", methods=["POST"])
     @login_required
@@ -3042,9 +3066,38 @@ def create_app() -> Flask:
         if fert_date_changed and not clear_fertilized:
             _log_activity(db, g.user["id"], "fertilized", entry["plant_name"])
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": True, "last_date": last_fert_date or None,
+                            "cleared": bool(clear_fertilized)})
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("garden_detail", entry_id=entry_id))
+
+    @app.route("/garden/<int:entry_id>/fertilizer-type", methods=["POST"])
+    @login_required
+    def garden_set_fertilizer_type(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "Not found"}), 404
+        ftype = (request.form.get("fertilizer_type") or "").strip() or None
+        db.execute(
+            "UPDATE garden_entries SET last_fertilizer_type = ? WHERE id = ?",
+            (ftype, entry_id),
+        )
+        db.execute(
+            "UPDATE garden_photos SET fertilizer_type = ? WHERE entry_id = ?"
+            " AND is_fertilization = 1 AND photo_date = (SELECT MAX(photo_date)"
+            " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1)",
+            (ftype, entry_id, entry_id),
+        )
+        db.commit()
+        return jsonify({"ok": True})
 
     @app.route("/garden/<int:entry_id>/never-fertilize", methods=["POST"])
     @login_required
@@ -4730,7 +4783,7 @@ def create_app() -> Flask:
     @login_required
     def api_plant_suggestion():
         cached = session.get("plant_suggestion")
-        if cached and "photo_urls" in cached:
+        if cached and cached.get("name") and cached.get("photo_url"):
             return jsonify(cached)
         db = get_db()
         user_id = g.user["id"]
@@ -6147,6 +6200,9 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
         location_type = (entry.get("location_type") or "").replace("_", " ")
         location_name = entry.get("location_name") or ""
         planted_date = entry.get("planted_date") or "unknown"
+        _pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"}
+        planting_method = _pm_labels.get(entry.get("planting_method") or "", entry.get("planting_method") or "")
+        entry_notes = (entry.get("notes") or "").strip()
 
         if last_fertilized and last_fertilized.get("date"):
             last_fert_str = last_fertilized["date"]
@@ -6193,21 +6249,28 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
             f"Location name: {location_name or 'not specified'}\n"
             f"User's location: {user_location or 'unknown'}\n"
             f"{planting_info}\n"
-            f"Last fertilized: {last_fert_str}"
+            + (f"Started from: {planting_method}\n" if planting_method else "")
+            + (f"Planting notes: {entry_notes}\n" if entry_notes else "")
+            + f"Last fertilized: {last_fert_str}"
             + (f" (fertilizer: {last_fert_type})" if last_fert_type else "")
             + f"\nGrowth log notes:\n{notes_str}\nToday is {today_str}."
         )
 
-        client = _anthropic.Anthropic(api_key=api_key)
+        client = _anthropic.Anthropic(api_key=api_key, timeout=6.0)
         resp = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=300,
             system=(
                 "You are a gardening advisor. Given plant details and growth history, "
                 "suggest the next fertilization date.\n"
-                "Pay close attention to current plant age — seedlings under 3-4 weeks old "
-                "generally should not be fertilized yet; wait until true leaves are established.\n"
+                "Pay close attention to current plant age and how the plant was started "
+                "(direct sow vs. transplant/young plant — young plant starts are more mature "
+                "and can often be fertilized sooner than direct-sown seedlings).\n"
+                "Seedlings under 3-4 weeks old generally should not be fertilized yet; "
+                "wait until true leaves are established. Young plant / starts from a nursery "
+                "are typically already past this stage and can be fertilized soon after transplanting.\n"
                 "If a reseeding or transplanting date is given, use that age, not the original planting date.\n"
+                "Consider any planting notes provided — they may contain important context about the plant's origin.\n"
                 "Reply with ONLY:\n"
                 "Line 1: YYYY-MM-DD (the suggested date, today or in the future)\n"
                 "Line 2+: 2-3 sentence explanation of your reasoning.\n"
@@ -6264,7 +6327,7 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
             + f"Today is {today_str}."
         )
 
-        client = _anthropic.Anthropic(api_key=api_key)
+        client = _anthropic.Anthropic(api_key=api_key, timeout=6.0)
         resp = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=250,

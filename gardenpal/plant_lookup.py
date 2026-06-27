@@ -369,7 +369,7 @@ def _lookup_via_inat(query: str) -> Tuple[Optional[str], Optional[str], Optional
         resp = requests.get(
             "https://api.inaturalist.org/v1/taxa",
             params={"q": query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 1},
-            timeout=15,
+            timeout=4,
         )
         resp.raise_for_status()
         results = resp.json().get("results", [])
@@ -663,7 +663,12 @@ def _build_suggestion_context(
 
 
 def fetch_photos_for_suggestion(suggestion: Dict) -> Dict:
-    """Fetch iNaturalist photos for a suggestion dict in-place; returns the updated dict."""
+    """Fetch a single iNaturalist taxon photo for the suggestion card thumbnail.
+
+    Only makes one HTTP call per query (taxa lookup) to stay within serverless
+    function time limits. The suggestion preview page fetches a full gallery
+    lazily via /api/plant-photos once the user taps through.
+    """
     suggestion.setdefault("photo_url", None)
     suggestion.setdefault("photo_urls", [])
     suggestion.setdefault("taxon_id", None)
@@ -675,9 +680,6 @@ def fetch_photos_for_suggestion(suggestion: Dict) -> Dict:
         species = sci.split("'")[0].split('"')[0].strip()
         if species and species != sci:
             queries_to_try.append(species)
-        plain = species.replace("×", "").replace(" x ", " ").strip()
-        if plain and plain != species:
-            queries_to_try.append(plain)
     if suggestion.get("name"):
         queries_to_try.append(suggestion["name"])
 
@@ -685,14 +687,9 @@ def fetch_photos_for_suggestion(suggestion: Dict) -> Dict:
         _, _, taxon_default_url, taxon_id = _lookup_via_inat(q)
         if taxon_id:
             suggestion["taxon_id"] = taxon_id
-            obs = lookup_plant_photos("", count=6, taxon_id=taxon_id)
-            if obs:
-                suggestion["photo_urls"] = obs
-                suggestion["photo_url"] = obs[0]
-                break
             if taxon_default_url:
                 suggestion["photo_url"] = taxon_default_url
-                break
+            break
         elif taxon_default_url:
             suggestion["photo_url"] = taxon_default_url
             break
@@ -755,7 +752,7 @@ def generate_plant_suggestions_batch(
         "All plants must be distinct. Respond ONLY with valid JSON — no explanation, nothing else."
     )
 
-    client = anthropic.Anthropic(api_key=api_key, timeout=20.0)
+    client = anthropic.Anthropic(api_key=api_key, timeout=5.0)
     try:
         response = client.messages.create(
             model="claude-sonnet-4-6",

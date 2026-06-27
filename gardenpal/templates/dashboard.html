@@ -75,16 +75,19 @@
     </div>
   </div>
 
-  {% if ff_water and watering_alerts %}
+  {% if ff_water %}
   <div id="water-section" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering due</span>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+      {% if watering_alerts %}
       <button type="button" id="water-mark-all-btn"
               style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
+      {% endif %}
     </div>
+    {% if watering_alerts %}
     <div id="water-alert-list" class="card" style="padding:0;overflow:hidden">
       {% for alert in watering_alerts %}
       <div data-water-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
@@ -112,10 +115,18 @@
       </div>
       {% endfor %}
     </div>
+    {% else %}
+    <div class="card" style="padding:11px 14px;display:flex;align-items:center;gap:10px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span style="font-size:0.85rem;color:var(--muted)">All plants are watered — nothing due today or tomorrow.</span>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 
-  {% if ff_fert and fert_alerts %}
+  {% if ff_fert %}
   <div style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -123,6 +134,7 @@
       </svg>
       <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Fertilization due</span>
     </div>
+    {% if fert_alerts %}
     <div class="card" style="padding:0;overflow:hidden">
       {% for alert in fert_alerts %}
       <div style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
@@ -190,6 +202,14 @@
       </div>
       {% endfor %}
     </div>
+    {% else %}
+    <div class="card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span style="font-size:0.85rem;color:var(--muted)">All plants are on track — no fertilization due in the next 3 days.</span>
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -315,22 +335,32 @@ if (markAllBtn) {
   var sci      = document.getElementById('suggestion-sci');
   var why      = document.getElementById('suggestion-why');
 
-  fetch('{{ url_for("api_plant_suggestion") }}')
+  var ctrl    = new AbortController();
+  var timer   = setTimeout(function() { ctrl.abort(); }, 12000);
+
+  fetch('{{ url_for("api_plant_suggestion") }}', { signal: ctrl.signal })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      if (d.error || !d.name || !d.photo_url) {
+      clearTimeout(timer);
+      if (d.error || !d.name) {
         wrap.style.display = 'none';
         return;
       }
       name.textContent = d.name;
       sci.textContent  = d.scientific_name || '';
       why.textContent  = d.why || d.description || '';
-      img.src = d.photo_url;
-      img.alt = d.name;
+      var imgWrap = img.parentNode;
+      if (d.photo_url) {
+        img.src = d.photo_url;
+        img.alt = d.name;
+      } else {
+        // No photo yet — show the same leaf placeholder as the skeleton
+        imgWrap.innerHTML = '<div style="width:88px;height:100%;min-height:88px;background:var(--green-light);display:flex;align-items:center;justify-content:center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--green-mid)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></div>';
+      }
       skeleton.style.display = 'none';
       link.style.display = 'flex';
     })
-    .catch(function() { wrap.style.display = 'none'; });
+    .catch(function() { clearTimeout(timer); wrap.style.display = 'none'; });
 })();
 </script>
 
