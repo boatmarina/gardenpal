@@ -355,6 +355,25 @@
 
   </section>
 
+  <!-- Fertilizer type popup -->
+  <div id="fert-type-overlay" hidden
+       style="position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end"
+       onclick="if(event.target===this)document.getElementById('fert-type-overlay').hidden=true">
+    <div style="width:100%;background:var(--card);border-radius:16px 16px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -4px 24px rgba(0,0,0,0.14)">
+      <p style="font-size:1rem;font-weight:600;margin:0 0 4px;color:var(--fg)">What fertilizer did you use?</p>
+      <p style="font-size:0.82rem;color:var(--muted);margin:0 0 16px">Optional — helps track what's working over time.</p>
+      <input type="text" id="fert-type-input"
+             placeholder="e.g. Worm castings, Fish emulsion, 10-10-10…"
+             style="width:100%;box-sizing:border-box;font-size:16px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--fg);font-family:inherit" />
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button id="fert-type-skip"
+                style="flex:1;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.9rem;color:var(--muted);cursor:pointer">Skip</button>
+        <button id="fert-type-save"
+                style="flex:2;padding:10px;background:#1C3829;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:0.9rem;font-weight:600;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Growth log ── -->
   <div class="section-header" style="margin-top:24px">
     <span class="section-title">Growth log</span>
@@ -499,23 +518,42 @@
     var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return mo[d.getMonth()] + ' ' + d.getDate();
   }
-  function gpMarkDone(btn, url, onOk) {
-    var orig = btn.innerHTML;
-    btn.disabled = true;
-    btn.textContent = '…';
-    fetch(url, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        if (d.ok) {
-          onOk(d);
-          btn.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 4 7 9 1"/></svg>';
-          btn.style.background = '#C8E6C9';
-          btn.style.color = '#2E7D32';
-          btn.style.borderColor = '#A5D6A7';
-        } else { btn.innerHTML = orig; btn.disabled = false; }
-      })
-      .catch(function(){ btn.innerHTML = orig; btn.disabled = false; });
+
+  // Fertilizer-type popup
+  var fertTypeOverlay = document.getElementById('fert-type-overlay');
+  var fertTypeInput   = document.getElementById('fert-type-input');
+  var fertTypeSave    = document.getElementById('fert-type-save');
+  var fertTypeSkip    = document.getElementById('fert-type-skip');
+  var _fertTypeUrl    = '{{ url_for("garden_set_fertilizer_type", entry_id=entry.id) }}';
+
+  function showFertTypePopup() {
+    if (!fertTypeOverlay) return;
+    fertTypeInput.value = '';
+    fertTypeOverlay.hidden = false;
+    setTimeout(function() { fertTypeInput.focus(); }, 80);
   }
+  function hideFertTypePopup() {
+    if (fertTypeOverlay) fertTypeOverlay.hidden = true;
+  }
+  if (fertTypeSkip) fertTypeSkip.addEventListener('click', hideFertTypePopup);
+  if (fertTypeSave) {
+    fertTypeSave.addEventListener('click', function() {
+      var val = fertTypeInput ? fertTypeInput.value.trim() : '';
+      hideFertTypePopup();
+      if (!val) return;
+      var fd = new FormData();
+      fd.append('fertilizer_type', val);
+      fetch(_fertTypeUrl, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd});
+    });
+  }
+  if (fertTypeInput) {
+    fertTypeInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); if (fertTypeSave) fertTypeSave.click(); }
+      if (e.key === 'Escape') hideFertTypePopup();
+    });
+  }
+
+  // Mark as fertilized today
   var detailFertDoneBtn = document.getElementById('detail-fert-done-btn');
   if (detailFertDoneBtn) {
     detailFertDoneBtn.addEventListener('click', function() {
@@ -530,16 +568,23 @@
             if (lastEl && d.today) lastEl.textContent = gpFormatDate(d.today);
             var nextEl = document.getElementById('detail-next-fert-date');
             if (nextEl && d.next_date) nextEl.textContent = gpFormatDate(d.next_date);
+            if (d.next_note) {
+              var noteEl = document.querySelector('#fert-next-panel p');
+              if (noteEl) noteEl.textContent = d.next_note;
+            }
             detailFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#1B5E20"/><path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#1B5E20"/><line x1="12" y1="12" x2="12" y2="19" stroke="#1B5E20" stroke-width="2" stroke-linecap="round"/><rect x="7.5" y="6.5" width="9" height="6" rx="1.5" fill="white"/><polyline points="9 9.5 11 11.5 16 7.5" fill="none" stroke="#1B5E20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Done — fertilized today';
             detailFertDoneBtn.style.opacity = '1';
             detailFertDoneBtn.style.background = '#C8E6C9';
             detailFertDoneBtn.style.borderColor = '#A5D6A7';
             detailFertDoneBtn.style.color = '#1B5E20';
+            showFertTypePopup();
           } else { detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; }
         })
         .catch(function(){ detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; });
     });
   }
+
+  // Never button — clears the date field without submitting
   var detailClearFertDateBtn = document.getElementById('detail-clear-fert-date-btn');
   if (detailClearFertDateBtn) {
     detailClearFertDateBtn.addEventListener('click', function() {
@@ -547,6 +592,37 @@
       var clrHidden = document.getElementById('clear-fert-hidden');
       if (clrHidden) clrHidden.value = '1';
       if (inp) inp.value = '';
+    });
+  }
+
+  // Last-fert form → AJAX so we can show popup after saving a new date
+  var fertLastForm = document.querySelector('#fert-last-panel form');
+  if (fertLastForm) {
+    fertLastForm.addEventListener('submit', function(e) {
+      var clrHidden = document.getElementById('clear-fert-hidden');
+      var isClearing = clrHidden && clrHidden.value === '1';
+      // Only intercept when saving a real date (not clearing/never)
+      var dateInp = document.getElementById('detail-last-fert-date-input');
+      if (isClearing || !dateInp || !dateInp.value) return; // let it submit normally
+      e.preventDefault();
+      var fd = new FormData(fertLastForm);
+      fetch(fertLastForm.action, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if (d.ok) {
+            var lastEl = document.getElementById('detail-last-fert-value');
+            if (lastEl && d.last_date) lastEl.textContent = gpFormatDate(d.last_date);
+            // close the last-fert panel
+            var panel = document.getElementById('fert-last-panel');
+            var chevron = document.getElementById('fert-last-chevron');
+            if (panel) panel.hidden = true;
+            if (chevron) chevron.style.transform = '';
+            showFertTypePopup();
+          } else {
+            fertLastForm.submit();
+          }
+        })
+        .catch(function(){ fertLastForm.submit(); });
     });
   }
   var detailWaterDoneBtn = document.getElementById('detail-water-done-btn');

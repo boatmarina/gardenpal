@@ -3042,9 +3042,38 @@ def create_app() -> Flask:
         if fert_date_changed and not clear_fertilized:
             _log_activity(db, g.user["id"], "fertilized", entry["plant_name"])
         db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": True, "last_date": last_fert_date or None,
+                            "cleared": bool(clear_fertilized)})
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("garden_detail", entry_id=entry_id))
+
+    @app.route("/garden/<int:entry_id>/fertilizer-type", methods=["POST"])
+    @login_required
+    def garden_set_fertilizer_type(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "Not found"}), 404
+        ftype = (request.form.get("fertilizer_type") or "").strip() or None
+        db.execute(
+            "UPDATE garden_entries SET last_fertilizer_type = ? WHERE id = ?",
+            (ftype, entry_id),
+        )
+        db.execute(
+            "UPDATE garden_photos SET fertilizer_type = ? WHERE entry_id = ?"
+            " AND is_fertilization = 1 AND photo_date = (SELECT MAX(photo_date)"
+            " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1)",
+            (ftype, entry_id, entry_id),
+        )
+        db.commit()
+        return jsonify({"ok": True})
 
     @app.route("/garden/<int:entry_id>/never-fertilize", methods=["POST"])
     @login_required
@@ -6198,7 +6227,7 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
             + f"\nGrowth log notes:\n{notes_str}\nToday is {today_str}."
         )
 
-        client = _anthropic.Anthropic(api_key=api_key)
+        client = _anthropic.Anthropic(api_key=api_key, timeout=6.0)
         resp = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=300,
@@ -6264,7 +6293,7 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
             + f"Today is {today_str}."
         )
 
-        client = _anthropic.Anthropic(api_key=api_key)
+        client = _anthropic.Anthropic(api_key=api_key, timeout=6.0)
         resp = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=250,
