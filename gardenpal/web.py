@@ -553,7 +553,7 @@ def create_app() -> Flask:
         if ff_fert:
             deadline = _local_date_plus(3)
             edible_rows = db.execute(
-                f"SELECT id, plant_name AS name, next_fertilization_date, planned_fertilization_date,"
+                f"SELECT id, plant_name AS name, variety, next_fertilization_date, planned_fertilization_date,"
                 f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize"
                 f" FROM garden_entries WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
@@ -565,6 +565,7 @@ def create_app() -> Flask:
                 eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
                 fert_alerts.append({
                     "kind": "edible", "id": r["id"], "name": r["name"],
+                    "variety": r["variety"] or None,
                     "date": eff, "overdue": eff < today,
                     "last_fertilized_date": r["last_fertilized_date"],
                     "last_fertilizer_type": r["last_fertilizer_type"],
