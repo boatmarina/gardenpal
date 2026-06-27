@@ -660,7 +660,7 @@ def create_app() -> Flask:
                     "never": bool(updated["never_fertilize"]),
                 })
 
-            fert_alerts.sort(key=lambda x: x["date"])
+            fert_alerts.sort(key=lambda x: (0, x["name"].lower()) if x["overdue"] else (1, x["date"], x["name"].lower()))
 
         watering_alerts = []
         ff_water = _feature_watering(g.user)
@@ -705,7 +705,7 @@ def create_app() -> Flask:
                     "watering_note": r["watering_note"],
                     "frequency_days": r["watering_frequency_days"],
                 })
-            watering_alerts.sort(key=lambda x: x["date"])
+            watering_alerts.sort(key=lambda x: (0, x["name"].lower()) if x["overdue"] else (1, x["date"], x["name"].lower()))
 
         return render_template(
             "dashboard.html",
