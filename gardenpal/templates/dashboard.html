@@ -186,12 +186,29 @@
                        style="font-size:0.85rem;width:100%;box-sizing:border-box" />
               </div>
             </div>
-            <label style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:10px">
-              <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);flex:1;min-width:0;line-height:1.3">Update next fertilization date</span>
-              <input type="date" name="planned_date"
-                     value="{{ alert.planned_date or '' }}"
-                     style="font-size:0.85rem;width:136px;flex-shrink:0" />
-            </label>
+            <div>
+              <button type="button" class="dash-fert-next-btn"
+                      data-panel="dash-fert-next-{{ loop.index }}"
+                      data-chevron="dash-fert-next-chev-{{ loop.index }}"
+                      style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit;text-align:left">
+                <span style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Update next fertilization date</span>
+                <span style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:0.85rem;color:var(--fg)">
+                    {%- set eff_next = alert.planned_date or alert.date -%}
+                    {%- if not eff_next %}Never
+                    {%- elif eff_next == today %}Today
+                    {%- else %}{{ eff_next | planted_date }}
+                    {%- endif %}
+                  </span>
+                  <svg id="dash-fert-next-chev-{{ loop.index }}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);transition:transform 0.2s;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
+              </button>
+              <div id="dash-fert-next-{{ loop.index }}" hidden style="padding:4px 0 4px">
+                <input type="date" name="planned_date"
+                       value="{{ alert.planned_date or alert.date or '' }}"
+                       style="font-size:0.85rem;width:100%;box-sizing:border-box" />
+              </div>
+            </div>
             <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
               <input type="checkbox" name="never_fertilize" value="1"
                      style="width:auto;min-width:auto;max-width:auto;padding:0;border:none;background:none;accent-color:var(--green-dark);cursor:pointer;flex-shrink:0" />
@@ -309,7 +326,7 @@ function fertToggle(n) {
   chevron.style.transform = open ? 'rotate(180deg)' : '';
 }
 
-document.querySelectorAll('.dash-fert-last-btn').forEach(function(btn) {
+document.querySelectorAll('.dash-fert-last-btn, .dash-fert-next-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var panel = document.getElementById(btn.dataset.panel);
     var chev  = document.getElementById(btn.dataset.chevron);
