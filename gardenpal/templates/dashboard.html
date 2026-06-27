@@ -465,6 +465,12 @@ if (markAllBtn) {
 @keyframes skelShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 @keyframes leafPulse { 0%,100% { opacity:.4; transform:scale(1); } 50% { opacity:1; transform:scale(1.12); } }
 @keyframes chatDot { 0%,80%,100% { transform:scale(0.7);opacity:0.4; } 40% { transform:scale(1);opacity:1; } }
+.fert-skip-btn:disabled, .water-done-btn:disabled,
+#water-mark-all-btn:disabled, .button-secondary:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
 </style>
 <script>
 (function () {
