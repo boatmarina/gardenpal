@@ -276,8 +276,6 @@
             <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#388E3C"/>
             <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#388E3C"/>
             <line x1="12" y1="12" x2="12" y2="19" stroke="#388E3C" stroke-width="2" stroke-linecap="round"/>
-            <rect x="7.5" y="6.5" width="9" height="6" rx="1.5" fill="white"/>
-            <polyline points="9 9.5 11 11.5 16 7.5" fill="none" stroke="#388E3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           Mark as fertilized today
         </button>
@@ -657,7 +655,7 @@
             if (lastEl && d.today) lastEl.textContent = gpFormatDate(d.today);
             var nextEl = document.getElementById('idea-next-fert-date');
             if (nextEl && d.next_date) nextEl.textContent = gpFormatDate(d.next_date);
-            ideaFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#1B5E20"/><path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#1B5E20"/><line x1="12" y1="12" x2="12" y2="19" stroke="#1B5E20" stroke-width="2" stroke-linecap="round"/><rect x="7.5" y="6.5" width="9" height="6" rx="1.5" fill="white"/><polyline points="9 9.5 11 11.5 16 7.5" fill="none" stroke="#1B5E20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Done — fertilized today';
+            ideaFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B5E20" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Done — fertilized today';
             ideaFertDoneBtn.style.opacity = '1';
             ideaFertDoneBtn.style.background = '#C8E6C9';
             ideaFertDoneBtn.style.borderColor = '#A5D6A7';
