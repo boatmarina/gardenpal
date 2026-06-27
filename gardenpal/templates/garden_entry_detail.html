@@ -214,6 +214,13 @@
       <!-- Mark as fertilized today — prominent button below both rows -->
       {% if next_fertilization and not next_fertilization.never and (next_fertilization.date or next_fertilization.planned_date) %}
       <div style="padding:6px 16px 14px">
+        {% if last_fertilized and last_fertilized.date == today %}
+        <button type="button" id="detail-fert-done-btn" disabled
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#C8E6C9;border:1px solid #A5D6A7;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#1B5E20;opacity:0.75">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Fertilized today
+        </button>
+        {% else %}
         <button type="button" id="detail-fert-done-btn"
                 style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:#2E7D32">
           <svg width="16" height="16" viewBox="0 0 24 24">
@@ -225,6 +232,7 @@
           </svg>
           Mark as fertilized today
         </button>
+        {% endif %}
       </div>
       {% endif %}
     </div>
@@ -308,6 +316,13 @@
       <!-- Mark as watered today — prominent button below both rows -->
       {% if not next_watering.never %}
       <div style="padding:6px 16px 14px">
+        {% if last_watered and last_watered.date == today %}
+        <button type="button" id="detail-water-done-btn" disabled
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#BBDEFB;border:1px solid #90CAF9;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#0D47A1;opacity:0.75">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Watered today
+        </button>
+        {% else %}
         <button type="button" id="detail-water-done-btn"
                 style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:#1565C0">
           <svg width="16" height="16" viewBox="0 0 24 24">
@@ -316,6 +331,7 @@
           </svg>
           Mark as watered today
         </button>
+        {% endif %}
       </div>
       {% endif %}
     </div>
@@ -548,7 +564,7 @@
 
   // Mark as fertilized today
   var detailFertDoneBtn = document.getElementById('detail-fert-done-btn');
-  if (detailFertDoneBtn) {
+  if (detailFertDoneBtn && !detailFertDoneBtn.disabled) {
     detailFertDoneBtn.addEventListener('click', function() {
       var origHtml = detailFertDoneBtn.innerHTML;
       detailFertDoneBtn.disabled = true;
@@ -594,10 +610,14 @@
     fertLastForm.addEventListener('submit', function(e) {
       var clrHidden = document.getElementById('clear-fert-hidden');
       var isClearing = clrHidden && clrHidden.value === '1';
-      // Only intercept when saving a real date (not clearing/never)
       var dateInp = document.getElementById('detail-last-fert-date-input');
-      if (isClearing || !dateInp || !dateInp.value) return; // let it submit normally
+      var saveBtn = fertLastForm.querySelector('[type="submit"]');
+      if (isClearing || !dateInp || !dateInp.value) {
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+        return; // let it submit normally
+      }
       e.preventDefault();
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
       var fd = new FormData(fertLastForm);
       fetch(fertLastForm.action, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd})
         .then(function(r){return r.json();})
@@ -605,7 +625,6 @@
           if (d.ok) {
             var lastEl = document.getElementById('detail-last-fert-value');
             if (lastEl && d.last_date) lastEl.textContent = gpFormatDate(d.last_date);
-            // close the last-fert panel
             var panel = document.getElementById('fert-last-panel');
             var chevron = document.getElementById('fert-last-chevron');
             if (panel) panel.hidden = true;
@@ -618,8 +637,26 @@
         .catch(function(){ fertLastForm.submit(); });
     });
   }
+
+  // Fert-next form — show loading state on submit
+  var fertNextForm = document.querySelector('#fert-next-panel form');
+  if (fertNextForm) {
+    fertNextForm.addEventListener('submit', function() {
+      var saveBtn = fertNextForm.querySelector('button[type="submit"].button-secondary');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    });
+  }
+
+  // Water-last form — show loading state on submit
+  var waterLastForm = document.querySelector('#water-last-panel form');
+  if (waterLastForm) {
+    waterLastForm.addEventListener('submit', function() {
+      var saveBtn = waterLastForm.querySelector('[type="submit"]');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    });
+  }
   var detailWaterDoneBtn = document.getElementById('detail-water-done-btn');
-  if (detailWaterDoneBtn) {
+  if (detailWaterDoneBtn && !detailWaterDoneBtn.disabled) {
     detailWaterDoneBtn.addEventListener('click', function() {
       var origHtml = detailWaterDoneBtn.innerHTML;
       detailWaterDoneBtn.disabled = true;
