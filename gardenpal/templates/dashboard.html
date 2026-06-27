@@ -282,6 +282,21 @@ window.addEventListener('pageshow', function(e) {
   if (e.persisted) window.location.reload();
 });
 
+function disableBtn(btn) {
+  btn.disabled = true;
+  btn.style.filter = 'grayscale(1)';
+  btn.style.opacity = '0.4';
+  btn.style.cursor = 'not-allowed';
+  btn.style.pointerEvents = 'none';
+}
+function enableBtn(btn) {
+  btn.disabled = false;
+  btn.style.filter = '';
+  btn.style.opacity = '';
+  btn.style.cursor = '';
+  btn.style.pointerEvents = '';
+}
+
 function fertToggle(n) {
   var panel = document.getElementById('fert-panel-' + n);
   var chevron = document.getElementById('fert-chevron-' + n);
@@ -322,14 +337,14 @@ function removeFertRow(row) {
 document.querySelectorAll('.fert-skip-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var row = btn.closest('[data-fert-row]');
-    btn.disabled = true;
+    disableBtn(btn);
     fetch('/fert-never', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
       body: 'kind=' + encodeURIComponent(btn.dataset.kind) + '&id=' + encodeURIComponent(btn.dataset.id)
     }).then(function(r) { return r.json(); })
-      .then(function(d) { if (d.ok) removeFertRow(row); else btn.disabled = false; })
-      .catch(function() { btn.disabled = false; });
+      .then(function(d) { if (d.ok) removeFertRow(row); else enableBtn(btn); })
+      .catch(function() { enableBtn(btn); });
   });
 });
 
@@ -342,7 +357,7 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
     var saveBtn = form.querySelector('[type=submit]');
     var lastFertInput = form.querySelector('[name=last_fertilized_date]');
     var lastFertDate = lastFertInput ? lastFertInput.value.trim() : '';
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    if (saveBtn) { disableBtn(saveBtn); saveBtn.textContent = 'Saving…'; }
     var body = new URLSearchParams(new FormData(form));
     fetch(form.action, {
       method: 'POST',
@@ -360,11 +375,11 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
         } else if (d.ok) {
           removeFertRow(row);
         } else {
-          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+          if (saveBtn) { enableBtn(saveBtn); saveBtn.textContent = 'Save'; }
         }
       })
       .catch(function() {
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+        if (saveBtn) { enableBtn(saveBtn); saveBtn.textContent = 'Save'; }
       });
   });
 });
@@ -391,13 +406,13 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
     var url = kind === 'edible'
       ? '/garden/' + id + '/fertilizer-type'
       : '/ideas/' + id + '/fertilizer-type';
-    saveBtn.disabled = true;
+    disableBtn(saveBtn);
     fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'fertilizer_type=' + encodeURIComponent(ftype)
     }).finally(function() {
-      saveBtn.disabled = false;
+      enableBtn(saveBtn);
       overlay.hidden = true;
       if (row) removeFertRow(row);
       dashFertPendingRow = null;
@@ -427,14 +442,14 @@ document.querySelectorAll('.water-done-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var url = btn.dataset.url;
     var row = btn.closest('[data-water-row]');
-    btn.disabled = true;
+    disableBtn(btn);
     btn.textContent = '✓';
     fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'from_dashboard=1'
     }).then(function() { removeWaterRow(row); }).catch(function() {
-      btn.disabled = false; btn.textContent = 'Done';
+      enableBtn(btn); btn.textContent = 'Done';
     });
   });
 });
@@ -442,7 +457,7 @@ document.querySelectorAll('.water-done-btn').forEach(function(btn) {
 var markAllBtn = document.getElementById('water-mark-all-btn');
 if (markAllBtn) {
   markAllBtn.addEventListener('click', function() {
-    markAllBtn.disabled = true;
+    disableBtn(markAllBtn);
     var items = Array.from(document.querySelectorAll('.water-done-btn')).map(function(b) {
       return 'item=' + encodeURIComponent(b.dataset.item);
     }).join('&');
@@ -455,7 +470,7 @@ if (markAllBtn) {
       if (list) {
         Array.from(list.querySelectorAll('[data-water-row]')).forEach(function(r) { removeWaterRow(r); });
       }
-    }).catch(function() { markAllBtn.disabled = false; });
+    }).catch(function() { enableBtn(markAllBtn); });
   });
 }
 </script>
@@ -465,12 +480,6 @@ if (markAllBtn) {
 @keyframes skelShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 @keyframes leafPulse { 0%,100% { opacity:.4; transform:scale(1); } 50% { opacity:1; transform:scale(1.12); } }
 @keyframes chatDot { 0%,80%,100% { transform:scale(0.7);opacity:0.4; } 40% { transform:scale(1);opacity:1; } }
-.fert-skip-btn:disabled, .water-done-btn:disabled,
-#water-mark-all-btn:disabled, .button-secondary:disabled {
-  filter: grayscale(1) opacity(0.45) !important;
-  cursor: not-allowed !important;
-  pointer-events: none;
-}
 </style>
 <script>
 (function () {
