@@ -135,7 +135,7 @@
       <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Fertilization due</span>
     </div>
     {% if fert_alerts %}
-    <div class="card" style="padding:0;overflow:hidden">
+    <div id="fert-alert-card" class="card" style="padding:0;overflow:hidden">
       {% for alert in fert_alerts %}
       <div data-fert-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
         <!-- Summary row — tap to expand -->
@@ -193,6 +193,12 @@
         </div>
       </div>
       {% endfor %}
+    </div>
+    <div id="fert-empty-state" class="card" hidden style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span style="font-size:0.85rem;color:var(--muted)">All plants are on track — no fertilization due in the next 3 days.</span>
     </div>
     {% else %}
     <div class="card" style="display:flex;align-items:center;gap:12px;padding:14px 16px">
@@ -282,11 +288,12 @@ function removeFertRow(row) {
   row.style.opacity = '0';
   setTimeout(function() {
     row.remove();
-    /* Remove section if no rows left */
     var remaining = document.querySelectorAll('[data-fert-row]');
     if (!remaining.length) {
-      var section = document.querySelector('[data-fert-section]');
-      if (section) section.remove();
+      var alertCard = document.getElementById('fert-alert-card');
+      if (alertCard) alertCard.remove();
+      var emptyState = document.getElementById('fert-empty-state');
+      if (emptyState) emptyState.hidden = false;
     }
   }, 220);
 }
