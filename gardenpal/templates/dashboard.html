@@ -144,7 +144,7 @@
                   style="flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px">
             <div style="flex:1;min-width:0">
               <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
-              <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}</span>
+              <span style="font-size:0.72rem;color:var(--muted)">{{ alert.variety if alert.variety else ('Edible' if alert.kind == 'edible' else 'Ornamental') }}</span>
             </div>
             {% if alert.overdue %}
             <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;white-space:nowrap;flex-shrink:0">Overdue</span>
