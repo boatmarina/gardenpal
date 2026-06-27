@@ -342,15 +342,21 @@ if (markAllBtn) {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       clearTimeout(timer);
-      if (d.error || !d.name || !d.photo_url) {
+      if (d.error || !d.name) {
         wrap.style.display = 'none';
         return;
       }
       name.textContent = d.name;
       sci.textContent  = d.scientific_name || '';
       why.textContent  = d.why || d.description || '';
-      img.src = d.photo_url;
-      img.alt = d.name;
+      var imgWrap = img.parentNode;
+      if (d.photo_url) {
+        img.src = d.photo_url;
+        img.alt = d.name;
+      } else {
+        // No photo yet — show the same leaf placeholder as the skeleton
+        imgWrap.innerHTML = '<div style="width:88px;height:100%;min-height:88px;background:var(--green-light);display:flex;align-items:center;justify-content:center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--green-mid)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></div>';
+      }
       skeleton.style.display = 'none';
       link.style.display = 'flex';
     })
