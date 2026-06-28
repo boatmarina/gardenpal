@@ -702,6 +702,7 @@
       fetch(fertLastForm.action, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd})
         .then(function(r){return r.json();})
         .then(function(d){
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
           if (d.ok) {
             var lastEl = document.getElementById('idea-last-fert-value');
             if (lastEl && d.last_date) lastEl.textContent = gpFormatDate(d.last_date);
@@ -714,7 +715,7 @@
             fertLastForm.submit();
           }
         })
-        .catch(function(){ fertLastForm.submit(); });
+        .catch(function(){ if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; } fertLastForm.submit(); });
     });
   }
 
