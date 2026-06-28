@@ -400,6 +400,10 @@ def create_app() -> Flask:
             response.cache_control.max_age = 31536000
             response.cache_control.public = True
             response.cache_control.immutable = True
+        elif "text/html" in (response.content_type or ""):
+            response.cache_control.no_store = True
+            response.cache_control.no_cache = True
+            response.cache_control.must_revalidate = True
         return response
 
     @app.before_request
