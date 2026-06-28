@@ -56,6 +56,22 @@
     </section>
 
     <section class="panel" style="margin-bottom:16px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div style="flex:1;min-width:0">
+          <h2 style="margin-bottom:2px">Help me track my fertilization</h2>
+          <p class="muted" style="font-size:0.83rem;margin:0">
+            Log when you fertilize, get reminders to stay on schedule, and track your history across your whole garden.
+          </p>
+        </div>
+        <button type="button" id="fert-toggle-btn"
+                onclick="toggleFertTracking()"
+                style="flex-shrink:0;min-width:56px;padding:0 12px;height:30px;border-radius:999px;border:2px solid transparent;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;transition:background 0.2s,color 0.2s,border-color 0.2s;{% if current_user.fertilization_tracking %}background:var(--green-dark);color:#fff;border-color:var(--green-dark){% else %}background:var(--bg);color:var(--muted);border-color:var(--border){% endif %}">
+          {{ 'ON' if current_user.fertilization_tracking else 'OFF' }}
+        </button>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Shared garden</h2>
       <p class="muted" style="font-size:0.83rem;margin-bottom:10px">
         Share your Yard zones, plants, and Garden diary with another GardenPal account —
@@ -128,23 +144,6 @@
         </label>
         <button type="submit" class="button" style="white-space:nowrap">Add partner</button>
       </form>
-    </section>
-
-    <section class="panel" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
-        <div>
-          <h2 style="margin-bottom:2px">Help me track my fertilization</h2>
-          <p class="muted" style="font-size:0.83rem;margin:0">
-            Shows fertilization dates, upcoming schedules, and reminders across your edible garden.
-          </p>
-        </div>
-        <button type="button" id="fert-toggle-btn"
-                onclick="toggleFertTracking()"
-                style="flex-shrink:0;min-width:52px;height:28px;border-radius:14px;border:none;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;letter-spacing:0.04em;transition:background 0.2s,color 0.2s;
-                       {% if current_user.fertilization_tracking %}background:var(--green-dark);color:#fff{% else %}background:var(--border);color:var(--muted){% endif %}">
-          {{ 'ON' if current_user.fertilization_tracking else 'OFF' }}
-        </button>
-      </div>
     </section>
 
     <section class="panel" style="margin-bottom:16px">
