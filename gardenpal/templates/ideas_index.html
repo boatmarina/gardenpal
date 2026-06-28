@@ -299,8 +299,8 @@
 
   applySort(sortMode);
 
-  /* Tag filter pills */
-  document.querySelectorAll('.tag-filter-pill').forEach(function (pill) {
+  /* Tag filter pills (server-side; auto pills use data-planted-filter instead) */
+  document.querySelectorAll('.tag-filter-pill[data-tag]').forEach(function (pill) {
     pill.addEventListener('click', function (e) {
       e.preventDefault();
       var params = new URLSearchParams(window.location.search);
