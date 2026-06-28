@@ -213,7 +213,7 @@
       <div style="padding:6px 16px 14px">
         {% if last_fertilized and last_fertilized.date == today %}
         <button type="button" id="detail-fert-done-btn" disabled
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#C8E6C9;border:1px solid #A5D6A7;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#1B5E20">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#2E7D32">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Fertilized today
         </button>
@@ -313,7 +313,7 @@
       <div style="padding:6px 16px 14px">
         {% if last_watered and last_watered.date == today %}
         <button type="button" id="detail-water-done-btn" disabled
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#BBDEFB;border:1px solid #90CAF9;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#0D47A1">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#1565C0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Watered today
         </button>
@@ -579,9 +579,9 @@
             detailFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Fertilized today';
             detailFertDoneBtn.style.opacity = '1';
             detailFertDoneBtn.style.filter = '';
-            detailFertDoneBtn.style.background = '#C8E6C9';
+            detailFertDoneBtn.style.background = '#E8F5E9';
             detailFertDoneBtn.style.borderColor = '#A5D6A7';
-            detailFertDoneBtn.style.color = '#1B5E20';
+            detailFertDoneBtn.style.color = '#2E7D32';
             detailFertDoneBtn.style.cursor = 'default';
             detailFertDoneBtn.style.pointerEvents = 'none';
             showFertTypePopup();
@@ -678,9 +678,9 @@
             detailWaterDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Watered today';
             detailWaterDoneBtn.style.opacity = '1';
             detailWaterDoneBtn.style.filter = '';
-            detailWaterDoneBtn.style.background = '#BBDEFB';
+            detailWaterDoneBtn.style.background = '#E3F2FD';
             detailWaterDoneBtn.style.borderColor = '#90CAF9';
-            detailWaterDoneBtn.style.color = '#0D47A1';
+            detailWaterDoneBtn.style.color = '#1565C0';
             detailWaterDoneBtn.style.cursor = 'default';
             detailWaterDoneBtn.style.pointerEvents = 'none';
           } else { detailWaterDoneBtn.innerHTML = origHtml; detailWaterDoneBtn.disabled = false; detailWaterDoneBtn.style.opacity = '1'; }
