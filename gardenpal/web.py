@@ -1,3 +1,4 @@
+import concurrent.futures
 import csv
 import hashlib
 import io
@@ -387,6 +388,14 @@ def create_app() -> Flask:
         except Exception:
             return str(dt_str)[:10]
 
+    @app.after_request
+    def set_cache_headers(response):
+        if request.path.startswith("/static/"):
+            response.cache_control.max_age = 31536000
+            response.cache_control.public = True
+            response.cache_control.immutable = True
+        return response
+
     @app.before_request
     def ensure_db_ready():
         if not app.config["_DB_READY"]:
@@ -565,15 +574,24 @@ def create_app() -> Flask:
                 f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?",
                 id_args + [deadline],
             ).fetchall()
+            # Batch-fetch the latest fertilization photo per candidate (one query vs N).
+            _cand_ids = [r["id"] for r in edible_candidates]
+            _fert_photo_map = {}
+            if _cand_ids:
+                _id_ph = "(" + ",".join(["?"] * len(_cand_ids)) + ")"
+                for _row in db.execute(
+                    f"SELECT DISTINCT ON (entry_id) entry_id,"
+                    f" COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
+                    f" FROM garden_photos WHERE entry_id IN {_id_ph} AND is_fertilization = 1"
+                    f" ORDER BY entry_id, COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC",
+                    _cand_ids,
+                ).fetchall():
+                    _fert_photo_map[_row["entry_id"]] = _row
+
             for r in edible_candidates:
                 # Mirror detail page: last_fertilized comes from either the explicit field
                 # or the latest garden_photos row with is_fertilization=1, whichever is newer.
-                last_fert_photo_row = db.execute(
-                    "SELECT COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
-                    " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1"
-                    " ORDER BY COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC LIMIT 1",
-                    (r["id"],),
-                ).fetchone()
+                last_fert_photo_row = _fert_photo_map.get(r["id"])
                 last_fert_explicit = r["last_fertilized_date"] or None
                 photo_fert_date = (last_fert_photo_row["fert_date"] or None) if last_fert_photo_row else None
                 if last_fert_explicit and (not photo_fert_date or last_fert_explicit >= photo_fert_date):
@@ -4282,80 +4300,27 @@ def create_app() -> Flask:
         # Library matching is done client-side (data already in page).
         # This endpoint only handles external API lookup.
 
-        # ── Perenual (if API key configured) ──
-        api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
-        if api_key:
-            try:
-                resp = requests.get(
-                    "https://perenual.com/api/species-list",
-                    params={"key": api_key, "q": q},
-                    timeout=8,
-                )
-                resp.raise_for_status()
-                data = resp.json().get("data", [])
-                results = []
-                for plant in data[:12]:
-                    sci_list = plant.get("scientific_name") or []
-                    img = plant.get("default_image") or {}
-                    photo_url = (img.get("medium_url") or img.get("regular_url")
-                                 or img.get("original_url") or None)
-                    results.append({
-                        "common_name": plant.get("common_name") or "",
-                        "scientific_name": sci_list[0] if sci_list else "",
-                        "rank": "species",
-                        "from_library": False,
-                        "photo_url": photo_url,
-                    })
-                try:
-                    _db = get_db()
-                    _db.execute(
-                        "INSERT INTO perenual_log (query, result_count, logged_at, user_id) VALUES (?, ?, ?, ?)",
-                        (q, len(results), datetime.utcnow().isoformat(timespec="seconds"), g.user["id"] if g.get("user") else None),
-                    )
-                    _db.commit()
-                except Exception:
-                    pass
-                if results:
-                    return jsonify(results=results)
-            except Exception:
-                pass
-
-        # ── iNaturalist (free fallback) ──
-        # Belt-and-suspenders: iconic_taxa param filters the request; this set
-        # catches anything that slips through (animals, insects, birds, etc.)
-        # Note: "" intentionally excluded — a missing iconic_taxon_name means
-        # the taxon is unclassified and should not appear in plant search.
         _PLANT_ICONIC_TAXA = {"Plantae", "Fungi", "Chromista"}
-        # Exclude broad high-level ranks that are never useful as a "plant to add"
-        # and can include non-plant kingdoms when iconic_taxon_name is absent.
         _EXCLUDED_RANKS = {
             "stateofmatter", "kingdom", "phylum", "subphylum", "superclass",
             "class", "subclass", "infraclass", "superorder", "order",
             "suborder", "infraorder", "parvorder", "superfamily",
         }
-        try:
-            resp = requests.get(
-                "https://api.inaturalist.org/v1/taxa",
-                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 12},
-                timeout=8,
-            )
-            resp.raise_for_status()
-            taxa = [
-                t for t in resp.json().get("results", [])
-                if t.get("iconic_taxon_name") in _PLANT_ICONIC_TAXA
-                and (t.get("rank") or "species") not in _EXCLUDED_RANKS
-            ]
+
+        def _parse_inat(raw_taxa, matched_term_override=None):
             results = []
-            for t in taxa:
+            for t in raw_taxa:
+                if t.get("iconic_taxon_name") not in _PLANT_ICONIC_TAXA:
+                    continue
+                if (t.get("rank") or "species") in _EXCLUDED_RANKS:
+                    continue
                 photo = t.get("default_photo") or {}
-                # Collect curated taxon photos (already in the response — free, no extra call)
                 taxon_photos = []
                 for tp in (t.get("taxon_photos") or [])[:6]:
                     p = (tp.get("photo") or {})
                     url = p.get("medium_url") or p.get("square_url") or ""
                     if url:
                         taxon_photos.append(url)
-                # Fall back: use default_photo if taxon_photos is empty
                 if not taxon_photos:
                     default_url = photo.get("medium_url") or photo.get("square_url")
                     if default_url:
@@ -4363,18 +4328,90 @@ def create_app() -> Flask:
                 results.append({
                     "common_name": t.get("preferred_common_name") or t.get("name") or "",
                     "scientific_name": t.get("name") or "",
-                    "matched_term": t.get("matched_term") or "",
+                    "matched_term": matched_term_override or t.get("matched_term") or "",
                     "photo_url": photo.get("medium_url") or photo.get("square_url"),
                     "taxon_photos": taxon_photos,
                     "taxon_id": t.get("id"),
                     "rank": t.get("rank") or "species",
                     "from_library": False,
                 })
-            if results:
-                return jsonify(results=results)
+            return results
 
-            # iNaturalist found nothing — the query may be a regional/informal common name.
-            # Ask Claude to resolve it to a scientific name and retry once.
+        def _fetch_perenual():
+            key = os.environ.get("PERENUAL_API_KEY", "").strip()
+            if not key:
+                return None
+            resp = requests.get(
+                "https://perenual.com/api/species-list",
+                params={"key": key, "q": q},
+                timeout=5,
+            )
+            resp.raise_for_status()
+            data = resp.json().get("data", [])
+            results = []
+            for plant in data[:12]:
+                sci_list = plant.get("scientific_name") or []
+                img = plant.get("default_image") or {}
+                photo_url = (img.get("medium_url") or img.get("regular_url")
+                             or img.get("original_url") or None)
+                results.append({
+                    "common_name": plant.get("common_name") or "",
+                    "scientific_name": sci_list[0] if sci_list else "",
+                    "rank": "species",
+                    "from_library": False,
+                    "photo_url": photo_url,
+                })
+            return results or None
+
+        def _fetch_inat():
+            resp = requests.get(
+                "https://api.inaturalist.org/v1/taxa",
+                params={"q": q, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 12},
+                timeout=5,
+            )
+            resp.raise_for_status()
+            return _parse_inat(resp.json().get("results", []))
+
+        # ── Run Perenual + iNaturalist in parallel ──
+        api_key = os.environ.get("PERENUAL_API_KEY", "").strip()
+        perenual_results = None
+        inat_results = None
+        try:
+            if api_key:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+                    per_fut = ex.submit(_fetch_perenual)
+                    inat_fut = ex.submit(_fetch_inat)
+                    try:
+                        perenual_results = per_fut.result(timeout=5)
+                    except Exception:
+                        pass
+                    try:
+                        inat_results = inat_fut.result(timeout=5)
+                    except Exception:
+                        pass
+            else:
+                inat_results = _fetch_inat()
+        except Exception:
+            pass
+
+        if perenual_results:
+            try:
+                _db = get_db()
+                _db.execute(
+                    "INSERT INTO perenual_log (query, result_count, logged_at, user_id) VALUES (?, ?, ?, ?)",
+                    (q, len(perenual_results), datetime.utcnow().isoformat(timespec="seconds"), g.user["id"] if g.get("user") else None),
+                )
+                _db.commit()
+            except Exception:
+                pass
+            return jsonify(results=perenual_results)
+
+        if inat_results:
+            return jsonify(results=inat_results)
+
+        # Nothing found — the query may be a regional/informal common name.
+        # Ask Claude to resolve it to a scientific name and retry iNaturalist once.
+        try:
             sci = resolve_scientific_name(q)
             if sci and sci.lower() != q.lower():
                 resp2 = requests.get(
@@ -4383,35 +4420,11 @@ def create_app() -> Flask:
                     timeout=8,
                 )
                 resp2.raise_for_status()
-                for t in resp2.json().get("results", []):
-                    if t.get("iconic_taxon_name") not in _PLANT_ICONIC_TAXA:
-                        continue
-                    if (t.get("rank") or "species") in _EXCLUDED_RANKS:
-                        continue
-                    photo = t.get("default_photo") or {}
-                    taxon_photos = []
-                    for tp in (t.get("taxon_photos") or [])[:6]:
-                        p = (tp.get("photo") or {})
-                        url = p.get("medium_url") or p.get("square_url") or ""
-                        if url:
-                            taxon_photos.append(url)
-                    if not taxon_photos:
-                        default_url = photo.get("medium_url") or photo.get("square_url")
-                        if default_url:
-                            taxon_photos = [default_url]
-                    results.append({
-                        "common_name": t.get("preferred_common_name") or t.get("name") or "",
-                        "scientific_name": t.get("name") or "",
-                        "matched_term": q,  # query was resolved via Claude to this taxon
-                        "photo_url": photo.get("medium_url") or photo.get("square_url"),
-                        "taxon_photos": taxon_photos,
-                        "taxon_id": t.get("id"),
-                        "rank": t.get("rank") or "species",
-                        "from_library": False,
-                    })
-            return jsonify(results=results)
+                results = _parse_inat(resp2.json().get("results", []), matched_term_override=q)
+                return jsonify(results=results)
         except Exception:
-            return jsonify(results=[])
+            pass
+        return jsonify(results=[])
 
     @app.route("/api/plant-photo")
     @login_required
