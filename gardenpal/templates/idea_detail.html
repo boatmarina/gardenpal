@@ -179,7 +179,7 @@
           </button>
         </div>
         <!-- Inline edit: last fertilized -->
-        <div id="idea-fert-last-panel" hidden style="padding:10px 0 14px;border-top:1px solid var(--border)">
+        <div id="idea-fert-last-panel" hidden style="padding:10px 0 14px">
           <form method="post" action="{{ url_for('idea_plan_fertilize', plant_id=plant.id) }}"
                 style="display:flex;flex-direction:column;gap:10px">
             <input type="hidden" name="clear_fertilized" id="idea-clear-fert-hidden" value="" />
