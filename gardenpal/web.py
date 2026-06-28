@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 import pg8000
 import requests
-from flask import Flask, Response, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, flash, g, jsonify, make_response, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -405,6 +405,31 @@ def create_app() -> Flask:
             response.cache_control.no_cache = True
             response.cache_control.must_revalidate = True
         return response
+
+    _SW_JS = """\
+self.addEventListener('install', function() { self.skipWaiting(); });
+self.addEventListener('activate', function(e) {
+  e.waitUntil(
+    clients.claim().then(function() {
+      return clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    }).then(function(all) {
+      all.forEach(function(c) { try { c.navigate(c.url); } catch(_) {} });
+    })
+  );
+});
+self.addEventListener('fetch', function(e) {
+  if (e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request));
+  }
+});
+"""
+
+    @app.route("/sw.js")
+    def service_worker():
+        resp = make_response(_SW_JS)
+        resp.content_type = "application/javascript"
+        resp.cache_control.no_store = True
+        return resp
 
     @app.before_request
     def ensure_db_ready():
