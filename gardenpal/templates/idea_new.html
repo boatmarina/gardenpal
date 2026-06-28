@@ -209,9 +209,17 @@
       </label>
 
       <button type="submit" name="form_action" value="save" id="save-idea-btn"
-              onclick="var o=document.getElementById('gp-loading-overlay'),m=document.getElementById('gp-loading-msg');if(o){if(m)m.textContent='Saving…';o.style.display='flex';}">Save Idea</button>
+              onclick="this.textContent='Saving…';this.style.opacity='0.6';document.getElementById('idea-save-overlay').style.display='flex';">Save Idea</button>
     </form>
   </section>
+
+  <div id="idea-save-overlay"
+       style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(28,56,41,0.22);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;padding:24px 32px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.13)">
+      <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
+      <p style="font-size:0.82rem;color:var(--muted);margin:0">Saving your plant…</p>
+    </div>
+  </div>
 {% endblock %}
 
 {% block scripts %}
