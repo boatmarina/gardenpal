@@ -4323,7 +4323,16 @@ def create_app() -> Flask:
         # ── iNaturalist (free fallback) ──
         # Belt-and-suspenders: iconic_taxa param filters the request; this set
         # catches anything that slips through (animals, insects, birds, etc.)
-        _PLANT_ICONIC_TAXA = {"Plantae", "Fungi", "Chromista", "Protozoa", ""}
+        # Note: "" intentionally excluded — a missing iconic_taxon_name means
+        # the taxon is unclassified and should not appear in plant search.
+        _PLANT_ICONIC_TAXA = {"Plantae", "Fungi", "Chromista"}
+        # Exclude broad high-level ranks that are never useful as a "plant to add"
+        # and can include non-plant kingdoms when iconic_taxon_name is absent.
+        _EXCLUDED_RANKS = {
+            "stateofmatter", "kingdom", "phylum", "subphylum", "superclass",
+            "class", "subclass", "infraclass", "superorder", "order",
+            "suborder", "infraorder", "parvorder", "superfamily",
+        }
         try:
             resp = requests.get(
                 "https://api.inaturalist.org/v1/taxa",
@@ -4333,7 +4342,8 @@ def create_app() -> Flask:
             resp.raise_for_status()
             taxa = [
                 t for t in resp.json().get("results", [])
-                if (t.get("iconic_taxon_name") or "") in _PLANT_ICONIC_TAXA
+                if t.get("iconic_taxon_name") in _PLANT_ICONIC_TAXA
+                and (t.get("rank") or "species") not in _EXCLUDED_RANKS
             ]
             results = []
             for t in taxa:
@@ -4374,7 +4384,9 @@ def create_app() -> Flask:
                 )
                 resp2.raise_for_status()
                 for t in resp2.json().get("results", []):
-                    if (t.get("iconic_taxon_name") or "") not in _PLANT_ICONIC_TAXA:
+                    if t.get("iconic_taxon_name") not in _PLANT_ICONIC_TAXA:
+                        continue
+                    if (t.get("rank") or "species") in _EXCLUDED_RANKS:
                         continue
                     photo = t.get("default_photo") or {}
                     taxon_photos = []
