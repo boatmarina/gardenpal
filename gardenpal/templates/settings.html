@@ -9,13 +9,13 @@
 
   {% if current_user and current_user['is_admin'] %}
   <!-- Tab bar — admin only -->
-  <div style="display:flex;gap:4px;padding:4px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-xl);margin-bottom:20px">
+  <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;margin-bottom:20px">
     <button id="tab-settings" onclick="showTab('settings')"
-            style="flex:1;padding:7px 12px;border:none;border-radius:calc(var(--r-xl) - 2px);font-size:0.83rem;font-weight:600;font-family:inherit;cursor:pointer;transition:background 0.15s,color 0.15s">
+            style="flex:1;padding:4px 12px;border:none;border-radius:999px;font-size:0.72rem;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background 0.15s,color 0.15s">
       Settings
     </button>
     <button id="tab-admin" onclick="showTab('admin')"
-            style="flex:1;padding:7px 12px;border:none;border-radius:calc(var(--r-xl) - 2px);font-size:0.83rem;font-weight:600;font-family:inherit;cursor:pointer;transition:background 0.15s,color 0.15s">
+            style="flex:1;padding:4px 12px;border:none;border-radius:999px;font-size:0.72rem;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;transition:background 0.15s,color 0.15s">
       Admin
     </button>
   </div>
@@ -596,7 +596,7 @@ function toggleFertTracking() {
     var isSettings = name === 'settings';
     document.getElementById('panel-settings').hidden = !isSettings;
     document.getElementById('panel-admin').hidden = isSettings;
-    var btnActive   = 'background:var(--green-dark);color:#fff';
+    var btnActive   = 'background:#1C3829;color:#fff';
     var btnInactive = 'background:transparent;color:var(--muted)';
     document.getElementById('tab-settings').style.cssText += ';' + (isSettings ? btnActive : btnInactive);
     document.getElementById('tab-admin').style.cssText    += ';' + (isSettings ? btnInactive : btnActive);
