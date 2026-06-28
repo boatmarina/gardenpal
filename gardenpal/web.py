@@ -670,8 +670,9 @@ def create_app() -> Flask:
                 f" FROM plants WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
-                f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?",
-                id_args + [deadline],
+                f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?"
+                f" AND lower(name) IN (SELECT lower(plant_name) FROM yard_plants WHERE user_id IN {ph})",
+                id_args + [deadline] + id_args,
             ).fetchall()
             for r in ornamental_candidates:
                 gen_at = r["next_fertilization_generated_at"] or None
@@ -741,8 +742,9 @@ def create_app() -> Flask:
                 f" AND (never_water IS NULL OR never_water = 0)"
                 f" AND watering_frequency_days IS NOT NULL"
                 f" AND next_watering_date IS NOT NULL"
-                f" AND next_watering_date <= ?",
-                id_args + [water_deadline],
+                f" AND next_watering_date <= ?"
+                f" AND lower(name) IN (SELECT lower(plant_name) FROM yard_plants WHERE user_id IN {ph})",
+                id_args + [water_deadline] + id_args,
             ).fetchall()
             for r in water_ornamental_rows:
                 watering_alerts.append({
