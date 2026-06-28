@@ -5575,6 +5575,24 @@ def init_db():
                     "UPDATE garden_photos SET fertilization_date = ? WHERE id = ?",
                     [fert_date, row["id"]],
                 )
+
+    # One-time: reset fertilization suggestions for entries where planting_method is set
+    # but the suggestion was generated before planting_method was being included in the
+    # prompt — so the AI was assuming seedling stage incorrectly.
+    # Cutoff 2026-06-28: any suggestion generated before this date gets cleared.
+    # After regeneration, generated_at >= '2026-06-28', so this becomes a no-op on repeat runs.
+    try:
+        db.execute(
+            """UPDATE garden_entries
+               SET next_fertilization_generated_at = NULL
+               WHERE planting_method IS NOT NULL
+                 AND planting_method != ''
+                 AND next_fertilization_generated_at IS NOT NULL
+                 AND next_fertilization_generated_at < '2026-06-28'"""
+        )
+    except Exception:
+        pass
+
     db.commit()
 
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
