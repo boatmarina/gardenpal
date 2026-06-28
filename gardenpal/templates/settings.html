@@ -56,16 +56,15 @@
     </section>
 
     <section class="panel" style="margin-bottom:16px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-        <div style="flex:1;min-width:0">
-          <h2 style="margin-bottom:2px">Help me track my fertilization</h2>
-          <p class="muted" style="font-size:0.83rem;margin:0">
-            Log when you fertilize, get reminders to stay on schedule, and track your history across your whole garden.
-          </p>
-        </div>
+      <h2 style="margin-bottom:6px">Help me track my fertilization</h2>
+      <p class="muted" style="font-size:0.83rem;margin:0 0 14px">
+        Log when you fertilize, get reminders to stay on schedule, and track your history across your whole garden.
+      </p>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:0.85rem;color:var(--muted)">{{ 'Enabled' if current_user.fertilization_tracking else 'Disabled' }}</span>
         <button type="button" id="fert-toggle-btn"
                 onclick="toggleFertTracking()"
-                style="flex-shrink:0;min-width:56px;padding:0 12px;height:30px;border-radius:999px;border:2px solid transparent;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;transition:background 0.2s,color 0.2s,border-color 0.2s;{% if current_user.fertilization_tracking %}background:var(--green-dark);color:#fff;border-color:var(--green-dark){% else %}background:var(--bg);color:var(--muted);border-color:var(--border){% endif %}">
+                style="min-width:56px;height:30px;padding:0 14px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;transition:background 0.2s,color 0.2s;{% if current_user.fertilization_tracking %}background:#1C3829;color:#fff{% else %}background:#D3CEC6;color:#4A5E48{% endif %}">
           {{ 'ON' if current_user.fertilization_tracking else 'OFF' }}
         </button>
       </div>
@@ -578,8 +577,10 @@ function toggleFertTracking() {
   .then(function(data) {
     if (data.ok) {
       btn.textContent = data.enabled ? 'ON' : 'OFF';
-      btn.style.background = data.enabled ? 'var(--green-dark)' : 'var(--border)';
-      btn.style.color = data.enabled ? '#fff' : 'var(--muted)';
+      btn.style.background = data.enabled ? '#1C3829' : '#D3CEC6';
+      btn.style.color = data.enabled ? '#fff' : '#4A5E48';
+      var label = btn.parentElement.querySelector('span');
+      if (label) label.textContent = data.enabled ? 'Enabled' : 'Disabled';
     }
   })
   .catch(function() {})
