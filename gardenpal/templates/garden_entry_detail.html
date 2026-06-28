@@ -576,11 +576,14 @@
               var noteEl = document.querySelector('#fert-next-panel p');
               if (noteEl) noteEl.textContent = d.next_note;
             }
-            detailFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B5E20" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Done — fertilized today';
-            detailFertDoneBtn.style.opacity = '1';
+            detailFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Fertilized today';
+            detailFertDoneBtn.style.opacity = '0.75';
+            detailFertDoneBtn.style.filter = 'grayscale(1)';
             detailFertDoneBtn.style.background = '#C8E6C9';
             detailFertDoneBtn.style.borderColor = '#A5D6A7';
             detailFertDoneBtn.style.color = '#1B5E20';
+            detailFertDoneBtn.style.cursor = 'default';
+            detailFertDoneBtn.style.pointerEvents = 'none';
             showFertTypePopup();
           } else { detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; }
         })
@@ -672,11 +675,14 @@
             if (lastEl && d.today) lastEl.textContent = gpFormatDate(d.today);
             var nextEl = document.getElementById('water-next-value');
             if (nextEl && d.next_date) nextEl.textContent = gpFormatDate(d.next_date);
-            detailWaterDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0D47A1"/><polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Done — watered today';
-            detailWaterDoneBtn.style.opacity = '1';
+            detailWaterDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Watered today';
+            detailWaterDoneBtn.style.opacity = '0.75';
+            detailWaterDoneBtn.style.filter = 'grayscale(1)';
             detailWaterDoneBtn.style.background = '#BBDEFB';
             detailWaterDoneBtn.style.borderColor = '#90CAF9';
             detailWaterDoneBtn.style.color = '#0D47A1';
+            detailWaterDoneBtn.style.cursor = 'default';
+            detailWaterDoneBtn.style.pointerEvents = 'none';
           } else { detailWaterDoneBtn.innerHTML = origHtml; detailWaterDoneBtn.disabled = false; detailWaterDoneBtn.style.opacity = '1'; }
         })
         .catch(function(){ detailWaterDoneBtn.innerHTML = origHtml; detailWaterDoneBtn.disabled = false; detailWaterDoneBtn.style.opacity = '1'; });
