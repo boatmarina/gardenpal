@@ -130,7 +130,7 @@
           </button>
         </div>
         <!-- Inline edit: last fertilized -->
-        <div id="fert-last-panel" hidden style="padding:10px 0 14px;border-top:1px solid var(--border)">
+        <div id="fert-last-panel" hidden style="padding:10px 0 14px">
           <form method="post" action="{{ url_for('garden_plan_fertilize', entry_id=entry.id) }}"
                 style="display:flex;flex-direction:column;gap:10px">
             <input type="hidden" name="clear_fertilized" id="clear-fert-hidden" value="" />
