@@ -185,17 +185,14 @@
             <input type="hidden" name="clear_fertilized" id="idea-clear-fert-hidden" value="" />
             <!-- preserve planned date so submitting this form doesn't wipe it -->
             <input type="hidden" name="planned_date" value="{{ (next_fertilization.planned_date if next_fertilization else None) or '' }}" />
-            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
-              Last fertilized date
-              <div style="display:flex;align-items:center;gap:6px">
-                <input type="date" name="last_fertilized_date"
-                       id="idea-last-fert-date-input"
-                       value="{{ last_fertilized.date if last_fertilized and last_fertilized.date else '' }}"
-                       style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;flex:1" />
-                <button type="button" id="idea-clear-fert-date-btn"
-                        style="font-size:0.72rem;padding:3px 8px;background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);white-space:nowrap;flex-shrink:0">Never</button>
-              </div>
-            </label>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="date" name="last_fertilized_date"
+                     id="idea-last-fert-date-input"
+                     value="{{ last_fertilized.date if last_fertilized and last_fertilized.date else '' }}"
+                     style="font-size:0.85rem;flex:1;min-width:0" />
+              <button type="button" id="idea-clear-fert-date-btn"
+                      style="font-size:0.72rem;padding:3px 8px;background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);white-space:nowrap;flex-shrink:0;{% if not (last_fertilized and last_fertilized.date) %}display:none{% endif %}">Clear</button>
+            </div>
             <div>
               <button type="submit" id="idea-fert-last-save-btn" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
             </div>
@@ -667,14 +664,21 @@
     });
   }
 
-  // Never button — clears the last-fert date field
+  // Clear button — clears the last-fert date field and hides itself
   var ideaClearFertDateBtn = document.getElementById('idea-clear-fert-date-btn');
+  var ideaLastFertInp = document.getElementById('idea-last-fert-date-input');
   if (ideaClearFertDateBtn) {
     ideaClearFertDateBtn.addEventListener('click', function() {
-      var inp = document.getElementById('idea-last-fert-date-input');
       var clrHidden = document.getElementById('idea-clear-fert-hidden');
       if (clrHidden) clrHidden.value = '1';
-      if (inp) inp.value = '';
+      if (ideaLastFertInp) ideaLastFertInp.value = '';
+      ideaClearFertDateBtn.style.display = 'none';
+    });
+  }
+  if (ideaLastFertInp) {
+    ideaLastFertInp.addEventListener('change', function() {
+      if (ideaClearFertDateBtn)
+        ideaClearFertDateBtn.style.display = ideaLastFertInp.value ? '' : 'none';
     });
   }
 
