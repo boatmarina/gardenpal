@@ -282,7 +282,7 @@ def create_app() -> Flask:
     WHATS_NEW_CHANGELOG = [
         {
             "version": "2026-06-f",
-            "title": "Track your fertilization schedule",
+            "title": "Fertilization reminders for your whole garden",
             "body": "Log when you fertilize, get reminders to stay on schedule, and track your history across your whole garden. It’s off by default — turn it on in Settings under “Help me track my fertilization.”",
             "draft": True,
         },
