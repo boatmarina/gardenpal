@@ -541,8 +541,12 @@ function applyDetails(details) {
       const clickedBtn = e.submitter;
       if (clickedBtn && clickedBtn.value === 'save') {
         clickedBtn.disabled = true;
-        clickedBtn.textContent = 'Saving…';
-        clickedBtn.style.opacity = '0.7';
+        const gpOverlay = document.getElementById('gp-loading-overlay');
+        const gpMsg     = document.getElementById('gp-loading-msg');
+        if (gpOverlay) {
+          if (gpMsg) gpMsg.textContent = 'Saving…';
+          gpOverlay.style.display = 'flex';
+        }
       }
       const mode = activeModeField ? activeModeField.value : 'name';
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
