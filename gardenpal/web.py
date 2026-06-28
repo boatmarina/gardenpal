@@ -861,10 +861,6 @@ def create_app() -> Flask:
         if category_id:
             query += " AND EXISTS (SELECT 1 FROM plant_categories WHERE plant_id = p.id AND category_id = ?)"
             params.append(category_id)
-        if tag_id:
-            query += " AND p.id IN (SELECT plant_id FROM plant_tags WHERE tag_id = ?)"
-            params.append(tag_id)
-
         query += " ORDER BY p.created_at DESC"
         plants = db.execute(query, params).fetchall()
 

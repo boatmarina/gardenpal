@@ -103,17 +103,11 @@
 
   {% if plants %}
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
-    <a href="#" class="tag-filter-pill {% if not active_filters.tag %}active{% endif %}" data-tag="">All</a>
-    <button type="button" id="auto-pill-planted" data-planted-filter="1"
-            class="tag-filter-pill" style="font-family:inherit">Planted</button>
-    <button type="button" id="auto-pill-not-planted" data-planted-filter="0"
-            class="tag-filter-pill" style="font-family:inherit">To plant</button>
+    <button type="button" id="pill-all" class="tag-filter-pill" style="font-family:inherit">All</button>
+    <button type="button" id="auto-pill-planted" data-planted-filter="1" class="tag-filter-pill" style="font-family:inherit">Planted</button>
+    <button type="button" id="auto-pill-not-planted" data-planted-filter="0" class="tag-filter-pill" style="font-family:inherit">To plant</button>
     {% for tag in user_tags %}
-    <a href="#" class="tag-filter-pill {% if active_filters.tag == tag.id|string %}active{% endif %}"
-       data-tag="{{ tag.id }}"
-       style="{% if active_filters.tag == tag.id|string %}background:{{ tag.color }}22;color:{{ tag.color }};border-color:{{ tag.color }}66{% endif %}">
-      {{ tag.name }}
-    </a>
+    <button type="button" class="tag-filter-pill" data-tag-id="{{ tag.id }}" data-tag-color="{{ tag.color }}" style="font-family:inherit">{{ tag.name }}</button>
     {% endfor %}
   </div>
   {% endif %}
@@ -128,7 +122,7 @@
   {% if plants %}
     <div class="cards">
       {% for plant in plants %}
-        <article class="card" data-name="{{ plant.name | lower | e }}" data-search="{{ plant.name | lower | e }} {{ (plant.scientific_name or '') | lower | e }}" data-planted="{{ '1' if plant.name|lower in zoned_plant_names else '0' }}">
+        <article class="card" data-name="{{ plant.name | lower | e }}" data-search="{{ plant.name | lower | e }} {{ (plant.scientific_name or '') | lower | e }}" data-planted="{{ '1' if plant.name|lower in zoned_plant_names else '0' }}" data-tags="{{ tags_map.get(plant.id, [])|map(attribute='id')|join(',') }}">
           <a href="{{ url_for('idea_detail', plant_id=plant.id) }}" class="card-link">
             <div class="thumb">
               {% set first_photo = plant.photo_urls | first_photo %}
@@ -206,53 +200,98 @@
   var originalOrder  = cards.slice();
   var emptyMsg       = document.getElementById('search-empty');
 
-  var plantedFilter = null; // null = all, '1' = planted, '0' = not planted
+  /* Additive multi-select filter state */
+  var plantedFilters = new Set(); // may contain '1', '0', or both
+  var selectedTags   = new Set(); // tag ID strings
 
-  function updateAutoPillStyles() {
-    var p  = document.getElementById('auto-pill-planted');
-    var np = document.getElementById('auto-pill-not-planted');
-    if (p)  p.classList.toggle('active', plantedFilter === '1');
-    if (np) np.classList.toggle('active', plantedFilter === '0');
-  }
+  function updatePillStyles() {
+    var noFilters = plantedFilters.size === 0 && selectedTags.size === 0;
 
-  document.querySelectorAll('[data-planted-filter]').forEach(function (pill) {
-    pill.addEventListener('click', function () {
-      var val = pill.dataset.plantedFilter;
-      plantedFilter = (plantedFilter === val) ? null : val;
-      updateAutoPillStyles();
-      filterCards();
+    var allPill = document.getElementById('pill-all');
+    if (allPill) {
+      allPill.style.background  = noFilters ? '#1C3829' : '';
+      allPill.style.color       = noFilters ? '#fff'    : '';
+      allPill.style.borderColor = noFilters ? '#1C3829' : '';
+    }
+
+    ['1', '0'].forEach(function(val) {
+      var pill = document.getElementById(val === '1' ? 'auto-pill-planted' : 'auto-pill-not-planted');
+      if (!pill) return;
+      pill.style.background  = plantedFilters.has(val) ? '#1C3829' : '';
+      pill.style.color       = plantedFilters.has(val) ? '#fff'    : '';
+      pill.style.borderColor = plantedFilters.has(val) ? '#1C3829' : '';
     });
-  });
+
+    document.querySelectorAll('[data-tag-id]').forEach(function(pill) {
+      var tid   = String(pill.dataset.tagId);
+      var color = pill.dataset.tagColor || '#1C3829';
+      if (selectedTags.has(tid)) {
+        pill.style.background  = color + '22';
+        pill.style.color       = color;
+        pill.style.borderColor = color + '66';
+      } else {
+        pill.style.background  = '';
+        pill.style.color       = '';
+        pill.style.borderColor = '';
+      }
+    });
+  }
 
   function filterCards() {
     var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
     var visible = 0;
-    cards.forEach(function (card) {
-      var haystack = card.getAttribute('data-search') || '';
+    cards.forEach(function(card) {
+      var haystack     = card.getAttribute('data-search') || '';
       var matchSearch  = !q || haystack.indexOf(q) !== -1;
-      var matchPlanted = plantedFilter === null || card.getAttribute('data-planted') === plantedFilter;
-      var show = matchSearch && matchPlanted;
+      var matchPlanted = plantedFilters.size === 0 || plantedFilters.has(card.getAttribute('data-planted') || '');
+      var cardTags     = (card.getAttribute('data-tags') || '').split(',').filter(Boolean);
+      var matchTags    = selectedTags.size === 0 || cardTags.some(function(t) { return selectedTags.has(t); });
+      var show = matchSearch && matchPlanted && matchTags;
       card.hidden = !show;
       if (show) visible++;
     });
-    var hasFilter = q || plantedFilter !== null;
     if (emptyMsg) {
-      emptyMsg.hidden = visible > 0 || !hasFilter;
-      if (!emptyMsg.hidden) {
-        emptyMsg.textContent = plantedFilter === '1' ? 'No planted plants match your search.' :
-                               plantedFilter === '0' ? 'No unplanted plants match your search.' :
-                               'No plants match your search.';
-      }
+      emptyMsg.hidden = visible > 0;
+      if (!emptyMsg.hidden) emptyMsg.textContent = 'No plants match your filters.';
     }
   }
 
+  var allPill = document.getElementById('pill-all');
+  if (allPill) {
+    allPill.addEventListener('click', function() {
+      plantedFilters.clear();
+      selectedTags.clear();
+      updatePillStyles();
+      filterCards();
+    });
+  }
+
+  document.querySelectorAll('[data-planted-filter]').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      var val = pill.dataset.plantedFilter;
+      if (plantedFilters.has(val)) plantedFilters.delete(val);
+      else plantedFilters.add(val);
+      updatePillStyles();
+      filterCards();
+    });
+  });
+
+  document.querySelectorAll('[data-tag-id]').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      var tid = String(pill.dataset.tagId);
+      if (selectedTags.has(tid)) selectedTags.delete(tid);
+      else selectedTags.add(tid);
+      updatePillStyles();
+      filterCards();
+    });
+  });
+
   if (searchInput) {
     searchInput.addEventListener('input', filterCards);
-    filterCards();
   }
 
   /* Sort toggle */
-  var SORT_KEY   = 'library_sort';
+  var SORT_KEY    = 'library_sort';
   var sortDateBtn = document.getElementById('lib-sort-date');
   var sortAzBtn   = document.getElementById('lib-sort-az');
 
@@ -281,18 +320,8 @@
   if (sortDateBtn) sortDateBtn.addEventListener('click', function() { applySort('date'); });
   if (sortAzBtn)   sortAzBtn.addEventListener('click',   function() { applySort('az'); });
 
+  updatePillStyles();
   applySort(sortMode);
-
-  /* Tag filter pills (server-side; auto pills use data-planted-filter instead) */
-  document.querySelectorAll('.tag-filter-pill[data-tag]').forEach(function (pill) {
-    pill.addEventListener('click', function (e) {
-      e.preventDefault();
-      var params = new URLSearchParams(window.location.search);
-      var tid = pill.dataset.tag;
-      if (tid) params.set('tag', tid); else params.delete('tag');
-      window.location.href = window.location.pathname + '?' + params.toString();
-    });
-  });
 })();
 </script>
 {% endblock %}
