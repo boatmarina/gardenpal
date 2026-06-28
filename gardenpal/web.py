@@ -414,10 +414,10 @@ def create_app() -> Flask:
         g.user = None
         g.real_admin = None
         if user_id is not None:
-            real_user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (user_id,)).fetchone()
+            real_user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (user_id,)).fetchone()
             impersonating_id = session.get("impersonating_id")
             if impersonating_id and real_user and real_user["is_admin"]:
-                impersonated = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen FROM users WHERE id = ?", (impersonating_id,)).fetchone()
+                impersonated = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (impersonating_id,)).fetchone()
                 if impersonated:
                     g.real_admin = real_user
                     g.user = impersonated
@@ -2457,6 +2457,17 @@ def create_app() -> Flask:
         db.execute("UPDATE users SET location = ? WHERE id = ?", (location or None, g.user["id"]))
         db.commit()
         flash("Location updated." if location else "Location cleared.")
+        return redirect(url_for("tools"))
+
+    @app.route("/settings/fertilization-tracking", methods=["POST"])
+    @login_required
+    def set_fertilization_tracking():
+        enabled = request.form.get("enabled") == "1"
+        db = get_db()
+        db.execute("UPDATE users SET fertilization_tracking = ? WHERE id = ?", (1 if enabled else 0, g.user["id"]))
+        db.commit()
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(ok=True, enabled=enabled)
         return redirect(url_for("tools"))
 
     @app.route("/settings/share-garden", methods=["POST"])
@@ -5416,7 +5427,14 @@ def init_db():
 
     ensure_column(db, "users", "api_token", "TEXT")
     ensure_column(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(db, "users", "fertilization_tracking", "INTEGER NOT NULL DEFAULT 0")
     db.execute("UPDATE users SET is_admin = 1 WHERE lower(username) = lower('boatmarina')")
+    # Seed fertilization tracking for early-access users (idempotent — only sets 1, never resets)
+    for _fert_user in ("boatmarina", "holval@gmail.com", "pitad"):
+        db.execute(
+            "UPDATE users SET fertilization_tracking = 1 WHERE lower(username) = lower(?)",
+            (_fert_user,),
+        )
     db.commit()
     ensure_column(db, "plants", "user_id", "INTEGER")
     ensure_column(db, "plants", "scientific_name", "TEXT")
@@ -6272,8 +6290,8 @@ def _build_plant_autocomplete_data(db, user_ids):
 
 
 def _feature_fertilization(user):
-    """Feature flag: next-fertilization suggestions + due badges. Early-access only."""
-    return (user or {}).get("username") in {"boatmarina", "holval@gmail.com"}
+    """Returns True if the user has opted in to fertilization tracking."""
+    return bool((user or {}).get("fertilization_tracking"))
 
 
 def _feature_watering(user):

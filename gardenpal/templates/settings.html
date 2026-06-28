@@ -131,6 +131,23 @@
     </section>
 
     <section class="panel" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <div>
+          <h2 style="margin-bottom:2px">Help me track my fertilization</h2>
+          <p class="muted" style="font-size:0.83rem;margin:0">
+            Shows fertilization dates, upcoming schedules, and reminders across your edible garden.
+          </p>
+        </div>
+        <button type="button" id="fert-toggle-btn"
+                onclick="toggleFertTracking()"
+                style="flex-shrink:0;min-width:52px;height:28px;border-radius:14px;border:none;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;letter-spacing:0.04em;transition:background 0.2s,color 0.2s;
+                       {% if current_user.fertilization_tracking %}background:var(--green-dark);color:#fff{% else %}background:var(--border);color:var(--muted){% endif %}">
+          {{ 'ON' if current_user.fertilization_tracking else 'OFF' }}
+        </button>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Plant photo identification</h2>
       <p class="muted" style="font-size:0.83rem;margin-bottom:14px">Choose which service identifies plants from photos.</p>
       <form method="post" action="{{ url_for('set_photo_id_provider') }}" style="display:flex;flex-direction:column;gap:10px">
@@ -545,6 +562,31 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+function toggleFertTracking() {
+  var btn = document.getElementById('fert-toggle-btn');
+  var currently = btn.textContent.trim() === 'ON';
+  var newVal = currently ? '0' : '1';
+  btn.disabled = true;
+  var fd = new FormData();
+  fd.append('enabled', newVal);
+  fetch('/settings/fertilization-tracking', {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    body: fd
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      btn.textContent = data.enabled ? 'ON' : 'OFF';
+      btn.style.background = data.enabled ? 'var(--green-dark)' : 'var(--border)';
+      btn.style.color = data.enabled ? '#fff' : 'var(--muted)';
+    }
+  })
+  .catch(function() {})
+  .finally(function() { btn.disabled = false; });
+}
+</script>
 {% if current_user and current_user['is_admin'] %}
 <script>
 (function () {
