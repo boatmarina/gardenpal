@@ -716,6 +716,7 @@ function applyDetails(details) {
     photoReserve = photos.slice(3);
     preview.innerHTML = photos.slice(0, 3).map(function(u) { return makePhotoItem(u, name || ''); }).join('');
     if (imageUrlHidden) imageUrlHidden.value = photos[0];
+    if (photoUrlsHidden) photoUrlsHidden.value = JSON.stringify(photos);
     preview.querySelectorAll('.photo-item').forEach(function(item) { attachRemove(item, preview, name || ''); });
     preview.hidden = false;
   }
@@ -767,6 +768,7 @@ function applyDetails(details) {
       photoReserve = photos.slice(3);
       preview.innerHTML = photos.slice(0, 3).map(u => makePhotoItem(u, name || '')).join('');
       if (imageUrlHidden) imageUrlHidden.value = photos[0];
+      if (photoUrlsHidden) photoUrlsHidden.value = JSON.stringify(photos);
       preview.querySelectorAll('.photo-item').forEach(item => attachRemove(item, preview, name || ''));
       preview.hidden = false;
       return true;
