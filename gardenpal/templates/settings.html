@@ -60,8 +60,7 @@
       <p class="muted" style="font-size:0.83rem;margin:0 0 14px">
         Get reminders when it's time to fertilize and easily log when you're done — across your whole garden.
       </p>
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:0.85rem;color:var(--muted)">{{ 'Enabled' if current_user.fertilization_tracking else 'Disabled' }}</span>
+      <div>
         <button type="button" id="fert-toggle-btn"
                 onclick="toggleFertTracking()"
                 style="min-width:56px;height:30px;padding:0 14px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;transition:background 0.2s,color 0.2s;{% if current_user.fertilization_tracking %}background:#1C3829;color:#fff{% else %}background:#D3CEC6;color:#4A5E48{% endif %}">
@@ -579,8 +578,6 @@ function toggleFertTracking() {
       btn.textContent = data.enabled ? 'ON' : 'OFF';
       btn.style.background = data.enabled ? '#1C3829' : '#D3CEC6';
       btn.style.color = data.enabled ? '#fff' : '#4A5E48';
-      var label = btn.parentElement.querySelector('span');
-      if (label) label.textContent = data.enabled ? 'Enabled' : 'Disabled';
     }
   })
   .catch(function() {})
