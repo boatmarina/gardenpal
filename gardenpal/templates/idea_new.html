@@ -208,7 +208,7 @@
         <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
 
-      <button type="submit" name="form_action" value="save">Save Idea</button>
+      <button type="submit" name="form_action" value="save" id="save-idea-btn">Save Idea</button>
     </form>
   </section>
 {% endblock %}
@@ -537,7 +537,13 @@ function applyDetails(details) {
   }
 
   if (form) {
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (e) => {
+      const clickedBtn = e.submitter;
+      if (clickedBtn && clickedBtn.value === 'save') {
+        clickedBtn.disabled = true;
+        clickedBtn.textContent = 'Saving…';
+        clickedBtn.style.opacity = '0.7';
+      }
       const mode = activeModeField ? activeModeField.value : 'name';
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
       if (mode === 'url' && urlNameInput) nameHidden.value = urlNameInput.value;
