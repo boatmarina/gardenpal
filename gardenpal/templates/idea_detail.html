@@ -262,7 +262,7 @@
       <div style="padding:6px 16px 14px">
         {% if last_fertilized and last_fertilized.date == today %}
         <button type="button" id="idea-fert-done-btn" disabled
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#2E7D32">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E8F5E9;border:1px solid #C8E6C9;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#A5D6A7">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Fertilized today
         </button>
@@ -362,7 +362,7 @@
       <div style="padding:6px 16px 14px">
         {% if last_watered and last_watered.date == today %}
         <button type="button" id="idea-water-done-btn" disabled
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#1565C0">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E3F2FD;border:1px solid #BBDEFB;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#90CAF9">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Watered today
         </button>
@@ -656,8 +656,8 @@
             ideaFertDoneBtn.style.opacity = '1';
             ideaFertDoneBtn.style.filter = '';
             ideaFertDoneBtn.style.background = '#E8F5E9';
-            ideaFertDoneBtn.style.borderColor = '#A5D6A7';
-            ideaFertDoneBtn.style.color = '#2E7D32';
+            ideaFertDoneBtn.style.borderColor = '#C8E6C9';
+            ideaFertDoneBtn.style.color = '#A5D6A7';
             ideaFertDoneBtn.style.cursor = 'default';
             ideaFertDoneBtn.style.pointerEvents = 'none';
             showFertTypePopup();
@@ -759,8 +759,8 @@
             ideaWaterDoneBtn.style.opacity = '1';
             ideaWaterDoneBtn.style.filter = '';
             ideaWaterDoneBtn.style.background = '#E3F2FD';
-            ideaWaterDoneBtn.style.borderColor = '#90CAF9';
-            ideaWaterDoneBtn.style.color = '#1565C0';
+            ideaWaterDoneBtn.style.borderColor = '#BBDEFB';
+            ideaWaterDoneBtn.style.color = '#90CAF9';
             ideaWaterDoneBtn.style.cursor = 'default';
             ideaWaterDoneBtn.style.pointerEvents = 'none';
           } else { ideaWaterDoneBtn.innerHTML = origHtml; ideaWaterDoneBtn.disabled = false; ideaWaterDoneBtn.style.opacity = '1'; }
