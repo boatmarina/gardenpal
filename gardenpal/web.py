@@ -5832,10 +5832,12 @@ _SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_plants_height          ON plants(user_id, height_category)",
     "CREATE INDEX IF NOT EXISTS idx_plants_created_at      ON plants(user_id, created_at DESC)",
     "CREATE INDEX IF NOT EXISTS idx_plant_cats_cat_plant   ON plant_categories(category_id, plant_id)",
-    # Fertilization alert queries (dashboard)
-    "CREATE INDEX IF NOT EXISTS idx_plants_user_next_fert  ON plants(user_id, next_fertilization_date)",
-    "CREATE INDEX IF NOT EXISTS idx_garden_entries_zone_id ON garden_entries(zone_id)",
+    # Fertilization + watering alert queries (dashboard)
+    "CREATE INDEX IF NOT EXISTS idx_plants_user_next_fert    ON plants(user_id, next_fertilization_date)",
+    "CREATE INDEX IF NOT EXISTS idx_plants_user_next_water   ON plants(user_id, next_watering_date)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_entries_zone_id   ON garden_entries(zone_id)",
     "CREATE INDEX IF NOT EXISTS idx_garden_entries_next_fert ON garden_entries(user_id, next_fertilization_date)",
+    "CREATE INDEX IF NOT EXISTS idx_garden_entries_next_water ON garden_entries(user_id, next_watering_date)",
     # --- API usage tracking (rate limiting + daily spending caps) ---
     """
     CREATE TABLE IF NOT EXISTS api_usage (
