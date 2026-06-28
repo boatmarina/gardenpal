@@ -208,7 +208,8 @@
         <textarea name="notes" rows="3">{{ form_values.notes }}</textarea>
       </label>
 
-      <button type="submit" name="form_action" value="save" id="save-idea-btn">Save Idea</button>
+      <button type="submit" name="form_action" value="save" id="save-idea-btn"
+              onclick="var o=document.getElementById('gp-loading-overlay'),m=document.getElementById('gp-loading-msg');if(o){if(m)m.textContent='Saving…';o.style.display='flex';}">Save Idea</button>
     </form>
   </section>
 {% endblock %}
@@ -541,12 +542,6 @@ function applyDetails(details) {
       const clickedBtn = e.submitter;
       if (clickedBtn && clickedBtn.value === 'save') {
         clickedBtn.disabled = true;
-        const gpOverlay = document.getElementById('gp-loading-overlay');
-        const gpMsg     = document.getElementById('gp-loading-msg');
-        if (gpOverlay) {
-          if (gpMsg) gpMsg.textContent = 'Saving…';
-          gpOverlay.style.display = 'flex';
-        }
       }
       const mode = activeModeField ? activeModeField.value : 'name';
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;

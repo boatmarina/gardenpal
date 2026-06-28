@@ -200,12 +200,12 @@
   var originalOrder  = cards.slice();
   var emptyMsg       = document.getElementById('search-empty');
 
-  /* Additive multi-select filter state */
-  var plantedFilters = new Set(); // may contain '1', '0', or both
-  var selectedTags   = new Set(); // tag ID strings
+  /* Filter state: planted is radio (one or none), tags are additive multi-select */
+  var plantedFilter = null;        // null | '1' | '0'
+  var selectedTags  = new Set();   // tag ID strings
 
   function updatePillStyles() {
-    var noFilters = plantedFilters.size === 0 && selectedTags.size === 0;
+    var noFilters = plantedFilter === null && selectedTags.size === 0;
 
     var allPill = document.getElementById('pill-all');
     if (allPill) {
@@ -217,9 +217,10 @@
     ['1', '0'].forEach(function(val) {
       var pill = document.getElementById(val === '1' ? 'auto-pill-planted' : 'auto-pill-not-planted');
       if (!pill) return;
-      pill.style.background  = plantedFilters.has(val) ? '#1C3829' : '';
-      pill.style.color       = plantedFilters.has(val) ? '#fff'    : '';
-      pill.style.borderColor = plantedFilters.has(val) ? '#1C3829' : '';
+      var on = plantedFilter === val;
+      pill.style.background  = on ? '#1C3829' : '';
+      pill.style.color       = on ? '#fff'    : '';
+      pill.style.borderColor = on ? '#1C3829' : '';
     });
 
     document.querySelectorAll('[data-tag-id]').forEach(function(pill) {
@@ -243,7 +244,7 @@
     cards.forEach(function(card) {
       var haystack     = card.getAttribute('data-search') || '';
       var matchSearch  = !q || haystack.indexOf(q) !== -1;
-      var matchPlanted = plantedFilters.size === 0 || plantedFilters.has(card.getAttribute('data-planted') || '');
+      var matchPlanted = plantedFilter === null || card.getAttribute('data-planted') === plantedFilter;
       var cardTags     = (card.getAttribute('data-tags') || '').split(',').filter(Boolean);
       var matchTags    = selectedTags.size === 0 || cardTags.some(function(t) { return selectedTags.has(t); });
       var show = matchSearch && matchPlanted && matchTags;
@@ -259,7 +260,7 @@
   var allPill = document.getElementById('pill-all');
   if (allPill) {
     allPill.addEventListener('click', function() {
-      plantedFilters.clear();
+      plantedFilter = null;
       selectedTags.clear();
       updatePillStyles();
       filterCards();
@@ -269,8 +270,7 @@
   document.querySelectorAll('[data-planted-filter]').forEach(function(pill) {
     pill.addEventListener('click', function() {
       var val = pill.dataset.plantedFilter;
-      if (plantedFilters.has(val)) plantedFilters.delete(val);
-      else plantedFilters.add(val);
+      plantedFilter = (plantedFilter === val) ? null : val;
       updatePillStyles();
       filterCards();
     });
