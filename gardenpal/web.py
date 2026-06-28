@@ -281,6 +281,12 @@ def create_app() -> Flask:
     # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
     WHATS_NEW_CHANGELOG = [
         {
+            "version": "2026-06-f",
+            "title": "Track your fertilization schedule",
+            "body": "Log when you fertilize, get reminders to stay on schedule, and track your history across your whole garden. It’s off by default — turn it on in Settings under “Help me track my fertilization.”",
+            "draft": True,
+        },
+        {
             "version": "2026-06-e",
             "title": "Your garden assistant, on the home screen",
             "body": "Tap \u201cAsk your garden assistant\u201d to get instant help with your whole garden \u2014 ask care questions, log notes, or make changes hands-free. Try things like \u201cWhen should I fertilize my tomatoes?\u201d or \u201cAdd zucchini to the Front Bed, planted today.\u201d",
