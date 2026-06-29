@@ -5028,6 +5028,8 @@ self.addEventListener('fetch', function(e) {
                     recent_suggestions=recent_suggestions,
                     planted_ornamental_names=planted_ornamental_names,
                     count=1,
+                    model="claude-haiku-4-5",
+                    timeout=8.0,
                 )
                 if err or not batch:
                     return jsonify(error=err or "Could not generate suggestion"), 500
