@@ -5016,16 +5016,16 @@ self.addEventListener('fetch', function(e) {
                     location, ornamental_names, edible_names,
                     recent_suggestions=recent_suggestions,
                     planted_ornamental_names=planted_ornamental_names,
-                    count=1,
+                    count=5,
                 )
                 if err or not batch:
                     return jsonify(error=err or "Could not generate suggestion"), 500
 
-                new_name = batch[0]["name"]
-                recent_suggestions = (recent_suggestions + [new_name])[-10:]
+                all_names = [b["name"] for b in batch]
+                recent_suggestions = (recent_suggestions + all_names)[-10:]
                 db.execute(
                     "UPDATE users SET suggestion_history = ?, suggestion_queue = ? WHERE id = ?",
-                    (json.dumps(recent_suggestions), json.dumps([]), user_id),
+                    (json.dumps(recent_suggestions), json.dumps(batch[1:]), user_id),
                 )
                 db.commit()
                 suggestion = fetch_photos_for_suggestion(batch[0])
