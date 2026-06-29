@@ -736,6 +736,8 @@ def generate_plant_suggestions_batch(
     recent_suggestions: Optional[List[str]] = None,
     planted_ornamental_names: Optional[List[str]] = None,
     count: int = 5,
+    model: str = "claude-sonnet-4-6",
+    timeout: float = 5.0,
 ) -> Tuple[Optional[List[Dict]], Optional[str]]:
     """Generate `count` suggestions in a single Claude call. Returns (list_of_dicts, error).
     Dicts do NOT include photos — call fetch_photos_for_suggestion() separately."""
@@ -752,10 +754,10 @@ def generate_plant_suggestions_batch(
         "All plants must be distinct. Respond ONLY with valid JSON — no explanation, nothing else."
     )
 
-    client = anthropic.Anthropic(api_key=api_key, timeout=5.0)
+    client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=model,
             max_tokens=count * 400,
             system=(
                 "You are a knowledgeable gardening advisor. "
