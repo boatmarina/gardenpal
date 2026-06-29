@@ -536,6 +536,8 @@ if (markAllBtn) {
       }
       skeleton.style.display = 'none';
       link.style.display = 'flex';
+      // Pre-fill queue in background so next visits are instant
+      fetch('{{ url_for("api_plant_suggestion_prefetch") }}').catch(function(){});
     })
     .catch(function() { clearTimeout(timer); wrap.style.display = 'none'; });
 })();

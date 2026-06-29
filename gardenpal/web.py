@@ -5016,16 +5016,16 @@ self.addEventListener('fetch', function(e) {
                     location, ornamental_names, edible_names,
                     recent_suggestions=recent_suggestions,
                     planted_ornamental_names=planted_ornamental_names,
-                    count=5,
+                    count=1,
                 )
                 if err or not batch:
                     return jsonify(error=err or "Could not generate suggestion"), 500
 
-                all_names = [b["name"] for b in batch]
-                recent_suggestions = (recent_suggestions + all_names)[-10:]
+                new_name = batch[0]["name"]
+                recent_suggestions = (recent_suggestions + [new_name])[-10:]
                 db.execute(
-                    "UPDATE users SET suggestion_history = ?, suggestion_queue = ? WHERE id = ?",
-                    (json.dumps(recent_suggestions), json.dumps(batch[1:]), user_id),
+                    "UPDATE users SET suggestion_history = ? WHERE id = ?",
+                    (json.dumps(recent_suggestions), user_id),
                 )
                 db.commit()
                 suggestion = fetch_photos_for_suggestion(batch[0])
@@ -5035,6 +5035,89 @@ self.addEventListener('fetch', function(e) {
             return jsonify(suggestion)
         except Exception as exc:
             return jsonify(error=f"Suggestion error: {exc}"), 500
+
+    @app.route("/api/plant-suggestion/prefetch")
+    @login_required
+    def api_plant_suggestion_prefetch():
+        """Background queue pre-fill — called fire-and-forget by the dashboard JS."""
+        try:
+            db = get_db()
+            user_id = g.user["id"]
+            ids = _shared_user_ids(db, user_id)
+            ph, id_args = _in_ids(ids)
+
+            user_row = db.execute(
+                "SELECT suggestion_history, suggestion_queue FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+
+            try:
+                queue = json.loads((user_row["suggestion_queue"] if user_row else None) or "[]")
+                if not isinstance(queue, list):
+                    queue = []
+                queue = [q for q in queue if isinstance(q, dict) and q.get("name")]
+            except Exception:
+                queue = []
+
+            needed = max(0, 4 - len(queue))
+            if needed == 0:
+                return jsonify(ok=True)
+
+            try:
+                recent_suggestions = json.loads((user_row["suggestion_history"] if user_row else None) or "[]")
+                if not isinstance(recent_suggestions, list):
+                    recent_suggestions = []
+                recent_suggestions = [
+                    s["name"] if isinstance(s, dict) else str(s)
+                    for s in recent_suggestions
+                    if s and (s.get("name") if isinstance(s, dict) else s)
+                ]
+            except Exception:
+                recent_suggestions = []
+
+            ornamental_rows = db.execute(
+                f"SELECT name FROM plants WHERE user_id IN {ph} ORDER BY created_at DESC LIMIT 40",
+                id_args,
+            ).fetchall()
+            edible_rows = db.execute(
+                f"SELECT DISTINCT plant_name FROM garden_entries WHERE user_id IN {ph} ORDER BY plant_name LIMIT 30",
+                id_args,
+            ).fetchall()
+            zone_rows = db.execute(
+                f"SELECT DISTINCT plant_name FROM yard_plants WHERE user_id IN {ph}",
+                id_args,
+            ).fetchall()
+            ornamental_names = [r["name"] for r in ornamental_rows]
+            edible_names = [r["plant_name"] for r in edible_rows]
+            planted_in_zone = set(r["plant_name"] for r in zone_rows)
+            planted_ornamental_names = [n for n in ornamental_names if n in planted_in_zone]
+            location = g.user.get("location") or ""
+
+            # Avoid duplicating what's already queued
+            queued_names = [q["name"] for q in queue if q.get("name")]
+            avoid = recent_suggestions + queued_names
+
+            batch, err = generate_plant_suggestions_batch(
+                location, ornamental_names, edible_names,
+                recent_suggestions=avoid,
+                planted_ornamental_names=planted_ornamental_names,
+                count=needed,
+                model="claude-haiku-4-5",
+                timeout=8.0,
+            )
+            if err or not batch:
+                return jsonify(ok=True)
+
+            all_new_names = [b["name"] for b in batch]
+            updated_history = (recent_suggestions + all_new_names)[-10:]
+            queue.extend(batch)
+            db.execute(
+                "UPDATE users SET suggestion_history = ?, suggestion_queue = ? WHERE id = ?",
+                (json.dumps(updated_history), json.dumps(queue), user_id),
+            )
+            db.commit()
+        except Exception:
+            pass
+        return jsonify(ok=True)
 
     @app.route("/plant-suggestion")
     @login_required
