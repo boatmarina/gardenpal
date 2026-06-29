@@ -238,6 +238,14 @@
     });
   }
 
+  function syncURL() {
+    var params = new URLSearchParams();
+    if (plantedFilter !== null) params.set('planted', plantedFilter);
+    if (selectedTags.size > 0) params.set('tags', Array.from(selectedTags).join(','));
+    var qs = params.toString();
+    history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+  }
+
   function filterCards() {
     var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
     var visible = 0;
@@ -255,6 +263,7 @@
       emptyMsg.hidden = visible > 0;
       if (!emptyMsg.hidden) emptyMsg.textContent = 'No plants match your filters.';
     }
+    syncURL();
   }
 
   var allPill = document.getElementById('pill-all');
@@ -319,6 +328,15 @@
 
   if (sortDateBtn) sortDateBtn.addEventListener('click', function() { applySort('date'); });
   if (sortAzBtn)   sortAzBtn.addEventListener('click',   function() { applySort('az'); });
+
+  // Restore filter state from URL (supports back-button and direct links)
+  (function() {
+    var params = new URLSearchParams(location.search);
+    var pv = params.get('planted');
+    if (pv === '1' || pv === '0') plantedFilter = pv;
+    var tv = params.get('tags');
+    if (tv) tv.split(',').filter(Boolean).forEach(function(t) { selectedTags.add(t); });
+  })();
 
   updatePillStyles();
   applySort(sortMode);
