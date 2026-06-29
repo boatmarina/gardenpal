@@ -132,7 +132,7 @@
        style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(28,56,41,0.18);align-items:center;justify-content:center">
     <div style="background:#fff;border-radius:16px;padding:24px 32px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.13)">
       <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
-      <p style="font-size:0.82rem;color:var(--muted);margin:0" id="gp-loading-msg">Saving…</p>
+      <p style="font-size:0.82rem;color:var(--muted);margin:0" id="gp-loading-msg">Please wait…</p>
     </div>
   </div>
 
@@ -221,7 +221,7 @@
       }
       /* Photo ID has its own in-page spinner — skip the full-screen overlay */
       if (action === 'autofill_photo') return;
-      show(ACTION_MSGS[action] || 'Saving…');
+      show(ACTION_MSGS[action] || 'Please wait…');
     });
 
     /* Hide if user navigates back (bfcache restore) */
