@@ -4945,7 +4945,7 @@ self.addEventListener('fetch', function(e) {
     @app.route("/api/plant-suggestion")
     @login_required
     def api_plant_suggestion():
-        # Serve from session cache — photo_url not required (may be None if iNat lookup failed)
+        # Serve from session cache first (fastest path)
         cached = session.get("plant_suggestion")
         if cached and cached.get("name"):
             return jsonify(cached)
@@ -4956,8 +4956,19 @@ self.addEventListener('fetch', function(e) {
             ph, id_args = _in_ids(ids)
 
             user_row = db.execute(
-                "SELECT suggestion_history, suggestion_queue FROM users WHERE id = ?", (user_id,)
+                "SELECT suggestion_history, suggestion_queue, current_suggestion FROM users WHERE id = ?",
+                (user_id,),
             ).fetchone()
+
+            # DB cache: survives Vercel cold starts unlike session cookies
+            try:
+                cached_db = json.loads((user_row["current_suggestion"] if user_row else None) or "null")
+                if isinstance(cached_db, dict) and cached_db.get("name"):
+                    session["plant_suggestion"] = cached_db
+                    session.modified = True
+                    return jsonify(cached_db)
+            except Exception:
+                pass
 
             try:
                 recent_suggestions = json.loads((user_row["suggestion_history"] if user_row else None) or "[]")
@@ -5030,6 +5041,11 @@ self.addEventListener('fetch', function(e) {
                 db.commit()
                 suggestion = fetch_photos_for_suggestion(batch[0])
 
+            db.execute(
+                "UPDATE users SET current_suggestion = ? WHERE id = ?",
+                (json.dumps(suggestion), user_id),
+            )
+            db.commit()
             session["plant_suggestion"] = suggestion
             session.modified = True
             return jsonify(suggestion)
@@ -5119,10 +5135,27 @@ self.addEventListener('fetch', function(e) {
             pass
         return jsonify(ok=True)
 
+    def _get_current_suggestion():
+        """Read suggestion from session or DB (whichever has it)."""
+        s = session.get("plant_suggestion")
+        if s and s.get("name"):
+            return s
+        try:
+            db = get_db()
+            row = db.execute(
+                "SELECT current_suggestion FROM users WHERE id = ?", (g.user["id"],)
+            ).fetchone()
+            cached = json.loads((row["current_suggestion"] if row else None) or "null")
+            if isinstance(cached, dict) and cached.get("name"):
+                return cached
+        except Exception:
+            pass
+        return None
+
     @app.route("/plant-suggestion")
     @login_required
     def plant_suggestion_preview():
-        suggestion = session.get("plant_suggestion")
+        suggestion = _get_current_suggestion()
         if not suggestion:
             return redirect(url_for("dashboard"))
         return render_template("plant_suggestion.html", suggestion=suggestion)
@@ -5130,7 +5163,7 @@ self.addEventListener('fetch', function(e) {
     @app.route("/plant-suggestion/add", methods=["POST"])
     @login_required
     def plant_suggestion_add():
-        suggestion = session.get("plant_suggestion")
+        suggestion = _get_current_suggestion()
         if not suggestion:
             return redirect(url_for("dashboard"))
         db = get_db()
@@ -5170,6 +5203,7 @@ self.addEventListener('fetch', function(e) {
         ).fetchone()["id"]
         db.commit()
         _log_activity(db, user_id, "suggestion_added", suggestion["name"])
+        db.execute("UPDATE users SET current_suggestion = NULL WHERE id = ?", (user_id,))
         db.commit()
         session.pop("plant_suggestion", None)
         session.modified = True
@@ -5579,6 +5613,7 @@ def init_db():
     ensure_column(db, "users", "whats_new_seen", "TEXT")
     ensure_column(db, "users", "suggestion_history", "TEXT")
     ensure_column(db, "users", "suggestion_queue", "TEXT")
+    ensure_column(db, "users", "current_suggestion", "TEXT")
     ensure_column(db, "garden_shares", "confirmed", "INTEGER NOT NULL DEFAULT 1")
     ensure_column(db, "garden_shares", "requested_by", "INTEGER")
     ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
