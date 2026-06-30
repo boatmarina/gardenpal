@@ -4536,7 +4536,7 @@ self.addEventListener('fetch', function(e) {
         entries = db.execute(
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
                        ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name,
-                       ge.planting_method, ge.never_water
+                       ge.planting_method, ge.never_water, ge.never_fertilize
                 FROM garden_entries ge
                 LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
                 WHERE ge.user_id IN {ph}
@@ -4572,6 +4572,7 @@ self.addEventListener('fetch', function(e) {
                     _pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"}
                     ln += f"\n    Started from: {_pm_labels.get(e['planting_method'], e['planting_method'])}"
                 if e["never_water"]: ln += "\n    [watering tracking: off]"
+                if e["never_fertilize"]: ln += "\n    [fertilization tracking: off]"
                 if e["notes"]: ln += f"\n    Notes: {e['notes']}"
                 for nd, nt in growth_notes.get(e["id"], []):
                     ln += f"\n    Log{' (' + nd + ')' if nd else ''}: {nt}"
@@ -4724,6 +4725,18 @@ self.addEventListener('fetch', function(e) {
                         "zone_name": {"type": "string", "description": "Zone name, or omit to clear."},
                     },
                     "required": ["entry_id"],
+                },
+            },
+            {
+                "name": "set_fertilization_tracking",
+                "description": "Turn fertilization tracking on or off for an edible garden entry. Call once per entry for bulk changes.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "track_fertilization": {"type": "boolean", "description": "true = track fertilization, false = don't track"},
+                    },
+                    "required": ["entry_id", "track_fertilization"],
                 },
             },
             {
@@ -4927,6 +4940,28 @@ self.addEventListener('fetch', function(e) {
                                     db.execute(
                                         "INSERT INTO yard_plant_notes (yard_plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
                                         (yp_id, user_id, note_date, note_text, datetime.utcnow().isoformat(timespec="seconds")),
+                                    )
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True}
+
+                        elif block.name == "set_fertilization_tracking":
+                            eid = inp.get("entry_id")
+                            track = inp.get("track_fertilization")
+                            if eid is None or track is None:
+                                result = {"error": "entry_id and track_fertilization are required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id, user_id FROM garden_entries WHERE id = ?", (eid,)
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} is read-only (partner's)"}
+                                else:
+                                    db.execute(
+                                        "UPDATE garden_entries SET never_fertilize = ? WHERE id = ?",
+                                        (0 if track else 1, eid),
                                     )
                                     db.commit()
                                     changed = True
