@@ -257,7 +257,7 @@
               {% else %}
                 <span style="font-size:0.7rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">{{ row.context }}</span>
               {% endif %}
-              <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+              <span class="utc-ts" data-utc="{{ row.logged_at }}" style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
             </div>
             <p style="font-size:0.82rem;margin:0;color:var(--text);line-height:1.4">{{ row.user_message }}</p>
           </div>
@@ -443,7 +443,7 @@
               {% else %}
                 <span style="font-size:0.7rem;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 6px">{{ row.error_type }}</span>
               {% endif %}
-              <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+              <span class="utc-ts" data-utc="{{ row.logged_at }}" style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.logged_at[:16].replace('T', ' ') }}</span>
             </div>
             {% if row.user_message %}
               <p style="font-size:0.8rem;margin:0 0 2px;color:var(--text)">"{{ row.user_message }}"</p>
@@ -680,4 +680,20 @@ function toggleFertTracking() {
 
 </script>
 {% endif %}
+<script>
+(function(){
+  var fmt = new Intl.DateTimeFormat([], {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+  document.querySelectorAll('.utc-ts').forEach(function(el){
+    var utc = el.dataset.utc;
+    if (!utc) return;
+    try {
+      var d = new Date(utc.endsWith('Z') ? utc : utc + 'Z');
+      var parts = fmt.formatToParts(d);
+      var p = {};
+      parts.forEach(function(x){ p[x.type] = x.value; });
+      el.textContent = p.year + '-' + p.month + '-' + p.day + ' ' + p.hour + ':' + p.minute;
+    } catch(e) {}
+  });
+})();
+</script>
 {% endblock %}
