@@ -795,7 +795,11 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       fetch('/api/plant-photos?q=' + encodeURIComponent(name || '') + '&count=6')
         .then(r => r.json())
         .then(d => {
-          const photos = (d.photos || []).slice(0, 3);
+          var photos = (d.photos || []).slice(0, 3);
+          // Preserve the originally shown thumbnail if it isn't in the fetched set
+          if (inlineUrl && !photos.includes(inlineUrl)) {
+            photos = [inlineUrl].concat(photos).slice(0, 3);
+          }
           if (GP.renderPhotosInGrid(newPreview, photos, name || '')) {
             hImageUrl.value = photos[0];
           }

@@ -768,6 +768,10 @@ function applyDetails(details) {
     }
 
     function applyPhotos(photos) {
+      // Preserve the originally shown thumbnail if it isn't in the fetched set
+      if (inlineUrl && !photos.includes(inlineUrl)) {
+        photos = [inlineUrl].concat(photos);
+      }
       if (!photos.length) return false;
       photoReserve = photos.slice(3);
       preview.innerHTML = photos.slice(0, 3).map(u => makePhotoItem(u, name || '')).join('');
