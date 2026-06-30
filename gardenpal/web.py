@@ -4656,7 +4656,7 @@ self.addEventListener('fetch', function(e) {
             + suggestion_text + "\n"
             "You can answer questions about any plant across both edibles and ornamentals. "
             "You can also act: add notes, update edible entries, change zones, save ornamental notes, add new plants to the ornamentals library. "
-            "To add a new ornamental, use the add_ornamental tool — it searches for the best match and adds it automatically. "
+            "To add a new ornamental: first call search_ornamental to get candidates, then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental with the taxon_id and scientific_name for a fully enriched record (description, care details, photo). "
             "Entries marked [partner's — read only] are read-only. "
             "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
             "(e.g. two spinach entries in different zones), always list the options and ask which one they mean "
@@ -4818,12 +4818,25 @@ self.addEventListener('fetch', function(e) {
                 },
             },
             {
-                "name": "add_ornamental",
-                "description": "Add a new plant to the user's ornamentals library. Searches iNaturalist for the best matching plant name and adds it. Use when the user asks to add or track a plant in their ornamentals/library. If the plant already exists, returns the existing record.",
+                "name": "search_ornamental",
+                "description": "Search iNaturalist for ornamental plant candidates by name. Returns up to 5 matches with taxon_id, common name, scientific name, and observation count. Use this BEFORE add_ornamental to find the best match — use the user's location, conversation context, and observation counts to pick intelligently, or ask the user if genuinely ambiguous.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string", "description": "Plant name (common or scientific) to search for and add"},
+                        "name": {"type": "string", "description": "Plant name (common or scientific) to search for"},
+                    },
+                    "required": ["name"],
+                },
+            },
+            {
+                "name": "add_ornamental",
+                "description": "Add a plant to the user's ornamentals library with full details (description, care info, photo). Provide taxon_id and scientific_name from search_ornamental for best results. If the plant already exists, returns the existing record.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Plant common name"},
+                        "scientific_name": {"type": "string", "description": "Scientific name (from search_ornamental)"},
+                        "taxon_id": {"type": "integer", "description": "iNaturalist taxon ID (from search_ornamental)"},
                     },
                     "required": ["name"],
                 },
@@ -5159,46 +5172,116 @@ self.addEventListener('fetch', function(e) {
                                     changed = True
                                 result = {"ok": True, "updated": len(safe_ids)}
 
-                        elif block.name == "add_ornamental":
+                        elif block.name == "search_ornamental":
                             name_query = (inp.get("name") or "").strip()
                             if not name_query:
                                 result = {"error": "name is required"}
                             else:
+                                _PLANT_ICONIC_TAXA_S = {"Plantae", "Fungi", "Chromista"}
+                                _EXCLUDED_RANKS_S = {"stateofmatter","kingdom","phylum","subphylum","superclass","class","subclass","infraclass","superorder","order","suborder","infraorder","parvorder","superfamily"}
+                                try:
+                                    inat_resp = requests.get(
+                                        "https://api.inaturalist.org/v1/taxa",
+                                        params={"q": name_query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 10},
+                                        timeout=6,
+                                    )
+                                    inat_resp.raise_for_status()
+                                    candidates = []
+                                    for t in inat_resp.json().get("results", []):
+                                        if t.get("iconic_taxon_name") not in _PLANT_ICONIC_TAXA_S:
+                                            continue
+                                        if (t.get("rank") or "species") in _EXCLUDED_RANKS_S:
+                                            continue
+                                        candidates.append({
+                                            "taxon_id": t.get("id"),
+                                            "common_name": t.get("preferred_common_name") or t.get("name") or "",
+                                            "scientific_name": t.get("name") or "",
+                                            "rank": t.get("rank") or "species",
+                                            "observations_count": t.get("observations_count", 0),
+                                        })
+                                        if len(candidates) >= 5:
+                                            break
+                                    result = {"candidates": candidates}
+                                except Exception as e:
+                                    result = {"error": str(e)[:200]}
+
+                        elif block.name == "add_ornamental":
+                            name_query = (inp.get("name") or "").strip()
+                            sci_input = (inp.get("scientific_name") or "").strip()
+                            taxon_id = inp.get("taxon_id")
+                            if not name_query:
+                                result = {"error": "name is required"}
+                            else:
                                 existing = db.execute(
-                                    "SELECT id, name FROM plants WHERE user_id = ? AND LOWER(name) = LOWER(?)",
-                                    (user_id, name_query),
+                                    "SELECT id, name FROM plants WHERE user_id = ? AND (LOWER(name) = LOWER(?) OR (scientific_name IS NOT NULL AND LOWER(scientific_name) = LOWER(?)))",
+                                    (user_id, name_query, sci_input or name_query),
                                 ).fetchone()
                                 if existing:
                                     result = {"ok": True, "already_exists": True, "plant_id": existing["id"], "name": existing["name"]}
                                 else:
-                                    _PLANT_ICONIC_TAXA = {"Plantae", "Fungi", "Chromista"}
+                                    lookup_q = sci_input or name_query
+                                    details, _ = lookup_plant_details(lookup_q, location=user_location or None)
                                     matched_name = name_query
-                                    matched_sci = None
+                                    matched_sci = sci_input or None
                                     matched_image = None
-                                    try:
-                                        inat_resp = requests.get(
-                                            "https://api.inaturalist.org/v1/taxa",
-                                            params={"q": name_query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 5},
-                                            timeout=6,
-                                        )
-                                        inat_resp.raise_for_status()
-                                        for t in inat_resp.json().get("results", []):
-                                            if t.get("iconic_taxon_name") in _PLANT_ICONIC_TAXA:
-                                                matched_name = t.get("preferred_common_name") or t.get("name") or name_query
-                                                matched_sci = t.get("name") or None
-                                                photo = t.get("default_photo") or {}
-                                                matched_image = photo.get("medium_url") or photo.get("square_url") or None
-                                                break
-                                    except Exception:
-                                        pass
+                                    if details:
+                                        matched_name = details.get("name") or name_query
+                                        matched_sci = details.get("scientific_name") or sci_input or None
+                                        matched_image = details.get("photo_url") or None
+                                    if taxon_id and not matched_image:
+                                        try:
+                                            tr = requests.get(
+                                                f"https://api.inaturalist.org/v1/taxa/{taxon_id}",
+                                                timeout=5,
+                                            )
+                                            tr.raise_for_status()
+                                            tr_data = tr.json().get("results", [])
+                                            if tr_data:
+                                                ph = tr_data[0].get("default_photo") or {}
+                                                matched_image = ph.get("medium_url") or ph.get("square_url") or None
+                                                if not matched_sci:
+                                                    matched_sci = tr_data[0].get("name") or None
+                                        except Exception:
+                                            pass
+                                    sun_exp = normalize_sun_value(details.get("sun_needs") or "") if details else None
+                                    lifecycle = normalize_lifecycle(details.get("lifecycle") or "") if details else None
+                                    _VALID_PF = {"tree","shrub","perennial","annual","climber","ground-cover","grass","fern","bulb","succulent","herb","bamboo"}
+                                    pf = (details.get("plant_form") or "").strip().lower() if details else ""
+                                    plant_form = pf if pf in _VALID_PF else None
+                                    hc = (details.get("height_category") or "").strip().lower() if details else ""
+                                    height_cat = hc if hc in {"low","medium","tall","large"} else None
+                                    pnw_native = details.get("pnw_native") if details else None
+                                    pnw_native_val = 1 if pnw_native is True else (0 if pnw_native is False else None)
                                     plant_id = db.execute(
-                                        "INSERT INTO plants (user_id, name, scientific_name, lookup_query, source_type, image_url, lookup_status, created_at)"
-                                        " VALUES (?, ?, ?, ?, 'name', ?, 'ok', ?) RETURNING id",
-                                        (user_id, matched_name, matched_sci, name_query, matched_image, datetime.utcnow().isoformat(timespec="seconds")),
+                                        "INSERT INTO plants"
+                                        " (user_id, name, scientific_name, lookup_query, source_type, image_url, lookup_status, created_at,"
+                                        "  description, sun_exposure, water_needs, flowering_schedule, lifecycle, size_info,"
+                                        "  evergreen_status, plant_form, height_category, deadheading, deer_resistant, pnw_native)"
+                                        " VALUES (?,?,?,?,'name',?,'ok',?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
+                                        (
+                                            user_id, matched_name, matched_sci, name_query, matched_image,
+                                            datetime.utcnow().isoformat(timespec="seconds"),
+                                            (details.get("description") or None) if details else None,
+                                            sun_exp or None,
+                                            (details.get("watering_needs") or None) if details else None,
+                                            (details.get("flowering_schedule") or None) if details else None,
+                                            lifecycle or None,
+                                            (details.get("size_info") or None) if details else None,
+                                            (details.get("evergreen_status") or None) if details else None,
+                                            plant_form,
+                                            height_cat,
+                                            (details.get("deadheading") or None) if details else None,
+                                            (details.get("deer_resistant") or None) if details else None,
+                                            pnw_native_val,
+                                        ),
                                     ).fetchone()[0]
                                     db.commit()
                                     changed = True
-                                    result = {"ok": True, "plant_id": plant_id, "name": matched_name, "scientific_name": matched_sci or ""}
+                                    result = {
+                                        "ok": True, "plant_id": plant_id,
+                                        "name": matched_name, "scientific_name": matched_sci or "",
+                                        "details_fetched": details is not None,
+                                    }
 
                         else:
                             result = {"error": "Unknown tool"}
