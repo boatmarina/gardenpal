@@ -4624,6 +4624,7 @@ self.addEventListener('fetch', function(e) {
             if p["sun_exposure"]: ln += f" [sun: {p['sun_exposure']}]"
             if p["never_fertilize"]: ln += " [fertilization tracking: off]"
             if p["never_water"]: ln += " [watering tracking: off]"
+            if p["source_type"] == "chat": ln += " [added via assistant — deletable]"
             pls = placements_by_name.get(p["name"].lower(), [])
             if pls:
                 for pl in pls:
@@ -4657,6 +4658,7 @@ self.addEventListener('fetch', function(e) {
             "You can answer questions about any plant across both edibles and ornamentals. "
             "You can also act: add notes, update edible entries, change zones, save ornamental notes, add new plants to the ornamentals library. "
             "To add a new ornamental: first call search_ornamental to get candidates, then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental with the taxon_id and scientific_name for a fully enriched record (description, care details, photo). "
+            "You can also delete ornamentals you added via this assistant (those show source_type=chat in the context) using delete_ornamental — always confirm with the user before deleting. You cannot delete plants the user added manually. "
             "Entries marked [partner's — read only] are read-only. "
             "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
             "(e.g. two spinach entries in different zones), always list the options and ask which one they mean "
@@ -4826,6 +4828,17 @@ self.addEventListener('fetch', function(e) {
                         "name": {"type": "string", "description": "Plant name (common or scientific) to search for"},
                     },
                     "required": ["name"],
+                },
+            },
+            {
+                "name": "delete_ornamental",
+                "description": "Delete a plant from the ornamentals library. Only works on plants added via this assistant (source_type=chat) — never on plants the user added manually. Use plant_id from the ornamentals list. Confirm with the user before deleting.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_id": {"type": "integer", "description": "plant_id of the ornamental to delete"},
+                    },
+                    "required": ["plant_id"],
                 },
             },
             {
@@ -5205,6 +5218,25 @@ self.addEventListener('fetch', function(e) {
                                 except Exception as e:
                                     result = {"error": str(e)[:200]}
 
+                        elif block.name == "delete_ornamental":
+                            pid = inp.get("plant_id")
+                            if not pid:
+                                result = {"error": "plant_id is required"}
+                            else:
+                                plant = db.execute(
+                                    "SELECT id, name, source_type, user_id FROM plants WHERE id = ? AND user_id = ?",
+                                    (pid, user_id),
+                                ).fetchone()
+                                if not plant:
+                                    result = {"error": f"Plant {pid} not found"}
+                                elif plant["source_type"] != "chat":
+                                    result = {"error": f"Cannot delete '{plant['name']}' — only plants added via this assistant can be deleted here"}
+                                else:
+                                    db.execute("DELETE FROM plants WHERE id = ?", (pid,))
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True, "deleted": plant["name"]}
+
                         elif block.name == "add_ornamental":
                             name_query = (inp.get("name") or "").strip()
                             sci_input = (inp.get("scientific_name") or "").strip()
@@ -5257,7 +5289,7 @@ self.addEventListener('fetch', function(e) {
                                         " (user_id, name, scientific_name, lookup_query, source_type, image_url, lookup_status, created_at,"
                                         "  description, sun_exposure, water_needs, flowering_schedule, lifecycle, size_info,"
                                         "  evergreen_status, plant_form, height_category, deadheading, deer_resistant, pnw_native)"
-                                        " VALUES (?,?,?,?,'name',?,'ok',?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
+                                        " VALUES (?,?,?,?,'chat',?,'ok',?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
                                         (
                                             user_id, matched_name, matched_sci, name_query, matched_image,
                                             datetime.utcnow().isoformat(timespec="seconds"),
