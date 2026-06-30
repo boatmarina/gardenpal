@@ -583,6 +583,7 @@ function applyDetails(details) {
       const data = await res.json();
       const libNameSet = new Set(libMatches.map(p => (p.common_name || '').toLowerCase()));
       const apiResults = (data.results || [])
+        .filter(t => !t.iconic_taxon_name || t.iconic_taxon_name === 'Plantae' || t.iconic_taxon_name === 'Fungi')
         .filter(r => !libNameSet.has(((r.preferred_common_name || r.name) || '').toLowerCase()))
         .map(t => {
           const photo = t.default_photo || {};
@@ -627,7 +628,9 @@ function applyDetails(details) {
             {signal: _searchCtrl.signal}
           );
           const synData = await syn.json();
-          const synResults = (synData.results || []).map(t => {
+          const synResults = (synData.results || [])
+            .filter(t => !t.iconic_taxon_name || t.iconic_taxon_name === 'Plantae' || t.iconic_taxon_name === 'Fungi')
+            .map(t => {
             const photo = t.default_photo || {};
             const taxonPhotos = (t.taxon_photos || []).slice(0, 6)
               .map(tp => (tp.photo || {}).medium_url || (tp.photo || {}).square_url)
