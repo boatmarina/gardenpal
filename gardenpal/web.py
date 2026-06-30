@@ -4658,7 +4658,8 @@ self.addEventListener('fetch', function(e) {
             "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
             "(e.g. two spinach entries in different zones), always list the options and ask which one they mean "
             "BEFORE taking any action. Never guess — ambiguity must be resolved first. "
-            "For bulk changes, call the relevant tool once per item. "
+            "For bulk watering/fertilization changes across multiple entries, use the _bulk tools (pass all IDs in one call). "
+            "For other bulk changes, call the relevant tool once per item. "
             "If a tool returns an error, skip and continue — only mention if everything failed. "
             "Keep replies short. Don't mention internal IDs to the user. "
             "Always format dates as 'Month Day' (e.g. 'May 17'). "
@@ -4729,7 +4730,7 @@ self.addEventListener('fetch', function(e) {
             },
             {
                 "name": "set_fertilization_tracking",
-                "description": "Turn fertilization tracking on or off for an edible garden entry. Call once per entry for bulk changes.",
+                "description": "Turn fertilization tracking on or off for a single edible garden entry.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -4740,8 +4741,20 @@ self.addEventListener('fetch', function(e) {
                 },
             },
             {
+                "name": "set_fertilization_tracking_bulk",
+                "description": "Turn fertilization tracking on or off for multiple edible garden entries at once. Use this whenever changing tracking for more than one entry.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_ids": {"type": "array", "items": {"type": "integer"}, "description": "List of entry IDs to update"},
+                        "track_fertilization": {"type": "boolean", "description": "true = track fertilization, false = don't track"},
+                    },
+                    "required": ["entry_ids", "track_fertilization"],
+                },
+            },
+            {
                 "name": "set_watering_tracking",
-                "description": "Turn watering tracking on or off for an edible garden entry. Call once per entry for bulk changes.",
+                "description": "Turn watering tracking on or off for a single edible garden entry.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -4749,6 +4762,18 @@ self.addEventListener('fetch', function(e) {
                         "track_watering": {"type": "boolean", "description": "true = track watering, false = don't track"},
                     },
                     "required": ["entry_id", "track_watering"],
+                },
+            },
+            {
+                "name": "set_watering_tracking_bulk",
+                "description": "Turn watering tracking on or off for multiple edible garden entries at once. Use this whenever changing tracking for more than one entry.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_ids": {"type": "array", "items": {"type": "integer"}, "description": "List of entry IDs to update"},
+                        "track_watering": {"type": "boolean", "description": "true = track watering, false = don't track"},
+                    },
+                    "required": ["entry_ids", "track_watering"],
                 },
             },
             {
@@ -4774,7 +4799,7 @@ self.addEventListener('fetch', function(e) {
             for _ in range(10):
                 response = client.messages.create(
                     model="claude-sonnet-4-6",
-                    max_tokens=1024,
+                    max_tokens=4096,
                     system=system,
                     tools=tools,
                     messages=messages,
@@ -4988,6 +5013,40 @@ self.addEventListener('fetch', function(e) {
                                     db.commit()
                                     changed = True
                                     result = {"ok": True}
+
+                        elif block.name == "set_watering_tracking_bulk":
+                            eids = inp.get("entry_ids") or []
+                            track = inp.get("track_watering")
+                            if not eids or track is None:
+                                result = {"error": "entry_ids and track_watering are required"}
+                            else:
+                                safe_ids = [e for e in eids if isinstance(e, int)]
+                                if safe_ids:
+                                    id_ph2 = "({})".format(",".join(["?"] * len(safe_ids)))
+                                    db.execute(
+                                        f"UPDATE garden_entries SET never_water = ? WHERE id IN {id_ph2} AND user_id = ?",
+                                        (0 if track else 1, *safe_ids, user_id),
+                                    )
+                                    db.commit()
+                                    changed = True
+                                result = {"ok": True, "updated": len(safe_ids)}
+
+                        elif block.name == "set_fertilization_tracking_bulk":
+                            eids = inp.get("entry_ids") or []
+                            track = inp.get("track_fertilization")
+                            if not eids or track is None:
+                                result = {"error": "entry_ids and track_fertilization are required"}
+                            else:
+                                safe_ids = [e for e in eids if isinstance(e, int)]
+                                if safe_ids:
+                                    id_ph2 = "({})".format(",".join(["?"] * len(safe_ids)))
+                                    db.execute(
+                                        f"UPDATE garden_entries SET never_fertilize = ? WHERE id IN {id_ph2} AND user_id = ?",
+                                        (0 if track else 1, *safe_ids, user_id),
+                                    )
+                                    db.commit()
+                                    changed = True
+                                result = {"ok": True, "updated": len(safe_ids)}
 
                         else:
                             result = {"error": "Unknown tool"}
