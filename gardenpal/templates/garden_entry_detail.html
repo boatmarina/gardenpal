@@ -385,70 +385,75 @@
   </div>
 
   <!-- ── Growth log ── -->
-  <div class="section-header" style="margin-top:24px">
-    <span class="section-title">Growth log</span>
-  </div>
+  <div class="card" style="margin-top:20px;padding:0;overflow:hidden">
 
-  {% if photos %}
-    <div class="cards" style="margin-bottom:20px">
-      {% for photo in photos %}
-        <div class="card" style="overflow:hidden;padding:0">
-          {% if photo.image_path %}
-          <img src="{{ photo.image_path | media_url }}" alt="{{ entry.plant_name }}"
-               style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
-               onclick="GP.openLightbox(this.src)" />
-          {% endif %}
-          <div style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %};position:relative">
-            <a href="{{ url_for('garden_photo_edit', photo_id=photo.id) }}"
-               style="position:absolute;top:8px;right:10px;padding:4px;color:var(--muted);line-height:1;display:flex"
-               aria-label="Edit note">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </a>
-            <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">{{ photo.photo_date | month_day }}</p>
-            <p style="font-size:0.8rem;color:var(--muted)">{{ photo.notes or '' }}</p>
-          </div>
-        </div>
-      {% endfor %}
+    <!-- Section label -->
+    <div style="display:flex;align-items:center;gap:7px;padding:12px 16px">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:var(--muted)">Growth log</span>
     </div>
-  {% else %}
-    <p class="muted" style="font-size:0.85rem;margin-bottom:20px">No notes yet — add one below to start tracking growth.</p>
-  {% endif %}
 
-  <!-- ── Add note ── -->
-  <div class="panel stack">
-    <h3>Add a note</h3>
-    <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
-      <input type="file" name="photo" accept="image/*" id="garden-photo-input"
-             style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
-      <label>
-        Note
-        <input type="text" name="photo_notes" id="garden-note-input" placeholder="Height, flowers, any observations…" />
-      </label>
-      <label>
-        Date
-        <input type="date" name="photo_date" value="{{ today }}" />
-      </label>
-      <button type="button" class="button btn-upload" id="garden-photo-upload-btn"
-              style="display:inline-flex;align-items:center;gap:6px;justify-content:center;background:var(--card);border:1.5px dashed var(--border);color:var(--muted);font-size:0.83rem"
-              onclick="document.getElementById('garden-photo-input').click()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-        <span id="garden-photo-upload-label">Add a photo (optional)</span>
-      </button>
-      <div id="garden-photo-preview" hidden style="margin-top:4px">
-        <img id="garden-photo-thumb" src="" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r-md)" />
+    <!-- Notes or empty state -->
+    {% if photos %}
+      {% for photo in photos %}
+      <div style="border-top:1px solid var(--border)">
+        {% if photo.image_path %}
+        <img src="{{ photo.image_path | media_url }}" alt="{{ entry.plant_name }}"
+             style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
+             onclick="GP.openLightbox(this.src)" />
+        {% endif %}
+        <div style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %};position:relative">
+          <a href="{{ url_for('garden_photo_edit', photo_id=photo.id) }}"
+             style="position:absolute;top:8px;right:10px;padding:4px;color:var(--muted);line-height:1;display:flex"
+             aria-label="Edit note">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </a>
+          <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">{{ photo.photo_date | month_day }}</p>
+          <p style="font-size:0.8rem;color:var(--muted)">{{ photo.notes or '' }}</p>
+        </div>
       </div>
-      <div id="garden-photo-loading" hidden style="text-align:center;padding:10px 0 4px">
-        <div class="spinner"></div>
-        <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Saving…</p>
-      </div>
-      <button type="button" class="button" id="garden-photo-submit-btn">Save note</button>
-    </form>
+      {% endfor %}
+    {% else %}
+      <p style="font-size:0.85rem;color:var(--muted);padding:6px 16px 14px;margin:0;border-top:1px solid var(--border)">No notes yet.</p>
+    {% endif %}
+
+    <!-- Add a note — sub-section within Growth log -->
+    <div style="border-top:1px solid var(--border);padding:14px 16px 18px">
+      <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin:0 0 14px">Add a note</p>
+      <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
+        <input type="file" name="photo" accept="image/*" id="garden-photo-input"
+               style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
+        <label>
+          Note
+          <input type="text" name="photo_notes" id="garden-note-input" placeholder="Height, flowers, any observations…" />
+        </label>
+        <label>
+          Date
+          <input type="date" name="photo_date" value="{{ today }}" />
+        </label>
+        <button type="button" class="button btn-upload" id="garden-photo-upload-btn"
+                style="display:inline-flex;align-items:center;gap:6px;justify-content:center;background:var(--card);border:1.5px dashed var(--border);color:var(--muted);font-size:0.83rem"
+                onclick="document.getElementById('garden-photo-input').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          <span id="garden-photo-upload-label">Add a photo (optional)</span>
+        </button>
+        <div id="garden-photo-preview" hidden style="margin-top:4px">
+          <img id="garden-photo-thumb" src="" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r-md)" />
+        </div>
+        <div id="garden-photo-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Saving…</p>
+        </div>
+        <button type="button" class="button" id="garden-photo-submit-btn">Save note</button>
+      </form>
+    </div>
+
   </div>
 
   <!-- ── Danger ── -->
