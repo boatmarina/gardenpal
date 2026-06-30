@@ -4655,7 +4655,8 @@ self.addEventListener('fetch', function(e) {
             + f"\n=== ORNAMENTALS (library + yard placements) ===\n{ornamentals_text}\n"
             + suggestion_text + "\n"
             "You can answer questions about any plant across both edibles and ornamentals. "
-            "You can also act: add notes, update edible entries, change zones, save ornamental notes. "
+            "You can also act: add notes, update edible entries, change zones, save ornamental notes, add new plants to the ornamentals library. "
+            "To add a new ornamental, use the add_ornamental tool — it searches for the best match and adds it automatically. "
             "Entries marked [partner's — read only] are read-only. "
             "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
             "(e.g. two spinach entries in different zones), always list the options and ask which one they mean "
@@ -4814,6 +4815,17 @@ self.addEventListener('fetch', function(e) {
                         "track_fertilization": {"type": "boolean", "description": "true = track fertilization, false = don't track"},
                     },
                     "required": ["plant_ids", "track_fertilization"],
+                },
+            },
+            {
+                "name": "add_ornamental",
+                "description": "Add a new plant to the user's ornamentals library. Searches iNaturalist for the best matching plant name and adds it. Use when the user asks to add or track a plant in their ornamentals/library. If the plant already exists, returns the existing record.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Plant name (common or scientific) to search for and add"},
+                    },
+                    "required": ["name"],
                 },
             },
         ]
@@ -5146,6 +5158,47 @@ self.addEventListener('fetch', function(e) {
                                     db.commit()
                                     changed = True
                                 result = {"ok": True, "updated": len(safe_ids)}
+
+                        elif block.name == "add_ornamental":
+                            name_query = (inp.get("name") or "").strip()
+                            if not name_query:
+                                result = {"error": "name is required"}
+                            else:
+                                existing = db.execute(
+                                    "SELECT id, name FROM plants WHERE user_id = ? AND LOWER(name) = LOWER(?)",
+                                    (user_id, name_query),
+                                ).fetchone()
+                                if existing:
+                                    result = {"ok": True, "already_exists": True, "plant_id": existing["id"], "name": existing["name"]}
+                                else:
+                                    _PLANT_ICONIC_TAXA = {"Plantae", "Fungi", "Chromista"}
+                                    matched_name = name_query
+                                    matched_sci = None
+                                    matched_image = None
+                                    try:
+                                        inat_resp = requests.get(
+                                            "https://api.inaturalist.org/v1/taxa",
+                                            params={"q": name_query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 5},
+                                            timeout=6,
+                                        )
+                                        inat_resp.raise_for_status()
+                                        for t in inat_resp.json().get("results", []):
+                                            if t.get("iconic_taxon_name") in _PLANT_ICONIC_TAXA:
+                                                matched_name = t.get("preferred_common_name") or t.get("name") or name_query
+                                                matched_sci = t.get("name") or None
+                                                photo = t.get("default_photo") or {}
+                                                matched_image = photo.get("medium_url") or photo.get("square_url") or None
+                                                break
+                                    except Exception:
+                                        pass
+                                    plant_id = db.execute(
+                                        "INSERT INTO plants (user_id, name, scientific_name, lookup_query, source_type, image_url, lookup_status, created_at)"
+                                        " VALUES (?, ?, ?, ?, 'name', ?, 'ok', ?) RETURNING id",
+                                        (user_id, matched_name, matched_sci, name_query, matched_image, datetime.utcnow().isoformat(timespec="seconds")),
+                                    ).fetchone()[0]
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True, "plant_id": plant_id, "name": matched_name, "scientific_name": matched_sci or ""}
 
                         else:
                             result = {"error": "Unknown tool"}
