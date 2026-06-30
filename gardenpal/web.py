@@ -4617,11 +4617,13 @@ self.addEventListener('fetch', function(e) {
         orn_lines = []
         for p in orn_plants:
             added = (p["created_at"] or "")[:10]
-            ln = f"  {p['name']}"
+            ln = f"  plant_id={p['id']}: {p['name']}"
             if added: ln += f" [added {added}]"
             if p["scientific_name"]: ln += f" ({p['scientific_name']})"
             if p["lifecycle"]: ln += f" [{p['lifecycle']}]"
             if p["sun_exposure"]: ln += f" [sun: {p['sun_exposure']}]"
+            if p["never_fertilize"]: ln += " [fertilization tracking: off]"
+            if p["never_water"]: ln += " [watering tracking: off]"
             pls = placements_by_name.get(p["name"].lower(), [])
             if pls:
                 for pl in pls:
@@ -4658,7 +4660,8 @@ self.addEventListener('fetch', function(e) {
             "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
             "(e.g. two spinach entries in different zones), always list the options and ask which one they mean "
             "BEFORE taking any action. Never guess — ambiguity must be resolved first. "
-            "For bulk watering/fertilization changes across multiple entries, use the _bulk tools (pass all IDs in one call). "
+            "For bulk watering/fertilization changes across multiple edible entries, use the _bulk tools (pass all IDs in one call). "
+            "Ornamentals also support fertilization tracking via set_ornamental_fertilization_tracking(_bulk) using plant_id. "
             "For other bulk changes, call the relevant tool once per item. "
             "If a tool returns an error, skip and continue — only mention if everything failed. "
             "Keep replies short. Don't mention internal IDs to the user. "
@@ -4787,6 +4790,30 @@ self.addEventListener('fetch', function(e) {
                         "note_date": {"type": "string", "description": "YYYY-MM-DD, defaults to today"},
                     },
                     "required": ["yard_plant_id", "note_text"],
+                },
+            },
+            {
+                "name": "set_ornamental_fertilization_tracking",
+                "description": "Turn fertilization tracking on or off for a single ornamental plant. Use plant_id from the ornamentals list.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_id": {"type": "integer", "description": "The plant_id from the ornamentals list"},
+                        "track_fertilization": {"type": "boolean", "description": "true = track fertilization, false = don't track"},
+                    },
+                    "required": ["plant_id", "track_fertilization"],
+                },
+            },
+            {
+                "name": "set_ornamental_fertilization_tracking_bulk",
+                "description": "Turn fertilization tracking on or off for multiple ornamental plants at once. Use this whenever changing tracking for more than one ornamental.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_ids": {"type": "array", "items": {"type": "integer"}, "description": "List of plant_ids from the ornamentals list"},
+                        "track_fertilization": {"type": "boolean", "description": "true = track fertilization, false = don't track"},
+                    },
+                    "required": ["plant_ids", "track_fertilization"],
                 },
             },
         ]
@@ -5062,6 +5089,58 @@ self.addEventListener('fetch', function(e) {
                                     else:
                                         db.execute(
                                             f"UPDATE garden_entries SET never_fertilize = 1, next_fertilization_date = NULL, next_fertilization_generated_at = NULL WHERE id IN {id_ph2} AND user_id = ?",
+                                            (*safe_ids, user_id),
+                                        )
+                                    db.commit()
+                                    changed = True
+                                result = {"ok": True, "updated": len(safe_ids)}
+
+                        elif block.name == "set_ornamental_fertilization_tracking":
+                            pid = inp.get("plant_id")
+                            track = inp.get("track_fertilization")
+                            if pid is None or track is None:
+                                result = {"error": "plant_id and track_fertilization are required"}
+                            else:
+                                plant = db.execute(
+                                    f"SELECT id, user_id FROM plants WHERE id = ? AND user_id IN {ph}",
+                                    (pid, *id_args),
+                                ).fetchone()
+                                if not plant:
+                                    result = {"error": f"Plant {pid} not found"}
+                                elif plant["user_id"] != user_id:
+                                    result = {"error": f"Plant {pid} is read-only (partner's)"}
+                                else:
+                                    if track:
+                                        db.execute("UPDATE plants SET never_fertilize = 0 WHERE id = ?", (pid,))
+                                    else:
+                                        db.execute(
+                                            "UPDATE plants SET never_fertilize = 1, planned_fertilization_date = NULL,"
+                                            " next_fertilization_date = NULL, next_fertilization_generated_at = NULL WHERE id = ?",
+                                            (pid,),
+                                        )
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True}
+
+                        elif block.name == "set_ornamental_fertilization_tracking_bulk":
+                            pids = inp.get("plant_ids") or []
+                            track = inp.get("track_fertilization")
+                            if not pids or track is None:
+                                result = {"error": "plant_ids and track_fertilization are required"}
+                            else:
+                                safe_ids = [p for p in pids if isinstance(p, int)]
+                                if safe_ids:
+                                    id_ph2 = "({})".format(",".join(["?"] * len(safe_ids)))
+                                    if track:
+                                        db.execute(
+                                            f"UPDATE plants SET never_fertilize = 0 WHERE id IN {id_ph2} AND user_id = ?",
+                                            (*safe_ids, user_id),
+                                        )
+                                    else:
+                                        db.execute(
+                                            f"UPDATE plants SET never_fertilize = 1, planned_fertilization_date = NULL,"
+                                            f" next_fertilization_date = NULL, next_fertilization_generated_at = NULL"
+                                            f" WHERE id IN {id_ph2} AND user_id = ?",
                                             (*safe_ids, user_id),
                                         )
                                     db.commit()
