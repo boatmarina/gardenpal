@@ -4984,10 +4984,13 @@ self.addEventListener('fetch', function(e) {
                                 elif entry["user_id"] != user_id:
                                     result = {"error": f"Entry {eid} is read-only (partner's)"}
                                 else:
-                                    db.execute(
-                                        "UPDATE garden_entries SET never_fertilize = ? WHERE id = ?",
-                                        (0 if track else 1, eid),
-                                    )
+                                    if track:
+                                        db.execute("UPDATE garden_entries SET never_fertilize = 0 WHERE id = ?", (eid,))
+                                    else:
+                                        db.execute(
+                                            "UPDATE garden_entries SET never_fertilize = 1, next_fertilization_date = NULL, next_fertilization_generated_at = NULL WHERE id = ?",
+                                            (eid,),
+                                        )
                                     db.commit()
                                     changed = True
                                     result = {"ok": True}
@@ -5006,10 +5009,15 @@ self.addEventListener('fetch', function(e) {
                                 elif entry["user_id"] != user_id:
                                     result = {"error": f"Entry {eid} is read-only (partner's)"}
                                 else:
-                                    db.execute(
-                                        "UPDATE garden_entries SET never_water = ? WHERE id = ?",
-                                        (0 if track else 1, eid),
-                                    )
+                                    if track:
+                                        db.execute(
+                                            "UPDATE garden_entries SET never_water = 0 WHERE id = ?", (eid,)
+                                        )
+                                    else:
+                                        db.execute(
+                                            "UPDATE garden_entries SET never_water = 1, next_watering_date = NULL, watering_generated_at = NULL WHERE id = ?",
+                                            (eid,),
+                                        )
                                     db.commit()
                                     changed = True
                                     result = {"ok": True}
@@ -5023,10 +5031,16 @@ self.addEventListener('fetch', function(e) {
                                 safe_ids = [e for e in eids if isinstance(e, int)]
                                 if safe_ids:
                                     id_ph2 = "({})".format(",".join(["?"] * len(safe_ids)))
-                                    db.execute(
-                                        f"UPDATE garden_entries SET never_water = ? WHERE id IN {id_ph2} AND user_id = ?",
-                                        (0 if track else 1, *safe_ids, user_id),
-                                    )
+                                    if track:
+                                        db.execute(
+                                            f"UPDATE garden_entries SET never_water = 0 WHERE id IN {id_ph2} AND user_id = ?",
+                                            (*safe_ids, user_id),
+                                        )
+                                    else:
+                                        db.execute(
+                                            f"UPDATE garden_entries SET never_water = 1, next_watering_date = NULL, watering_generated_at = NULL WHERE id IN {id_ph2} AND user_id = ?",
+                                            (*safe_ids, user_id),
+                                        )
                                     db.commit()
                                     changed = True
                                 result = {"ok": True, "updated": len(safe_ids)}
@@ -5040,10 +5054,16 @@ self.addEventListener('fetch', function(e) {
                                 safe_ids = [e for e in eids if isinstance(e, int)]
                                 if safe_ids:
                                     id_ph2 = "({})".format(",".join(["?"] * len(safe_ids)))
-                                    db.execute(
-                                        f"UPDATE garden_entries SET never_fertilize = ? WHERE id IN {id_ph2} AND user_id = ?",
-                                        (0 if track else 1, *safe_ids, user_id),
-                                    )
+                                    if track:
+                                        db.execute(
+                                            f"UPDATE garden_entries SET never_fertilize = 0 WHERE id IN {id_ph2} AND user_id = ?",
+                                            (*safe_ids, user_id),
+                                        )
+                                    else:
+                                        db.execute(
+                                            f"UPDATE garden_entries SET never_fertilize = 1, next_fertilization_date = NULL, next_fertilization_generated_at = NULL WHERE id IN {id_ph2} AND user_id = ?",
+                                            (*safe_ids, user_id),
+                                        )
                                     db.commit()
                                     changed = True
                                 result = {"ok": True, "updated": len(safe_ids)}
