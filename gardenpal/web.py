@@ -4657,7 +4657,8 @@ self.addEventListener('fetch', function(e) {
             + suggestion_text + "\n"
             "You can answer questions about any plant across both edibles and ornamentals. "
             "You can also act: add notes, update edible entries, change zones, save ornamental notes, add new plants to the ornamentals library. "
-            "To add a new ornamental: first call search_ornamental to get candidates, then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental with the taxon_id and scientific_name for a fully enriched record (description, care details, photo). "
+            "To add a new ornamental: call search_ornamental first to get iNaturalist candidates (taxon_id, scientific name, observation counts), then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental. "
+            "IMPORTANT: if search_ornamental fails or returns an error (network issue, no results, etc.), DO NOT give up — call add_ornamental immediately with just the name. add_ornamental works without a taxon_id and will still fetch full plant details. Never tell the user the search failed and stop there; always fall through to add_ornamental. "
             "You can also delete ornamentals you added via this assistant (those show source_type=chat in the context) using delete_ornamental — always confirm with the user before deleting. You cannot delete plants the user added manually. "
             "Entries marked [partner's — read only] are read-only. "
             "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
@@ -5216,7 +5217,7 @@ self.addEventListener('fetch', function(e) {
                                             break
                                     result = {"candidates": candidates}
                                 except Exception as e:
-                                    result = {"error": str(e)[:200]}
+                                    result = {"error": str(e)[:200], "fallback": "Search unavailable — call add_ornamental with just the name to proceed"}
 
                         elif block.name == "delete_ornamental":
                             pid = inp.get("plant_id")
