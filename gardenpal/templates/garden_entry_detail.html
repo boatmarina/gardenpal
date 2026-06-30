@@ -173,7 +173,7 @@
           </button>
         </div>
         <!-- Inline: why this date + update form + never checkbox -->
-        <div id="fert-next-panel" hidden style="padding:10px 0 14px;border-top:1px solid var(--border)">
+        <div id="fert-next-panel" hidden style="padding:10px 0 14px">
           {% if next_fertilization.note and not next_fertilization.never %}
           <p style="font-size:0.82rem;color:var(--muted);margin:0 0 12px;line-height:1.55">{{ next_fertilization.note }}</p>
           {% endif %}
@@ -291,7 +291,7 @@
           </button>
         </div>
         <!-- Inline: tracking checkbox + optional note -->
-        <div id="water-next-panel" hidden style="padding:10px 0 14px;border-top:1px solid var(--border)">
+        <div id="water-next-panel" hidden style="padding:10px 0 14px">
           {% if next_watering.note and not next_watering.never %}
           <p style="font-size:0.82rem;color:var(--muted);margin:0 0 12px;line-height:1.55">{{ next_watering.note }}</p>
           {% endif %}
