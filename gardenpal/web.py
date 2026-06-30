@@ -5261,14 +5261,30 @@ self.addEventListener('fetch', function(e) {
                                         matched_name = details.get("name") or name_query
                                         matched_sci = details.get("scientific_name") or sci_input or None
                                         matched_image = details.get("photo_url") or None
-                                    if taxon_id and not matched_image:
+                                    if not matched_image:
                                         try:
-                                            tr = requests.get(
-                                                f"https://api.inaturalist.org/v1/taxa/{taxon_id}",
-                                                timeout=5,
-                                            )
-                                            tr.raise_for_status()
-                                            tr_data = tr.json().get("results", [])
+                                            if taxon_id:
+                                                tr = requests.get(
+                                                    f"https://api.inaturalist.org/v1/taxa/{taxon_id}",
+                                                    timeout=5,
+                                                )
+                                                tr.raise_for_status()
+                                                tr_data = tr.json().get("results", [])
+                                            else:
+                                                # fallback: search by name to get photo + confirm scientific name
+                                                _PLANT_ICONIC_TAXA_S = {"Plantae", "Fungi", "Chromista"}
+                                                _EXCLUDED_RANKS_S = {"stateofmatter","kingdom","phylum","subphylum","superclass","class","subclass","infraclass","superorder","order","suborder","infraorder","parvorder","superfamily"}
+                                                sr = requests.get(
+                                                    "https://api.inaturalist.org/v1/taxa",
+                                                    params={"q": matched_sci or name_query, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 5},
+                                                    timeout=5,
+                                                )
+                                                sr.raise_for_status()
+                                                tr_data = [
+                                                    t for t in sr.json().get("results", [])
+                                                    if t.get("iconic_taxon_name") in _PLANT_ICONIC_TAXA_S
+                                                    and (t.get("rank") or "species") not in _EXCLUDED_RANKS_S
+                                                ]
                                             if tr_data:
                                                 ph = tr_data[0].get("default_photo") or {}
                                                 matched_image = ph.get("medium_url") or ph.get("square_url") or None
