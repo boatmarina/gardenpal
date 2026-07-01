@@ -652,6 +652,7 @@ document.addEventListener('DOMContentLoaded', function() {
       history.push({role: 'assistant', content: reply});
       if (history.length > 20) history = history.slice(-20);
       save();
+      if (data.changed) { setTimeout(function(){ location.reload(); }, 1200); }
     } catch(_) {
       spin.remove();
       bubble('assistant', 'Network error — please try again.');
