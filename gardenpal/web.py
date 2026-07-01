@@ -5444,9 +5444,9 @@ self.addEventListener('fetch', function(e) {
     @app.route("/api/plant-suggestion")
     @login_required
     def api_plant_suggestion():
-        # Serve from session cache first (fastest path)
+        # Serve from session cache first (fastest path) — only if same day
         cached = session.get("plant_suggestion")
-        if cached and cached.get("name"):
+        if cached and cached.get("name") and cached.get("_date") == datetime.utcnow().strftime("%Y-%m-%d"):
             return jsonify(cached)
         try:
             db = get_db()
@@ -5460,9 +5460,11 @@ self.addEventListener('fetch', function(e) {
             ).fetchone()
 
             # DB cache: survives Vercel cold starts unlike session cookies
+            # Only valid for the current calendar day — rotate on login after midnight
             try:
+                today_str = datetime.utcnow().strftime("%Y-%m-%d")
                 cached_db = json.loads((user_row["current_suggestion"] if user_row else None) or "null")
-                if isinstance(cached_db, dict) and cached_db.get("name"):
+                if isinstance(cached_db, dict) and cached_db.get("name") and cached_db.get("_date") == today_str:
                     session["plant_suggestion"] = cached_db
                     session.modified = True
                     return jsonify(cached_db)
@@ -5542,6 +5544,7 @@ self.addEventListener('fetch', function(e) {
                 db.commit()
                 suggestion = fetch_photos_for_suggestion(batch[0])
 
+            suggestion["_date"] = datetime.utcnow().strftime("%Y-%m-%d")
             db.execute(
                 "UPDATE users SET current_suggestion = ? WHERE id = ?",
                 (json.dumps(suggestion), user_id),
