@@ -4614,6 +4614,17 @@ self.addEventListener('fetch', function(e) {
         for r in yard_placements:
             placements_by_name.setdefault(r["plant_name"].lower(), []).append(r)
 
+        # Build tags map for ornamentals
+        orn_tags_map: dict = {}
+        if orn_plants:
+            orn_ids = [p["id"] for p in orn_plants]
+            orn_ph = "({})".format(",".join(["?"] * len(orn_ids)))
+            for row in db.execute(
+                f"SELECT pt.plant_id, t.name FROM plant_tags pt JOIN tags t ON t.id = pt.tag_id WHERE pt.plant_id IN {orn_ph} ORDER BY t.name ASC",
+                orn_ids,
+            ).fetchall():
+                orn_tags_map.setdefault(row["plant_id"], []).append(row["name"])
+
         orn_lines = []
         for p in orn_plants:
             added = (p["created_at"] or "")[:10]
@@ -4625,6 +4636,8 @@ self.addEventListener('fetch', function(e) {
             if p["never_fertilize"]: ln += " [fertilization tracking: off]"
             if p["never_water"]: ln += " [watering tracking: off]"
             if p["source_type"] == "chat": ln += " [added via assistant — deletable]"
+            ptags = orn_tags_map.get(p["id"])
+            if ptags: ln += f" [tags: {', '.join(ptags)}]"
             pls = placements_by_name.get(p["name"].lower(), [])
             if pls:
                 for pl in pls:
@@ -4660,6 +4673,7 @@ self.addEventListener('fetch', function(e) {
             "To add a new ornamental: call search_ornamental first to get iNaturalist candidates (taxon_id, scientific name, observation counts), then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental. "
             "IMPORTANT: if search_ornamental fails or returns an error (network issue, no results, etc.), DO NOT give up — call add_ornamental immediately with just the name. add_ornamental works without a taxon_id and will still fetch full plant details. Never tell the user the search failed and stop there; always fall through to add_ornamental. "
             "You can also delete ornamentals you added via this assistant (those show source_type=chat in the context) using delete_ornamental — always confirm with the user before deleting. You cannot delete plants the user added manually. "
+            "To tag an ornamental: first call get_user_tags to see existing tags, then call set_ornamental_tags — reuse existing tag names exactly (preserves colors and avoids duplicates). Only create a new tag name if none of the existing ones fit. Tags are shown in [tags: ...] in the ornamentals list. "
             "Entries marked [partner's — read only] are read-only. "
             "IMPORTANT: If the user refers to a plant by name but there are multiple entries with that name "
             "(e.g. two spinach entries in different zones), always list the options and ask which one they mean "
@@ -4853,6 +4867,24 @@ self.addEventListener('fetch', function(e) {
                         "taxon_id": {"type": "integer", "description": "iNaturalist taxon ID (from search_ornamental)"},
                     },
                     "required": ["name"],
+                },
+            },
+            {
+                "name": "get_user_tags",
+                "description": "Return all tag names the user has created across their ornamentals library. Call this before set_ornamental_tags to check for existing tags and reuse them rather than creating duplicates.",
+                "input_schema": {"type": "object", "properties": {}, "required": []},
+            },
+            {
+                "name": "set_ornamental_tags",
+                "description": "Assign tags to an ornamental plant. Reuses existing tags by name (case-insensitive). Creates new tags only when none with that name exist. Use plant_id from the ornamentals list.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_id": {"type": "integer", "description": "plant_id from the ornamentals list"},
+                        "add_tags": {"type": "array", "items": {"type": "string"}, "description": "Tag names to add to this plant"},
+                        "remove_tags": {"type": "array", "items": {"type": "string"}, "description": "Tag names to remove from this plant"},
+                    },
+                    "required": ["plant_id"],
                 },
             },
         ]
@@ -5331,6 +5363,59 @@ self.addEventListener('fetch', function(e) {
                                         "name": matched_name, "scientific_name": matched_sci or "",
                                         "details_fetched": details is not None,
                                     }
+
+                        elif block.name == "get_user_tags":
+                            tag_rows = db.execute(
+                                "SELECT name FROM tags WHERE user_id = ? ORDER BY name ASC",
+                                (user_id,),
+                            ).fetchall()
+                            result = {"tags": [r["name"] for r in tag_rows]}
+
+                        elif block.name == "set_ornamental_tags":
+                            pid = inp.get("plant_id")
+                            if not pid:
+                                result = {"error": "plant_id is required"}
+                            else:
+                                plant = db.execute(
+                                    "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+                                    (pid, user_id),
+                                ).fetchone()
+                                if not plant:
+                                    result = {"error": f"Plant {pid} not found"}
+                                else:
+                                    added, removed = [], []
+                                    for tn in [t.strip() for t in (inp.get("add_tags") or []) if t.strip()]:
+                                        color = tag_color_for(tn)
+                                        existing = db.execute(
+                                            "SELECT id, name, color FROM tags WHERE user_id = ? AND lower(name) = lower(?)",
+                                            (user_id, tn),
+                                        ).fetchone()
+                                        if existing:
+                                            tag_id = existing["id"]
+                                        else:
+                                            tag_id = db.execute(
+                                                "INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?) RETURNING id",
+                                                (user_id, tn, color),
+                                            ).fetchone()[0]
+                                        db.execute(
+                                            "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                                            (pid, tag_id),
+                                        )
+                                        added.append(tn)
+                                    for tn in [t.strip() for t in (inp.get("remove_tags") or []) if t.strip()]:
+                                        existing = db.execute(
+                                            "SELECT t.id FROM tags t WHERE t.user_id = ? AND lower(t.name) = lower(?)",
+                                            (user_id, tn),
+                                        ).fetchone()
+                                        if existing:
+                                            db.execute(
+                                                "DELETE FROM plant_tags WHERE plant_id = ? AND tag_id = ?",
+                                                (pid, existing["id"]),
+                                            )
+                                            removed.append(tn)
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True, "added": added, "removed": removed}
 
                         else:
                             result = {"error": "Unknown tool"}
