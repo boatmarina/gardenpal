@@ -5381,6 +5381,65 @@ self.addEventListener('fetch', function(e) {
                 pass
             return jsonify(error="Assistant unavailable — please try again."), 503
 
+    @app.route("/api/fert-note")
+    @login_required
+    def api_fert_note():
+        """Regenerate (if stale) and return the fertilization note for a dashboard alert row."""
+        kind = request.args.get("kind", "")
+        item_id = request.args.get("id", type=int)
+        if kind not in ("edible", "ornamental") or not item_id:
+            return jsonify(error="invalid params"), 400
+        db = get_db()
+        user_id = g.user["id"]
+        user_location = g.user.get("location") or ""
+        allowed, _ = _check_api_rate(db, user_id, "fertilization")
+        if not allowed:
+            if kind == "edible":
+                row = db.execute("SELECT next_fertilization_note FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+            else:
+                row = db.execute("SELECT next_fertilization_note FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+            return jsonify(note=(row["next_fertilization_note"] if row else None))
+        try:
+            if kind == "edible":
+                entry = db.execute("SELECT * FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+                if not entry:
+                    return jsonify(error="not found"), 404
+                last_fert_row = db.execute(
+                    "SELECT DISTINCT ON (entry_id) COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
+                    " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1"
+                    " ORDER BY entry_id, COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC",
+                    (item_id,),
+                ).fetchone()
+                explicit = entry["last_fertilized_date"] or None
+                photo_d = (last_fert_row["fert_date"] or None) if last_fert_row else None
+                if explicit and (not photo_d or explicit >= photo_d):
+                    last_fert = {"date": explicit, "type": entry["last_fertilizer_type"]}
+                elif photo_d:
+                    last_fert = {"date": photo_d, "type": last_fert_row["fertilizer_type"]}
+                else:
+                    last_fert = {}
+                growth_notes = [
+                    (r["photo_date"], r["notes"])
+                    for r in db.execute(
+                        "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ?"
+                        " AND notes IS NOT NULL ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                        (item_id,),
+                    ).fetchall()
+                ]
+                _suggest_next_fertilization(db, entry, user_location, last_fert, growth_notes)
+                updated = db.execute("SELECT next_fertilization_note FROM garden_entries WHERE id = ?", (item_id,)).fetchone()
+                return jsonify(note=updated["next_fertilization_note"] if updated else None)
+            else:
+                plant = db.execute("SELECT * FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+                if not plant:
+                    return jsonify(error="not found"), 404
+                last_fert_date = plant["last_fertilized_date"] or None
+                _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_date)
+                updated = db.execute("SELECT next_fertilization_note FROM plants WHERE id = ?", (item_id,)).fetchone()
+                return jsonify(note=updated["next_fertilization_note"] if updated else None)
+        except Exception as exc:
+            return jsonify(error=str(exc)[:200]), 500
+
     @app.route("/api/plant-suggestion")
     @login_required
     def api_plant_suggestion():
