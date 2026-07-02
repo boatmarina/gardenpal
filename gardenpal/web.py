@@ -5480,10 +5480,12 @@ self.addEventListener('fetch', function(e) {
         allowed, _ = _check_api_rate(db, user_id, "fertilization")
         if not allowed:
             if kind == "edible":
-                row = db.execute("SELECT next_fertilization_note FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
             else:
-                row = db.execute("SELECT next_fertilization_note FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
-            return jsonify(note=(row["next_fertilization_note"] if row else None))
+                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+            if not row:
+                return jsonify(note=None, date=None)
+            return jsonify(note=row["next_fertilization_note"], date=row["planned_fertilization_date"] or row["next_fertilization_date"])
         try:
             if kind == "edible":
                 entry = db.execute("SELECT * FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
@@ -5512,16 +5514,22 @@ self.addEventListener('fetch', function(e) {
                     ).fetchall()
                 ]
                 _suggest_next_fertilization(db, entry, user_location, last_fert, growth_notes)
-                updated = db.execute("SELECT next_fertilization_note FROM garden_entries WHERE id = ?", (item_id,)).fetchone()
-                return jsonify(note=updated["next_fertilization_note"] if updated else None)
+                updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM garden_entries WHERE id = ?", (item_id,)).fetchone()
+                return jsonify(
+                    note=updated["next_fertilization_note"] if updated else None,
+                    date=(updated["planned_fertilization_date"] or updated["next_fertilization_date"]) if updated else None,
+                )
             else:
                 plant = db.execute("SELECT * FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
                 if not plant:
                     return jsonify(error="not found"), 404
                 last_fert_date = plant["last_fertilized_date"] or None
                 _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_date)
-                updated = db.execute("SELECT next_fertilization_note FROM plants WHERE id = ?", (item_id,)).fetchone()
-                return jsonify(note=updated["next_fertilization_note"] if updated else None)
+                updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM plants WHERE id = ?", (item_id,)).fetchone()
+                return jsonify(
+                    note=updated["next_fertilization_note"] if updated else None,
+                    date=(updated["planned_fertilization_date"] or updated["next_fertilization_date"]) if updated else None,
+                )
         except Exception as exc:
             return jsonify(error=str(exc)[:200]), 500
 
