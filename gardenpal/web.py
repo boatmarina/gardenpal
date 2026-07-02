@@ -624,8 +624,8 @@ self.addEventListener('fetch', function(e) {
                     _fert_photo_map[_row["entry_id"]] = _row
 
             for r in edible_candidates:
-                # Mirror detail page: last_fertilized comes from either the explicit field
-                # or the latest garden_photos row with is_fertilization=1, whichever is newer.
+                # Use stored data only — stale suggestions are refreshed on the detail page visit,
+                # not here, to avoid blocking the dashboard with synchronous Claude API calls.
                 last_fert_photo_row = _fert_photo_map.get(r["id"])
                 last_fert_explicit = r["last_fertilized_date"] or None
                 photo_fert_date = (last_fert_photo_row["fert_date"] or None) if last_fert_photo_row else None
@@ -638,64 +638,24 @@ self.addEventListener('fetch', function(e) {
                 else:
                     effective_last_fert = None
                     effective_fert_type = None
-
-                gen_at = r["next_fertilization_generated_at"] or None
-                needs_regen = (
-                    not gen_at
-                    or (effective_last_fert and gen_at and effective_last_fert > gen_at[:10])
-                    or (r["next_fertilization_date"] and r["next_fertilization_date"] < today and not effective_last_fert)
-                )
-                updated = r
-                if needs_regen:
-                    fert_allowed, _ = _check_api_rate(db, g.user["id"], "fertilization")
-                    if fert_allowed:
-                        full_entry = db.execute(
-                            "SELECT * FROM garden_entries WHERE id = ?", (r["id"],)
-                        ).fetchone()
-                        growth_notes = [
-                            (gr["photo_date"], gr["notes"])
-                            for gr in db.execute(
-                                "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ?"
-                                " AND notes IS NOT NULL ORDER BY photo_date ASC NULLS LAST, created_at ASC",
-                                (r["id"],),
-                            ).fetchall()
-                        ]
-                        _suggest_next_fertilization(
-                            db, full_entry, user_location,
-                            {"date": effective_last_fert, "type": effective_fert_type},
-                            growth_notes,
-                        )
-                        updated = db.execute(
-                            "SELECT id, plant_name AS name, variety, next_fertilization_date,"
-                            " planned_fertilization_date, last_fertilized_date, last_fertilizer_type,"
-                            " next_fertilization_note, never_fertilize, next_fertilization_generated_at"
-                            " FROM garden_entries WHERE id = ?",
-                            (r["id"],),
-                        ).fetchone()
-                        # Recompute effective last fert after regen (explicit field may have been updated)
-                        last_fert_explicit = updated["last_fertilized_date"] or last_fert_explicit
-                        if last_fert_explicit and (not photo_fert_date or last_fert_explicit >= photo_fert_date):
-                            effective_last_fert = last_fert_explicit
-                            effective_fert_type = updated["last_fertilizer_type"] or effective_fert_type
-                eff = updated["planned_fertilization_date"] or updated["next_fertilization_date"]
+                eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
                 if not eff or eff > deadline:
                     continue
                 fert_alerts.append({
-                    "kind": "edible", "id": updated["id"], "name": updated["name"],
-                    "variety": updated["variety"] or None,
+                    "kind": "edible", "id": r["id"], "name": r["name"],
+                    "variety": r["variety"] or None,
                     "date": eff, "overdue": eff < today,
                     "last_fertilized_date": effective_last_fert,
                     "last_fertilizer_type": effective_fert_type,
-                    "next_fertilization_note": updated["next_fertilization_note"],
-                    "planned_date": updated["planned_fertilization_date"],
-                    "never": bool(updated["never_fertilize"]),
+                    "next_fertilization_note": r["next_fertilization_note"],
+                    "planned_date": r["planned_fertilization_date"],
+                    "never": bool(r["never_fertilize"]),
                 })
 
             # --- Ornamental candidates ---
             ornamental_candidates = db.execute(
                 f"SELECT id, name, next_fertilization_date, planned_fertilization_date,"
-                f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize,"
-                f" next_fertilization_generated_at"
+                f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize"
                 f" FROM plants WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
@@ -704,38 +664,18 @@ self.addEventListener('fetch', function(e) {
                 id_args + [deadline] + id_args,
             ).fetchall()
             for r in ornamental_candidates:
-                gen_at = r["next_fertilization_generated_at"] or None
-                last_fert_date = r["last_fertilized_date"] or None
-                needs_regen = (
-                    not gen_at
-                    or (last_fert_date and gen_at and last_fert_date > gen_at[:10])
-                    or (r["next_fertilization_date"] and r["next_fertilization_date"] < today and not last_fert_date)
-                )
-                updated = r
-                if needs_regen:
-                    fert_allowed, _ = _check_api_rate(db, g.user["id"], "fertilization")
-                    if fert_allowed:
-                        full_plant = db.execute(
-                            "SELECT * FROM plants WHERE id = ?", (r["id"],)
-                        ).fetchone()
-                        _suggest_next_fertilization_ornamental(db, full_plant, user_location, last_fert_date)
-                        updated = db.execute(
-                            "SELECT id, name, next_fertilization_date, planned_fertilization_date,"
-                            " last_fertilized_date, last_fertilizer_type, next_fertilization_note,"
-                            " never_fertilize, next_fertilization_generated_at FROM plants WHERE id = ?",
-                            (r["id"],),
-                        ).fetchone()
-                eff = updated["planned_fertilization_date"] or updated["next_fertilization_date"]
+                # Use stored data only — detail page handles stale regeneration on visit.
+                eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
                 if not eff or eff > deadline:
                     continue
                 fert_alerts.append({
-                    "kind": "ornamental", "id": updated["id"], "name": updated["name"],
+                    "kind": "ornamental", "id": r["id"], "name": r["name"],
                     "date": eff, "overdue": eff < today,
-                    "last_fertilized_date": updated["last_fertilized_date"],
-                    "last_fertilizer_type": updated["last_fertilizer_type"],
-                    "next_fertilization_note": updated["next_fertilization_note"],
-                    "planned_date": updated["planned_fertilization_date"],
-                    "never": bool(updated["never_fertilize"]),
+                    "last_fertilized_date": r["last_fertilized_date"],
+                    "last_fertilizer_type": r["last_fertilizer_type"],
+                    "next_fertilization_note": r["next_fertilization_note"],
+                    "planned_date": r["planned_fertilization_date"],
+                    "never": bool(r["never_fertilize"]),
                 })
 
             fert_alerts.sort(key=lambda x: (0, x["name"].lower()) if x["overdue"] else (1, x["date"], x["name"].lower()))
