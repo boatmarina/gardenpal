@@ -160,10 +160,9 @@
         </div>
         <!-- Expandable fertilization form -->
         <div id="fert-panel-{{ loop.index }}" hidden
+             data-kind="{{ alert.kind }}" data-id="{{ alert.id }}" data-stale="{{ 'true' if alert.overdue else 'false' }}"
              style="padding:4px 14px 16px;border-top:1px solid var(--border);background:var(--bg-subtle, var(--bg))">
-          {% if alert.next_fertilization_note %}
-          <p style="font-size:0.8rem;color:var(--muted);margin:10px 0 12px;line-height:1.5">{{ alert.next_fertilization_note }}</p>
-          {% endif %}
+          <p id="fert-note-{{ loop.index }}" style="font-size:0.8rem;color:var(--muted);margin:10px 0 12px;line-height:1.5{% if not alert.next_fertilization_note %};display:none{% endif %}">{{ alert.next_fertilization_note or '' }}</p>
           <form data-fert-form data-kind="{{ alert.kind }}" data-id="{{ alert.id }}"
                 method="post"
                 action="{{ url_for('garden_plan_fertilize', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_fertilize', plant_id=alert.id) }}"
@@ -324,6 +323,24 @@ function fertToggle(n) {
   var open = panel.hidden;
   panel.hidden = !open;
   chevron.style.transform = open ? 'rotate(180deg)' : '';
+  if (open && panel.dataset.stale === 'true' && !panel.dataset.noteFetched) {
+    panel.dataset.noteFetched = '1';
+    var noteEl = document.getElementById('fert-note-' + n);
+    if (noteEl) {
+      noteEl.style.display = '';
+      noteEl.style.opacity = '0.35';
+      noteEl.textContent = noteEl.textContent || 'Updating…';
+      fetch('/api/fert-note?kind=' + encodeURIComponent(panel.dataset.kind) + '&id=' + encodeURIComponent(panel.dataset.id))
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          noteEl.style.opacity = '';
+          if (d.note) { noteEl.textContent = d.note; noteEl.style.display = ''; }
+          else noteEl.style.display = 'none';
+          panel.dataset.stale = 'false';
+        })
+        .catch(function() { noteEl.style.opacity = ''; });
+    }
+  }
 }
 
 document.querySelectorAll('.dash-fert-last-btn, .dash-fert-next-btn').forEach(function(btn) {
