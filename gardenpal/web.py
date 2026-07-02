@@ -5381,6 +5381,86 @@ self.addEventListener('fetch', function(e) {
                 pass
             return jsonify(error="Assistant unavailable — please try again."), 503
 
+    @app.route("/api/fert-refresh")
+    @login_required
+    def api_fert_refresh():
+        """Background: regenerate up to 2 stale fertilization suggestions. Fire-and-forget from dashboard JS."""
+        try:
+            db = get_db()
+            user_id = g.user["id"]
+            user_location = g.user.get("location") or ""
+            today = _local_today()
+            processed = 0
+            MAX = 2
+
+            # Stale = overdue (date < today) OR generated_at invalidated (IS NULL) — but has a date set
+            stale_edibles = db.execute(
+                "SELECT id FROM garden_entries"
+                " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                " AND next_fertilization_date IS NOT NULL"
+                " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL)"
+                " ORDER BY next_fertilization_date ASC LIMIT ?",
+                (user_id, today, MAX),
+            ).fetchall()
+            for row in stale_edibles:
+                if processed >= MAX:
+                    break
+                allowed, _ = _check_api_rate(db, user_id, "fertilization")
+                if not allowed:
+                    break
+                entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (row["id"],)).fetchone()
+                if not entry:
+                    continue
+                last_fert_row = db.execute(
+                    "SELECT DISTINCT ON (entry_id) COALESCE(fertilization_date, photo_date) AS fert_date, fertilizer_type"
+                    " FROM garden_photos WHERE entry_id = ? AND is_fertilization = 1"
+                    " ORDER BY entry_id, COALESCE(fertilization_date, photo_date) DESC NULLS LAST, created_at DESC",
+                    (row["id"],),
+                ).fetchone()
+                explicit = entry["last_fertilized_date"] or None
+                photo_d = (last_fert_row["fert_date"] or None) if last_fert_row else None
+                if explicit and (not photo_d or explicit >= photo_d):
+                    last_fert = {"date": explicit, "type": entry["last_fertilizer_type"]}
+                elif photo_d:
+                    last_fert = {"date": photo_d, "type": last_fert_row["fertilizer_type"]}
+                else:
+                    last_fert = {}
+                growth_notes = [
+                    (r["photo_date"], r["notes"])
+                    for r in db.execute(
+                        "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ?"
+                        " AND notes IS NOT NULL ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                        (row["id"],),
+                    ).fetchall()
+                ]
+                _suggest_next_fertilization(db, entry, user_location, last_fert, growth_notes)
+                processed += 1
+
+            if processed < MAX:
+                stale_ornamentals = db.execute(
+                    "SELECT id FROM plants"
+                    " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                    " AND next_fertilization_date IS NOT NULL"
+                    " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL)"
+                    " ORDER BY next_fertilization_date ASC LIMIT ?",
+                    (user_id, today, MAX - processed),
+                ).fetchall()
+                for row in stale_ornamentals:
+                    if processed >= MAX:
+                        break
+                    allowed, _ = _check_api_rate(db, user_id, "fertilization")
+                    if not allowed:
+                        break
+                    plant = db.execute("SELECT * FROM plants WHERE id = ?", (row["id"],)).fetchone()
+                    if not plant:
+                        continue
+                    _suggest_next_fertilization_ornamental(db, plant, user_location, plant["last_fertilized_date"] or None)
+                    processed += 1
+
+            return ("", 204)
+        except Exception:
+            return ("", 204)
+
     @app.route("/api/fert-note")
     @login_required
     def api_fert_note():

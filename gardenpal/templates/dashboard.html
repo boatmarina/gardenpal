@@ -557,6 +557,8 @@ if (markAllBtn) {
       fetch('{{ url_for("api_plant_suggestion_prefetch") }}').catch(function(){});
     })
     .catch(function() { clearTimeout(timer); wrap.style.display = 'none'; });
+  // Refresh stale fertilization dates in background (fire-and-forget)
+  fetch('{{ url_for("api_fert_refresh") }}').catch(function(){});
 })();
 </script>
 
