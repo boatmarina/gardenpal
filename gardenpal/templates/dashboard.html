@@ -323,7 +323,7 @@ function fertToggle(n) {
   var open = panel.hidden;
   panel.hidden = !open;
   chevron.style.transform = open ? 'rotate(180deg)' : '';
-  if (open && panel.dataset.stale === 'true' && !panel.dataset.noteFetched) {
+  if (open && !panel.dataset.noteFetched) {
     panel.dataset.noteFetched = '1';
     var noteEl = document.getElementById('fert-note-' + n);
     if (noteEl) {
@@ -336,7 +336,6 @@ function fertToggle(n) {
         .then(function(d) {
           if (d.note) { noteEl.textContent = d.note; noteEl.style.display = ''; }
           else noteEl.style.display = 'none';
-          panel.dataset.stale = 'false';
         })
         .catch(function() { noteEl.textContent = ''; noteEl.style.display = 'none'; });
     }
