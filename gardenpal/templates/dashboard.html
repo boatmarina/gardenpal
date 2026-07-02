@@ -328,17 +328,17 @@ function fertToggle(n) {
     var noteEl = document.getElementById('fert-note-' + n);
     if (noteEl) {
       noteEl.style.display = '';
-      noteEl.style.opacity = '0.35';
-      noteEl.textContent = noteEl.textContent || 'Updating…';
+      noteEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-style:italic">'
+        + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:spin 0.9s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>'
+        + 'Updating recommendation…</span>';
       fetch('/api/fert-note?kind=' + encodeURIComponent(panel.dataset.kind) + '&id=' + encodeURIComponent(panel.dataset.id))
         .then(function(r) { return r.json(); })
         .then(function(d) {
-          noteEl.style.opacity = '';
           if (d.note) { noteEl.textContent = d.note; noteEl.style.display = ''; }
           else noteEl.style.display = 'none';
           panel.dataset.stale = 'false';
         })
-        .catch(function() { noteEl.style.opacity = ''; });
+        .catch(function() { noteEl.textContent = ''; noteEl.style.display = 'none'; });
     }
   }
 }
@@ -518,6 +518,7 @@ if (markAllBtn) {
 @keyframes skelShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 @keyframes leafPulse { 0%,100% { opacity:.4; transform:scale(1); } 50% { opacity:1; transform:scale(1.12); } }
 @keyframes chatDot { 0%,80%,100% { transform:scale(0.7);opacity:0.4; } 40% { transform:scale(1);opacity:1; } }
+@keyframes spin { to { transform:rotate(360deg); } }
 </style>
 <script>
 (function () {
