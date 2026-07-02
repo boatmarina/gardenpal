@@ -1199,6 +1199,7 @@ self.addEventListener('fetch', function(e) {
                     not gen_at
                     or (last_fert_date and last_fert_date > gen_at[:10])
                     or (plant.get("next_fertilization_date") and plant["next_fertilization_date"] < today)
+                    or (gen_at and gen_at[:10] < _local_date_plus(-7))
                 )
                 if needs_regen:
                     fert_allowed, _ = _check_api_rate(db, g.user["id"], "fertilization")
@@ -2715,6 +2716,7 @@ self.addEventListener('fetch', function(e) {
                 or (last_fert_date and last_fert_date > gen_at[:10])
                 or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
                 or (last_note_at and gen_at and last_note_at > gen_at)
+                or (gen_at and gen_at[:10] < _local_date_plus(-7))
             )
             if needs_regen:
                 growth_notes = [
@@ -5393,14 +5395,16 @@ self.addEventListener('fetch', function(e) {
             processed = 0
             MAX = 2
 
-            # Stale = overdue (date < today) OR generated_at invalidated (IS NULL) — but has a date set
+            # Stale = overdue, generated_at invalidated, OR note older than 7 days
+            week_ago = _local_date_plus(-7)
             stale_edibles = db.execute(
                 "SELECT id FROM garden_entries"
                 " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 " AND next_fertilization_date IS NOT NULL"
-                " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL)"
+                " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL"
+                "      OR next_fertilization_generated_at < ?)"
                 " ORDER BY next_fertilization_date ASC LIMIT ?",
-                (user_id, today, MAX),
+                (user_id, today, week_ago, MAX),
             ).fetchall()
             for row in stale_edibles:
                 if processed >= MAX:
@@ -5441,9 +5445,10 @@ self.addEventListener('fetch', function(e) {
                     "SELECT id FROM plants"
                     " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
                     " AND next_fertilization_date IS NOT NULL"
-                    " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL)"
+                    " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL"
+                    "      OR next_fertilization_generated_at < ?)"
                     " ORDER BY next_fertilization_date ASC LIMIT ?",
-                    (user_id, today, MAX - processed),
+                    (user_id, today, week_ago, MAX - processed),
                 ).fetchall()
                 for row in stale_ornamentals:
                     if processed >= MAX:
