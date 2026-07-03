@@ -37,9 +37,9 @@
     <!-- Sort toggle: segmented control -->
     <div style="display:flex;flex-shrink:0;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;margin-right:8px">
       <button id="sort-date" type="button"
-              style="font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#1C3829;color:#fff;white-space:nowrap">Date</button>
+              style="font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap">Date</button>
       <button id="sort-az" type="button"
-              style="font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap">A–Z</button>
+              style="font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#1C3829;color:#fff;white-space:nowrap">A–Z</button>
     </div>
   </div>
   <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
@@ -162,9 +162,9 @@
   var azContainer = document.getElementById('az-container');
   var azCards     = document.getElementById('az-cards');
 
-  var sortMode = 'date';
-  try { sortMode = sessionStorage.getItem(SORT_KEY) || 'date'; } catch(_) {}
-  if (sortMode !== 'date' && sortMode !== 'az') sortMode = 'date';
+  var sortMode = 'az';
+  try { sortMode = sessionStorage.getItem(SORT_KEY) || 'az'; } catch(_) {}
+  if (sortMode !== 'date' && sortMode !== 'az') sortMode = 'az';
 
   /* All original timeline cards, captured before any DOM moves */
   var allCards = Array.from(document.querySelectorAll('.timeline-section .card[data-search]'));
