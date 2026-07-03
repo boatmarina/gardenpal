@@ -121,12 +121,12 @@
 
       <!-- Row 1: Last fertilized — tap date to expand edit form -->
       <div style="padding:0 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;min-height:36px">
-          <span style="color:var(--muted);font-size:0.82rem">Last fertilized</span>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;font-size:0.85rem;min-height:36px;padding:4px 0">
+          <span style="color:var(--muted);font-size:0.82rem;padding-top:2px">Last fertilized</span>
           <button type="button" id="fert-last-toggle"
-                  style="background:none;border:none;padding:4px 0 4px 12px;cursor:pointer;font-family:inherit;font-size:0.85rem;color:var(--fg);display:flex;align-items:center;gap:5px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">
-            <span id="detail-last-fert-value">{% if last_fertilized and last_fertilized.date %}{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %} · {{ last_fertilized.type }}{% endif %}{% else %}Never{% endif %}</span>
-            <svg id="fert-last-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.18s"><path d="M6 9l6 6 6-6"/></svg>
+                  style="background:none;border:none;padding:0 0 0 12px;cursor:pointer;font-family:inherit;font-size:0.85rem;color:var(--fg);display:flex;align-items:flex-start;gap:5px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;text-align:right">
+            <span id="detail-last-fert-value">{% if last_fertilized and last_fertilized.date %}{{ last_fertilized.date | planted_date }}{% if last_fertilized.type %}<span style="display:block;font-size:0.78rem;color:var(--muted);margin-top:2px;text-align:right">{{ last_fertilized.type }}</span>{% endif %}{% else %}Never{% endif %}</span>
+            <svg id="fert-last-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.18s;margin-top:3px"><path d="M6 9l6 6 6-6"/></svg>
           </button>
         </div>
         <!-- Inline edit: last fertilized -->
