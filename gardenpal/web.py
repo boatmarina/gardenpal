@@ -5798,6 +5798,23 @@ self.addEventListener('fetch', function(e) {
             ),
         ).fetchone()["id"]
         db.commit()
+        _tag_name = "suggested"
+        _et = db.execute(
+            "SELECT id FROM tags WHERE user_id = ? AND lower(name) = lower(?)",
+            (user_id, _tag_name),
+        ).fetchone()
+        if _et:
+            _tid = _et["id"]
+        else:
+            _tid = db.execute(
+                "INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?) RETURNING id",
+                (user_id, _tag_name, tag_color_for(_tag_name)),
+            ).fetchone()["id"]
+        db.execute(
+            "INSERT INTO plant_tags (plant_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+            (plant_id, _tid),
+        )
+        db.commit()
         _log_activity(db, user_id, "suggestion_added", suggestion["name"])
         db.execute("UPDATE users SET current_suggestion = NULL WHERE id = ?", (user_id,))
         db.commit()
