@@ -394,6 +394,7 @@
     </div>
 
     <!-- Notes or empty state -->
+    <div id="growth-log-entries">
     {% if photos %}
       {% for photo in photos %}
       <div style="border-top:1px solid var(--border)">
@@ -417,6 +418,7 @@
       </div>
       {% endfor %}
     {% endif %}
+    </div>
 
     <!-- Add a note — sub-section within Growth log -->
     <div style="border-top:1px solid var(--border);padding:14px 16px 18px">
@@ -535,11 +537,15 @@
   }
 
   // Fertilizer-type popup
+  // _pendingFertToday: button "Mark as fertilized today" waiting for type
+  // _pendingManualDate: manual last-fert date form just saved, waiting for type
+  var _pendingFertToday = false;
+  var _pendingManualDate = null;
   var fertTypeOverlay = document.getElementById('fert-type-overlay');
   var fertTypeInput   = document.getElementById('fert-type-input');
   var fertTypeSave    = document.getElementById('fert-type-save');
   var fertTypeSkip    = document.getElementById('fert-type-skip');
-  var _fertTypeUrl    = '{{ url_for("garden_set_fertilizer_type", entry_id=entry.id) }}';
+  var _logFertUrl     = '{{ url_for("garden_log_fertilization", entry_id=entry.id) }}';
 
   function showFertTypePopup() {
     if (!fertTypeOverlay) return;
@@ -550,55 +556,112 @@
   function hideFertTypePopup() {
     if (fertTypeOverlay) fertTypeOverlay.hidden = true;
   }
-  if (fertTypeSkip) fertTypeSkip.addEventListener('click', hideFertTypePopup);
+
+  function _prependGrowthLogEntry(dateStr, noteText) {
+    var container = document.getElementById('growth-log-entries');
+    if (!container || !dateStr) return;
+    var div = document.createElement('div');
+    div.style.borderTop = '1px solid var(--border)';
+    div.innerHTML = '<div style="padding:12px 14px;position:relative">'
+      + '<p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">' + gpFormatDate(dateStr) + '</p>'
+      + '<p style="font-size:0.8rem;color:var(--muted)">' + (noteText || '') + '</p>'
+      + '</div>';
+    container.insertBefore(div, container.firstChild);
+  }
+
+  function _resolvePopup(val) {
+    if (_pendingFertToday) {
+      _pendingFertToday = false;
+      _doFertToday(val || null);
+    } else if (_pendingManualDate) {
+      var date = _pendingManualDate;
+      _pendingManualDate = null;
+      var fd = new FormData();
+      fd.append('date', date);
+      if (val) fd.append('fertilizer_type', val);
+      fetch(_logFertUrl, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if (d.ok) {
+            _prependGrowthLogEntry(d.date, d.note_text);
+            // Update last-fert display to include type on second line
+            if (val) {
+              var lastEl = document.getElementById('detail-last-fert-value');
+              if (lastEl && d.date) {
+                lastEl.innerHTML = gpFormatDate(d.date)
+                  + '<span style="display:block;font-size:0.78rem;color:var(--muted);margin-top:2px;text-align:right">' + val + '</span>';
+              }
+            }
+          }
+        }).catch(function(){});
+    }
+  }
+
+  if (fertTypeSkip) fertTypeSkip.addEventListener('click', function() {
+    hideFertTypePopup();
+    _resolvePopup(null);
+  });
   if (fertTypeSave) {
     fertTypeSave.addEventListener('click', function() {
       var val = fertTypeInput ? fertTypeInput.value.trim() : '';
       hideFertTypePopup();
-      if (!val) return;
-      var fd = new FormData();
-      fd.append('fertilizer_type', val);
-      fetch(_fertTypeUrl, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd});
+      _resolvePopup(val);
     });
   }
   if (fertTypeInput) {
     fertTypeInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { e.preventDefault(); if (fertTypeSave) fertTypeSave.click(); }
-      if (e.key === 'Escape') hideFertTypePopup();
+      if (e.key === 'Escape') { hideFertTypePopup(); _resolvePopup(null); }
     });
   }
 
-  // Mark as fertilized today
+  // Mark as fertilized today — show popup first, then call endpoint with type
   var detailFertDoneBtn = document.getElementById('detail-fert-done-btn');
+
+  function _doFertToday(fertType) {
+    var origHtml = detailFertDoneBtn.innerHTML;
+    detailFertDoneBtn.disabled = true;
+    detailFertDoneBtn.style.opacity = '0.5';
+    var fd = new FormData();
+    if (fertType) fd.append('fertilizer_type', fertType);
+    fetch('{{ url_for("garden_fertilized_today", entry_id=entry.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (d.ok) {
+          var lastEl = document.getElementById('detail-last-fert-value');
+          if (lastEl && d.today) {
+            if (fertType) {
+              lastEl.innerHTML = gpFormatDate(d.today)
+                + '<span style="display:block;font-size:0.78rem;color:var(--muted);margin-top:2px;text-align:right">' + fertType + '</span>';
+            } else {
+              lastEl.textContent = gpFormatDate(d.today);
+            }
+          }
+          var nextEl = document.getElementById('detail-next-fert-date');
+          if (nextEl && d.next_date) nextEl.textContent = gpFormatDate(d.next_date);
+          if (d.next_note) {
+            var noteEl = document.querySelector('#fert-next-panel p');
+            if (noteEl) noteEl.textContent = d.next_note;
+          }
+          detailFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Fertilized today';
+          detailFertDoneBtn.style.opacity = '1';
+          detailFertDoneBtn.style.filter = '';
+          detailFertDoneBtn.style.background = '#E8F5E9';
+          detailFertDoneBtn.style.borderColor = '#C8E6C9';
+          detailFertDoneBtn.style.color = '#A5D6A7';
+          detailFertDoneBtn.style.cursor = 'default';
+          detailFertDoneBtn.style.pointerEvents = 'none';
+          var noteText = 'Fertilized' + (fertType ? ' — ' + fertType : '');
+          _prependGrowthLogEntry(d.today, noteText);
+        } else { detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; }
+      })
+      .catch(function(){ detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; });
+  }
+
   if (detailFertDoneBtn && !detailFertDoneBtn.disabled) {
     detailFertDoneBtn.addEventListener('click', function() {
-      var origHtml = detailFertDoneBtn.innerHTML;
-      detailFertDoneBtn.disabled = true;
-      detailFertDoneBtn.style.opacity = '0.5';
-      fetch('{{ url_for("garden_fertilized_today", entry_id=entry.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
-        .then(function(r){return r.json();})
-        .then(function(d){
-          if (d.ok) {
-            var lastEl = document.getElementById('detail-last-fert-value');
-            if (lastEl && d.today) lastEl.textContent = gpFormatDate(d.today);
-            var nextEl = document.getElementById('detail-next-fert-date');
-            if (nextEl && d.next_date) nextEl.textContent = gpFormatDate(d.next_date);
-            if (d.next_note) {
-              var noteEl = document.querySelector('#fert-next-panel p');
-              if (noteEl) noteEl.textContent = d.next_note;
-            }
-            detailFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Fertilized today';
-            detailFertDoneBtn.style.opacity = '1';
-            detailFertDoneBtn.style.filter = '';
-            detailFertDoneBtn.style.background = '#E8F5E9';
-            detailFertDoneBtn.style.borderColor = '#C8E6C9';
-            detailFertDoneBtn.style.color = '#A5D6A7';
-            detailFertDoneBtn.style.cursor = 'default';
-            detailFertDoneBtn.style.pointerEvents = 'none';
-            showFertTypePopup();
-          } else { detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; }
-        })
-        .catch(function(){ detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; });
+      _pendingFertToday = true;
+      showFertTypePopup();
     });
   }
 
@@ -620,7 +683,7 @@
     });
   }
 
-  // Last-fert form → AJAX so we can show popup after saving a new date
+  // Last-fert form → AJAX so we can regenerate next date and show popup
   var fertLastForm = document.querySelector('#fert-last-panel form');
   if (fertLastForm) {
     fertLastForm.addEventListener('submit', function(e) {
@@ -642,10 +705,19 @@
           if (d.ok) {
             var lastEl = document.getElementById('detail-last-fert-value');
             if (lastEl && d.last_date) lastEl.textContent = gpFormatDate(d.last_date);
+            if (d.next_date) {
+              var nextEl = document.getElementById('detail-next-fert-date');
+              if (nextEl) nextEl.textContent = gpFormatDate(d.next_date);
+            }
+            if (d.next_note) {
+              var noteEl = document.querySelector('#fert-next-panel p');
+              if (noteEl) noteEl.textContent = d.next_note;
+            }
             var panel = document.getElementById('fert-last-panel');
             var chevron = document.getElementById('fert-last-chevron');
             if (panel) panel.hidden = true;
             if (chevron) chevron.style.transform = '';
+            _pendingManualDate = d.last_date;
             showFertTypePopup();
           } else {
             fertLastForm.submit();

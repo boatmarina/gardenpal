@@ -3117,7 +3117,7 @@ self.addEventListener('fetch', function(e) {
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         entry = db.execute(
-            f"SELECT id, plant_name, last_fertilized_date FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            f"SELECT * FROM garden_entries WHERE id = ? AND user_id IN {ph}",
             [entry_id] + id_args,
         ).fetchone()
         if entry is None:
@@ -3165,8 +3165,22 @@ self.addEventListener('fetch', function(e) {
             _log_activity(db, g.user["id"], "fertilized", entry["plant_name"])
         db.commit()
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            next_date = None
+            next_note = None
+            if fert_date_changed and not clear_fertilized and not never:
+                growth_notes_rows = db.execute(
+                    "SELECT photo_date, notes FROM garden_photos WHERE entry_id = ? ORDER BY photo_date",
+                    (entry_id,),
+                ).fetchall()
+                growth_notes_list = [(r["photo_date"], r["notes"]) for r in growth_notes_rows]
+                user_location = g.user.get("location") if g.user else None
+                lf = {"date": last_fert_date, "type": last_fert_type}
+                result = _suggest_next_fertilization(db, entry, user_location, lf, growth_notes_list)
+                next_date = result["date"] if result else None
+                next_note = result["note"] if result else None
             return jsonify({"ok": True, "last_date": last_fert_date or None,
-                            "cleared": bool(clear_fertilized)})
+                            "cleared": bool(clear_fertilized),
+                            "next_date": next_date, "next_note": next_note})
         if request.form.get("from_dashboard"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("garden_detail", entry_id=entry_id))
@@ -3196,6 +3210,38 @@ self.addEventListener('fetch', function(e) {
         )
         db.commit()
         return jsonify({"ok": True})
+
+    @app.route("/garden/<int:entry_id>/log-fertilization", methods=["POST"])
+    @login_required
+    def garden_log_fertilization(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "Not found"}), 404
+        fert_date = (request.form.get("date") or "").strip() or None
+        fertilizer_type = (request.form.get("fertilizer_type") or "").strip() or None
+        if not fert_date or not _ISO_DATE_RE.match(fert_date):
+            return jsonify({"error": "Invalid date"}), 400
+        note_text = "Fertilized" + (f" — {fertilizer_type}" if fertilizer_type else "")
+        db.execute(
+            "INSERT INTO garden_photos"
+            " (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
+            " VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+            (entry_id, g.user["id"], fert_date, note_text,
+             datetime.utcnow().isoformat(timespec="seconds"), fertilizer_type, fert_date),
+        )
+        if fertilizer_type:
+            db.execute(
+                "UPDATE garden_entries SET last_fertilizer_type = COALESCE(?, last_fertilizer_type) WHERE id = ?",
+                (fertilizer_type, entry_id),
+            )
+        db.commit()
+        return jsonify({"ok": True, "date": fert_date, "note_text": note_text})
 
     @app.route("/garden/<int:entry_id>/never-fertilize", methods=["POST"])
     @login_required
