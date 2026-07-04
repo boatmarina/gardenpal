@@ -4524,7 +4524,9 @@ self.addEventListener('fetch', function(e) {
         entries = db.execute(
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
                        ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name,
-                       ge.planting_method, ge.never_water, ge.never_fertilize
+                       ge.planting_method, ge.never_water, ge.never_fertilize,
+                       ge.last_watered_date, ge.next_watering_date, ge.watering_frequency_days,
+                       ge.last_fertilized_date, ge.last_fertilizer_type, ge.next_fertilization_date
                 FROM garden_entries ge
                 LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
                 WHERE ge.user_id IN {ph}
@@ -4559,8 +4561,18 @@ self.addEventListener('fetch', function(e) {
                 if e.get("planting_method"):
                     _pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"}
                     ln += f"\n    Started from: {_pm_labels.get(e['planting_method'], e['planting_method'])}"
-                if e["never_water"]: ln += "\n    [watering tracking: off]"
-                if e["never_fertilize"]: ln += "\n    [fertilization tracking: off]"
+                if e["never_water"]:
+                    ln += "\n    [watering tracking: off]"
+                else:
+                    if e["last_watered_date"]: ln += f"\n    Last watered: {e['last_watered_date']}"
+                    if e["next_watering_date"]: ln += f"\n    Next watering: {e['next_watering_date']}"
+                if e["never_fertilize"]:
+                    ln += "\n    [fertilization tracking: off]"
+                else:
+                    if e["last_fertilized_date"]:
+                        ln += f"\n    Last fertilized: {e['last_fertilized_date']}"
+                        if e["last_fertilizer_type"]: ln += f" ({e['last_fertilizer_type']})"
+                    if e["next_fertilization_date"]: ln += f"\n    Next fertilization: {e['next_fertilization_date']}"
                 if e["notes"]: ln += f"\n    Notes: {e['notes']}"
                 for nd, nt in growth_notes.get(e["id"], []):
                     ln += f"\n    Log{' (' + nd + ')' if nd else ''}: {nt}"
@@ -4621,8 +4633,18 @@ self.addEventListener('fetch', function(e) {
             if p["scientific_name"]: ln += f" ({p['scientific_name']})"
             if p["lifecycle"]: ln += f" [{p['lifecycle']}]"
             if p["sun_exposure"]: ln += f" [sun: {p['sun_exposure']}]"
-            if p["never_fertilize"]: ln += " [fertilization tracking: off]"
-            if p["never_water"]: ln += " [watering tracking: off]"
+            if p["never_fertilize"]:
+                ln += " [fertilization tracking: off]"
+            else:
+                if p["last_fertilized_date"]:
+                    ln += f"\n    Last fertilized: {p['last_fertilized_date']}"
+                    if p["last_fertilizer_type"]: ln += f" ({p['last_fertilizer_type']})"
+                if p["next_fertilization_date"]: ln += f"\n    Next fertilization: {p['next_fertilization_date']}"
+            if p["never_water"]:
+                ln += " [watering tracking: off]"
+            else:
+                if p["last_watered_date"]: ln += f"\n    Last watered: {p['last_watered_date']}"
+                if p["next_watering_date"]: ln += f"\n    Next watering: {p['next_watering_date']}"
             if p["source_type"] == "chat": ln += " [added via assistant — deletable]"
             ptags = orn_tags_map.get(p["id"])
             if ptags: ln += f" [tags: {', '.join(ptags)}]"
@@ -4657,7 +4679,7 @@ self.addEventListener('fetch', function(e) {
             + f"\n=== ORNAMENTALS (library + yard placements) ===\n{ornamentals_text}\n"
             + suggestion_text + "\n"
             "You can answer questions about any plant across both edibles and ornamentals. "
-            "You can also act: add notes, update edible entries, change zones, save ornamental notes, add new plants to the ornamentals library. "
+            "You can also act: add notes, update edible entries, change zones, save ornamental notes, add new plants to the ornamentals library, and update watering and fertilization dates. "
             "To add a new ornamental: call search_ornamental first to get iNaturalist candidates (taxon_id, scientific name, observation counts), then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental. "
             "IMPORTANT: if search_ornamental fails or returns an error (network issue, no results, etc.), DO NOT give up — call add_ornamental immediately with just the name. add_ornamental works without a taxon_id and will still fetch full plant details. Never tell the user the search failed and stop there; always fall through to add_ornamental. "
             "You can also delete ornamentals you added via this assistant (those show source_type=chat in the context) using delete_ornamental — always confirm with the user before deleting. You cannot delete plants the user added manually. "
@@ -4871,6 +4893,60 @@ self.addEventListener('fetch', function(e) {
                         "plant_id": {"type": "integer", "description": "plant_id from the ornamentals list"},
                         "add_tags": {"type": "array", "items": {"type": "string"}, "description": "Tag names to add to this plant"},
                         "remove_tags": {"type": "array", "items": {"type": "string"}, "description": "Tag names to remove from this plant"},
+                    },
+                    "required": ["plant_id"],
+                },
+            },
+            {
+                "name": "set_edible_watering_dates",
+                "description": "Update last watered date and/or next watering date for an edible garden entry. If last_watered_date is set without next_watering_date, the next date is computed from the plant's watering frequency.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "last_watered_date": {"type": "string", "description": "YYYY-MM-DD date the plant was last watered"},
+                        "next_watering_date": {"type": "string", "description": "YYYY-MM-DD planned next watering date (optional — computed from frequency if omitted)"},
+                    },
+                    "required": ["entry_id"],
+                },
+            },
+            {
+                "name": "set_edible_fertilization_dates",
+                "description": "Update last fertilized date and/or next fertilization date for an edible garden entry. Setting last_fertilized_date also creates a growth log entry. Provide next_fertilization_date if you know it; otherwise the system will recalculate it.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "entry_id": {"type": "integer"},
+                        "last_fertilized_date": {"type": "string", "description": "YYYY-MM-DD date the plant was last fertilized"},
+                        "fertilizer_type": {"type": "string", "description": "What fertilizer was used (e.g. 'Worm castings', 'Fish emulsion')"},
+                        "next_fertilization_date": {"type": "string", "description": "YYYY-MM-DD planned next fertilization date (optional)"},
+                    },
+                    "required": ["entry_id"],
+                },
+            },
+            {
+                "name": "set_ornamental_watering_dates",
+                "description": "Update last watered date and/or next watering date for an ornamental plant. Use plant_id from the ornamentals list.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_id": {"type": "integer"},
+                        "last_watered_date": {"type": "string", "description": "YYYY-MM-DD date the plant was last watered"},
+                        "next_watering_date": {"type": "string", "description": "YYYY-MM-DD planned next watering date (optional)"},
+                    },
+                    "required": ["plant_id"],
+                },
+            },
+            {
+                "name": "set_ornamental_fertilization_dates",
+                "description": "Update last fertilized date and/or next fertilization date for an ornamental plant. Use plant_id from the ornamentals list. Provide next_fertilization_date if you know it; otherwise the system will recalculate it.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "plant_id": {"type": "integer"},
+                        "last_fertilized_date": {"type": "string", "description": "YYYY-MM-DD date the plant was last fertilized"},
+                        "fertilizer_type": {"type": "string", "description": "What fertilizer was used"},
+                        "next_fertilization_date": {"type": "string", "description": "YYYY-MM-DD planned next fertilization date (optional)"},
                     },
                     "required": ["plant_id"],
                 },
@@ -5404,6 +5480,130 @@ self.addEventListener('fetch', function(e) {
                                     db.commit()
                                     changed = True
                                     result = {"ok": True, "added": added, "removed": removed}
+
+                        elif block.name == "set_edible_watering_dates":
+                            eid = inp.get("entry_id")
+                            if not eid:
+                                result = {"error": "entry_id is required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id, user_id, plant_name, watering_frequency_days FROM garden_entries WHERE id = ?", (eid,)
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} is read-only (partner's)"}
+                                else:
+                                    last_w = _parse_date_to_iso((inp.get("last_watered_date") or "").strip(), today) if inp.get("last_watered_date") else None
+                                    next_w = _parse_date_to_iso((inp.get("next_watering_date") or "").strip(), today) if inp.get("next_watering_date") else None
+                                    if last_w and not next_w:
+                                        freq = entry["watering_frequency_days"]
+                                        if freq:
+                                            next_w = (date.fromisoformat(last_w) + timedelta(days=freq)).isoformat()
+                                    fields, vals = [], []
+                                    if last_w: fields.append("last_watered_date = ?"); vals.append(last_w)
+                                    if next_w: fields.append("next_watering_date = ?"); vals.append(next_w)
+                                    if fields:
+                                        db.execute(f"UPDATE garden_entries SET {', '.join(fields)} WHERE id = ?", (*vals, eid))
+                                        if last_w:
+                                            _log_activity(db, user_id, "watered", entry["plant_name"])
+                                        db.commit()
+                                        changed = True
+                                    result = {"ok": True, "last_watered_date": last_w, "next_watering_date": next_w}
+
+                        elif block.name == "set_edible_fertilization_dates":
+                            eid = inp.get("entry_id")
+                            if not eid:
+                                result = {"error": "entry_id is required"}
+                            else:
+                                entry = db.execute(
+                                    "SELECT id, user_id, plant_name FROM garden_entries WHERE id = ?", (eid,)
+                                ).fetchone()
+                                if not entry:
+                                    result = {"error": f"Entry {eid} not found"}
+                                elif entry["user_id"] != user_id:
+                                    result = {"error": f"Entry {eid} is read-only (partner's)"}
+                                else:
+                                    last_f = _parse_date_to_iso((inp.get("last_fertilized_date") or "").strip(), today) if inp.get("last_fertilized_date") else None
+                                    ftype = (inp.get("fertilizer_type") or "").strip() or None
+                                    next_f = _parse_date_to_iso((inp.get("next_fertilization_date") or "").strip(), today) if inp.get("next_fertilization_date") else None
+                                    fields, vals = [], []
+                                    if last_f:
+                                        fields += ["last_fertilized_date = ?", "next_fertilization_generated_at = NULL"]
+                                        vals.append(last_f)
+                                        if ftype: fields.append("last_fertilizer_type = ?"); vals.append(ftype)
+                                    if next_f: fields.append("next_fertilization_date = ?"); vals.append(next_f)
+                                    if fields:
+                                        db.execute(f"UPDATE garden_entries SET {', '.join(fields)} WHERE id = ?", (*vals, eid))
+                                    if last_f:
+                                        note_text = "Fertilized" + (f" — {ftype}" if ftype else "")
+                                        db.execute(
+                                            "INSERT INTO garden_photos"
+                                            " (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
+                                            " VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+                                            (eid, user_id, last_f, note_text,
+                                             datetime.utcnow().isoformat(timespec="seconds"), ftype, last_f),
+                                        )
+                                        _log_activity(db, user_id, "fertilized", entry["plant_name"])
+                                    db.commit()
+                                    changed = True
+                                    result = {"ok": True, "last_fertilized_date": last_f, "next_fertilization_date": next_f}
+
+                        elif block.name == "set_ornamental_watering_dates":
+                            pid = inp.get("plant_id")
+                            if not pid:
+                                result = {"error": "plant_id is required"}
+                            else:
+                                plant = db.execute(
+                                    "SELECT id, name, watering_frequency_days FROM plants WHERE id = ? AND user_id = ?", (pid, user_id)
+                                ).fetchone()
+                                if not plant:
+                                    result = {"error": f"Plant {pid} not found"}
+                                else:
+                                    last_w = _parse_date_to_iso((inp.get("last_watered_date") or "").strip(), today) if inp.get("last_watered_date") else None
+                                    next_w = _parse_date_to_iso((inp.get("next_watering_date") or "").strip(), today) if inp.get("next_watering_date") else None
+                                    if last_w and not next_w:
+                                        freq = plant["watering_frequency_days"]
+                                        if freq:
+                                            next_w = (date.fromisoformat(last_w) + timedelta(days=freq)).isoformat()
+                                    fields, vals = [], []
+                                    if last_w: fields.append("last_watered_date = ?"); vals.append(last_w)
+                                    if next_w: fields.append("next_watering_date = ?"); vals.append(next_w)
+                                    if fields:
+                                        db.execute(f"UPDATE plants SET {', '.join(fields)} WHERE id = ?", (*vals, pid))
+                                        if last_w:
+                                            _log_activity(db, user_id, "watered", plant["name"])
+                                        db.commit()
+                                        changed = True
+                                    result = {"ok": True, "last_watered_date": last_w, "next_watering_date": next_w}
+
+                        elif block.name == "set_ornamental_fertilization_dates":
+                            pid = inp.get("plant_id")
+                            if not pid:
+                                result = {"error": "plant_id is required"}
+                            else:
+                                plant = db.execute(
+                                    "SELECT id, name FROM plants WHERE id = ? AND user_id = ?", (pid, user_id)
+                                ).fetchone()
+                                if not plant:
+                                    result = {"error": f"Plant {pid} not found"}
+                                else:
+                                    last_f = _parse_date_to_iso((inp.get("last_fertilized_date") or "").strip(), today) if inp.get("last_fertilized_date") else None
+                                    ftype = (inp.get("fertilizer_type") or "").strip() or None
+                                    next_f = _parse_date_to_iso((inp.get("next_fertilization_date") or "").strip(), today) if inp.get("next_fertilization_date") else None
+                                    fields, vals = [], []
+                                    if last_f:
+                                        fields += ["last_fertilized_date = ?", "next_fertilization_generated_at = NULL"]
+                                        vals.append(last_f)
+                                        if ftype: fields.append("last_fertilizer_type = ?"); vals.append(ftype)
+                                    if next_f: fields.append("next_fertilization_date = ?"); vals.append(next_f)
+                                    if fields:
+                                        db.execute(f"UPDATE plants SET {', '.join(fields)} WHERE id = ?", (*vals, pid))
+                                        if last_f:
+                                            _log_activity(db, user_id, "fertilized", plant["name"])
+                                        db.commit()
+                                        changed = True
+                                    result = {"ok": True, "last_fertilized_date": last_f, "next_fertilization_date": next_f}
 
                         else:
                             result = {"error": "Unknown tool"}
