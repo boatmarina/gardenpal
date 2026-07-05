@@ -234,6 +234,7 @@
             <!-- preserve last fert data so submitting this form doesn't wipe it -->
             <input type="hidden" name="last_fertilized_date" value="{{ last_fertilized.date if last_fertilized and last_fertilized.date else '' }}" />
             <input type="hidden" name="last_fertilizer_type" value="{{ last_fertilized.type if last_fertilized and last_fertilized.type else '' }}" />
+            <input type="hidden" name="clear_planned_date" id="idea-fert-next-clear-planned" value="" />
             <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-size:0.82rem;letter-spacing:0;text-transform:none;font-weight:400;color:var(--fg);cursor:pointer">
               <input type="checkbox" id="idea-never-fert-cb" name="never_fertilize" value="1"
                      {% if next_fertilization.never %}checked{% endif %}
@@ -251,7 +252,8 @@
             <div style="display:flex;gap:8px">
               <button type="submit" id="idea-fert-next-save-btn" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
               {% if next_fertilization.planned_date and not next_fertilization.never %}
-              <button type="submit" name="planned_date" value=""
+              <button type="button"
+                      onclick="document.getElementById('idea-fert-next-clear-planned').value='1';this.closest('form').submit()"
                       style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap">Clear date</button>
               {% endif %}
             </div>
