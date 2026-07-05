@@ -1325,7 +1325,8 @@ self.addEventListener('fetch', function(e) {
         if plant is None:
             flash("Plant not found.")
             return redirect(url_for("ideas_index"))
-        planned_date = request.form.get("planned_date", "").strip()
+        clear_planned = bool(request.form.get("clear_planned_date"))
+        planned_date = "" if clear_planned else request.form.get("planned_date", "").strip()
         never_fertilize = 1 if request.form.get("never_fertilize") else 0
         last_fertilized_date = request.form.get("last_fertilized_date", "").strip()
         last_fertilizer_type = request.form.get("last_fertilizer_type", "").strip() or None
@@ -1337,7 +1338,7 @@ self.addEventListener('fetch', function(e) {
         if clear_fertilized:
             last_fertilized_date = ""
             last_fertilizer_type = None
-        invalidate = bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")
+        invalidate = (bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")) or clear_planned
         db.execute(
             "UPDATE plants SET planned_fertilization_date = ?, never_fertilize = ?,"
             " next_fertilization_not_needed = 0,"
@@ -3128,7 +3129,8 @@ self.addEventListener('fetch', function(e) {
         if entry is None:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
-        planned_date = request.form.get("planned_date", "").strip() or None
+        clear_planned = bool(request.form.get("clear_planned_date"))
+        planned_date = None if clear_planned else (request.form.get("planned_date", "").strip() or None)
         never = 1 if request.form.get("never_fertilize") else 0
         clear_fertilized = bool(request.form.get("clear_fertilized"))
         last_fert_date = request.form.get("last_fertilized_date", "").strip() or None
@@ -3153,7 +3155,7 @@ self.addEventListener('fetch', function(e) {
                 " next_fertilization_not_needed = 0,"
                 " last_fertilized_date = ?,"
                 " last_fertilizer_type = COALESCE(?, last_fertilizer_type)"
-                + (", next_fertilization_generated_at = NULL" if fert_date_changed else "")
+                + (", next_fertilization_generated_at = NULL" if (fert_date_changed or clear_planned) else "")
                 + " WHERE id = ?",
                 (planned_date, last_fert_date, last_fert_type, entry_id),
             )
