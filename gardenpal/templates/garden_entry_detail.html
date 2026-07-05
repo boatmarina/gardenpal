@@ -136,16 +136,14 @@
             <input type="hidden" name="clear_fertilized" id="clear-fert-hidden" value="" />
             <!-- preserve planned date so submitting this form doesn't wipe it -->
             <input type="hidden" name="planned_date" value="{{ (next_fertilization.planned_date if next_fertilization else None) or '' }}" />
-            <div style="display:flex;align-items:center;gap:6px">
-              <input type="date" name="last_fertilized_date"
-                     id="detail-last-fert-date-input"
-                     value="{{ entry.last_fertilized_date or '' }}"
-                     style="font-size:0.85rem;flex:1;min-width:0" />
-              <button type="button" id="detail-clear-fert-date-btn"
-                      style="font-size:0.72rem;padding:3px 8px;background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);white-space:nowrap;flex-shrink:0;{% if not entry.last_fertilized_date %}display:none{% endif %}">Clear</button>
-            </div>
-            <div>
+            <input type="date" name="last_fertilized_date"
+                   id="detail-last-fert-date-input"
+                   value="{{ entry.last_fertilized_date or '' }}"
+                   style="font-size:0.85rem" />
+            <div style="display:flex;gap:8px">
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
+              <button type="button" id="detail-clear-fert-date-btn"
+                      style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap;{% if not entry.last_fertilized_date %}display:none{% endif %}">Clear</button>
             </div>
           </form>
         </div>
@@ -200,7 +198,7 @@
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
               {% if next_fertilization.planned_date and not next_fertilization.never %}
               <button type="submit" name="planned_date" value=""
-                      class="button button-secondary" style="font-size:0.8rem;padding:6px 14px;color:var(--muted)">Clear date</button>
+                      style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap">Clear date</button>
               {% endif %}
             </div>
           </form>
