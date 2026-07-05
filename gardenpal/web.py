@@ -5527,12 +5527,16 @@ self.addEventListener('fetch', function(e) {
                                     last_f = _parse_date_to_iso((inp.get("last_fertilized_date") or "").strip(), today) if inp.get("last_fertilized_date") else None
                                     ftype = (inp.get("fertilizer_type") or "").strip() or None
                                     next_f = _parse_date_to_iso((inp.get("next_fertilization_date") or "").strip(), today) if inp.get("next_fertilization_date") else None
+                                    now_iso = datetime.utcnow().isoformat(timespec="seconds")
                                     fields, vals = [], []
                                     if last_f:
-                                        fields += ["last_fertilized_date = ?", "next_fertilization_generated_at = NULL"]
-                                        vals.append(last_f)
+                                        fields.append("last_fertilized_date = ?"); vals.append(last_f)
                                         if ftype: fields.append("last_fertilizer_type = ?"); vals.append(ftype)
-                                    if next_f: fields.append("next_fertilization_date = ?"); vals.append(next_f)
+                                    if next_f:
+                                        fields.append("next_fertilization_date = ?"); vals.append(next_f)
+                                        fields.append("next_fertilization_generated_at = ?"); vals.append(now_iso)
+                                    elif last_f:
+                                        fields.append("next_fertilization_generated_at = NULL")
                                     if fields:
                                         db.execute(f"UPDATE garden_entries SET {', '.join(fields)} WHERE id = ?", (*vals, eid))
                                     if last_f:
@@ -5541,8 +5545,7 @@ self.addEventListener('fetch', function(e) {
                                             "INSERT INTO garden_photos"
                                             " (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
                                             " VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
-                                            (eid, user_id, last_f, note_text,
-                                             datetime.utcnow().isoformat(timespec="seconds"), ftype, last_f),
+                                            (eid, user_id, last_f, note_text, now_iso, ftype, last_f),
                                         )
                                         _log_activity(db, user_id, "fertilized", entry["plant_name"])
                                     db.commit()
@@ -5591,12 +5594,16 @@ self.addEventListener('fetch', function(e) {
                                     last_f = _parse_date_to_iso((inp.get("last_fertilized_date") or "").strip(), today) if inp.get("last_fertilized_date") else None
                                     ftype = (inp.get("fertilizer_type") or "").strip() or None
                                     next_f = _parse_date_to_iso((inp.get("next_fertilization_date") or "").strip(), today) if inp.get("next_fertilization_date") else None
+                                    now_iso = datetime.utcnow().isoformat(timespec="seconds")
                                     fields, vals = [], []
                                     if last_f:
-                                        fields += ["last_fertilized_date = ?", "next_fertilization_generated_at = NULL"]
-                                        vals.append(last_f)
+                                        fields.append("last_fertilized_date = ?"); vals.append(last_f)
                                         if ftype: fields.append("last_fertilizer_type = ?"); vals.append(ftype)
-                                    if next_f: fields.append("next_fertilization_date = ?"); vals.append(next_f)
+                                    if next_f:
+                                        fields.append("next_fertilization_date = ?"); vals.append(next_f)
+                                        fields.append("next_fertilization_generated_at = ?"); vals.append(now_iso)
+                                    elif last_f:
+                                        fields.append("next_fertilization_generated_at = NULL")
                                     if fields:
                                         db.execute(f"UPDATE plants SET {', '.join(fields)} WHERE id = ?", (*vals, pid))
                                         if last_f:
