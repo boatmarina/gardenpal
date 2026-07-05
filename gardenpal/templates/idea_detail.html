@@ -208,6 +208,8 @@
                   style="background:none;border:none;padding:4px 0 4px 12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">
             {% if next_fertilization.never %}
               <span id="idea-next-fert-date" style="font-size:0.85rem;color:var(--muted)">Not planned</span>
+            {% elif next_fertilization.not_needed %}
+              <span id="idea-next-fert-date" style="font-size:0.85rem;color:var(--muted)">Not needed</span>
             {% elif eff_fert_date %}
               {% if next_fertilization.planned_date %}
                 <span style="font-size:0.65rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 5px;font-weight:700;white-space:nowrap">Planned</span>
@@ -223,6 +225,9 @@
         <div id="idea-fert-next-panel" hidden style="padding:10px 0 14px">
           {% if next_fertilization.note and not next_fertilization.never %}
           <p style="font-size:0.82rem;color:var(--muted);margin:0 0 12px;line-height:1.55">{{ next_fertilization.note }}</p>
+          {% endif %}
+          {% if next_fertilization.not_needed %}
+          <p style="font-size:0.78rem;background:var(--bg-subtle,var(--bg));border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--muted);margin:0 0 12px">You can still set a date manually below if needed.</p>
           {% endif %}
           <form method="post" action="{{ url_for('idea_plan_fertilize', plant_id=plant.id) }}"
                 style="display:flex;flex-direction:column;gap:10px">

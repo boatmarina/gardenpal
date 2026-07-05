@@ -336,8 +336,15 @@ function fertToggle(n) {
         .then(function(d) {
           if (d.note) { noteEl.textContent = d.note; noteEl.style.display = ''; }
           else noteEl.style.display = 'none';
-          if (d.date) {
-            var chip = document.getElementById('fert-chip-' + n);
+          var chip = document.getElementById('fert-chip-' + n);
+          if (d.not_needed) {
+            if (chip) {
+              chip.textContent = 'Not needed';
+              chip.style.background = '#F5F5F5';
+              chip.style.color = '#9E9E9E';
+              chip.style.borderColor = '#E0E0E0';
+            }
+          } else if (d.date) {
             if (chip) {
               var today = '{{ today }}';
               var label = d.date === today ? 'Due today' : 'Due ' + new Date(d.date + 'T00:00:00').toLocaleDateString([], {month:'short', day:'numeric'});

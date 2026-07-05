@@ -605,6 +605,7 @@ self.addEventListener('fetch', function(e) {
                 f" next_fertilization_generated_at"
                 f" FROM garden_entries WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                f" AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
                 f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?",
                 id_args + [deadline],
@@ -658,6 +659,7 @@ self.addEventListener('fetch', function(e) {
                 f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize"
                 f" FROM plants WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                f" AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)"
                 f" AND next_fertilization_date IS NOT NULL"
                 f" AND COALESCE(planned_fertilization_date, next_fertilization_date) <= ?"
                 f" AND lower(name) IN (SELECT lower(plant_name) FROM yard_plants WHERE user_id IN {ph})",
@@ -1215,9 +1217,10 @@ self.addEventListener('fetch', function(e) {
                     "note": plant.get("next_fertilization_note"),
                     "planned_date": plant.get("planned_fertilization_date"),
                     "never": False,
+                    "not_needed": bool(plant.get("next_fertilization_not_needed")),
                 }
             else:
-                next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
+                next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True, "not_needed": False}
 
         ff_water = _feature_watering(g.user)
         last_watered = None
@@ -1337,6 +1340,7 @@ self.addEventListener('fetch', function(e) {
         invalidate = bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")
         db.execute(
             "UPDATE plants SET planned_fertilization_date = ?, never_fertilize = ?,"
+            " next_fertilization_not_needed = 0,"
             " last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type)"
             + (", next_fertilization_generated_at = NULL" if invalidate else "")
             + " WHERE id = ?",
@@ -2737,9 +2741,10 @@ self.addEventListener('fetch', function(e) {
                 "note": entry["next_fertilization_note"],
                 "planned_date": entry["planned_fertilization_date"],
                 "never": False,
+                "not_needed": bool(entry.get("next_fertilization_not_needed")),
             }
         else:
-            next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True}
+            next_fertilization = {"date": None, "note": None, "planned_date": None, "never": True, "not_needed": False}
 
         fert_deadline = _local_date_plus(3)
         ff_fert = _feature_fertilization(g.user)
@@ -3138,13 +3143,14 @@ self.addEventListener('fetch', function(e) {
             db.execute(
                 "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
                 " next_fertilization_date = NULL, next_fertilization_note = NULL,"
-                " next_fertilization_generated_at = NULL,"
+                " next_fertilization_generated_at = NULL, next_fertilization_not_needed = 0,"
                 " last_fertilized_date = ?, last_fertilizer_type = ? WHERE id = ?",
                 (last_fert_date, last_fert_type, entry_id),
             )
         else:
             db.execute(
                 "UPDATE garden_entries SET planned_fertilization_date = ?, never_fertilize = 0,"
+                " next_fertilization_not_needed = 0,"
                 " last_fertilized_date = ?,"
                 " last_fertilizer_type = COALESCE(?, last_fertilizer_type)"
                 + (", next_fertilization_generated_at = NULL" if fert_date_changed else "")
@@ -5733,12 +5739,12 @@ self.addEventListener('fetch', function(e) {
         allowed, _ = _check_api_rate(db, user_id, "fertilization")
         if not allowed:
             if kind == "edible":
-                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
             else:
-                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
             if not row:
-                return jsonify(note=None, date=None)
-            return jsonify(note=row["next_fertilization_note"], date=row["planned_fertilization_date"] or row["next_fertilization_date"])
+                return jsonify(note=None, date=None, not_needed=False)
+            return jsonify(note=row["next_fertilization_note"], date=row["planned_fertilization_date"] or row["next_fertilization_date"], not_needed=bool(row["next_fertilization_not_needed"]))
         try:
             if kind == "edible":
                 entry = db.execute("SELECT * FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
@@ -5767,10 +5773,11 @@ self.addEventListener('fetch', function(e) {
                     ).fetchall()
                 ]
                 _suggest_next_fertilization(db, entry, user_location, last_fert, growth_notes)
-                updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM garden_entries WHERE id = ?", (item_id,)).fetchone()
+                updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM garden_entries WHERE id = ?", (item_id,)).fetchone()
                 return jsonify(
                     note=updated["next_fertilization_note"] if updated else None,
                     date=(updated["planned_fertilization_date"] or updated["next_fertilization_date"]) if updated else None,
+                    not_needed=bool(updated["next_fertilization_not_needed"]) if updated else False,
                 )
             else:
                 plant = db.execute("SELECT * FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
@@ -5778,10 +5785,11 @@ self.addEventListener('fetch', function(e) {
                     return jsonify(error="not found"), 404
                 last_fert_date = plant["last_fertilized_date"] or None
                 _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_date)
-                updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date FROM plants WHERE id = ?", (item_id,)).fetchone()
+                updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM plants WHERE id = ?", (item_id,)).fetchone()
                 return jsonify(
                     note=updated["next_fertilization_note"] if updated else None,
                     date=(updated["planned_fertilization_date"] or updated["next_fertilization_date"]) if updated else None,
+                    not_needed=bool(updated["next_fertilization_not_needed"]) if updated else False,
                 )
         except Exception as exc:
             return jsonify(error=str(exc)[:200]), 500
@@ -6473,6 +6481,7 @@ def init_db():
     ensure_column(db, "plants", "next_fertilization_generated_at", "TEXT")
     ensure_column(db, "plants", "planned_fertilization_date", "TEXT")
     ensure_column(db, "plants", "never_fertilize", "INTEGER")
+    ensure_column(db, "plants", "next_fertilization_not_needed", "INTEGER DEFAULT 0")
     ensure_column(db, "plants", "never_water", "INTEGER")
     ensure_column(db, "users", "photo_id_provider", "TEXT")
     ensure_column(db, "users", "location", "TEXT")
@@ -6501,6 +6510,7 @@ def init_db():
     ensure_column(db, "garden_entries", "next_fertilization_generated_at", "TEXT")
     ensure_column(db, "garden_entries", "planned_fertilization_date", "TEXT")
     ensure_column(db, "garden_entries", "never_fertilize", "INTEGER")
+    ensure_column(db, "garden_entries", "next_fertilization_not_needed", "INTEGER DEFAULT 0")
     ensure_column(db, "garden_entries", "never_water", "INTEGER")
     ensure_column(db, "garden_entries", "zone_id",                  "INTEGER")
     ensure_column(db, "garden_entries", "last_watered_date",         "TEXT")
@@ -7460,8 +7470,10 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 "are typically already past this stage and can be fertilized soon after transplanting.\n"
                 "If a reseeding or transplanting date is given, use that age, not the original planting date.\n"
                 "Consider any planting notes provided — they may contain important context about the plant's origin.\n"
+                "If the plant is at the end of its life cycle, is bolting, has died, or fertilizing would "
+                "cause harm or provide no meaningful benefit, use NOT_NEEDED instead of a date.\n"
                 "Reply with ONLY:\n"
-                "Line 1: YYYY-MM-DD (the suggested date, today or in the future)\n"
+                "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
                 "Line 2+: 2-3 sentence explanation of your reasoning.\n"
                 "No labels, no extra text."
             ),
@@ -7470,19 +7482,27 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
         raw = resp.content[0].text.strip()
         lines = raw.splitlines()
         date_line = lines[0].strip() if lines else ""
+        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        generated_at = datetime.utcnow().isoformat(timespec="seconds")
+        if date_line.upper() == "NOT_NEEDED":
+            db.execute(
+                "UPDATE garden_entries SET next_fertilization_date = NULL, next_fertilization_note = ?,"
+                " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1 WHERE id = ?",
+                (note_text or None, generated_at, entry["id"]),
+            )
+            db.commit()
+            return {"not_needed": True, "note": note_text or None}
         if not _ISO_DATE_RE.match(date_line):
             return None
         if date_line < today_str:
             date_line = today_str
-        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
-        generated_at = datetime.utcnow().isoformat(timespec="seconds")
         db.execute(
             "UPDATE garden_entries SET next_fertilization_date = ?, next_fertilization_note = ?,"
-            " next_fertilization_generated_at = ? WHERE id = ?",
+            " next_fertilization_generated_at = ?, next_fertilization_not_needed = 0 WHERE id = ?",
             (date_line, note_text or None, generated_at, entry["id"]),
         )
         db.commit()
-        return {"date": date_line, "note": note_text or None}
+        return {"date": date_line, "note": note_text or None, "not_needed": False}
     except Exception:
         return None
 
@@ -7523,8 +7543,10 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
             system=(
                 "You are a gardening advisor. Given ornamental plant details, "
                 "suggest the next fertilization date.\n"
+                "If the plant is dormant, dead, or fertilizing would cause harm or provide no meaningful benefit, "
+                "use NOT_NEEDED instead of a date.\n"
                 "Reply with ONLY:\n"
-                "Line 1: YYYY-MM-DD (the suggested date, today or in the future)\n"
+                "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
                 "Line 2+: 2-3 sentence explanation of your reasoning.\n"
                 "No labels, no extra text."
             ),
@@ -7533,19 +7555,27 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
         raw = resp.content[0].text.strip()
         lines = raw.splitlines()
         date_line = lines[0].strip() if lines else ""
+        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        generated_at = datetime.utcnow().isoformat(timespec="seconds")
+        if date_line.upper() == "NOT_NEEDED":
+            db.execute(
+                "UPDATE plants SET next_fertilization_date = NULL, next_fertilization_note = ?,"
+                " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1 WHERE id = ?",
+                (note_text or None, generated_at, plant["id"]),
+            )
+            db.commit()
+            return {"not_needed": True, "note": note_text or None}
         if not _ISO_DATE_RE.match(date_line):
             return None
         if date_line < today_str:
             date_line = today_str
-        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
-        generated_at = datetime.utcnow().isoformat(timespec="seconds")
         db.execute(
             "UPDATE plants SET next_fertilization_date = ?, next_fertilization_note = ?,"
-            " next_fertilization_generated_at = ? WHERE id = ?",
+            " next_fertilization_generated_at = ?, next_fertilization_not_needed = 0 WHERE id = ?",
             (date_line, note_text or None, generated_at, plant["id"]),
         )
         db.commit()
-        return {"date": date_line, "note": note_text or None}
+        return {"date": date_line, "note": note_text or None, "not_needed": False}
     except Exception:
         return None
 
