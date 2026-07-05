@@ -2707,7 +2707,7 @@ self.addEventListener('fetch', function(e) {
             gen_at = entry["next_fertilization_generated_at"] if entry["next_fertilization_generated_at"] else None
             last_fert_date = last_fertilized["date"] if last_fertilized else None
             last_note_row = db.execute(
-                "SELECT created_at FROM garden_photos WHERE entry_id = ? ORDER BY created_at DESC LIMIT 1",
+                "SELECT created_at FROM garden_photos WHERE entry_id = ? AND (is_fertilization IS NULL OR is_fertilization = 0) ORDER BY created_at DESC LIMIT 1",
                 (entry_id,),
             ).fetchone()
             last_note_at = last_note_row["created_at"] if last_note_row else None
