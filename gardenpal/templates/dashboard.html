@@ -153,10 +153,9 @@
             {% endif %}
             <svg id="fert-chevron-{{ loop.index }}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <button type="button" class="fert-skip-btn"
+          <button type="button" class="fert-done-today-btn"
                   data-kind="{{ alert.kind }}" data-id="{{ alert.id }}"
-                  title="I don't plan to fertilize this plant"
-                  style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0">Skip</button>
+                  style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--green-dark);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600">Done today</button>
         </div>
         <!-- Expandable fertilization form -->
         <div id="fert-panel-{{ loop.index }}" hidden
@@ -373,6 +372,7 @@ document.querySelectorAll('.dash-fert-last-btn, .dash-fert-next-btn').forEach(fu
 var dashFertPendingKind = null;
 var dashFertPendingId = null;
 var dashFertPendingRow = null;
+var dashFertPendingMode = null;
 
 function removeFertRow(row) {
   row.style.transition = 'opacity 0.2s';
@@ -389,17 +389,15 @@ function removeFertRow(row) {
   }, 220);
 }
 
-document.querySelectorAll('.fert-skip-btn').forEach(function(btn) {
+document.querySelectorAll('.fert-done-today-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var row = btn.closest('[data-fert-row]');
-    disableBtn(btn);
-    fetch('/fert-never', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
-      body: 'kind=' + encodeURIComponent(btn.dataset.kind) + '&id=' + encodeURIComponent(btn.dataset.id)
-    }).then(function(r) { return r.json(); })
-      .then(function(d) { if (d.ok) removeFertRow(row); else enableBtn(btn); })
-      .catch(function() { enableBtn(btn); });
+    dashFertPendingKind = btn.dataset.kind;
+    dashFertPendingId = btn.dataset.id;
+    dashFertPendingRow = btn.closest('[data-fert-row]');
+    dashFertPendingMode = 'done_today';
+    var inp = document.getElementById('dash-fert-type-input');
+    if (inp) inp.value = '';
+    document.getElementById('dash-fert-type-overlay').hidden = false;
   });
 });
 
@@ -445,33 +443,62 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
   var overlay = document.getElementById('dash-fert-type-overlay');
   if (!overlay) return;
 
-  function closePopup() {
-    overlay.hidden = true;
-    if (dashFertPendingRow) removeFertRow(dashFertPendingRow);
-    dashFertPendingRow = null;
-  }
-
-  if (skipBtn) skipBtn.addEventListener('click', closePopup);
-
-  if (saveBtn) saveBtn.addEventListener('click', function() {
+  function doFertilizedToday(ftype, btn) {
     var kind = dashFertPendingKind;
     var id = dashFertPendingId;
     var row = dashFertPendingRow;
-    var ftype = (document.getElementById('dash-fert-type-input').value || '').trim();
     var url = kind === 'edible'
-      ? '/garden/' + id + '/fertilizer-type'
-      : '/ideas/' + id + '/fertilizer-type';
-    disableBtn(saveBtn);
+      ? '/garden/' + id + '/fertilized-today'
+      : '/ideas/' + id + '/fertilized-today';
     fetch(url, {
       method: 'POST',
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'fertilizer_type=' + encodeURIComponent(ftype)
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+      body: ftype ? 'fertilizer_type=' + encodeURIComponent(ftype) : ''
     }).finally(function() {
-      enableBtn(saveBtn);
+      if (btn) enableBtn(btn);
       overlay.hidden = true;
       if (row) removeFertRow(row);
       dashFertPendingRow = null;
+      dashFertPendingMode = null;
     });
+  }
+
+  if (skipBtn) skipBtn.addEventListener('click', function() {
+    if (dashFertPendingMode === 'done_today') {
+      disableBtn(skipBtn);
+      doFertilizedToday(null, skipBtn);
+    } else {
+      overlay.hidden = true;
+      if (dashFertPendingRow) removeFertRow(dashFertPendingRow);
+      dashFertPendingRow = null;
+      dashFertPendingMode = null;
+    }
+  });
+
+  if (saveBtn) saveBtn.addEventListener('click', function() {
+    var ftype = (document.getElementById('dash-fert-type-input').value || '').trim();
+    disableBtn(saveBtn);
+    if (dashFertPendingMode === 'done_today') {
+      doFertilizedToday(ftype, saveBtn);
+    } else {
+      var kind = dashFertPendingKind;
+      var id = dashFertPendingId;
+      var row = dashFertPendingRow;
+      var url = kind === 'edible'
+        ? '/garden/' + id + '/fertilizer-type'
+        : '/ideas/' + id + '/fertilizer-type';
+      fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'fertilizer_type=' + encodeURIComponent(ftype)
+      }).finally(function() {
+        enableBtn(saveBtn);
+        overlay.hidden = true;
+        if (row) removeFertRow(row);
+        dashFertPendingRow = null;
+        dashFertPendingMode = null;
+      });
+    }
   });
 })();
 
