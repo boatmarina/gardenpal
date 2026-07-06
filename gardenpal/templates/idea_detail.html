@@ -253,7 +253,7 @@
               <button type="submit" id="idea-fert-next-save-btn" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
               {% if next_fertilization.planned_date and not next_fertilization.never %}
               <button type="button"
-                      onclick="document.getElementById('idea-fert-next-clear-planned').value='1';this.closest('form').submit()"
+                      onclick="this.textContent='Clearing…';this.disabled=true;document.getElementById('idea-fert-next-clear-planned').value='1';this.closest('form').submit()"
                       style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap">Clear date</button>
               {% endif %}
             </div>
