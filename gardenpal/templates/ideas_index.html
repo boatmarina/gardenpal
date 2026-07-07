@@ -163,13 +163,10 @@
               {% endif %}
               {% set ptags = tags_map.get(plant.id, []) %}
               {% if ptags %}
-              <div class="tag-pills" style="margin-top:6px;flex-wrap:nowrap;overflow:hidden">
-                {% for tag in ptags[:3] %}
+              <div class="tag-pills" style="margin-top:6px;flex-wrap:wrap">
+                {% for tag in ptags %}
                 <span class="tag-pill" style="background:{{ tag.color }}22;color:{{ tag.color }};border:1px solid {{ tag.color }}55">{{ tag.name }}</span>
                 {% endfor %}
-                {% if ptags|length > 3 %}
-                <span class="tag-pill" style="background:#E5E2DC;color:var(--muted);border:1px solid var(--border)">+{{ ptags|length - 3 }}</span>
-                {% endif %}
               </div>
               {% endif %}
             </div>
