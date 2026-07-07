@@ -1245,6 +1245,11 @@ self.addEventListener('fetch', function(e) {
                     "never": False,
                 }
 
+        plant_notes = db.execute(
+            "SELECT * FROM plant_notes WHERE plant_id = ? AND user_id = ? ORDER BY note_date DESC NULLS LAST, created_at DESC",
+            (plant_id, g.user["id"]),
+        ).fetchall()
+
         return render_template("idea_detail.html", plant=plant, categories=categories,
                                zone=zone, yard_plant_id=yard_plant_id,
                                plant_tags=plant_tags, user_tags=user_tags,
@@ -1255,7 +1260,8 @@ self.addEventListener('fetch', function(e) {
                                next_fertilization=next_fertilization,
                                fert_deadline=fert_deadline,
                                ff_water=ff_water, last_watered=last_watered,
-                               next_watering=next_watering, water_deadline=water_deadline)
+                               next_watering=next_watering, water_deadline=water_deadline,
+                               plant_notes=plant_notes)
 
     @app.route("/ideas/<int:plant_id>/add-to-zone", methods=["POST"])
     @login_required
@@ -2017,6 +2023,43 @@ self.addEventListener('fetch', function(e) {
         if back:
             return redirect(url_for("idea_detail", plant_id=back))
         return redirect(url_for("yard_index"))
+
+    @app.route("/ideas/<int:plant_id>/add-note", methods=["POST"])
+    @login_required
+    def plant_add_note(plant_id: int):
+        db = get_db()
+        plant = db.execute(
+            "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+            (plant_id, g.user["id"]),
+        ).fetchone()
+        if plant is None:
+            flash("Plant not found.")
+            return redirect(url_for("ideas_index"))
+        notes = request.form.get("notes", "").strip()
+        note_date = request.form.get("note_date", "").strip() or _local_today()
+        if notes:
+            db.execute(
+                "INSERT INTO plant_notes (plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+                (plant_id, g.user["id"], note_date, notes, datetime.utcnow().isoformat(timespec="seconds")),
+            )
+            db.commit()
+        return redirect(url_for("idea_detail", plant_id=plant_id))
+
+    @app.route("/ideas/notes/<int:note_id>/delete", methods=["POST"])
+    @login_required
+    def plant_note_delete(note_id: int):
+        db = get_db()
+        row = db.execute(
+            "SELECT id, plant_id FROM plant_notes WHERE id = ? AND user_id = ?",
+            (note_id, g.user["id"]),
+        ).fetchone()
+        if row is None:
+            flash("Note not found.")
+            return redirect(url_for("ideas_index"))
+        plant_id = row["plant_id"]
+        db.execute("DELETE FROM plant_notes WHERE id = ?", (note_id,))
+        db.commit()
+        return redirect(url_for("idea_detail", plant_id=plant_id))
 
     # ── Tools (settings + exports) ───────────────────────────────────────────
 
@@ -6930,6 +6973,19 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_yard_plant_notes_yp ON yard_plant_notes(yard_plant_id)",
+    """
+    CREATE TABLE IF NOT EXISTS plant_notes (
+        id SERIAL PRIMARY KEY,
+        plant_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        note_date TEXT,
+        notes TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_plant_notes_plant ON plant_notes(plant_id)",
     # Normalise any sun_exposure values that were stored as raw API strings
     # (e.g. "Part Sun", "Partial Shade", "Full Sun") instead of the canonical
     # "part-sun" / "full-sun" / "shade" values the filter UI expects.
