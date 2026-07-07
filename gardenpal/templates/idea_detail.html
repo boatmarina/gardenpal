@@ -439,38 +439,28 @@
         {% endif %}
       </div>
       {% endfor %}
-      {% if is_owner %}
-      <button type="button" onclick="gpTogglePlantNote()"
-              style="margin-top:8px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0">+ Add note</button>
-      {% endif %}
     {% else %}
-    <div style="border-top:1px solid var(--border);padding-top:9px">
-      {% if is_owner %}
-      <button type="button" onclick="gpTogglePlantNote()"
-              style="background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0;white-space:nowrap">+ Add note</button>
-      {% else %}
-      <p style="font-size:0.85rem;color:var(--muted)">No notes yet.</p>
+      {% if not is_owner %}
+      <p style="font-size:0.85rem;color:var(--muted);border-top:1px solid var(--border);padding-top:9px">No notes yet.</p>
       {% endif %}
-    </div>
     {% endif %}
 
     {% if is_owner %}
-    <div id="gp-plant-note-form" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+    <div id="gp-plant-note-form" hidden style="border-top:1px solid var(--border);padding-top:10px;margin-top:{% if plant_notes %}8{% else %}0{% endif %}px">
       <form method="post" action="{{ url_for('plant_add_note', plant_id=plant.id) }}"
-            class="stack" style="gap:8px">
-        <label style="font-size:0.85rem">
-          Note
-          <textarea name="notes" rows="2" placeholder="Observations, care notes…" style="font-size:0.85rem;resize:vertical"></textarea>
-        </label>
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-          <label style="font-size:0.85rem;flex:1;min-width:120px">
-            Date
-            <input type="date" name="note_date" value="{{ today }}" style="font-size:0.85rem" />
-          </label>
-          <button type="submit" class="button button-secondary" style="font-size:0.82rem;flex-shrink:0;margin-bottom:1px">Save</button>
+            style="display:flex;flex-direction:column;gap:8px">
+        <textarea name="notes" rows="3" placeholder="Observations, care notes…"
+                  style="font-size:0.85rem;resize:vertical;width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--fg);font-family:inherit"></textarea>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" name="note_date" value="{{ today }}"
+                 style="font-size:0.82rem;flex:1;min-width:0;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--fg);font-family:inherit" />
+          <button type="submit" class="button button-secondary" style="font-size:0.82rem;flex-shrink:0">Save</button>
+          <button type="button" onclick="gpTogglePlantNote()" style="font-size:0.82rem;color:var(--muted);background:none;border:none;cursor:pointer;font-family:inherit;flex-shrink:0">Cancel</button>
         </div>
       </form>
     </div>
+    <button id="gp-plant-note-btn" type="button" onclick="gpTogglePlantNote()"
+            style="margin-top:{% if plant_notes %}8{% else %}0{% endif %}px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0{% if not plant_notes %};border-top:1px solid var(--border);padding-top:9px;display:block{% endif %}">+ Add note</button>
     {% endif %}
   </div>
 
@@ -1271,8 +1261,12 @@ function gpToggleNote(pzId) {
 }
 
 function gpTogglePlantNote() {
-  var el = document.getElementById('gp-plant-note-form');
-  if (el) el.hidden = !el.hidden;
+  var form = document.getElementById('gp-plant-note-form');
+  var btn  = document.getElementById('gp-plant-note-btn');
+  if (!form) return;
+  form.hidden = !form.hidden;
+  if (btn) btn.hidden = !btn.hidden;
+  if (!form.hidden) form.querySelector('textarea').focus();
 }
 
 (function() {
