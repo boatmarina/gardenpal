@@ -420,6 +420,60 @@
 
   </article>
 
+  <!-- Library Notes -->
+  <div style="margin-top:14px;background:var(--card);border-radius:var(--r-xl);padding:var(--pad)">
+    <p style="font-weight:600;font-size:0.95rem;margin:0 0 10px">Notes</p>
+
+    {% if plant_notes %}
+      {% for n in plant_notes %}
+      <div style="padding:9px 0;border-top:1px solid var(--border);position:relative">
+        <p style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:2px">{{ n.note_date | month_day if n.note_date }}</p>
+        <p style="font-size:0.85rem;line-height:1.5;padding-right:48px">{{ n.notes }}</p>
+        {% if is_owner %}
+        <form method="post" action="{{ url_for('plant_note_delete', note_id=n.id) }}"
+              style="position:absolute;top:8px;right:0"
+              onsubmit="return confirm('Delete this note?')">
+          <button type="submit" title="Delete note"
+                  style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;padding:4px 6px;font-family:inherit">×</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if is_owner %}
+      <button type="button" onclick="gpTogglePlantNote()"
+              style="margin-top:8px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0">+ Add note</button>
+      {% endif %}
+    {% else %}
+    <div style="border-top:1px solid var(--border);padding-top:9px">
+      {% if is_owner %}
+      <button type="button" onclick="gpTogglePlantNote()"
+              style="background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0;white-space:nowrap">+ Add note</button>
+      {% else %}
+      <p style="font-size:0.85rem;color:var(--muted)">No notes yet.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if is_owner %}
+    <div id="gp-plant-note-form" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <form method="post" action="{{ url_for('plant_add_note', plant_id=plant.id) }}"
+            class="stack" style="gap:8px">
+        <label style="font-size:0.85rem">
+          Note
+          <textarea name="notes" rows="2" placeholder="Observations, care notes…" style="font-size:0.85rem;resize:vertical"></textarea>
+        </label>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <label style="font-size:0.85rem;flex:1;min-width:120px">
+            Date
+            <input type="date" name="note_date" value="{{ today }}" style="font-size:0.85rem" />
+          </label>
+          <button type="submit" class="button button-secondary" style="font-size:0.82rem;flex-shrink:0;margin-bottom:1px">Save</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
   {% if plant_zones %}
   <div style="margin-top:14px">
     {% for pz in plant_zones %}
@@ -521,60 +575,6 @@
     {% endif %}
   </div>
   {% endif %}
-
-  <!-- Library Notes -->
-  <div style="margin-top:14px;background:var(--card);border-radius:var(--r-xl);padding:var(--pad)">
-    <p style="font-weight:600;font-size:0.95rem;margin:0 0 10px">Notes</p>
-
-    {% if plant_notes %}
-      {% for n in plant_notes %}
-      <div style="padding:9px 0;border-top:1px solid var(--border);position:relative">
-        <p style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:2px">{{ n.note_date | month_day if n.note_date }}</p>
-        <p style="font-size:0.85rem;line-height:1.5;padding-right:48px">{{ n.notes }}</p>
-        {% if is_owner %}
-        <form method="post" action="{{ url_for('plant_note_delete', note_id=n.id) }}"
-              style="position:absolute;top:8px;right:0"
-              onsubmit="return confirm('Delete this note?')">
-          <button type="submit" title="Delete note"
-                  style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;padding:4px 6px;font-family:inherit">×</button>
-        </form>
-        {% endif %}
-      </div>
-      {% endfor %}
-      {% if is_owner %}
-      <button type="button" onclick="gpTogglePlantNote()"
-              style="margin-top:8px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0">+ Add note</button>
-      {% endif %}
-    {% else %}
-    <div style="border-top:1px solid var(--border);padding-top:9px">
-      {% if is_owner %}
-      <button type="button" onclick="gpTogglePlantNote()"
-              style="background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0;white-space:nowrap">+ Add note</button>
-      {% else %}
-      <p style="font-size:0.85rem;color:var(--muted)">No notes yet.</p>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    {% if is_owner %}
-    <div id="gp-plant-note-form" hidden style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-      <form method="post" action="{{ url_for('plant_add_note', plant_id=plant.id) }}"
-            class="stack" style="gap:8px">
-        <label style="font-size:0.85rem">
-          Note
-          <textarea name="notes" rows="2" placeholder="Observations, care notes…" style="font-size:0.85rem;resize:vertical"></textarea>
-        </label>
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-          <label style="font-size:0.85rem;flex:1;min-width:120px">
-            Date
-            <input type="date" name="note_date" value="{{ today }}" style="font-size:0.85rem" />
-          </label>
-          <button type="submit" class="button button-secondary" style="font-size:0.82rem;flex-shrink:0;margin-bottom:1px">Save</button>
-        </div>
-      </form>
-    </div>
-    {% endif %}
-  </div>
 
   {% if is_owner %}
   <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
