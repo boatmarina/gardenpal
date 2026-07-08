@@ -860,13 +860,21 @@
 
   function saveOrder() {
     const urls = [...grid.querySelectorAll('.photo-item img')].map(img => img.src);
-    fetch(`/ideas/${plantId}/update-photos`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({photos: urls}),
-      keepalive: true  // survives page navigation
-    });
+    if (!urls.length) return;
+    const url  = `/ideas/${plantId}/update-photos`;
+    const body = JSON.stringify({photos: urls});
+    // sendBeacon is the most reliable way to send data during page exit on iOS.
+    // Fall back to fetch+keepalive on browsers that don't support it.
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([body], {type: 'application/json'}));
+    } else {
+      fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body, keepalive: true});
+    }
   }
+  // visibilitychange fires more reliably than pagehide on iOS PWA
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') saveOrder();
+  });
   window.addEventListener('pagehide', saveOrder);
 
   /* ── attach remove handler ── */
