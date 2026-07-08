@@ -193,17 +193,17 @@ def _connect(database_url: str) -> _PgDB:
             f"It must be a URI in the form: "
             f"postgresql://postgres:YOUR_PASSWORD@db.PROJECT.supabase.co:5432/postgres"
         )
-    ssl_ctx = ssl.create_default_context()
-    ssl_ctx.check_hostname = False
-    ssl_ctx.verify_mode = ssl.CERT_NONE
     is_local = parsed.hostname in ('localhost', '127.0.0.1', '::1')
+    ssl_ctx = None
+    if not is_local:
+        ssl_ctx = ssl.create_default_context()  # verifies cert using system CA bundle
     conn = pg8000.connect(
         host=parsed.hostname,
         port=parsed.port or 5432,
         database=parsed.path.lstrip("/"),
         user=parsed.username,
         password=parsed.password or None,
-        ssl_context=None if is_local else ssl_ctx,
+        ssl_context=ssl_ctx,
     )
     return _PgDB(conn)
 
@@ -7064,6 +7064,31 @@ _SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_plant_notes_plant ON plant_notes(plant_id)",
+    # Enable Row Level Security on all tables.
+    # The app connects as the postgres superuser which bypasses RLS, so this has
+    # no effect on the app. It does block Supabase's anon/authenticated REST API
+    # roles from reading data without explicit policies — which is what we want.
+    "ALTER TABLE users              ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE plants             ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE categories         ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE plant_categories   ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE yard_zones         ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE yard_plants        ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE garden_entries     ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE garden_photos      ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE tags               ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE plant_tags         ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE service_cache      ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE login_log          ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE perenual_log       ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE activity_log       ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE garden_shares      ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE chat_error_log     ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE ai_chat_log        ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE app_error_log      ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE api_usage          ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE yard_plant_notes   ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE plant_notes        ENABLE ROW LEVEL SECURITY",
     # Normalise any sun_exposure values that were stored as raw API strings
     # (e.g. "Part Sun", "Partial Shade", "Full Sun") instead of the canonical
     # "part-sun" / "full-sun" / "shade" values the filter UI expects.
