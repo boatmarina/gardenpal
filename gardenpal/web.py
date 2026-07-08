@@ -196,7 +196,13 @@ def _connect(database_url: str) -> _PgDB:
     is_local = parsed.hostname in ('localhost', '127.0.0.1', '::1')
     ssl_ctx = None
     if not is_local:
-        ssl_ctx = ssl.create_default_context()  # verifies cert using system CA bundle
+        # Supabase uses its own CA for database TLS certificates, which is not
+        # in the system bundle, so full chain verification fails. We still use
+        # SSL (connection is encrypted in transit) but skip cert verification —
+        # equivalent to PostgreSQL's sslmode=require.
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
     conn = pg8000.connect(
         host=parsed.hostname,
         port=parsed.port or 5432,
