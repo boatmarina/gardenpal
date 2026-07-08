@@ -2388,9 +2388,14 @@ self.addEventListener('fetch', function(e) {
         w = csv.writer(out)
 
         def _yn(val):
-            if val is None:
+            if val is None or val == "":
                 return ""
-            return "Yes" if int(val) else "No"
+            s = str(val).strip().lower()
+            if s in ("1", "true", "yes"):
+                return "Yes"
+            if s in ("0", "false", "no"):
+                return "No"
+            return str(val)
 
         w.writerow([
             "Name", "Scientific Name", "Sun", "Lifecycle", "Evergreen Status",
@@ -4594,7 +4599,7 @@ self.addEventListener('fetch', function(e) {
     @login_required
     def api_plant_photos():
         q = request.args.get("q", "").strip()
-        count = min(int(request.args.get("count", "3")), 6)
+        count = min(int(request.args.get("count", "3")), 15)
         taxon_id_raw = request.args.get("taxon_id", "").strip()
         taxon_id = int(taxon_id_raw) if taxon_id_raw.isdigit() else None
         if not q and not taxon_id:

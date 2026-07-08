@@ -867,6 +867,7 @@
       keepalive: true  // survives page navigation
     });
   }
+  window.addEventListener('pagehide', saveOrder);
 
   /* ── attach remove handler ── */
   function attachRemove(item) {
