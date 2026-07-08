@@ -378,7 +378,8 @@ def create_app() -> Flask:
             return "never"
         try:
             dt = datetime.fromisoformat(str(dt_str)[:19])
-            days = (datetime.utcnow() - dt).days
+            today = datetime.utcnow().date()
+            days = (today - dt.date()).days
             if days <= 0:
                 return "today"
             if days == 1:
