@@ -858,24 +858,34 @@
     });
   }
 
+  // Used during normal page operation (drag reorder, remove, appendPhotos).
+  // Plain fetch — reliable when the page is active.
   function saveOrder() {
     const urls = [...grid.querySelectorAll('.photo-item img')].map(img => img.src);
     if (!urls.length) return;
-    const url  = `/ideas/${plantId}/update-photos`;
+    fetch(`/ideas/${plantId}/update-photos`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({photos: urls}),
+    });
+  }
+
+  // Used only at page exit. sendBeacon is the only reliable mechanism on iOS
+  // for requests that must survive navigation — plain fetch gets cancelled.
+  function saveOrderBeacon() {
+    const urls = [...grid.querySelectorAll('.photo-item img')].map(img => img.src);
+    if (!urls.length) return;
     const body = JSON.stringify({photos: urls});
-    // sendBeacon is the most reliable way to send data during page exit on iOS.
-    // Fall back to fetch+keepalive on browsers that don't support it.
     if (navigator.sendBeacon) {
-      navigator.sendBeacon(url, new Blob([body], {type: 'application/json'}));
+      navigator.sendBeacon(`/ideas/${plantId}/update-photos`, new Blob([body], {type: 'application/json'}));
     } else {
-      fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body, keepalive: true});
+      fetch(`/ideas/${plantId}/update-photos`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body, keepalive: true});
     }
   }
-  // visibilitychange fires more reliably than pagehide on iOS PWA
   document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'hidden') saveOrder();
+    if (document.visibilityState === 'hidden') saveOrderBeacon();
   });
-  window.addEventListener('pagehide', saveOrder);
+  window.addEventListener('pagehide', saveOrderBeacon);
 
   /* ── attach remove handler ── */
   function attachRemove(item) {
