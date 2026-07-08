@@ -2369,6 +2369,7 @@ self.addEventListener('fetch', function(e) {
             "SELECT * FROM plants WHERE user_id = ? ORDER BY name ASC", (uid,)
         ).fetchall()
         tags_map = {}
+        notes_map = {}
         if plants:
             pids = [p["id"] for p in plants]
             ph = ",".join("?" * len(pids))
@@ -2377,22 +2378,30 @@ self.addEventListener('fetch', function(e) {
                 pids,
             ).fetchall():
                 tags_map.setdefault(row["plant_id"], []).append(row["name"])
+            for row in db.execute(
+                f"SELECT plant_id, note_date, notes FROM plant_notes WHERE plant_id IN ({ph}) ORDER BY note_date ASC NULLS LAST, created_at ASC",
+                pids,
+            ).fetchall():
+                entry = f"{str(row['note_date'])[:10]}: {row['notes']}" if row["note_date"] else row["notes"]
+                notes_map.setdefault(row["plant_id"], []).append(entry)
         out = io.StringIO()
         w = csv.writer(out)
+
+        def _yn(val):
+            if val is None:
+                return ""
+            return "Yes" if int(val) else "No"
+
         w.writerow([
             "Name", "Scientific Name", "Sun", "Lifecycle", "Evergreen Status",
             "Plant Form", "Height Category", "Size", "Flowering Schedule",
             "Water Needs", "Deadheading", "Deer Resistant", "PNW Native",
-            "Tags", "Description", "Notes", "Source",
+            "Tags", "Description", "Notes", "Notes Log", "Source",
             "Last Fertilized", "Fertilizer Type", "Next Fertilization Date",
             "Last Watered", "Next Watering Date",
             "Added Date",
         ])
         for p in plants:
-            def _yn(val):
-                if val is None:
-                    return ""
-                return "Yes" if int(val) else "No"
             w.writerow([
                 p["name"], p["scientific_name"] or "", p["sun_exposure"] or "",
                 p["lifecycle"] or "", p["evergreen_status"] or "",
@@ -2402,7 +2411,9 @@ self.addEventListener('fetch', function(e) {
                 _yn(p["deer_resistant"]) if p["deer_resistant"] is not None else "",
                 _yn(p["pnw_native"]) if p["pnw_native"] is not None else "",
                 ", ".join(tags_map.get(p["id"], [])),
-                p["description"] or "", p["notes"] or "", p["source_note"] or "",
+                p["description"] or "", p["notes"] or "",
+                "\n".join(notes_map.get(p["id"], [])),
+                p["source_note"] or "",
                 str(p["last_fertilized_date"])[:10] if p.get("last_fertilized_date") else "",
                 p["last_fertilizer_type"] or "" if p.get("last_fertilizer_type") else "",
                 str(p["next_fertilization_date"])[:10] if p.get("next_fertilization_date") else "",
@@ -2423,7 +2434,7 @@ self.addEventListener('fetch', function(e) {
         ph, id_args = _in_ids(ids)
         rows = db.execute(
             f"""
-            SELECT z.name AS zone_name, z.description AS zone_desc,
+            SELECT yp.id, z.name AS zone_name, z.description AS zone_desc,
                    yp.plant_name, yp.scientific_name, yp.sun_needs, yp.lifecycle,
                    yp.size_info, yp.flowering_schedule, yp.watering_needs,
                    yp.spreads, yp.notes, yp.created_at
@@ -2434,12 +2445,22 @@ self.addEventListener('fetch', function(e) {
             """,
             id_args,
         ).fetchall()
+        yard_notes_map = {}
+        if rows:
+            yp_ids = [r["id"] for r in rows]
+            yph = ",".join("?" * len(yp_ids))
+            for row in db.execute(
+                f"SELECT yard_plant_id, note_date, notes FROM yard_plant_notes WHERE yard_plant_id IN ({yph}) ORDER BY note_date ASC NULLS LAST, created_at ASC",
+                yp_ids,
+            ).fetchall():
+                entry = f"{str(row['note_date'])[:10]}: {row['notes']}" if row["note_date"] else row["notes"]
+                yard_notes_map.setdefault(row["yard_plant_id"], []).append(entry)
         out = io.StringIO()
         w = csv.writer(out)
         w.writerow([
             "Zone", "Zone Description", "Plant", "Scientific Name",
             "Sun", "Lifecycle", "Size", "Flowering Schedule",
-            "Watering Needs", "Spreads", "Notes", "Added Date",
+            "Watering Needs", "Spreads", "Notes", "Notes Log", "Added Date",
         ])
         for r in rows:
             w.writerow([
@@ -2447,6 +2468,7 @@ self.addEventListener('fetch', function(e) {
                 r["scientific_name"] or "", r["sun_needs"] or "", r["lifecycle"] or "",
                 r["size_info"] or "", r["flowering_schedule"] or "",
                 r["watering_needs"] or "", r["spreads"] or "", r["notes"] or "",
+                "\n".join(yard_notes_map.get(r["id"], [])),
                 str(r["created_at"])[:10] if r["created_at"] else "",
             ])
         return Response(
@@ -2462,7 +2484,7 @@ self.addEventListener('fetch', function(e) {
         ph, id_args = _in_ids(ids)
         entries = db.execute(
             f"""
-            SELECT plant_name, variety, location_type, location_name,
+            SELECT id, plant_name, variety, location_type, location_name,
                    planted_date, planting_method, notes, created_at,
                    last_fertilized_date, last_fertilizer_type, next_fertilization_date,
                    last_watered_date, next_watering_date
@@ -2471,11 +2493,21 @@ self.addEventListener('fetch', function(e) {
             """,
             id_args,
         ).fetchall()
+        growth_log_map = {}
+        if entries:
+            eids = [e["id"] for e in entries]
+            eph = ",".join("?" * len(eids))
+            for row in db.execute(
+                f"SELECT entry_id, photo_date, notes FROM garden_photos WHERE entry_id IN ({eph}) AND (is_fertilization IS NULL OR is_fertilization = 0) AND notes IS NOT NULL AND notes != '' ORDER BY photo_date ASC NULLS LAST, created_at ASC",
+                eids,
+            ).fetchall():
+                entry = f"{str(row['photo_date'])[:10]}: {row['notes']}" if row["photo_date"] else row["notes"]
+                growth_log_map.setdefault(row["entry_id"], []).append(entry)
         out = io.StringIO()
         w = csv.writer(out)
         w.writerow([
             "Plant", "Variety", "Location Type", "Location Name",
-            "Planted Date", "Planting Method", "Notes",
+            "Planted Date", "Planting Method", "Notes", "Growth Log",
             "Last Fertilized", "Fertilizer Type", "Next Fertilization Date",
             "Last Watered", "Next Watering Date",
             "Added Date",
@@ -2487,6 +2519,7 @@ self.addEventListener('fetch', function(e) {
                 str(e["planted_date"])[:10] if e["planted_date"] else "",
                 e["planting_method"] or "" if e["planting_method"] else "",
                 e["notes"] or "",
+                "\n".join(growth_log_map.get(e["id"], [])),
                 str(e["last_fertilized_date"])[:10] if e.get("last_fertilized_date") else "",
                 e["last_fertilizer_type"] or "" if e.get("last_fertilizer_type") else "",
                 str(e["next_fertilization_date"])[:10] if e.get("next_fertilization_date") else "",
