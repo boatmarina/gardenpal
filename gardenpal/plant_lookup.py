@@ -400,12 +400,21 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
         if not taxon_id:
             if not query:
                 return []
-            # Build a list of queries to try: full name first, then strip cultivar
-            # (e.g. "Borago officinalis 'Variegata'" → "Borago officinalis")
+            # Build a list of queries to try, from most to least specific.
             queries_to_try = [query]
+            # Strip cultivar suffix in quotes: "Borago officinalis 'Variegata'" → "Borago officinalis"
             simplified = query.split("'")[0].split('"')[0].strip()
             if simplified and simplified != query:
                 queries_to_try.append(simplified)
+            # Strip hybrid "x" designator: "Coreopsis x hybrida" → "Coreopsis hybrida"
+            import re as _re
+            dehybridized = _re.sub(r'\s+[xX]\s+', ' ', simplified or query).strip()
+            if dehybridized and dehybridized not in queries_to_try:
+                queries_to_try.append(dehybridized)
+            # Fall back to genus only (first word) for multi-word names
+            parts = (simplified or query).split()
+            if len(parts) > 1 and parts[0] not in queries_to_try:
+                queries_to_try.append(parts[0])
             taxa = []
             for q_try in queries_to_try:
                 taxa_resp = requests.get(

@@ -190,21 +190,21 @@
             <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Ornamentals</p>
             <p style="font-size:0.78rem;color:var(--muted);margin:0">All your saved plants with tags and notes</p>
           </div>
-          <a href="{{ url_for('export_library_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_library_csv') }}','gardenpal-library.csv',this)">Download CSV</button>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
           <div>
             <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Yard Zones</p>
             <p style="font-size:0.78rem;color:var(--muted);margin:0">Plants per zone with per-zone notes</p>
           </div>
-          <a href="{{ url_for('export_yard_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_yard_csv') }}','gardenpal-yard.csv',this)">Download CSV</button>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
           <div>
             <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Edibles</p>
             <p style="font-size:0.78rem;color:var(--muted);margin:0">All garden entries with planted dates and locations</p>
           </div>
-          <a href="{{ url_for('export_garden_csv') }}" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem">Download CSV</a>
+          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_garden_csv') }}','gardenpal-garden.csv',this)">Download CSV</button>
         </div>
       </div>
     </section>
@@ -681,6 +681,32 @@ function toggleFertTracking() {
 </script>
 {% endif %}
 <script>
+function gpDownloadCsv(url, filename, btn) {
+  var orig = btn.textContent;
+  btn.textContent = 'Downloading…';
+  btn.disabled = true;
+  fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('Server error ' + r.status);
+      return r.blob();
+    })
+    .then(function(blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+      btn.textContent = orig;
+      btn.disabled = false;
+    })
+    .catch(function(e) {
+      alert('Download failed: ' + e.message);
+      btn.textContent = orig;
+      btn.disabled = false;
+    });
+}
 (function(){
   var fmt = new Intl.DateTimeFormat([], {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
   document.querySelectorAll('.utc-ts').forEach(function(el){
