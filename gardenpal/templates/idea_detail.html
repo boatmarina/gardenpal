@@ -858,29 +858,30 @@
     });
   }
 
-  // Used during normal page operation (drag reorder, remove, appendPhotos).
-  // Plain fetch — reliable when the page is active.
-  function saveOrder() {
+  // keepalive:true makes the request survive page navigation on iOS Safari.
+  // sendBeacon with JSON Blobs is unreliable on iOS — keepalive fetch is the
+  // correct primitive for "fire and don't cancel on unload."
+  function saveOrder(opts) {
     const urls = [...grid.querySelectorAll('.photo-item img')].map(img => img.src);
     if (!urls.length) return;
     fetch(`/ideas/${plantId}/update-photos`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({photos: urls}),
+      keepalive: true,
     });
   }
 
-  // Used only at page exit. sendBeacon is the only reliable mechanism on iOS
-  // for requests that must survive navigation — plain fetch gets cancelled.
+  // Same save used at page exit — keepalive:true survives unload on all modern browsers.
   function saveOrderBeacon() {
     const urls = [...grid.querySelectorAll('.photo-item img')].map(img => img.src);
     if (!urls.length) return;
-    const body = JSON.stringify({photos: urls});
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(`/ideas/${plantId}/update-photos`, new Blob([body], {type: 'application/json'}));
-    } else {
-      fetch(`/ideas/${plantId}/update-photos`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body, keepalive: true});
-    }
+    fetch(`/ideas/${plantId}/update-photos`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({photos: urls}),
+      keepalive: true,
+    });
   }
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'hidden') saveOrderBeacon();
@@ -1077,9 +1078,13 @@
         attachControls(item);
       });
       updateBadges();
-      saveOrder(); // save immediately so navigating away doesn't lose the photos
-      fetchWebBtn.disabled = false;
-      fetchWebBtn.innerHTML = fetchWebBtnHTML;
+      saveOrder();
+      // Brief confirmation so the user knows the save fired.
+      fetchWebBtn.textContent = 'Saved ✓';
+      setTimeout(function() {
+        fetchWebBtn.disabled = false;
+        fetchWebBtn.innerHTML = fetchWebBtnHTML;
+      }, 1200);
     }
 
     fetchWebBtn.addEventListener('click', function() {
