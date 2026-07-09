@@ -57,10 +57,22 @@
     {% endif %}
 
     <div class="detail-header">
-      <h2 style="font-size:1.4rem;margin-bottom:4px">{{ plant.name }}</h2>
-      <p class="muted" style="font-style:italic;font-size:0.9rem;margin-bottom:0">
-        {{ plant.scientific_name or "Scientific name not set" }}
-      </p>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div style="min-width:0">
+          <h2 style="font-size:1.4rem;margin-bottom:4px">{{ plant.name }}</h2>
+          <p class="muted" style="font-style:italic;font-size:0.9rem;margin-bottom:0">
+            {{ plant.scientific_name or "Scientific name not set" }}
+          </p>
+        </div>
+        <button id="gp-share-btn" type="button" title="Share plant link"
+                style="flex-shrink:0;background:none;border:1.5px solid var(--border);border-radius:8px;padding:6px 9px;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--muted);font-family:inherit;font-size:0.75rem;margin-top:2px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Share
+        </button>
+      </div>
       {% if plant.description %}
       <p style="margin:10px 0 0;font-size:0.9rem;line-height:1.5;color:var(--text)">{{ plant.description }}</p>
       {% endif %}
@@ -1283,6 +1295,30 @@ function gpToggleNote(pzId) {
   var el = document.getElementById('gp-note-form-' + pzId);
   if (el) el.hidden = !el.hidden;
 }
+
+// Share button — native share sheet on iOS/Android, clipboard fallback on desktop
+(function() {
+  var btn = document.getElementById('gp-share-btn');
+  if (!btn) return;
+  var plantName = {{ plant.name | tojson }};
+  var url = window.location.href.split('?')[0]; // canonical URL without query params
+
+  btn.addEventListener('click', function() {
+    if (navigator.share) {
+      navigator.share({ title: plantName, url: url }).catch(function() {});
+      return;
+    }
+    // Clipboard fallback for desktop
+    navigator.clipboard.writeText(url).then(function() {
+      var orig = btn.innerHTML;
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.innerHTML = orig; }, 1800);
+    }).catch(function() {
+      // Last resort: show the URL in a prompt the user can copy
+      window.prompt('Copy this link:', url);
+    });
+  });
+})();
 
 function gpTogglePlantNote() {
   var form = document.getElementById('gp-plant-note-form');
