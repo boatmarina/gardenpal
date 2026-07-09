@@ -900,6 +900,15 @@
   });
   window.addEventListener('pagehide', saveOrderBeacon);
 
+  // Intercept the in-app back button so the save fires at the moment the user
+  // decides to leave — before iOS can freeze or cancel anything.
+  var backLink = document.querySelector('.back-btn');
+  if (backLink) {
+    backLink.addEventListener('click', function() {
+      saveOrderBeacon();
+    });
+  }
+
   /* ── attach remove handler ── */
   function attachRemove(item) {
     item.querySelector('.photo-remove').addEventListener('click', () => {
@@ -1301,23 +1310,38 @@ function gpToggleNote(pzId) {
   var btn = document.getElementById('gp-share-btn');
   if (!btn) return;
   var plantName = {{ plant.name | tojson }};
-  var url = window.location.href.split('?')[0]; // canonical URL without query params
+  var url = window.location.href.split('?')[0];
 
   btn.addEventListener('click', function() {
     if (navigator.share) {
       navigator.share({ title: plantName, url: url }).catch(function() {});
-      return;
+    } else {
+      // Desktop: copy to clipboard and show the URL so it's clear what was copied
+      navigator.clipboard.writeText(url).then(function() {
+        showUrlToast(url, true);
+      }).catch(function() {
+        showUrlToast(url, false);
+      });
     }
-    // Clipboard fallback for desktop
-    navigator.clipboard.writeText(url).then(function() {
-      var orig = btn.innerHTML;
-      btn.textContent = 'Copied!';
-      setTimeout(function() { btn.innerHTML = orig; }, 1800);
-    }).catch(function() {
-      // Last resort: show the URL in a prompt the user can copy
-      window.prompt('Copy this link:', url);
-    });
   });
+
+  function showUrlToast(url, copied) {
+    var existing = document.getElementById('gp-share-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'gp-share-toast';
+    toast.style.cssText = 'position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.14);z-index:800;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);font-size:0.82rem;white-space:nowrap;overflow:hidden';
+    var label = document.createElement('span');
+    label.style.cssText = 'color:var(--muted);flex-shrink:0';
+    label.textContent = copied ? 'Link copied:' : 'Share link:';
+    var urlText = document.createElement('span');
+    urlText.style.cssText = 'color:var(--fg);overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;font-family:monospace;font-size:0.78rem';
+    urlText.textContent = url;
+    toast.appendChild(label);
+    toast.appendChild(urlText);
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 4000);
+  }
 })();
 
 function gpTogglePlantNote() {

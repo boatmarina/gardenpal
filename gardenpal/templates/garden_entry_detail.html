@@ -12,6 +12,14 @@
     <div class="title-row" style="margin-bottom:4px">
       <h2>{{ entry.plant_name }}</h2>
       <div style="display:flex;gap:6px;align-items:center">
+        <button id="gp-share-btn" type="button" title="Share plant link"
+                style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:6px 9px;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--muted);font-family:inherit;font-size:0.75rem">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Share
+        </button>
         <a class="button button-secondary" href="{{ url_for('garden_edit', entry_id=entry.id) }}" style="font-size:0.82rem">Edit</a>
         <form method="post" action="{{ url_for('garden_duplicate', entry_id=entry.id) }}">
           <button type="submit" class="button button-secondary" title="Duplicate entry"
@@ -476,6 +484,40 @@
 <style>
 @keyframes chatDot { 0%,80%,100% { transform:scale(0.7);opacity:0.4; } 40% { transform:scale(1);opacity:1; } }
 </style>
+<script>
+(function() {
+  var btn = document.getElementById('gp-share-btn');
+  if (!btn) return;
+  var plantName = {{ entry.plant_name | tojson }};
+  var url = window.location.href.split('?')[0];
+  btn.addEventListener('click', function() {
+    if (navigator.share) {
+      navigator.share({ title: plantName, url: url }).catch(function() {});
+    } else {
+      navigator.clipboard.writeText(url).then(function() {
+        showUrlToast(url, true);
+      }).catch(function() { showUrlToast(url, false); });
+    }
+  });
+  function showUrlToast(url, copied) {
+    var existing = document.getElementById('gp-share-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'gp-share-toast';
+    toast.style.cssText = 'position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,0.14);z-index:800;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);font-size:0.82rem;white-space:nowrap;overflow:hidden';
+    var label = document.createElement('span');
+    label.style.cssText = 'color:var(--muted);flex-shrink:0';
+    label.textContent = copied ? 'Link copied:' : 'Share link:';
+    var urlText = document.createElement('span');
+    urlText.style.cssText = 'color:var(--fg);overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;font-family:monospace;font-size:0.78rem';
+    urlText.textContent = url;
+    toast.appendChild(label);
+    toast.appendChild(urlText);
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 4000);
+  }
+})();
+</script>
 <script>
 (function() {
   // Per-row inline toggles
