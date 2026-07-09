@@ -11,25 +11,24 @@
   <section class="panel">
     <div class="title-row" style="margin-bottom:4px">
       <h2>{{ entry.plant_name }}</h2>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button id="gp-share-btn" type="button" title="Share plant link"
-                style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:6px 9px;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--muted);font-family:inherit;font-size:0.75rem">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <div style="display:flex;gap:5px;align-items:center">
+        <button id="gp-share-btn" type="button" title="Share link"
+                style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
           </svg>
-          Share
         </button>
-        <a class="button button-secondary" href="{{ url_for('garden_edit', entry_id=entry.id) }}" style="font-size:0.82rem">Edit</a>
-        <form method="post" action="{{ url_for('garden_duplicate', entry_id=entry.id) }}">
-          <button type="submit" class="button button-secondary" title="Duplicate entry"
-                  style="padding:7px 9px;display:flex;align-items:center">
+        <form method="post" action="{{ url_for('garden_duplicate', entry_id=entry.id) }}" style="display:contents">
+          <button type="submit" title="Duplicate entry"
+                  style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
           </button>
         </form>
+        <a class="button button-secondary" href="{{ url_for('garden_edit', entry_id=entry.id) }}" style="font-size:0.82rem;padding:7px 14px">Edit</a>
       </div>
     </div>
     {% if entry.variety %}<p class="muted" style="font-style:italic;margin-bottom:12px">{{ entry.variety }}</p>{% endif %}
