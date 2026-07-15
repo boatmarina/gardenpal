@@ -19,16 +19,7 @@
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
           </svg>
         </button>
-        <form method="post" action="{{ url_for('garden_duplicate', entry_id=entry.id) }}" style="display:contents">
-          <button type="submit" title="Duplicate entry"
-                  style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-          </button>
-        </form>
-        <a class="button button-secondary" href="{{ url_for('garden_edit', entry_id=entry.id) }}" style="font-size:0.82rem;padding:7px 14px">Edit</a>
+<a class="button button-secondary" href="{{ url_for('garden_edit', entry_id=entry.id) }}" style="font-size:0.82rem;padding:7px 14px">Edit</a>
       </div>
     </div>
     {% if entry.variety %}<p class="muted" style="font-style:italic;margin-bottom:12px">{{ entry.variety }}</p>{% endif %}
@@ -469,7 +460,12 @@
   </div>
 
   <!-- ── Danger ── -->
-  <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border)">
+  <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:16px">
+    <form method="post" action="{{ url_for('garden_duplicate', entry_id=entry.id) }}">
+      <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:0;font-family:inherit">
+        Duplicate entry
+      </button>
+    </form>
     <form method="post" action="{{ url_for('garden_delete', entry_id=entry.id) }}"
           onsubmit="return confirm('Delete this entry and all its photos?')">
       <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:0;font-family:inherit">
