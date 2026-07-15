@@ -1994,7 +1994,9 @@ self.addEventListener('fetch', function(e) {
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         row = db.execute(
-            f"SELECT id FROM yard_plants WHERE id = ? AND user_id IN {ph}",
+            f"SELECT yp.id, p.name AS plant_name FROM yard_plants yp"
+            f" JOIN plants p ON p.id = yp.plant_id"
+            f" WHERE yp.id = ? AND yp.user_id IN {ph}",
             (yard_plant_id, *id_args),
         ).fetchone()
         if row is None:
@@ -2007,6 +2009,7 @@ self.addEventListener('fetch', function(e) {
                 "INSERT INTO yard_plant_notes (yard_plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
                 (yard_plant_id, g.user["id"], note_date, notes, datetime.utcnow().isoformat(timespec="seconds")),
             )
+            _log_activity(db, g.user["id"], "yard_note_added", row["plant_name"])
             db.commit()
         back = request.form.get("plant_id", type=int)
         if back:
@@ -2036,7 +2039,7 @@ self.addEventListener('fetch', function(e) {
     def plant_add_note(plant_id: int):
         db = get_db()
         plant = db.execute(
-            "SELECT id FROM plants WHERE id = ? AND user_id = ?",
+            "SELECT id, name FROM plants WHERE id = ? AND user_id = ?",
             (plant_id, g.user["id"]),
         ).fetchone()
         if plant is None:
@@ -2049,6 +2052,7 @@ self.addEventListener('fetch', function(e) {
                 "INSERT INTO plant_notes (plant_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
                 (plant_id, g.user["id"], note_date, notes, datetime.utcnow().isoformat(timespec="seconds")),
             )
+            _log_activity(db, g.user["id"], "plant_note_added", plant["name"])
             db.commit()
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
@@ -2141,6 +2145,7 @@ self.addEventListener('fetch', function(e) {
                 "logins": 0, "plant_entries": [], "yard_entries": [],
                 "zones": [], "garden_entries": [], "chat_queries": [],
                 "garden_notes": [], "tags": [], "suggestion_adds": [],
+                "notes": [], "edits": [], "deletions": [], "photos": [],
                 "_sp": set(), "_sy": set(),
             })
 
@@ -2167,12 +2172,24 @@ self.addEventListener('fetch', function(e) {
                 d["zones"].append(name)
             elif act == "garden_entry_added" and name not in d["garden_entries"]:
                 d["garden_entries"].append(name)
-            elif act == "garden_chat":
+            elif act in ("garden_chat", "plant_chat", "home_chat"):
                 d["chat_queries"].append(name)
             elif act == "tag_applied":
                 d["tags"].append(name)
             elif act == "suggestion_added" and name not in d.get("suggestion_adds", []):
                 d.setdefault("suggestion_adds", []).append(name)
+            elif act in ("plant_note_added", "yard_note_added"):
+                d["notes"].append(name)
+            elif act in ("garden_entry_edited",):
+                if name not in d["edits"]:
+                    d["edits"].append(name)
+            elif act in ("plant_deleted", "garden_entry_deleted"):
+                d["deletions"].append(name)
+            elif act == "photo_uploaded":
+                d["photos"].append(name)
+            elif act == "garden_entry_duplicated":
+                if name not in d["garden_entries"]:
+                    d["garden_entries"].append(name)
 
         note_rows = db.execute(
             "SELECT gp.created_at, gp.image_path, gp.is_fertilization, gp.fertilizer_type,"
@@ -3198,6 +3215,7 @@ self.addEventListener('fetch', function(e) {
                     " ELSE planned_fertilization_date END WHERE id = ?",
                     (new_fert_date, new_fert_date, entry_id),
                 )
+            _log_activity(db, g.user["id"], "garden_entry_edited", plant_name)
             db.commit()
             flash("Entry updated.")
             return redirect(url_for("garden_detail", entry_id=entry_id))
@@ -3238,7 +3256,12 @@ self.addEventListener('fetch', function(e) {
         db = get_db()
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT plant_name FROM garden_entries WHERE id = ? AND user_id IN {ph}", [entry_id] + id_args
+        ).fetchone()
         db.execute(f"DELETE FROM garden_entries WHERE id = ? AND user_id IN {ph}", [entry_id] + id_args)
+        if entry:
+            _log_activity(db, g.user["id"], "garden_entry_deleted", entry["plant_name"])
         db.commit()
         flash("Entry deleted.")
         return redirect(url_for("garden_index"))
@@ -3609,6 +3632,7 @@ self.addEventListener('fetch', function(e) {
                 now,
             ),
         ).fetchone()
+        _log_activity(db, g.user["id"], "garden_entry_duplicated", src["plant_name"])
         db.commit()
         return redirect(url_for("garden_edit", entry_id=row["id"]))
 
@@ -6354,7 +6378,7 @@ self.addEventListener('fetch', function(e) {
     def delete_idea(plant_id: int):
         db = get_db()
         plant = db.execute(
-            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+            "SELECT id, name FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
         ).fetchone()
         if plant is None:
             flash("Plant not found.")
@@ -6362,6 +6386,7 @@ self.addEventListener('fetch', function(e) {
         db.execute("DELETE FROM plant_tags WHERE plant_id = ?", (plant_id,))
         db.execute("DELETE FROM plant_categories WHERE plant_id = ?", (plant_id,))
         db.execute("DELETE FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"]))
+        _log_activity(db, g.user["id"], "plant_deleted", plant["name"])
         db.commit()
         flash("Plant idea deleted.")
         return redirect(url_for("ideas_index"))
@@ -6463,7 +6488,7 @@ self.addEventListener('fetch', function(e) {
     def upload_idea_photo(plant_id: int):
         db = get_db()
         plant = db.execute(
-            "SELECT id FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
+            "SELECT id, name FROM plants WHERE id = ? AND user_id = ?", (plant_id, g.user["id"])
         ).fetchone()
         if plant is None:
             return jsonify(error="Not found"), 404
@@ -6474,6 +6499,8 @@ self.addEventListener('fetch', function(e) {
             photo_url = image_path
         else:
             photo_url = url_for("uploads", filename=image_path)
+        _log_activity(db, g.user["id"], "photo_uploaded", plant["name"])
+        db.commit()
         return jsonify(ok=True, url=photo_url)
 
     @app.route("/plants/new")

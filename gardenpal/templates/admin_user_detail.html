@@ -166,7 +166,31 @@
               <span style="color:var(--muted)"> — {{ day.suggestion_adds | join(', ') }}</span>
             </li>
             {% endif %}
-            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags and not day.suggestion_adds %}
+            {% if day.notes %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--green-dark)">Added {{ day.notes | length }} note{{ 's' if day.notes | length != 1 else '' }}</span>
+              <span style="color:var(--muted)"> — {{ day.notes | join(', ') }}</span>
+            </li>
+            {% endif %}
+            {% if day.photos %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--green-dark)">Uploaded {{ day.photos | length }} photo{{ 's' if day.photos | length != 1 else '' }}</span>
+              <span style="color:var(--muted)"> — {{ day.photos | join(', ') }}</span>
+            </li>
+            {% endif %}
+            {% if day.edits %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--muted)">Edited {{ day.edits | length }} entr{{ 'ies' if day.edits | length != 1 else 'y' }}</span>
+              <span style="color:var(--muted)"> — {{ day.edits | join(', ') }}</span>
+            </li>
+            {% endif %}
+            {% if day.deletions %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--muted)">Deleted {{ day.deletions | length }} plant{{ 's' if day.deletions | length != 1 else '' }}</span>
+              <span style="color:var(--muted)"> — {{ day.deletions | join(', ') }}</span>
+            </li>
+            {% endif %}
+            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags and not day.suggestion_adds and not day.notes and not day.photos and not day.edits and not day.deletions %}
               <li style="font-size:0.85rem;color:var(--muted)">No recorded activity.</li>
             {% endif %}
           </ul>
