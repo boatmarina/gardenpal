@@ -233,7 +233,11 @@
       if (e.defaultPrevented) return;
       var btn = e.submitter || form.querySelector('[type="submit"]:not([disabled])');
       barStart();
-      if (btn && !btn.disabled) {
+      /* Only disable visible, user-clickable submit buttons.
+         Hidden programmatic buttons (pointer-events:none) must NOT be disabled —
+         the HTML spec excludes disabled controls from form data even when they're
+         the submitter, so disabling them here would drop their form_action value. */
+      if (btn && !btn.disabled && btn.style.pointerEvents !== 'none') {
         btn.disabled = true;
         btn.style.opacity = '0.55';
         pendingBtn = btn;
