@@ -180,13 +180,13 @@
           {% endif %}
         </div>
         {% if form_values.plant_name and form_values.yard_input_mode == 'photo' %}
-          <p class="identified-name">Identified: <strong>{{ form_values.plant_name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
+          <p id="photo-identified-name" class="identified-name">Identified: <strong>{{ form_values.plant_name }}</strong>{% if form_values.scientific_name %} &mdash; <em>{{ form_values.scientific_name }}</em>{% endif %}</p>
         {% endif %}
         <div id="photo-loading" hidden style="text-align:center;padding:10px 0 4px">
           <div class="spinner"></div>
           <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Identifying plant…</p>
         </div>
-        <input type="file" name="photo" accept="image/*" id="yard-photo-input" style="display:none"
+        <input type="file" name="photo" accept="image/*" capture="environment" id="yard-photo-input" style="display:none"
                onchange="compressAndIdentify(this,'photo-id-btn')" />
         <button type="button" class="button btn-upload" id="photo-upload-btn" onclick="document.getElementById('yard-photo-input').click()">
           {% if form_values.plant_name and form_values.yard_input_mode == 'photo' %}Re-take Photo{% else %}Choose Photo{% endif %}
@@ -463,6 +463,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   });
 
   setYardMode(hYardMode.value || 'name');
+  window._gpSetYardMode = setYardMode;
 
   /* ── URL mode inputs ── */
   const urlNameInput  = document.getElementById('url-name-input-yard');
@@ -640,9 +641,22 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     });
   });
 
-  /* ── new-plant visible input → hidden field ── */
+  /* ── new-plant visible input → hidden field + show/hide save panel ── */
   if (visibleName) {
-    visibleName.addEventListener('input', () => { hName.value = visibleName.value; });
+    visibleName.addEventListener('input', () => {
+      const val = visibleName.value.trim();
+      hName.value = visibleName.value;
+      if (val) {
+        if (selName)  selName.textContent  = val;
+        if (selSci)   selSci.textContent   = '';
+        if (selThumb) selThumb.style.display = 'none';
+        if (selPanel) selPanel.hidden = false;
+        if (common)   common.hidden   = false;
+      } else {
+        if (selPanel) selPanel.hidden = true;
+        if (common)   common.hidden   = true;
+      }
+    });
   }
 
   /* ── clear selection ── */
@@ -864,11 +878,24 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       var hName  = document.getElementById('h-plant-name');
       var hSci   = document.getElementById('h-sci');
       var hQuery = document.getElementById('h-query');
-      var vis    = document.getElementById('plant-name-visible') || document.getElementById('url-name-input-yard');
       if (hName)  hName.value  = commonName;
       if (hSci)   hSci.value   = sciName;
       if (hQuery) hQuery.value = sciName || commonName;
-      if (vis)    vis.value    = commonName;
+      /* Update the selected-plant card visually */
+      var selNameEl  = document.getElementById('sel-name');
+      var selPanelEl = document.getElementById('selected-plant');
+      var commonEl   = document.getElementById('common-fields');
+      if (selNameEl)  selNameEl.textContent  = commonName;
+      if (selPanelEl) selPanelEl.hidden = false;
+      if (commonEl)   commonEl.hidden   = false;
+      /* Update the "Identified: …" label inside the photo mode section */
+      var identEl = document.getElementById('photo-identified-name');
+      if (identEl) {
+        function _esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        identEl.innerHTML = 'Identified: <strong>' + _esc(commonName) + '</strong>' +
+          (sciName ? ' &mdash; <em>' + _esc(sciName) + '</em>' : '');
+        identEl.hidden = false;
+      }
 
       /* Refresh community photo preview */
       var preview = document.getElementById('photo-id-preview');
@@ -894,8 +921,10 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   if (dismissBtn) {
     dismissBtn.addEventListener('click', function () {
       dismissPanel();
+      /* Switch to name mode so the user can type the plant name manually */
+      if (window._gpSetYardMode) window._gpSetYardMode('name');
       var vis = document.getElementById('plant-name-visible');
-      if (vis) vis.focus();
+      if (vis) { vis.value = ''; vis.focus(); }
     });
   }
 
@@ -908,6 +937,15 @@ async function compressAndIdentify(inputEl, submitBtnId) {
     if (photoUrlsEl) photoUrlsEl.value = '';
     var imageUrlEl = document.getElementById('h-image-url');
     if (imageUrlEl) imageUrlEl.value = '';
+    /* Clear auto-identified name so user can type their own */
+    var hNameEl = document.getElementById('h-plant-name');
+    if (hNameEl) hNameEl.value = '';
+    var selPanelEl = document.getElementById('selected-plant');
+    if (selPanelEl) selPanelEl.hidden = true;
+    var commonFieldsEl = document.getElementById('common-fields');
+    if (commonFieldsEl) commonFieldsEl.hidden = true;
+    var identEl = document.getElementById('photo-identified-name');
+    if (identEl) identEl.hidden = true;
   }
 })();
 
