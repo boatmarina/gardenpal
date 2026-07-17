@@ -25,7 +25,7 @@
           <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
           <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
         </svg>
-        Add Plant
+        Add Ornamental
       </a>
       {% if feature_garden_zones %}
       <a href="{{ url_for('yard_zone_add_edible', zone_id=zone.id) }}" class="button button-secondary"
@@ -144,7 +144,7 @@
             </a>
           {% endif %}
           <form method="post" action="{{ url_for('yard_plant_remove', yard_plant_id=plant.id) }}"
-                onsubmit="return confirm('Remove {{ plant.plant_name | e }} from this zone?')"
+                onsubmit="return confirm({{ ('Remove ' ~ plant.plant_name ~ ' from this zone?') | tojson }})"
                 style="position:absolute;top:6px;right:6px;z-index:1">
             <button type="submit"
                     style="background:rgba(0,0,0,0.38);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0"
