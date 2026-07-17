@@ -26,6 +26,7 @@
       animation:gp-spin 0.75s linear infinite;
     }
     @keyframes gp-spin{to{transform:rotate(360deg)}}
+    #gp-bar{position:fixed;top:0;left:0;height:3px;width:0;opacity:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#2E7D32,#66BB6A)}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
@@ -36,6 +37,7 @@
   <meta name="apple-mobile-web-app-title" content="GardenPal" />
 </head>
 <body>
+  <div id="gp-bar"></div>
   <div id="gp-splash" aria-hidden="true">
     <div id="gp-splash-ring"></div>
     <div id="gp-splash-name">GardenPal</div>
@@ -185,6 +187,77 @@
     if (t.tagName === 'INPUT') { e.preventDefault(); }
   });
 
+  /* ── Progress bar + button-disable ── */
+  (function () {
+    var bar = document.getElementById('gp-bar');
+    var tids = [];
+    var pendingBtn = null;
+
+    function clearTids() { tids.forEach(clearTimeout); tids = []; }
+
+    function barStart() {
+      if (!bar) return;
+      clearTids();
+      bar.style.transition = 'none';
+      bar.style.width = '0';
+      bar.style.opacity = '1';
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          bar.style.transition = 'width 0.45s ease';
+          bar.style.width = '35%';
+          tids.push(setTimeout(function () { bar.style.transition = 'width 1.8s ease'; bar.style.width = '72%'; }, 450));
+          tids.push(setTimeout(function () { bar.style.transition = 'width 5s ease';   bar.style.width = '88%'; }, 2250));
+        });
+      });
+    }
+
+    function barFinish() {
+      if (!bar) return;
+      clearTids();
+      bar.style.transition = 'width 0.12s ease';
+      bar.style.width = '100%';
+      tids.push(setTimeout(function () { bar.style.transition = 'opacity 0.25s'; bar.style.opacity = '0'; }, 130));
+    }
+
+    /* Form submits — start bar and disable the triggering button */
+    document.addEventListener('submit', function (e) {
+      var form = e.target;
+      if (!form) return;
+      /* AJAX forms manage their own loading state */
+      if (form.id === 'garden-photo-form') return;
+      var btn = e.submitter || form.querySelector('[type="submit"]:not([disabled])');
+      /* Use setTimeout so confirm() cancellations register in e.defaultPrevented first */
+      setTimeout(function () {
+        if (e.defaultPrevented) return;
+        barStart();
+        if (btn && !btn.disabled) {
+          btn.disabled = true;
+          btn.style.opacity = '0.55';
+          pendingBtn = btn;
+        }
+      }, 0);
+    });
+
+    /* Link navigations — start bar for real page changes */
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest('a[href]');
+      if (!a || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      var h = a.getAttribute('href') || '';
+      if (!h || h.charAt(0) === '#' || /^javascript/i.test(h) || a.target === '_blank') return;
+      barStart();
+    });
+
+    /* bfcache restore — reset bar and re-enable button */
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      barFinish();
+      if (pendingBtn) { pendingBtn.disabled = false; pendingBtn.style.opacity = ''; pendingBtn = null; }
+      var ov = document.getElementById('gp-loading-overlay');
+      if (ov) ov.style.display = 'none';
+    });
+  })();
+
+  /* ── Full-screen overlay — only for slow AI operations ── */
   (function () {
     var overlay = document.getElementById('gp-loading-overlay');
     var msg     = document.getElementById('gp-loading-msg');
@@ -195,36 +268,22 @@
       overlay.style.display = 'flex';
     }
 
-    /* Map submit button values to friendlier messages */
     var ACTION_MSGS = {
-      'save':            'Saving…',
-      'autofill_photo':  'Identifying plant…',
-      'autofill_label':  'Reading label…',
-      'autofill_name':   'Looking up plant…',
-      'delete':          'Deleting…',
+      'autofill_label': 'Reading label…',
+      'autofill_name':  'Looking up plant…',
     };
 
     document.addEventListener('submit', function (e) {
       if (e.defaultPrevented) return;
-      var form = e.target;
-      if (!form || form.tagName !== 'FORM') return;
-      if ((form.method || '').toLowerCase() !== 'post') return;
-
-      /* e.submitter is the button that triggered the submit (works with requestSubmit) */
       var submitter = e.submitter;
-      var active = document.activeElement;
-      var action = '';
-      if (submitter && submitter.name === 'form_action') {
-        action = submitter.value;
-      } else if (active && active.name === 'form_action') {
-        action = active.value;
-      }
-      /* Photo ID has its own in-page spinner — skip the full-screen overlay */
-      if (action === 'autofill_photo') return;
-      show(ACTION_MSGS[action] || 'Please wait…');
+      var active    = document.activeElement;
+      var action    = '';
+      if (submitter && submitter.name === 'form_action') action = submitter.value;
+      else if (active && active.name === 'form_action')  action = active.value;
+      /* Only show overlay for AI operations — everything else uses the bar */
+      if (ACTION_MSGS[action]) show(ACTION_MSGS[action]);
     });
 
-    /* Hide if user navigates back (bfcache restore) */
     window.addEventListener('pageshow', function (e) {
       if (e.persisted) overlay.style.display = 'none';
     });
