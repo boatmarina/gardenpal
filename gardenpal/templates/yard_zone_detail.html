@@ -144,7 +144,7 @@
             </a>
           {% endif %}
           <form method="post" action="{{ url_for('yard_plant_remove', yard_plant_id=plant.id) }}"
-                onsubmit="return confirm({{ ('Remove ' ~ plant.plant_name ~ ' from this zone?') | tojson }})"
+                onsubmit="return confirm({{ ('Remove ' ~ plant.plant_name ~ ' from this zone?') | tojson | forceescape }})"
                 style="position:absolute;top:6px;right:6px;z-index:1">
             <button type="submit"
                     style="background:rgba(0,0,0,0.38);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0"
