@@ -3638,7 +3638,7 @@ self.addEventListener('fetch', function(e) {
             "variety": src["variety"] or "",
             "location_type": src["location_type"] or "",
             "location_name": src["location_name"] or "",
-            "planted_date": _local_today(),
+            "planted_date": src["planted_date"] or "",
             "planting_method": src["planting_method"] or "",
             "notes": src["notes"] or "",
             "zone_name": zone_name,
