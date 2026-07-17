@@ -489,7 +489,7 @@
         </div>
         <form method="post"
               action="{{ url_for('yard_plant_remove', yard_plant_id=pz.id) }}?back={{ plant.id }}"
-              onsubmit="return confirm('Remove {{ plant.name | e }} from {{ pz.zone_name | e }}?')">
+              onsubmit="return confirm({{ ('Remove ' ~ plant.name ~ ' from ' ~ pz.zone_name ~ '?') | tojson }})">
           <button type="submit" title="Remove from this zone"
                   style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;font-family:inherit">×</button>
         </form>
@@ -580,7 +580,7 @@
   {% if is_owner %}
   <form method="post" action="{{ url_for('delete_idea', plant_id=plant.id) }}"
         style="margin-top:28px"
-        onsubmit="return confirm('Delete {{ plant.name | e }} from your library?')">
+        onsubmit="return confirm({{ ('Delete ' ~ plant.name ~ ' from your library?') | tojson }})">
     <button type="submit" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:0.83rem;font-weight:500;color:#C62828;cursor:pointer">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>

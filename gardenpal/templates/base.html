@@ -26,7 +26,8 @@
       animation:gp-spin 0.75s linear infinite;
     }
     @keyframes gp-spin{to{transform:rotate(360deg)}}
-    #gp-bar{position:fixed;top:0;left:0;height:3px;width:0;opacity:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#2E7D32,#66BB6A)}
+    /* Bar starts animating immediately on page load; JS calls barFinish() when interactive */
+    #gp-bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#2E7D32,#66BB6A);animation:_gp_bar 8s ease forwards}
     @keyframes _gp_bar{0%{width:0;opacity:1}6%{width:35%}30%{width:72%}100%{width:88%;opacity:1}}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
@@ -217,6 +218,9 @@
       bar.style.width = '100%';
       tids.push(setTimeout(function () { bar.style.transition = 'opacity 0.25s'; bar.style.opacity = '0'; }, 130));
     }
+
+    /* Page is now interactive — complete the page-load bar */
+    barFinish();
 
     /* Form submits — start bar and disable the triggering button.
        onsubmit= attribute listeners (confirm dialogs) fire before addEventListener
