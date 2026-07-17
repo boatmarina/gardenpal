@@ -212,6 +212,12 @@
         </div>
         <button type="button" class="button" id="yard-label-submit-btn" disabled>Extract from Label</button>
         <div id="yard-label-result" {% if not (form_values.plant_name and form_values.yard_input_mode == 'label') %}hidden{% endif %}>
+          <!-- Library matches for the scanned name, if any -->
+          <div id="yard-label-lib-matches" hidden>
+            <p style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin:0 0 6px">In your library — tap to use</p>
+            <div id="yard-label-lib-cards" class="cards" style="margin-bottom:10px"></div>
+            <p style="font-size:0.8rem;color:var(--muted);margin:0 0 8px">— or add as a new ornamental —</p>
+          </div>
           <label>
             Plant name
             <input id="yard-label-name-input" type="text" placeholder="Plant name…"
@@ -604,6 +610,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
           if (selName) selName.textContent = data.name;
           if (selPanel) selPanel.hidden = false;
           if (common) common.hidden = false;
+          /* Show library plants that match the scanned name */
+          _showLabelLibMatches(data.name);
           const photoGrid = document.getElementById('yard-label-photo-grid');
           const hPhotoUrlsJson = document.getElementById('h-photo-urls-json');
           waitingForPhotos = true;
@@ -631,6 +639,40 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         }
       }
     });
+  }
+
+  /* ── Label scan: show matching library plants so user can pick from ornamentals ── */
+  function _showLabelLibMatches(name) {
+    var matchesWrap = document.getElementById('yard-label-lib-matches');
+    var cardsEl     = document.getElementById('yard-label-lib-cards');
+    if (!matchesWrap || !cardsEl || !name) return;
+    var q = name.toLowerCase();
+    var matches = (window.LIBRARY_PLANTS || []).filter(function(p) {
+      return (p.name || '').toLowerCase().includes(q) || (p.sci || '').toLowerCase().includes(q);
+    });
+    cardsEl.innerHTML = '';
+    if (!matches.length) { matchesWrap.hidden = true; return; }
+    matches.forEach(function(p) {
+      var card = document.createElement('div');
+      card.className = 'card plant-pick';
+      card.style.cursor = 'pointer';
+      card.dataset.name        = p.name || '';
+      card.dataset.sci         = p.sci  || '';
+      card.dataset.sun         = '';
+      card.dataset.lifecycle   = '';
+      card.dataset.size        = '';
+      card.dataset.flowering   = '';
+      card.dataset.thumb       = '';
+      card.dataset.description = p.description || '';
+      card.innerHTML =
+        '<div class="thumb"><div class="placeholder"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></div></div>' +
+        '<div class="card-content"><h3>' + (p.name || '') + '</h3><p>' + (p.sci || '') + '</p></div>';
+      card.addEventListener('click', function() {
+        fillPlant(p.name || '', p.sci || '', '', '', '', '', '', p.description || '');
+      });
+      cardsEl.appendChild(card);
+    });
+    matchesWrap.hidden = false;
   }
 
   /* ── library plant pick ── */
