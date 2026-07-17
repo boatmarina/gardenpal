@@ -6813,10 +6813,12 @@ def init_db():
     user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
     if user is None:
         db.execute(
-            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            "INSERT INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, 1, ?)",
             ("demo", generate_password_hash("gardenpal-demo"), datetime.utcnow().isoformat(timespec="seconds")),
         )
         user = db.execute("SELECT id FROM users WHERE lower(username) = lower('demo')").fetchone()
+    else:
+        db.execute("UPDATE users SET is_admin = 1 WHERE lower(username) = lower('demo')")
     db.execute("UPDATE plants SET user_id = ? WHERE user_id IS NULL", (user["id"],))
 
     for category in DEFAULT_CATEGORIES:
