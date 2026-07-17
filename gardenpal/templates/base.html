@@ -27,6 +27,7 @@
     }
     @keyframes gp-spin{to{transform:rotate(360deg)}}
     #gp-bar{position:fixed;top:0;left:0;height:3px;width:0;opacity:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#2E7D32,#66BB6A)}
+    @keyframes _gp_bar{0%{width:0;opacity:1}6%{width:35%}30%{width:72%}100%{width:88%;opacity:1}}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
@@ -198,44 +199,41 @@
     function barStart() {
       if (!bar) return;
       clearTids();
-      bar.style.transition = 'none';
-      bar.style.width = '0';
-      bar.style.opacity = '1';
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          bar.style.transition = 'width 0.45s ease';
-          bar.style.width = '35%';
-          tids.push(setTimeout(function () { bar.style.transition = 'width 1.8s ease'; bar.style.width = '72%'; }, 450));
-          tids.push(setTimeout(function () { bar.style.transition = 'width 5s ease';   bar.style.width = '88%'; }, 2250));
-        });
-      });
+      bar.style.transition = '';
+      bar.style.animation = 'none';
+      void bar.offsetWidth; /* force reflow so animation restarts from 0 */
+      bar.style.animation = '_gp_bar 8s ease forwards';
     }
 
     function barFinish() {
       if (!bar) return;
       clearTids();
+      var w = getComputedStyle(bar).width;
+      bar.style.animation = 'none';
+      bar.style.width = w;
+      bar.style.opacity = '1';
+      void bar.offsetWidth;
       bar.style.transition = 'width 0.12s ease';
       bar.style.width = '100%';
       tids.push(setTimeout(function () { bar.style.transition = 'opacity 0.25s'; bar.style.opacity = '0'; }, 130));
     }
 
-    /* Form submits — start bar and disable the triggering button */
+    /* Form submits — start bar and disable the triggering button.
+       onsubmit= attribute listeners (confirm dialogs) fire before addEventListener
+       listeners, so e.defaultPrevented is already set correctly here — no setTimeout needed. */
     document.addEventListener('submit', function (e) {
       var form = e.target;
       if (!form) return;
       /* AJAX forms manage their own loading state */
       if (form.id === 'garden-photo-form') return;
+      if (e.defaultPrevented) return;
       var btn = e.submitter || form.querySelector('[type="submit"]:not([disabled])');
-      /* Use setTimeout so confirm() cancellations register in e.defaultPrevented first */
-      setTimeout(function () {
-        if (e.defaultPrevented) return;
-        barStart();
-        if (btn && !btn.disabled) {
-          btn.disabled = true;
-          btn.style.opacity = '0.55';
-          pendingBtn = btn;
-        }
-      }, 0);
+      barStart();
+      if (btn && !btn.disabled) {
+        btn.disabled = true;
+        btn.style.opacity = '0.55';
+        pendingBtn = btn;
+      }
     });
 
     /* Link navigations — start bar for real page changes */
