@@ -459,17 +459,24 @@
 
   </div>
 
-  <!-- ── Danger ── -->
-  <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:16px">
+  <!-- ── Actions ── -->
+  <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <form method="post" action="{{ url_for('garden_duplicate', entry_id=entry.id) }}">
-      <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:0;font-family:inherit">
-        Duplicate entry
+      <button type="submit" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:0.83rem;font-weight:500;color:var(--fg);cursor:pointer">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        Duplicate
       </button>
     </form>
     <form method="post" action="{{ url_for('garden_delete', entry_id=entry.id) }}"
           onsubmit="return confirm('Delete this entry and all its photos?')">
-      <button type="submit" style="background:none;border:none;color:var(--muted);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;padding:0;font-family:inherit">
-        Delete entry
+      <button type="submit" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:0.83rem;font-weight:500;color:#C62828;cursor:pointer">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </svg>
+        Delete
       </button>
     </form>
   </div>
