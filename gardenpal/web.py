@@ -3602,7 +3602,7 @@ self.addEventListener('fetch', function(e) {
         db.commit()
         return redirect(url_for("dashboard"))
 
-    @app.route("/garden/<int:entry_id>/duplicate", methods=["POST"])
+    @app.route("/garden/<int:entry_id>/duplicate")
     @login_required
     def garden_duplicate(entry_id):
         db = get_db()
@@ -3615,26 +3615,40 @@ self.addEventListener('fetch', function(e) {
         if src is None:
             flash("Entry not found.")
             return redirect(url_for("garden_index"))
-        now = datetime.utcnow().isoformat(timespec="seconds")
-        row = db.execute(
-            """INSERT INTO garden_entries
-               (user_id, plant_name, variety, location_type, location_name, planted_date, notes, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
-            (
-                g.user["id"],
-                src["plant_name"],
-                src["variety"],
-                src["location_type"],
-                src["location_name"],
-                src["planted_date"],
-                src["notes"],
-                now,
-                now,
-            ),
-        ).fetchone()
-        _log_activity(db, g.user["id"], "garden_entry_duplicated", src["plant_name"])
-        db.commit()
-        return redirect(url_for("garden_edit", entry_id=row["id"]))
+        feature_gz = _feature_garden_zones(g.user)
+        zones_json = []
+        zone_name = ""
+        zone_id = ""
+        if feature_gz:
+            zones_json = [{"id": r["id"], "name": r["name"]} for r in
+                          db.execute("SELECT id, name FROM yard_zones WHERE user_id = ? ORDER BY name ASC",
+                                     (g.user["id"],)).fetchall()]
+            if src["zone_id"]:
+                zrow = db.execute("SELECT id, name FROM yard_zones WHERE id = ?", (src["zone_id"],)).fetchone()
+                if zrow:
+                    zone_name = zrow["name"]
+                    zone_id = str(zrow["id"])
+        location_names = [r["location_name"] for r in db.execute(
+            f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC",
+            id_args,
+        ).fetchall()]
+        plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
+        form_values = {
+            "plant_name": src["plant_name"],
+            "variety": src["variety"] or "",
+            "location_type": src["location_type"] or "",
+            "location_name": src["location_name"] or "",
+            "planted_date": _local_today(),
+            "planting_method": src["planting_method"] or "",
+            "notes": src["notes"] or "",
+            "zone_name": zone_name,
+            "zone_id": zone_id,
+        }
+        return render_template("garden_entry_new.html",
+                               form_values=form_values,
+                               feature_garden_zones=feature_gz, zones_json=zones_json,
+                               location_names=location_names,
+                               plant_names=plant_names, plant_varieties=plant_varieties)
 
     @app.route("/garden/<int:entry_id>/assign-zone", methods=["POST"])
     @login_required

@@ -461,15 +461,14 @@
 
   <!-- ── Actions ── -->
   <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-    <form method="post" action="{{ url_for('garden_duplicate', entry_id=entry.id) }}">
-      <button type="submit" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:0.83rem;font-weight:500;color:var(--fg);cursor:pointer">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-        </svg>
-        Duplicate
-      </button>
-    </form>
+    <a href="{{ url_for('garden_duplicate', entry_id=entry.id) }}"
+       style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-size:0.83rem;font-weight:500;color:var(--fg);text-decoration:none">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+      Duplicate
+    </a>
     <form method="post" action="{{ url_for('garden_delete', entry_id=entry.id) }}"
           onsubmit="return confirm('Delete this entry and all its photos?')">
       <button type="submit" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:0.83rem;font-weight:500;color:#C62828;cursor:pointer">
