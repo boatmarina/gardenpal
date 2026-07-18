@@ -587,14 +587,14 @@ def lookup_plant_details(query: str, location: Optional[str] = None) -> Tuple[Op
         queries_to_try = []
         common = result.get("name") or ""
         sci = result.get("scientific_name") or ""
+        if common:
+            queries_to_try.append(common)
         if sci:
             queries_to_try.append(sci)
             # Strip cultivar notation (e.g. Cornus sanguinea 'Midwinter Fire' -> Cornus sanguinea)
             species_only = sci.split("'")[0].split('"')[0].strip()
             if species_only and species_only != sci:
                 queries_to_try.append(species_only)
-        if common:
-            queries_to_try.append(common)
         if query.strip() not in queries_to_try:
             queries_to_try.append(query.strip())
 
