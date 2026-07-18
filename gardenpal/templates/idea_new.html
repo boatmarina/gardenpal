@@ -118,7 +118,7 @@
           <div class="spinner"></div>
           <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
         </div>
-        <input type="file" name="label_photo" accept="image/*" capture="environment" id="label-file-input"
+        <input type="file" name="label_photo" accept="image/*" id="label-file-input"
                style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
         <button type="button" class="button btn-upload" id="label-upload-btn"
                 onclick="document.getElementById('label-file-input').click()">
@@ -546,6 +546,10 @@ function applyDetails(details) {
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
       if (mode === 'url' && urlNameInput) nameHidden.value = urlNameInput.value;
       if (mode === 'url' && urlImageInput) imageUrlHidden.value = urlImageInput.value;
+      if (mode === 'label') {
+        const labelNameEl = document.getElementById('label-name-input');
+        if (labelNameEl && labelNameEl.value) nameHidden.value = labelNameEl.value;
+      }
       // Capture remaining visible community photos so detail page uses them
       const preview = document.getElementById('name-photo-preview');
       if (preview && photoUrlsHidden) {
