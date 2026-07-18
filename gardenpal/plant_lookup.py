@@ -65,6 +65,54 @@ def extract_plant_name_from_text(raw_text: str) -> Optional[str]:
         return None
 
 
+def extract_plant_name_from_label_image(file_storage) -> Optional[str]:
+    """Use Claude Vision to read a plant name directly from a label photo.
+
+    Returns the plant name string, or None if unavailable or unrecognised.
+    Caller should fall back to the OCR Space pipeline when this returns None.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key or file_storage is None or not file_storage.filename:
+        return None
+    file_storage.stream.seek(0)
+    raw = file_storage.stream.read()
+    file_storage.stream.seek(0)
+    encoded = base64.b64encode(raw).decode("ascii")
+    fname = (file_storage.filename or "").lower()
+    if fname.endswith(".png"):
+        media_type = "image/png"
+    elif fname.endswith(".webp"):
+        media_type = "image/webp"
+    else:
+        media_type = "image/jpeg"
+    client = anthropic.Anthropic(api_key=api_key, timeout=10.0)
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=128,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": encoded}},
+                    {"type": "text", "text": (
+                        "This is a photo of a plant tag, nursery label, or pot marker. "
+                        "Read all text visible in the image and identify the plant name. "
+                        "Reply with ONLY the plant name — common name, scientific name, or cultivar name. "
+                        "If both a common name and a scientific name are visible, prefer the scientific name. "
+                        "If no plant name is readable, reply with an empty string."
+                    )},
+                ],
+            }],
+        )
+        name = next((b.text for b in response.content if b.type == "text"), "").strip()
+        # Reject responses that look like explanations rather than a name
+        if not name or len(name) > 120 or any(w in name.lower() for w in ("i can", "i see", "no plant", "cannot", "sorry")):
+            return None
+        return name
+    except Exception:
+        return None
+
+
 def extract_text_from_image(file_storage) -> Tuple[Optional[str], Optional[str]]:
     api_key = os.environ.get("OCR_SPACE_API_KEY", "").strip()
     if not api_key:
@@ -73,7 +121,13 @@ def extract_text_from_image(file_storage) -> Tuple[Optional[str], Optional[str]]
         return None, "Please attach a label photo first."
 
     file_storage.stream.seek(0)
-    payload = {"apikey": api_key, "language": "eng", "isOverlayRequired": "false"}
+    payload = {
+        "apikey": api_key,
+        "language": "eng",
+        "isOverlayRequired": "false",
+        "scale": "true",
+        "detectOrientation": "true",
+    }
     files = {"file": (file_storage.filename, file_storage.stream, file_storage.mimetype or "image/jpeg")}
 
     try:

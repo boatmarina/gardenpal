@@ -18,7 +18,7 @@ from flask import Flask, Response, flash, g, jsonify, make_response, redirect, r
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from gardenpal.plant_lookup import extract_plant_name_from_text, extract_text_from_image, fetch_photos_for_suggestion, generate_plant_suggestion, generate_plant_suggestions_batch, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
+from gardenpal.plant_lookup import extract_plant_name_from_label_image, extract_plant_name_from_text, extract_text_from_image, fetch_photos_for_suggestion, generate_plant_suggestion, generate_plant_suggestions_batch, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -6379,10 +6379,17 @@ self.addEventListener('fetch', function(e) {
     @app.route("/api/ocr-label", methods=["POST"])
     @login_required
     def api_ocr_label():
-        text, error = extract_text_from_image(request.files.get("label_photo"))
-        if error:
-            return jsonify(error=error), 200
-        name = extract_plant_name_from_text(text) or infer_query_from_text(text)
+        f = request.files.get("label_photo")
+        # Claude Vision reads the label directly — better with stylized fonts, rotation, mixed names
+        name = extract_plant_name_from_label_image(f)
+        if not name:
+            # Fall back to OCR Space + Claude text extraction
+            if f:
+                f.stream.seek(0)
+            text, error = extract_text_from_image(f)
+            if error:
+                return jsonify(error=error), 200
+            name = extract_plant_name_from_text(text) or infer_query_from_text(text)
         if not name:
             return jsonify(error="Could not extract a plant name from that label."), 200
         return jsonify(name=name)
