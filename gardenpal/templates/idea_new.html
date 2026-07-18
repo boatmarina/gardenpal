@@ -491,7 +491,7 @@ function applyDetails(details) {
       document.querySelectorAll('button[value="save"]').forEach(b => { b.disabled = true; });
       let waitingForPhotos = false;
       try {
-        const compressed = await GP.compressImage(fileInput.files[0], 900, 0.70);
+        const compressed = await GP.compressImage(fileInput.files[0], 1400, 0.85);
         const fd = new FormData();
         fd.append('label_photo', new File([compressed], 'label.jpg', {type: 'image/jpeg'}));
         const res = await fetch('/api/ocr-label', {method: 'POST', body: fd});
