@@ -117,13 +117,9 @@
       </div>
 
       <div class="mode-section" id="mode-label">
-        <div id="label-loading" hidden style="text-align:center;padding:10px 0 4px">
-          <div class="spinner"></div>
-          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
-        </div>
         <input type="file" name="label_photo" accept="image/*" id="label-file-input"
                style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
-        <button type="button" class="button btn-upload" id="label-upload-btn"
+        <button type="button" class="button btn-secondary" id="label-upload-btn"
                 onclick="document.getElementById('label-file-input').click()">
           Choose Label Photo
         </button>
@@ -131,6 +127,10 @@
           <img src="" alt="" style="width:100%;max-height:180px;object-fit:cover;border-radius:var(--r-md)" />
         </div>
         <button type="button" class="button" id="label-submit-btn" disabled>Extract from Label</button>
+        <div id="label-loading" hidden style="text-align:center;padding:10px 0 4px">
+          <div class="spinner"></div>
+          <p style="margin-top:8px;font-size:0.82rem;color:var(--muted)">Reading label…</p>
+        </div>
         <div id="label-result" {% if not (form_values.name and form_values.active_mode == 'label') %}hidden{% endif %}>
           <label>
             Plant name
@@ -471,9 +471,9 @@ function applyDetails(details) {
       if (preview) { preview.querySelector('img').src = URL.createObjectURL(f); preview.hidden = false; }
       if (labelUploadBtn) {
         labelUploadBtn.textContent = 'Change photo';
-        labelUploadBtn.style.background = 'var(--green)';
-        labelUploadBtn.style.color = '#fff';
-        labelUploadBtn.style.border = 'none';
+        labelUploadBtn.style.background = '';
+        labelUploadBtn.style.color = '';
+        labelUploadBtn.style.border = '';
       }
       if (labelSubmitBtn) labelSubmitBtn.disabled = false;
     });
