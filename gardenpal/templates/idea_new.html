@@ -38,6 +38,9 @@
       <input type="hidden" name="name" id="name-hidden" value="{{ form_values.name }}" />
       <input type="hidden" name="image_url" id="image-url-hidden" value="{{ form_values.image_url }}" />
       <input type="hidden" name="description" id="description-hidden" value="{{ form_values.description or '' }}" />
+      <!-- Carrier for label-mode name — outside mode sections so it's always submitted -->
+      <input type="hidden" name="label_plant_name" id="label-plant-name-hidden"
+             value="{{ form_values.name if form_values.active_mode == 'label' else '' }}" />
 
       <div class="mode-section" id="mode-name">
         <label>
@@ -131,7 +134,7 @@
         <div id="label-result" {% if not (form_values.name and form_values.active_mode == 'label') %}hidden{% endif %}>
           <label>
             Plant name
-            <input id="label-name-input" name="label_plant_name" type="text" placeholder="Plant name…"
+            <input id="label-name-input" type="text" placeholder="Plant name…"
                    value="{{ form_values.name if form_values.active_mode == 'label' else '' }}" />
           </label>
           <div id="label-photo-grid" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>
@@ -501,11 +504,16 @@ function applyDetails(details) {
         } else if (data.name) {
           const resultDiv = document.getElementById('label-result');
           const labelNameInput = document.getElementById('label-name-input');
+          const labelNameHidden = document.getElementById('label-plant-name-hidden');
           if (labelNameInput) {
             labelNameInput.value = data.name;
-            labelNameInput.addEventListener('input', () => { if (nameHidden) nameHidden.value = labelNameInput.value; });
+            labelNameInput.addEventListener('input', () => {
+              if (nameHidden) nameHidden.value = labelNameInput.value;
+              if (labelNameHidden) labelNameHidden.value = labelNameInput.value;
+            });
           }
           if (nameHidden) nameHidden.value = data.name;
+          if (labelNameHidden) labelNameHidden.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
           const photoGrid = document.getElementById('label-photo-grid');
           waitingForPhotos = true;
@@ -548,7 +556,11 @@ function applyDetails(details) {
       if (mode === 'url' && urlImageInput) imageUrlHidden.value = urlImageInput.value;
       if (mode === 'label') {
         const labelNameEl = document.getElementById('label-name-input');
-        if (labelNameEl && labelNameEl.value) nameHidden.value = labelNameEl.value;
+        const labelNameHiddenEl = document.getElementById('label-plant-name-hidden');
+        if (labelNameEl && labelNameEl.value) {
+          nameHidden.value = labelNameEl.value;
+          if (labelNameHiddenEl) labelNameHiddenEl.value = labelNameEl.value;
+        }
       }
       // Capture remaining visible community photos so detail page uses them
       const preview = document.getElementById('name-photo-preview');

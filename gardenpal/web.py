@@ -951,7 +951,10 @@ self.addEventListener('fetch', function(e) {
             form_action = request.form.get("form_action", "save")
             pnw_raw = request.form.get("pnw_native", "")
             form_values = {
-                "name": (request.form.get("name") or request.form.get("label_plant_name", "")).strip(),
+                "name": request.form.get("name", "").strip() or (
+                    request.form.get("label_plant_name", "").strip()
+                    if request.form.get("active_mode") == "label" else ""
+                ),
                 "scientific_name": request.form.get("scientific_name", "").strip(),
                 "lookup_query": request.form.get("lookup_query", "").strip(),
                 "source_type": request.form.get("source_type", "world").strip(),
@@ -1747,7 +1750,10 @@ self.addEventListener('fetch', function(e) {
             form_action = request.form.get("form_action", "save")
             form_values = {
                 "zone_id": request.form.get("zone_id", "").strip(),
-                "plant_name": (request.form.get("plant_name") or request.form.get("label_plant_name", "")).strip(),
+                "plant_name": request.form.get("plant_name", "").strip() or (
+                    request.form.get("label_plant_name", "").strip()
+                    if request.form.get("yard_input_mode") == "label" else ""
+                ),
                 "scientific_name": request.form.get("scientific_name", "").strip(),
                 "lookup_query": request.form.get("lookup_query", "").strip(),
                 "watering_needs": request.form.get("watering_needs", "").strip(),
