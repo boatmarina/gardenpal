@@ -1033,7 +1033,8 @@ self.addEventListener('fetch', function(e) {
                 return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             if not form_values["name"]:
-                flash("Plant name is required.")
+                _dbg = f"[debug mode={request.form.get('active_mode')!r} name={request.form.get('name')!r} label={request.form.get('label_plant_name')!r}]"
+                flash(f"Plant name is required. {_dbg}")
                 return render_template("idea_new.html", form_values=form_values, plant_names=plant_names, library_plants=library_plants)
 
             # Auto-fill details on save if not already done via an explicit autofill action
