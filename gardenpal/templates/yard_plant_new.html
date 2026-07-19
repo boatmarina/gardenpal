@@ -872,7 +872,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
 
   // If returning from server autofill in new-plant mode, show common fields
   if (hName.value && hMode.value === 'new') {
-    selPanel.hidden = false;
+    if (hYardMode && hYardMode.value !== 'photo') selPanel.hidden = false;
     common.hidden   = false;
     sectionNew.hidden = false;
     sectionLib.hidden = true;
