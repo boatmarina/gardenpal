@@ -23,6 +23,9 @@
     <input type="hidden" name="photo_urls_json"    id="h-photo-urls-json" value="" />
     <input type="hidden" name="description"         id="h-description"     value="{{ form_values.description or '' }}" />
     <input type="hidden" name="photo_id_suggestions" id="photo-id-sgs-input" value="{{ form_values.photo_id_suggestions | e }}" />
+    <!-- Carrier for label-mode name — outside mode sections so it's always submitted -->
+    <input type="hidden" name="label_plant_name" id="yard-label-plant-name-hidden"
+           value="{{ form_values.plant_name if form_values.yard_input_mode == 'label' else '' }}" />
 
     <!-- Primary CTAs -->
     <div class="action-cards" style="margin-bottom:20px">
@@ -220,7 +223,7 @@
           </div>
           <label>
             Plant name
-            <input id="yard-label-name-input" name="label_plant_name" type="text" placeholder="Plant name…"
+            <input id="yard-label-name-input" type="text" placeholder="Plant name…"
                    value="{{ form_values.plant_name if form_values.yard_input_mode == 'label' else '' }}" />
           </label>
           <div id="yard-label-photo-grid" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>
@@ -601,11 +604,16 @@ async function compressAndIdentify(inputEl, submitBtnId) {
         } else if (data.name) {
           const resultDiv = document.getElementById('yard-label-result');
           const labelNameInput = document.getElementById('yard-label-name-input');
+          const labelNameHidden = document.getElementById('yard-label-plant-name-hidden');
           if (labelNameInput) {
             labelNameInput.value = data.name;
-            labelNameInput.addEventListener('input', () => { if (hName) hName.value = labelNameInput.value; });
+            labelNameInput.addEventListener('input', () => {
+              if (hName) hName.value = labelNameInput.value;
+              if (labelNameHidden) labelNameHidden.value = labelNameInput.value;
+            });
           }
           if (hName) hName.value = data.name;
+          if (labelNameHidden) labelNameHidden.value = data.name;
           if (resultDiv) resultDiv.hidden = false;
           if (selName) selName.textContent = data.name;
           if (selPanel) selPanel.hidden = false;
