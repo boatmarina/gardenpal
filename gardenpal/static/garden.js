@@ -56,8 +56,14 @@
       fetch('/api/plant-search?q=' + q)
         .then(function (r) { return r.json(); })
         .then(function (d) {
-          var first = (d.results || [])[0];
-          return { photos: (first && first.taxon_photos) || [] };
+          var hits = d.results || [];
+          // Prefer an iNaturalist result with curated taxon_photos
+          var withPhotos = hits.find(function (p) { return p.taxon_photos && p.taxon_photos.length; });
+          if (withPhotos) return { photos: withPhotos.taxon_photos, taxon_id: withPhotos.taxon_id };
+          // Perenual results have photo_url but no taxon_photos — use it as single photo
+          var first = hits[0];
+          if (first && first.photo_url) return { photos: [first.photo_url] };
+          return {};
         })
         .catch(function () { return {}; }),
       fetch('/api/plant-details?q=' + q)
@@ -67,8 +73,10 @@
     // Fallback to observation photos only if search returned nothing
     if (!photos.length) {
       try {
-        var fb = await fetch('/api/plant-photos?q=' + q + '&count=' + photoCount)
-          .then(function (r) { return r.json(); });
+        var taxonId = results[0].taxon_id;
+        var fbUrl = '/api/plant-photos?q=' + q + '&count=' + photoCount +
+                    (taxonId ? '&taxon_id=' + taxonId : '');
+        var fb = await fetch(fbUrl).then(function (r) { return r.json(); });
         photos = fb.photos || [];
       } catch (e) {}
     }
