@@ -318,7 +318,8 @@
         Notes
         <textarea name="notes" rows="3" placeholder="Planting date, spot notes…">{{ form_values.notes }}</textarea>
       </label>
-      <button type="submit" name="form_action" value="save">Save to Yard</button>
+      <button type="submit" name="form_action" value="save"
+              onclick="document.querySelectorAll('input[type=file]').forEach(f=>{f.disabled=true})">Save to Yard</button>
     </div>
 
   </form>
