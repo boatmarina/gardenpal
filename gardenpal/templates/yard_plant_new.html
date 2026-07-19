@@ -193,7 +193,7 @@
           <button type="button" class="button btn-upload" id="photo-upload-btn" onclick="document.getElementById('yard-photo-input').click()">
             {% if form_values.plant_name and form_values.yard_input_mode == 'photo' %}Re-take Photo{% else %}Choose Photo{% endif %}
           </button>
-          <button type="button" class="button button-secondary" id="yard-identify-btn"
+          <button type="button" class="button" id="yard-identify-btn"
                   style="display:none;font-size:0.8rem">Identify Plant</button>
         </div>
         <input type="file" name="photo" accept="image/*" id="yard-photo-input" style="display:none" />
