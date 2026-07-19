@@ -49,14 +49,31 @@
   G.fetchPlantData = async function fetchPlantData(name, photoCount) {
     photoCount = photoCount || 6;
     var q = encodeURIComponent(name);
+    // Fetch plant-search (same path as name-mode dropdown) and details in parallel.
+    // plant-search returns curated taxon_photos with stricter plant filtering,
+    // avoiding wrong-taxon mismatches that /api/plant-photos can hit on ambiguous names.
     var results = await Promise.all([
-      fetch('/api/plant-photos?q=' + q + '&count=' + photoCount)
-        .then(function (r) { return r.json(); }).catch(function () { return {}; }),
+      fetch('/api/plant-search?q=' + q)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var first = (d.results || [])[0];
+          return { photos: (first && first.taxon_photos) || [] };
+        })
+        .catch(function () { return {}; }),
       fetch('/api/plant-details?q=' + q)
         .then(function (r) { return r.json(); }).catch(function () { return {}; })
     ]);
+    var photos = results[0].photos || [];
+    // Fallback to observation photos only if search returned nothing
+    if (!photos.length) {
+      try {
+        var fb = await fetch('/api/plant-photos?q=' + q + '&count=' + photoCount)
+          .then(function (r) { return r.json(); });
+        photos = fb.photos || [];
+      } catch (e) {}
+    }
     return {
-      photos:  (results[0].photos || []).slice(0, 6),
+      photos:  photos.slice(0, photoCount),
       details: (results[1] && !results[1].error) ? results[1] : null
     };
   };
