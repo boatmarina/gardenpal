@@ -220,7 +220,7 @@
           </div>
           <label>
             Plant name
-            <input id="yard-label-name-input" type="text" placeholder="Plant name…"
+            <input id="yard-label-name-input" name="label_plant_name" type="text" placeholder="Plant name…"
                    value="{{ form_values.plant_name if form_values.yard_input_mode == 'label' else '' }}" />
           </label>
           <div id="yard-label-photo-grid" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>

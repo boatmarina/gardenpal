@@ -131,7 +131,7 @@
         <div id="label-result" {% if not (form_values.name and form_values.active_mode == 'label') %}hidden{% endif %}>
           <label>
             Plant name
-            <input id="label-name-input" type="text" placeholder="Plant name…"
+            <input id="label-name-input" name="label_plant_name" type="text" placeholder="Plant name…"
                    value="{{ form_values.name if form_values.active_mode == 'label' else '' }}" />
           </label>
           <div id="label-photo-grid" class="photos-grid" {% if not form_values.image_url %}hidden{% endif %}>
