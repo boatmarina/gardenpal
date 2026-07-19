@@ -369,7 +369,7 @@ function applyYardDetails(details) {
       preview.innerHTML = '<div class="photo-item"><img src="' + saved + '" /></div>';
       preview.hidden = false;
     }
-    if (uploadBtn)   uploadBtn.textContent = 'Re-take Photo';
+    if (uploadBtn) { uploadBtn.textContent = 'Re-take Photo'; uploadBtn.classList.remove('btn-upload'); }
     if (identifyBtn) identifyBtn.style.display = '';
   }
 
@@ -382,7 +382,7 @@ function applyYardDetails(details) {
         preview.hidden = false;
       }
       if (identifyBtn) identifyBtn.style.display = '';
-      if (uploadBtn)   uploadBtn.textContent = 'Re-take Photo';
+      if (uploadBtn) { uploadBtn.textContent = 'Re-take Photo'; uploadBtn.classList.remove('btn-upload'); }
     });
   }
 
