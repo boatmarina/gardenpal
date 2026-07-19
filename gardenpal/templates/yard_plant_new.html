@@ -285,11 +285,6 @@
           </div>
         </div>
       </div>
-      <button type="button" id="btn-clear"
-              style="margin-top:14px;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:none;border:1.5px solid var(--border);border-radius:8px;color:var(--fg);font-size:0.82rem;font-weight:500;cursor:pointer;font-family:inherit">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
-        Change plant
-      </button>
     </div>
 
     <!-- ── ZONE + SAVE ── -->
@@ -711,7 +706,7 @@ async function compressAndIdentify(inputEl, submitBtnId) {
   }
 
   /* ── clear selection ── */
-  btnClear.addEventListener('click', () => {
+  if (btnClear) btnClear.addEventListener('click', () => {
     fillPlant('', '', '', '', '', '', '', '');
     selPanel.hidden = true;
     common.hidden = true;
