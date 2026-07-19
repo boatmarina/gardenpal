@@ -266,7 +266,7 @@
     <div style="margin-bottom:20px"></div>
 
     <!-- ── SELECTED PLANT INDICATOR ── -->
-    <div id="selected-plant" {% if not form_values.plant_name %}hidden{% endif %}
+    <div id="selected-plant" {% if not form_values.plant_name or form_values.yard_input_mode == 'photo' %}hidden{% endif %}
          class="card" style="padding:14px;margin-bottom:16px">
       <div style="display:flex;gap:12px;align-items:center">
         <img id="sel-thumb" src="{{ '' }}" alt=""
@@ -928,7 +928,8 @@ async function compressAndIdentify(inputEl, submitBtnId) {
       var selPanelEl = document.getElementById('selected-plant');
       var commonEl   = document.getElementById('common-fields');
       if (selNameEl)  selNameEl.textContent  = commonName;
-      if (selPanelEl) selPanelEl.hidden = false;
+      var hYardModeEl = document.getElementById('h-yard-mode');
+      if (selPanelEl && (!hYardModeEl || hYardModeEl.value !== 'photo')) selPanelEl.hidden = false;
       if (commonEl)   commonEl.hidden   = false;
       /* Update the "Identified: …" label inside the photo mode section */
       var identEl = document.getElementById('photo-identified-name');
