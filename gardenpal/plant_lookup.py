@@ -469,15 +469,18 @@ def lookup_plant_photos(query: str, count: int = 3, taxon_id: Optional[int] = No
             parts = (simplified or query).split()
             if len(parts) > 1 and parts[0] not in queries_to_try:
                 queries_to_try.append(parts[0])
+            _PLANT_ICONIC = {"Plantae", "Fungi", "Chromista"}
             taxa = []
             for q_try in queries_to_try:
                 taxa_resp = requests.get(
                     "https://api.inaturalist.org/v1/taxa",
-                    params={"q": q_try, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 1},
+                    params={"q": q_try, "is_active": "true", "iconic_taxa": "Plantae", "per_page": 5},
                     timeout=8,
                 )
                 taxa_resp.raise_for_status()
-                taxa = taxa_resp.json().get("results", [])
+                # Filter by iconic_taxon_name — the iconic_taxa param alone isn't always reliable
+                taxa = [t for t in taxa_resp.json().get("results", [])
+                        if t.get("iconic_taxon_name") in _PLANT_ICONIC]
                 if taxa:
                     break
             if not taxa:

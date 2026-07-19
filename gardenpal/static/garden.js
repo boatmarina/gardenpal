@@ -60,9 +60,7 @@
           // Prefer an iNaturalist result with curated taxon_photos
           var withPhotos = hits.find(function (p) { return p.taxon_photos && p.taxon_photos.length; });
           if (withPhotos) return { photos: withPhotos.taxon_photos, taxon_id: withPhotos.taxon_id };
-          // Perenual results have photo_url but no taxon_photos — use it as single photo
-          var first = hits[0];
-          if (first && first.photo_url) return { photos: [first.photo_url] };
+          // No taxon_photos (e.g. Perenual-only results) — fall through to observation-photo fallback
           return {};
         })
         .catch(function () { return {}; }),

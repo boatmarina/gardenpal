@@ -945,7 +945,16 @@ self.addEventListener('fetch', function(e) {
             "deadheading": "",
             "deer_resistant": "",
             "active_mode": "name",
+            "photo_id_suggestions": "",
         }
+
+        # ?mock_id=Plant+Name — skip plant ID API, pre-fill suggestion for testing photo loading
+        mock_id = request.args.get("mock_id", "").strip()
+        if mock_id:
+            form_values["photo_id_suggestions"] = json.dumps([
+                {"common_name": mock_id, "scientific_name": mock_id, "confidence": "mock"}
+            ])
+            form_values["active_mode"] = "photo"
 
         if request.method == "POST":
             form_action = request.form.get("form_action", "save")
@@ -1744,7 +1753,17 @@ self.addEventListener('fetch', function(e) {
             "image_url": "",
             "active_mode": "library",
             "yard_input_mode": "name",
+            "photo_id_suggestions": "",
         }
+
+        # ?mock_id=Plant+Name — skip plant ID API, pre-fill suggestion for testing photo loading
+        mock_id = request.args.get("mock_id", "").strip()
+        if mock_id:
+            form_values["photo_id_suggestions"] = json.dumps([
+                {"common_name": mock_id, "scientific_name": mock_id, "confidence": "mock"}
+            ])
+            form_values["yard_input_mode"] = "photo"
+            form_values["active_mode"] = "new"
 
         if request.method == "POST":
             form_action = request.form.get("form_action", "save")
