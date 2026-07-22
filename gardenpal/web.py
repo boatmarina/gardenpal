@@ -4333,6 +4333,13 @@ self.addEventListener('fetch', function(e) {
                                          datetime.utcnow().isoformat(timespec="seconds"),
                                          is_fert, fert_type, fert_date),
                                     )
+                                    if is_fert and fert_date:
+                                        db.execute(
+                                            "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
+                                            " next_fertilization_date = NULL, next_fertilization_note = NULL,"
+                                            " next_fertilization_generated_at = NULL WHERE id = ? AND (last_fertilized_date IS NULL OR last_fertilized_date <= ?)",
+                                            (fert_date, fert_type or None, eid, fert_date),
+                                        )
                                     db.commit()
                                     changed = True
                                     result = {"ok": True}
@@ -5240,6 +5247,7 @@ self.addEventListener('fetch', function(e) {
                                     if is_fert and fert_date:
                                         db.execute(
                                             "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
+                                            " next_fertilization_date = NULL, next_fertilization_note = NULL,"
                                             " next_fertilization_generated_at = NULL WHERE id = ? AND (last_fertilized_date IS NULL OR last_fertilized_date <= ?)",
                                             (fert_date, fert_type or None, eid, fert_date),
                                         )
