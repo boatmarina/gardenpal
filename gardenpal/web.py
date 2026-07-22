@@ -5734,6 +5734,10 @@ self.addEventListener('fetch', function(e) {
                                         fields.append("next_fertilization_date = ?"); vals.append(next_f)
                                         fields.append("next_fertilization_generated_at = ?"); vals.append(now_iso)
                                     elif last_f:
+                                        # Clear stale date so plant drops off the dashboard fert list
+                                        # immediately; fert-refresh will recalculate in the background.
+                                        fields.append("next_fertilization_date = NULL")
+                                        fields.append("next_fertilization_note = NULL")
                                         fields.append("next_fertilization_generated_at = NULL")
                                     if fields:
                                         db.execute(f"UPDATE garden_entries SET {', '.join(fields)} WHERE id = ?", (*vals, eid))
@@ -5801,6 +5805,10 @@ self.addEventListener('fetch', function(e) {
                                         fields.append("next_fertilization_date = ?"); vals.append(next_f)
                                         fields.append("next_fertilization_generated_at = ?"); vals.append(now_iso)
                                     elif last_f:
+                                        # Clear stale date so plant drops off the dashboard fert list
+                                        # immediately; fert-refresh will recalculate in the background.
+                                        fields.append("next_fertilization_date = NULL")
+                                        fields.append("next_fertilization_note = NULL")
                                         fields.append("next_fertilization_generated_at = NULL")
                                     if fields:
                                         db.execute(f"UPDATE plants SET {', '.join(fields)} WHERE id = ?", (*vals, pid))
@@ -5846,15 +5854,21 @@ self.addEventListener('fetch', function(e) {
             processed = 0
             MAX = 2
 
-            # Stale = overdue, generated_at invalidated, OR note older than 7 days
+            # Stale = overdue, generated_at invalidated, note older than 7 days,
+            # OR next_fertilization_date was cleared (NULL) after recording fertilization via AI.
             week_ago = _local_date_plus(-7)
             stale_edibles = db.execute(
                 "SELECT id FROM garden_entries"
                 " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
-                " AND next_fertilization_date IS NOT NULL"
-                " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL"
-                "      OR next_fertilization_generated_at < ?)"
-                " ORDER BY next_fertilization_date ASC LIMIT ?",
+                " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)"
+                " AND ("
+                "   (next_fertilization_date IS NULL AND last_fertilized_date IS NOT NULL"
+                "    AND next_fertilization_generated_at IS NULL)"
+                "   OR (next_fertilization_date IS NOT NULL"
+                "       AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL"
+                "            OR next_fertilization_generated_at < ?))"
+                " )"
+                " ORDER BY COALESCE(next_fertilization_date, '1970-01-01') ASC LIMIT ?",
                 (user_id, today, week_ago, MAX),
             ).fetchall()
             for row in stale_edibles:
@@ -5895,10 +5909,15 @@ self.addEventListener('fetch', function(e) {
                 stale_ornamentals = db.execute(
                     "SELECT id FROM plants"
                     " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
-                    " AND next_fertilization_date IS NOT NULL"
-                    " AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL"
-                    "      OR next_fertilization_generated_at < ?)"
-                    " ORDER BY next_fertilization_date ASC LIMIT ?",
+                    " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)"
+                    " AND ("
+                    "   (next_fertilization_date IS NULL AND last_fertilized_date IS NOT NULL"
+                    "    AND next_fertilization_generated_at IS NULL)"
+                    "   OR (next_fertilization_date IS NOT NULL"
+                    "       AND (next_fertilization_date < ? OR next_fertilization_generated_at IS NULL"
+                    "            OR next_fertilization_generated_at < ?))"
+                    " )"
+                    " ORDER BY COALESCE(next_fertilization_date, '1970-01-01') ASC LIMIT ?",
                     (user_id, today, week_ago, MAX - processed),
                 ).fetchall()
                 for row in stale_ornamentals:
