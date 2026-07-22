@@ -240,7 +240,7 @@
   <!-- Fertilizer type popup (shared for all fert rows) -->
   <div id="dash-fert-type-overlay" hidden
        style="position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.38);display:flex;align-items:flex-end"
-       onclick="if(event.target===this)document.getElementById('dash-fert-type-overlay').hidden=true">
+       onclick="if(event.target===this)dashFertOverlayBackdropClose()">
     <div style="width:100%;max-width:520px;margin:0 auto;background:var(--bg);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:20px 20px 32px;box-shadow:0 -4px 24px rgba(0,0,0,0.12)">
       <p style="font-size:0.95rem;font-weight:600;margin:0 0 14px;color:var(--fg)">What fertilizer did you use?</p>
       <input id="dash-fert-type-input" type="text" placeholder="e.g. Worm castings, Fish emulsion…"
@@ -401,6 +401,18 @@ document.querySelectorAll('.fert-done-today-btn').forEach(function(btn) {
   });
 });
 
+function dashFertOverlayBackdropClose() {
+  var overlay = document.getElementById('dash-fert-type-overlay');
+  if (overlay) overlay.hidden = true;
+  // For the regular fert-form flow the DB was already updated — still remove the row.
+  // For done_today flow the DB was NOT yet updated, so don't remove the row on backdrop dismiss.
+  if (dashFertPendingMode !== 'done_today' && dashFertPendingRow) {
+    removeFertRow(dashFertPendingRow);
+    dashFertPendingRow = null;
+    dashFertPendingMode = null;
+  }
+}
+
 document.querySelectorAll('[data-fert-form]').forEach(function(form) {
   form.addEventListener('submit', function(e) {
     e.preventDefault();
@@ -409,7 +421,10 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
     var row = form.closest('[data-fert-row]');
     var saveBtn = form.querySelector('[type=submit]');
     var lastFertInput = form.querySelector('[name=last_fertilized_date]');
+    // Only show the fertilizer-type overlay when the user actually changed the date
+    var lastFertOrig = lastFertInput ? (lastFertInput.defaultValue || '').trim() : '';
     var lastFertDate = lastFertInput ? lastFertInput.value.trim() : '';
+    var lastFertChanged = lastFertDate && lastFertDate !== lastFertOrig;
     if (saveBtn) { disableBtn(saveBtn); saveBtn.textContent = 'Saving…'; }
     var body = new URLSearchParams(new FormData(form));
     fetch(form.action, {
@@ -418,7 +433,7 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
       body: body.toString()
     }).then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.ok && lastFertDate) {
+        if (d.ok && lastFertChanged) {
           dashFertPendingKind = kind;
           dashFertPendingId = id;
           dashFertPendingRow = row;
