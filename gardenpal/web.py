@@ -6772,7 +6772,7 @@ self.addEventListener('fetch', function(e) {
             title="Something went wrong",
             message="An unexpected error occurred. Your data is safe — please go back and try again.",
             show_report=True,
-            report_body=report[:800],
+            report_body=report,
         ), 500
 
     return app

@@ -14,11 +14,11 @@
     <a href="{{ url_for('dashboard') }}" class="button">Home</a>
   </div>
   {% if show_report %}
-  <p style="margin-top:24px;font-size:0.78rem;color:var(--muted)">
-    If this keeps happening, please
-    <a href="mailto:boatmarina@hotmail.com?subject=GardenPal+error+{{ code }}&body={{ report_body | urlencode }}"
-       style="color:var(--green-dark)">send a report</a>.
-  </p>
+  <details style="margin-top:24px;text-align:left;max-width:600px;margin-left:auto;margin-right:auto">
+    <summary style="font-size:0.78rem;color:var(--muted);cursor:pointer;user-select:none">Show error details</summary>
+    <pre id="error-report" style="margin-top:10px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.72rem;line-height:1.5;white-space:pre-wrap;word-break:break-all;text-align:left;color:var(--muted);max-height:320px;overflow-y:auto">{{ report_body }}</pre>
+    <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('error-report').textContent).then(()=>{this.textContent='Copied!';setTimeout(()=>{this.textContent='Copy to clipboard'},1500)})" style="margin-top:8px;font-size:0.78rem;padding:5px 12px" class="button button-secondary">Copy to clipboard</button>
+  </details>
   {% endif %}
 </section>
 {% endblock %}
