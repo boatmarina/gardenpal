@@ -290,7 +290,7 @@ def create_app() -> Flask:
             "version": "2026-07-a",
             "title": "Season Diary — your garden in print",
             "body": "Export a beautifully formatted garden diary from Settings. It captures your zones, every edible plant's growth log with photos, and your full ornamentals library — ready to view, share, or print as a PDF.",
-            "draft": True,
+            "draft": False,
         },
         {
             "version": "2026-06-f",
