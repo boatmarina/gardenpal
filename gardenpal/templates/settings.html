@@ -70,6 +70,50 @@
     </section>
 
     <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:8px">Season Diary</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
+        A formatted, printable snapshot of your garden — zones overview, edibles growth log with photos, and your full ornamentals library.
+      </p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Garden Diary</p>
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">Opens as a formatted document you can view, save, or print</p>
+        </div>
+        <a href="{{ url_for('export_diary') }}" target="_blank" rel="noopener" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem;text-decoration:none">Open Diary</a>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:8px">Export data</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
+        Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Ornamentals</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">All your saved plants with tags and notes</p>
+          </div>
+          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_library_csv') }}','gardenpal-library.csv',this)">Download CSV</button>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Yard Zones</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">Plants per zone with per-zone notes</p>
+          </div>
+          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_yard_csv') }}','gardenpal-yard.csv',this)">Download CSV</button>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Edibles</p>
+            <p style="font-size:0.78rem;color:var(--muted);margin:0">All garden entries with planted dates and locations</p>
+          </div>
+          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_garden_csv') }}','gardenpal-garden.csv',this)">Download CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Shared garden</h2>
       <p class="muted" style="font-size:0.83rem;margin-bottom:10px">
         Share your Yard zones, plants, and Garden diary with another GardenPal account —
@@ -177,50 +221,6 @@
           </div>
         </label>
       </form>
-    </section>
-
-    <section class="panel" style="margin-bottom:16px">
-      <h2 style="margin-bottom:8px">Season Diary</h2>
-      <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
-        A formatted, printable snapshot of your garden — zones overview, edibles growth log with photos, and your full ornamentals library.
-      </p>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Garden Diary</p>
-          <p style="font-size:0.78rem;color:var(--muted);margin:0">Opens as a formatted document you can view, save, or print</p>
-        </div>
-        <a href="{{ url_for('export_diary') }}" target="_blank" rel="noopener" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem;text-decoration:none">Open Diary</a>
-      </div>
-    </section>
-
-    <section class="panel" style="margin-bottom:16px">
-      <h2 style="margin-bottom:8px">Export data</h2>
-      <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
-        Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.
-      </p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <div>
-            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Ornamentals</p>
-            <p style="font-size:0.78rem;color:var(--muted);margin:0">All your saved plants with tags and notes</p>
-          </div>
-          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_library_csv') }}','gardenpal-library.csv',this)">Download CSV</button>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <div>
-            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Yard Zones</p>
-            <p style="font-size:0.78rem;color:var(--muted);margin:0">Plants per zone with per-zone notes</p>
-          </div>
-          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_yard_csv') }}','gardenpal-yard.csv',this)">Download CSV</button>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <div>
-            <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Edibles</p>
-            <p style="font-size:0.78rem;color:var(--muted);margin:0">All garden entries with planted dates and locations</p>
-          </div>
-          <button type="button" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem" onclick="gpDownloadCsv('{{ url_for('export_garden_csv') }}','gardenpal-garden.csv',this)">Download CSV</button>
-        </div>
-      </div>
     </section>
 
   </div><!-- /panel-settings -->
