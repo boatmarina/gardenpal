@@ -2585,6 +2585,131 @@ self.addEventListener('fetch', function(e) {
             headers={"Content-Disposition": 'attachment; filename="gardenpal-garden.csv"'},
         )
 
+    @app.route("/export/diary")
+    @login_required
+    def export_diary():
+        db = get_db()
+        user_id = g.user["id"]
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+
+        today = _local_today()
+        current_year = today[:4]
+        season_start = f"{current_year}-01-01"
+
+        # ── Zones ──────────────────────────────────────────────────────────
+        zones = db.execute(
+            f"SELECT id, name, description FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC",
+            id_args,
+        ).fetchall()
+
+        # ── Edibles (current season) ────────────────────────────────────────
+        edibles = db.execute(
+            f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
+                       ge.planted_date, ge.planting_method, ge.notes, ge.zone_id,
+                       ge.last_fertilized_date, ge.last_fertilizer_type,
+                       yz.name AS zone_name
+                FROM garden_entries ge
+                LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
+                WHERE ge.user_id IN {ph}
+                AND (
+                    ge.planted_date >= ?
+                    OR ge.id IN (
+                        SELECT DISTINCT entry_id FROM garden_photos
+                        WHERE photo_date >= ? AND entry_id IS NOT NULL
+                    )
+                )
+                ORDER BY ge.zone_id NULLS LAST, ge.planted_date ASC NULLS LAST, ge.plant_name ASC""",
+            id_args + [season_start, season_start],
+        ).fetchall()
+
+        # ── Growth log for those edibles ────────────────────────────────────
+        growth_log = {}
+        if edibles:
+            eids = [e["id"] for e in edibles]
+            eid_ph = "({})".format(",".join(["?"] * len(eids)))
+            for row in db.execute(
+                f"""SELECT gp.entry_id, gp.image_path, gp.photo_date, gp.notes,
+                           gp.is_fertilization, gp.fertilizer_type, gp.fertilization_date
+                    FROM garden_photos gp
+                    WHERE gp.entry_id IN {eid_ph}
+                    AND (gp.image_path IS NOT NULL OR (gp.notes IS NOT NULL AND gp.notes != ''))
+                    ORDER BY gp.photo_date ASC NULLS LAST, gp.created_at ASC""",
+                eids,
+            ).fetchall():
+                growth_log.setdefault(row["entry_id"], []).append(row)
+
+        # ── Zone membership maps (for overview) ─────────────────────────────
+        zone_ornamentals = {}  # zone_id -> [plant_name, ...]
+        for row in db.execute(
+            f"SELECT plant_name, zone_id FROM yard_plants WHERE user_id IN {ph} ORDER BY plant_name ASC",
+            id_args,
+        ).fetchall():
+            zone_ornamentals.setdefault(row["zone_id"], []).append(row["plant_name"])
+
+        zone_edibles_overview = {}  # zone_id -> [garden_entry_row, ...]
+        for e in edibles:
+            if e["zone_id"]:
+                zone_edibles_overview.setdefault(e["zone_id"], []).append(e)
+
+        # ── Ornamentals ─────────────────────────────────────────────────────
+        ornamentals = db.execute(
+            f"""SELECT id, name, scientific_name, description, notes,
+                       photo_urls, image_path, image_url,
+                       last_fertilized_date, last_fertilizer_type, next_fertilization_date
+                FROM plants WHERE user_id IN {ph}
+                ORDER BY name ASC""",
+            id_args,
+        ).fetchall()
+
+        tags_map = {}
+        orn_zones = {}
+        plant_notes_map = {}
+        if ornamentals:
+            oids = [p["id"] for p in ornamentals]
+            oid_ph = "({})".format(",".join(["?"] * len(oids)))
+            for row in db.execute(
+                f"""SELECT pt.plant_id, t.name, t.color
+                    FROM plant_tags pt JOIN tags t ON t.id = pt.tag_id
+                    WHERE pt.plant_id IN {oid_ph}
+                    ORDER BY t.name ASC""",
+                oids,
+            ).fetchall():
+                tags_map.setdefault(row["plant_id"], []).append({"name": row["name"], "color": row["color"]})
+
+            for row in db.execute(
+                f"""SELECT plant_id, note_date, notes FROM plant_notes
+                    WHERE plant_id IN {oid_ph}
+                    ORDER BY note_date ASC NULLS LAST, created_at ASC""",
+                oids,
+            ).fetchall():
+                plant_notes_map.setdefault(row["plant_id"], []).append(row)
+
+        for row in db.execute(
+            f"""SELECT lower(yp.plant_name) AS pname, z.name AS zone_name
+                FROM yard_plants yp JOIN yard_zones z ON z.id = yp.zone_id
+                WHERE yp.user_id IN {ph}
+                ORDER BY yp.plant_name ASC, z.name ASC""",
+            id_args,
+        ).fetchall():
+            if row["zone_name"] not in orn_zones.get(row["pname"], []):
+                orn_zones.setdefault(row["pname"], []).append(row["zone_name"])
+
+        return render_template(
+            "diary_export.html",
+            zones=zones,
+            edibles=edibles,
+            growth_log=growth_log,
+            zone_ornamentals=zone_ornamentals,
+            zone_edibles_overview=zone_edibles_overview,
+            ornamentals=ornamentals,
+            tags_map=tags_map,
+            orn_zones=orn_zones,
+            plant_notes_map=plant_notes_map,
+            current_year=current_year,
+            today=today,
+        )
+
     @app.route("/settings/photo-id-provider", methods=["POST"])
     @login_required
     def set_photo_id_provider():

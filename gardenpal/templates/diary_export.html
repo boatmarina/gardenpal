@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garden Diary {{ current_year }}</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, serif;
+  background: #f5f3ef;
+  color: #1a1a1a;
+  line-height: 1.6;
+}
+
+/* ── Print toolbar ───────────────────────────────────────────────── */
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #1C3829;
+  color: #fff;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+.toolbar-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 0.9;
+}
+.btn-print {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  padding: 7px 18px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: background 0.15s;
+}
+.btn-print:hover { background: rgba(255,255,255,0.25); }
+.btn-print svg { flex-shrink: 0; }
+
+/* ── Page wrapper ────────────────────────────────────────────────── */
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+/* ── Cover ───────────────────────────────────────────────────────── */
+.cover {
+  text-align: center;
+  padding: 64px 20px 56px;
+  border-bottom: 3px solid #1C3829;
+  margin-bottom: 48px;
+}
+.cover-leaf {
+  color: #1C3829;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+.cover h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: #1C3829;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.cover-year {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 4rem;
+  font-weight: 700;
+  color: #2E7D32;
+  line-height: 1;
+  margin-bottom: 18px;
+}
+.cover-meta {
+  font-size: 0.82rem;
+  color: #666;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Section headings ────────────────────────────────────────────── */
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #1C3829;
+}
+.section-heading h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.6rem;
+  color: #1C3829;
+  font-weight: 700;
+}
+.section-icon { flex-shrink: 0; color: #2E7D32; }
+
+.diary-section { margin-bottom: 52px; }
+
+/* ── Zone overview ───────────────────────────────────────────────── */
+.zones-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.zone-card {
+  background: #fff;
+  border: 1px solid #d4e6d4;
+  border-radius: 10px;
+  padding: 18px;
+  break-inside: avoid;
+}
+.zone-card-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1C3829;
+  margin-bottom: 4px;
+}
+.zone-card-desc {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 10px;
+  font-style: italic;
+}
+.zone-sublabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2E7D32;
+  margin-bottom: 4px;
+  margin-top: 10px;
+}
+.zone-plant-list {
+  list-style: none;
+  font-size: 0.82rem;
+  color: #333;
+}
+.zone-plant-list li {
+  padding: 2px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.zone-plant-list li:last-child { border-bottom: none; }
+.zone-planted-date { color: #888; font-size: 0.75rem; }
+
+/* ── Edibles ─────────────────────────────────────────────────────── */
+.zone-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1C3829;
+  margin: 28px 0 14px;
+  padding-left: 10px;
+  border-left: 4px solid #2E7D32;
+}
+
+.edible-entry {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 22px 22px 18px;
+  margin-bottom: 20px;
+  break-inside: avoid;
+}
+.edible-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.edible-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1C3829;
+}
+.edible-variety {
+  font-size: 0.88rem;
+  color: #555;
+  font-style: italic;
+}
+.edible-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  color: #555;
+}
+.edible-meta-item { display: flex; align-items: center; gap: 4px; }
+.edible-notes {
+  font-size: 0.85rem;
+  color: #333;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: #f9f9f7;
+  border-radius: 6px;
+  border-left: 3px solid #a5d6a7;
+  line-height: 1.55;
+}
+
+/* ── Growth log ──────────────────────────────────────────────────── */
+.growth-log-heading {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #2E7D32;
+  margin-bottom: 10px;
+}
+.log-entry {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid #f0f0f0;
+  break-inside: avoid;
+}
+.log-entry:last-child { padding-bottom: 0; }
+.log-date {
+  flex-shrink: 0;
+  width: 60px;
+  font-size: 0.72rem;
+  color: #888;
+  padding-top: 2px;
+  text-align: right;
+  line-height: 1.3;
+}
+.log-body { flex: 1; min-width: 0; }
+.log-note {
+  font-size: 0.84rem;
+  color: #333;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.log-fert-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #A5D6A7;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.log-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.log-photo {
+  width: 130px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  display: block;
+}
+
+/* ── Ornamentals ─────────────────────────────────────────────────── */
+.ornamentals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+.orn-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+}
+.orn-photo {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+  background: #e8f5e9;
+}
+.orn-photo-placeholder {
+  width: 100%;
+  height: 180px;
+  background: #e8f5e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a5d6a7;
+}
+.orn-body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.orn-name {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1C3829;
+}
+.orn-sci {
+  font-style: italic;
+  font-size: 0.8rem;
+  color: #777;
+  margin-top: 1px;
+}
+.orn-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.orn-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  color: #fff;
+  letter-spacing: 0.03em;
+}
+.orn-zones-row {
+  font-size: 0.78rem;
+  color: #555;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.orn-zones-label { font-weight: 600; color: #2E7D32; flex-shrink: 0; }
+.orn-desc {
+  font-size: 0.82rem;
+  color: #444;
+  line-height: 1.55;
+}
+.orn-care { font-size: 0.8rem; color: #333; }
+.orn-care-row {
+  display: flex;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid #f5f5f5;
+  align-items: flex-start;
+}
+.orn-care-label {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #888;
+  width: 58px;
+  padding-top: 1px;
+}
+.orn-notes-log { margin-top: 8px; }
+.orn-note-entry {
+  font-size: 0.78rem;
+  color: #444;
+  padding: 5px 0;
+  border-top: 1px solid #f0f0f0;
+  line-height: 1.45;
+}
+.orn-note-date { font-size: 0.7rem; color: #888; margin-right: 6px; }
+
+/* ── Empty states ────────────────────────────────────────────────── */
+.empty-note {
+  font-size: 0.85rem;
+  color: #888;
+  font-style: italic;
+  padding: 12px 0;
+}
+
+/* ── Print styles ────────────────────────────────────────────────── */
+@media print {
+  .toolbar { display: none !important; }
+  body { background: #fff; }
+  .cover { padding: 40px 0 36px; }
+  .diary-section { page-break-before: always; }
+  .diary-section:first-of-type { page-break-before: avoid; }
+  .zones-grid { grid-template-columns: repeat(3, 1fr); }
+  .ornamentals-grid { grid-template-columns: repeat(2, 1fr); }
+  .orn-card { border: 1px solid #ccc; }
+  .edible-entry { border: 1px solid #ccc; page-break-inside: avoid; }
+  .zone-card { border: 1px solid #ccc; }
+  a { color: inherit; text-decoration: none; }
+}
+
+@page {
+  margin: 1.8cm 1.4cm;
+}
+</style>
+</head>
+<body>
+
+<!-- Print toolbar -->
+<div class="toolbar no-print">
+  <span class="toolbar-title">Garden Diary {{ current_year }}</span>
+  <button class="btn-print" onclick="window.print()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+      <rect x="6" y="14" width="12" height="8"/>
+    </svg>
+    Print / Save as PDF
+  </button>
+</div>
+
+<div class="page">
+
+  <!-- Cover -->
+  <div class="cover">
+    <div class="cover-leaf">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+      </svg>
+    </div>
+    <h1>Garden Diary</h1>
+    <div class="cover-year">{{ current_year }}</div>
+    <p class="cover-meta">Generated {{ today | planted_date }}</p>
+  </div>
+
+  <!-- ── Zones Overview ──────────────────────────────────────────── -->
+  {% if zones %}
+  <section class="diary-section">
+    <div class="section-heading">
+      <span class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+          <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+        </svg>
+      </span>
+      <h2>Garden Zones</h2>
+    </div>
+    <div class="zones-grid">
+      {% for zone in zones %}
+      <div class="zone-card">
+        <div class="zone-card-name">{{ zone.name }}</div>
+        {% if zone.description %}
+        <div class="zone-card-desc">{{ zone.description }}</div>
+        {% endif %}
+        {% set orn_list = zone_ornamentals.get(zone.id, []) %}
+        {% set edible_list = zone_edibles_overview.get(zone.id, []) %}
+        {% if orn_list %}
+        <div class="zone-sublabel">Ornamentals</div>
+        <ul class="zone-plant-list">
+          {% for name in orn_list %}<li>{{ name }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% if edible_list %}
+        <div class="zone-sublabel">Edibles</div>
+        <ul class="zone-plant-list">
+          {% for e in edible_list %}
+          <li>
+            {{ e.plant_name }}{% if e.variety %} · <em>{{ e.variety }}</em>{% endif %}
+            {% if e.planted_date %}
+            <span class="zone-planted-date">— planted {{ e.planted_date | planted_date }}</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if not orn_list and not edible_list %}
+        <p class="empty-note">No plants recorded yet</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ── Edibles ─────────────────────────────────────────────────── -->
+  <section class="diary-section">
+    <div class="section-heading">
+      <span class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22V12"/><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
+          <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/><path d="M6 22h12"/>
+        </svg>
+      </span>
+      <h2>Edibles — {{ current_year }} Season</h2>
+    </div>
+
+    {# Flat render — zone headings inline when zone changes #}
+    {% if edibles %}
+    {% set ns3 = namespace(cur_zone=-999) %}
+    {% for entry in edibles %}
+      {% if entry.zone_id != ns3.cur_zone %}
+        {% set ns3.cur_zone = entry.zone_id %}
+        {% if entry.zone_id and entry.zone_name %}
+        <div class="zone-group-heading">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/></svg>
+          {{ entry.zone_name }}
+        </div>
+        {% elif not entry.zone_id %}
+        <div class="zone-group-heading" style="border-left-color:#bbb;color:#666">No Zone Assigned</div>
+        {% endif %}
+      {% endif %}
+
+      <div class="edible-entry">
+        <div class="edible-header">
+          <span class="edible-name">{{ entry.plant_name }}</span>
+          {% if entry.variety %}<span class="edible-variety">{{ entry.variety }}</span>{% endif %}
+        </div>
+        <div class="edible-meta">
+          {% if entry.planted_date %}
+          <span class="edible-meta-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Planted {{ entry.planted_date | planted_date }}
+          </span>
+          {% endif %}
+          {% if entry.planting_method %}
+          {% set pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"} %}
+          <span class="edible-meta-item">{{ pm_labels.get(entry.planting_method, entry.planting_method) }}</span>
+          {% endif %}
+          {% if entry.location_type or entry.location_name %}
+          <span class="edible-meta-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {% if entry.location_type %}{{ entry.location_type.replace("_", " ").title() }}{% endif %}{% if entry.location_name and entry.location_type %} — {% endif %}{% if entry.location_name %}{{ entry.location_name }}{% endif %}
+          </span>
+          {% endif %}
+          {% if entry.last_fertilized_date %}
+          <span class="edible-meta-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18.5 2C17 4 15 5 15 5c0-3 3.5-5 3.5-5z"/><path d="M18.5 8.5c1.5 2 3.5 3 3.5 3s-3.5 2-3.5 5"/></svg>
+            Last fertilized {{ entry.last_fertilized_date | planted_date }}{% if entry.last_fertilizer_type %} ({{ entry.last_fertilizer_type }}){% endif %}
+          </span>
+          {% endif %}
+        </div>
+        {% if entry.notes %}
+        <div class="edible-notes">{{ entry.notes }}</div>
+        {% endif %}
+
+        {% set log = growth_log.get(entry.id, []) %}
+        {% if log %}
+        <div class="growth-log-heading">Growth Log</div>
+        {% for item in log %}
+        <div class="log-entry">
+          <div class="log-date">
+            {% if item.photo_date %}{{ item.photo_date | planted_date }}{% else %}&mdash;{% endif %}
+          </div>
+          <div class="log-body">
+            {% if item.is_fertilization %}
+            <div class="log-fert-badge">
+              Fertilized{% if item.fertilizer_type %} · {{ item.fertilizer_type }}{% endif %}
+            </div>
+            {% endif %}
+            {% if item.notes %}
+            <div class="log-note">{{ item.notes }}</div>
+            {% endif %}
+            {% if item.image_path %}
+            <div class="log-photos">
+              <img class="log-photo" src="{{ item.image_path | asset_url }}" alt="" loading="lazy"
+                   onerror="this.closest('.log-photos').remove()" />
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% else %}
+    <p class="empty-note">No edible entries recorded for {{ current_year }}.</p>
+    {% endif %}
+  </section>
+
+  <!-- ── Ornamentals ─────────────────────────────────────────────── -->
+  <section class="diary-section">
+    <div class="section-heading">
+      <span class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+        </svg>
+      </span>
+      <h2>Ornamentals — Garden Library</h2>
+    </div>
+
+    {% if ornamentals %}
+    <div class="ornamentals-grid">
+      {% for plant in ornamentals %}
+      {% set photo_url = plant.photo_urls | first_photo or (plant.image_path | asset_url if plant.image_path else None) or plant.image_url %}
+      {% set plant_tags = tags_map.get(plant.id, []) %}
+      {% set plant_zone_names = orn_zones.get(plant.name | lower, []) %}
+      {% set notes_log = plant_notes_map.get(plant.id, []) %}
+      <div class="orn-card">
+        {% if photo_url %}
+        <img class="orn-photo" src="{{ photo_url }}" alt="{{ plant.name }}"
+             loading="lazy" onerror="this.replaceWith(this.nextElementSibling)" />
+        {% endif %}
+        <div class="orn-photo-placeholder" style="{% if photo_url %}display:none{% endif %}">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+        </div>
+
+        <div class="orn-body">
+          <div>
+            <div class="orn-name">{{ plant.name }}</div>
+            {% if plant.scientific_name %}
+            <div class="orn-sci">{{ plant.scientific_name }}</div>
+            {% endif %}
+          </div>
+
+          {% if plant_tags %}
+          <div class="orn-tags">
+            {% for tag in plant_tags %}
+            <span class="orn-tag" style="background:{{ tag.color }}">{{ tag.name }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {% if plant_zone_names %}
+          <div class="orn-zones-row">
+            <span class="orn-zones-label">Zone{% if plant_zone_names | length > 1 %}s{% endif %}</span>
+            <span>{{ plant_zone_names | join(", ") }}</span>
+          </div>
+          {% endif %}
+
+          {% if plant.description %}
+          <div class="orn-desc">{{ plant.description }}</div>
+          {% endif %}
+
+          {# Care notes: fertilization tracking + text notes #}
+          {% set has_care = plant.last_fertilized_date or plant.next_fertilization_date or plant.notes or notes_log %}
+          {% if has_care %}
+          <div class="orn-care">
+            {% if plant.last_fertilized_date %}
+            <div class="orn-care-row">
+              <span class="orn-care-label">Last fert.</span>
+              <span>{{ plant.last_fertilized_date | planted_date }}{% if plant.last_fertilizer_type %} — {{ plant.last_fertilizer_type }}{% endif %}</span>
+            </div>
+            {% endif %}
+            {% if plant.next_fertilization_date %}
+            <div class="orn-care-row">
+              <span class="orn-care-label">Next due</span>
+              <span>{{ plant.next_fertilization_date | planted_date }}</span>
+            </div>
+            {% endif %}
+            {% if plant.notes %}
+            <div class="orn-care-row">
+              <span class="orn-care-label">Notes</span>
+              <span>{{ plant.notes }}</span>
+            </div>
+            {% endif %}
+            {% if notes_log %}
+            <div class="orn-notes-log">
+              {% for note in notes_log %}
+              <div class="orn-note-entry">
+                {% if note.note_date %}<span class="orn-note-date">{{ note.note_date | planted_date }}</span>{% endif %}
+                {{ note.notes }}
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-note">No ornamentals in your library yet.</p>
+    {% endif %}
+  </section>
+
+  <p style="text-align:center;font-size:0.75rem;color:#aaa;margin-top:32px;padding-top:20px;border-top:1px solid #e0e0e0">
+    Generated by GardenPal · {{ today }}
+  </p>
+
+</div><!-- /page -->
+</body>
+</html>
