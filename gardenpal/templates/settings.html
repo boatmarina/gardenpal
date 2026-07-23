@@ -180,6 +180,20 @@
     </section>
 
     <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:8px">Season Diary</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
+        A formatted, printable snapshot of your garden — zones overview, edibles growth log with photos, and your full ornamentals library.
+      </p>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <p style="font-size:0.85rem;font-weight:600;margin-bottom:2px">Garden Diary</p>
+          <p style="font-size:0.78rem;color:var(--muted);margin:0">Opens as a formatted document you can view, save, or print</p>
+        </div>
+        <a href="{{ url_for('export_diary') }}" target="_blank" rel="noopener" class="button button-secondary" style="white-space:nowrap;font-size:0.82rem;text-decoration:none">Open Diary</a>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:8px">Export data</h2>
       <p class="muted" style="font-size:0.83rem;margin-bottom:16px">
         Download your data as CSV files. Opens in Excel, Numbers, or any spreadsheet app.
