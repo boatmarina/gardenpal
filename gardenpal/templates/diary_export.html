@@ -572,7 +572,7 @@ body {
             {% endif %}
             {% if item.image_path %}
             <div class="log-photos">
-              <img class="log-photo" src="{{ item.image_path | asset_url }}" alt="" loading="lazy"
+              <img class="log-photo" src="{{ item.image_path | media_url }}" alt="" loading="lazy"
                    onerror="this.closest('.log-photos').remove()" />
             </div>
             {% endif %}
@@ -602,7 +602,7 @@ body {
     {% if ornamentals %}
     <div class="ornamentals-grid">
       {% for plant in ornamentals %}
-      {% set photo_url = plant.photo_urls | first_photo or (plant.image_path | asset_url if plant.image_path else None) or plant.image_url %}
+      {% set photo_url = plant.photo_urls | first_photo or (plant.image_path | media_url if plant.image_path else None) or plant.image_url %}
       {% set plant_tags = tags_map.get(plant.id, []) %}
       {% set plant_zone_names = orn_zones.get(plant.name | lower, []) %}
       {% set notes_log = plant_notes_map.get(plant.id, []) %}
