@@ -218,10 +218,6 @@ table.zones-table .zone-name {
   <div class="log-date">{% if item.photo_date %}{{ item.photo_date | planted_date }}{% else %}—{% endif %}</div>
   {% if item.is_fertilization %}<div class="log-fert">Fertilized{% if item.fertilizer_type %} · {{ item.fertilizer_type }}{% endif %}</div>{% endif %}
   {% if item.notes %}<div class="log-note">{{ item.notes }}</div>{% endif %}
-  {% if item.image_path %}
-  {% set photo_url = abs_url(item.image_path) %}
-  {% if photo_url %}<img class="log-photo" src="{{ photo_url }}" />{% endif %}
-  {% endif %}
 </div>
 {% endfor %}
 {% endif %}
@@ -234,12 +230,10 @@ table.zones-table .zone-name {
 <h2 class="section-title page-break">Ornamentals — Garden Library</h2>
 {% if ornamentals %}
 {% for plant in ornamentals %}
-{% set photo_url = abs_url((plant.photo_urls | first_photo) or plant.image_path) or plant.image_url %}
 {% set plant_tags = tags_map.get(plant.id, []) %}
 {% set plant_zone_names = orn_zones.get(plant.name | lower, []) %}
 {% set notes_log = plant_notes_map.get(plant.id, []) %}
 <div class="orn-entry">
-  {% if photo_url %}<img class="orn-photo" src="{{ photo_url }}" />{% endif %}
   <h3 class="orn-name">{{ plant.name }}</h3>
   {% if plant.scientific_name %}<div class="orn-sci">{{ plant.scientific_name }}</div>{% endif %}
   {% if plant_tags %}<div class="orn-tags">Tags: {{ plant_tags | map(attribute='name') | join(', ') }}</div>{% endif %}
