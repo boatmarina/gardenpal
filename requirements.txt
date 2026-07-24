@@ -3,3 +3,4 @@ requests
 pg8000
 anthropic
 Pillow
+xhtml2pdf

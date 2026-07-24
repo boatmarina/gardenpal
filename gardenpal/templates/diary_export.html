@@ -449,9 +449,22 @@ body {
 var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 if (isIOS) { var pb = document.getElementById('print-btn'); if (pb) pb.hidden = true; }
 function diaryShare() {
-  if (navigator.share) {
-    navigator.share({ title: 'Garden Diary {{ current_year }}', url: window.location.href }).catch(function(){});
-  }
+  if (!navigator.share) return;
+  var btn = document.getElementById('share-btn');
+  var orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Preparing…';
+  fetch('/export/diary.pdf')
+    .then(function(r) { return r.ok ? r.blob() : Promise.reject(r.status); })
+    .then(function(blob) {
+      var file = new File([blob], 'garden-diary-{{ current_year }}.pdf', { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], title: 'Garden Diary {{ current_year }}' });
+      }
+      return navigator.share({ title: 'Garden Diary {{ current_year }}', url: window.location.href });
+    })
+    .catch(function() {})
+    .finally(function() { btn.disabled = false; btn.innerHTML = orig; });
 }
 function togglePdfTip() {
   var tip = document.getElementById('pdf-tip');
