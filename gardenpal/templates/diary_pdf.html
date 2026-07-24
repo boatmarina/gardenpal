@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+  size: A4;
+  margin: 2.2cm 2cm 2.5cm;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 9.5pt;
+  color: #1a1a1a;
+  line-height: 1.55;
+}
+
+/* Cover */
+.cover {
+  text-align: center;
+  padding: 60pt 0 40pt;
+  border-bottom: 2pt solid #1C3829;
+  margin-bottom: 28pt;
+}
+.cover h1 {
+  font-size: 28pt;
+  color: #1C3829;
+  letter-spacing: -0.5pt;
+  margin-bottom: 6pt;
+}
+.cover-year {
+  font-size: 48pt;
+  font-weight: 700;
+  color: #2E7D32;
+  line-height: 1;
+  margin-bottom: 10pt;
+}
+.cover-meta {
+  font-size: 8.5pt;
+  color: #888;
+  letter-spacing: 1pt;
+  text-transform: uppercase;
+}
+
+/* Section headings */
+h2.section-title {
+  font-size: 15pt;
+  color: #1C3829;
+  border-bottom: 1.5pt solid #1C3829;
+  padding-bottom: 4pt;
+  margin: 24pt 0 12pt;
+}
+h3.zone-title {
+  font-size: 11pt;
+  color: #1C3829;
+  background: #f0f4f0;
+  padding: 5pt 8pt;
+  margin: 14pt 0 6pt;
+  border-left: 3pt solid #1C3829;
+}
+h3.entry-title {
+  font-size: 11pt;
+  color: #1a1a1a;
+  margin: 14pt 0 3pt;
+}
+h3.orn-name {
+  font-size: 11pt;
+  color: #1a1a1a;
+  margin: 0 0 2pt;
+}
+
+/* Zones overview table */
+table.zones-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10pt;
+}
+table.zones-table td {
+  vertical-align: top;
+  padding: 6pt 8pt;
+  border: 0.5pt solid #ddd;
+  font-size: 8.5pt;
+}
+table.zones-table .zone-name {
+  font-weight: 700;
+  font-size: 9pt;
+  color: #1C3829;
+  margin-bottom: 3pt;
+}
+
+/* Edible entries */
+.edible-meta {
+  font-size: 8pt;
+  color: #555;
+  margin-bottom: 4pt;
+}
+.edible-meta span { margin-right: 10pt; }
+.edible-notes {
+  font-size: 8.5pt;
+  color: #333;
+  margin-bottom: 6pt;
+  font-style: italic;
+}
+
+/* Growth log */
+.growth-log-label {
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.8pt;
+  text-transform: uppercase;
+  color: #2E7D32;
+  margin: 8pt 0 4pt;
+}
+.log-row {
+  margin-bottom: 6pt;
+  padding-left: 8pt;
+  border-left: 1.5pt solid #c8dfc8;
+}
+.log-date { font-size: 7.5pt; color: #888; margin-bottom: 1pt; }
+.log-fert {
+  display: inline;
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: #2E7D32;
+}
+.log-note { font-size: 8.5pt; color: #333; }
+.log-photo { max-width: 120pt; max-height: 90pt; margin-top: 4pt; }
+
+/* Ornamentals */
+.orn-entry {
+  margin-bottom: 10pt;
+  padding-bottom: 10pt;
+  border-bottom: 0.5pt solid #e0e0e0;
+}
+.orn-sci { font-size: 8pt; color: #888; font-style: italic; margin-bottom: 3pt; }
+.orn-tags { font-size: 7.5pt; color: #555; margin-bottom: 3pt; }
+.orn-zones { font-size: 8pt; color: #2E7D32; margin-bottom: 3pt; }
+.orn-desc { font-size: 8.5pt; color: #333; margin-bottom: 4pt; }
+.orn-photo { max-width: 100pt; max-height: 80pt; float: right; margin: 0 0 6pt 10pt; }
+.orn-care-label { font-weight: 700; color: #555; }
+.care-row { font-size: 8pt; margin-bottom: 2pt; }
+
+.muted { color: #888; font-style: italic; font-size: 8.5pt; }
+.page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <h1>Garden Diary</h1>
+  <div class="cover-year">{{ current_year }}</div>
+  <p class="cover-meta">Generated {{ today | planted_date }}</p>
+</div>
+
+<!-- Zones Overview -->
+{% if zones %}
+<h2 class="section-title">Garden Zones</h2>
+<table class="zones-table">
+  {% set ns = namespace(col=0) %}
+  {% for zone in zones %}
+  {% if ns.col % 2 == 0 %}<tr>{% endif %}
+  <td style="width:50%">
+    <div class="zone-name">{{ zone.name }}</div>
+    {% if zone.description %}<div style="font-size:8pt;color:#666;margin-bottom:3pt">{{ zone.description }}</div>{% endif %}
+    {% set orn_list = zone_ornamentals.get(zone.id, []) if zone_ornamentals else [] %}
+    {% set edible_list = zone_edibles_overview.get(zone.id, []) if zone_edibles_overview else [] %}
+    {% if orn_list %}
+    <div style="font-size:7.5pt;font-weight:700;color:#2E7D32;margin-top:3pt">Ornamentals</div>
+    {% for n in orn_list %}<div style="font-size:8pt">{{ n }}</div>{% endfor %}
+    {% endif %}
+    {% if edible_list %}
+    <div style="font-size:7.5pt;font-weight:700;color:#2E7D32;margin-top:3pt">Edibles</div>
+    {% for e in edible_list %}<div style="font-size:8pt">{{ e.plant_name }}{% if e.variety %} · {{ e.variety }}{% endif %}</div>{% endfor %}
+    {% endif %}
+    {% if not orn_list and not edible_list %}<div class="muted">No plants yet</div>{% endif %}
+  </td>
+  {% set ns.col = ns.col + 1 %}
+  {% if ns.col % 2 == 0 %}</tr>{% endif %}
+  {% endfor %}
+  {% if ns.col % 2 != 0 %}<td style="width:50%"></td></tr>{% endif %}
+</table>
+{% endif %}
+
+<!-- Edibles -->
+<h2 class="section-title page-break">Edibles — {{ current_year }} Season</h2>
+{% if edibles %}
+{% set ns2 = namespace(cur_zone=-999) %}
+{% for entry in edibles %}
+{% if entry.zone_id != ns2.cur_zone %}
+{% set ns2.cur_zone = entry.zone_id %}
+{% if entry.zone_id and entry.zone_name %}
+<h3 class="zone-title">{{ entry.zone_name }}</h3>
+{% elif not entry.zone_id %}
+<h3 class="zone-title" style="background:#f5f5f5;border-left-color:#aaa;color:#555">No Zone Assigned</h3>
+{% endif %}
+{% endif %}
+
+<h3 class="entry-title">{{ entry.plant_name }}{% if entry.variety %} <span style="font-weight:400;color:#555">· {{ entry.variety }}</span>{% endif %}</h3>
+<div class="edible-meta">
+  {% if entry.planted_date %}<span>Planted {{ entry.planted_date | planted_date }}</span>{% endif %}
+  {% if entry.planting_method %}
+  {% set pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant"} %}
+  <span>{{ pm_labels.get(entry.planting_method, entry.planting_method) }}</span>
+  {% endif %}
+  {% if entry.location_type or entry.location_name %}
+  <span>{% if entry.location_type %}{{ entry.location_type.replace("_"," ").title() }}{% endif %}{% if entry.location_name and entry.location_type %} — {% endif %}{% if entry.location_name %}{{ entry.location_name }}{% endif %}</span>
+  {% endif %}
+  {% if entry.last_fertilized_date %}<span>Fertilized {{ entry.last_fertilized_date | planted_date }}{% if entry.last_fertilizer_type %} ({{ entry.last_fertilizer_type }}){% endif %}</span>{% endif %}
+</div>
+{% if entry.notes %}<div class="edible-notes">{{ entry.notes }}</div>{% endif %}
+
+{% set log = growth_log.get(entry.id, []) %}
+{% if log %}
+<div class="growth-log-label">Growth Log</div>
+{% for item in log %}
+<div class="log-row">
+  <div class="log-date">{% if item.photo_date %}{{ item.photo_date | planted_date }}{% else %}—{% endif %}</div>
+  {% if item.is_fertilization %}<div class="log-fert">Fertilized{% if item.fertilizer_type %} · {{ item.fertilizer_type }}{% endif %}</div>{% endif %}
+  {% if item.notes %}<div class="log-note">{{ item.notes }}</div>{% endif %}
+  {% if item.image_path %}
+  {% set photo_url = abs_url(item.image_path) %}
+  {% if photo_url %}<img class="log-photo" src="{{ photo_url }}" />{% endif %}
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% else %}
+<p class="muted">No edible entries for {{ current_year }}.</p>
+{% endif %}
+
+<!-- Ornamentals -->
+<h2 class="section-title page-break">Ornamentals — Garden Library</h2>
+{% if ornamentals %}
+{% for plant in ornamentals %}
+{% set photo_url = abs_url((plant.photo_urls | first_photo) or plant.image_path) or plant.image_url %}
+{% set plant_tags = tags_map.get(plant.id, []) %}
+{% set plant_zone_names = orn_zones.get(plant.name | lower, []) %}
+{% set notes_log = plant_notes_map.get(plant.id, []) %}
+<div class="orn-entry">
+  {% if photo_url %}<img class="orn-photo" src="{{ photo_url }}" />{% endif %}
+  <h3 class="orn-name">{{ plant.name }}</h3>
+  {% if plant.scientific_name %}<div class="orn-sci">{{ plant.scientific_name }}</div>{% endif %}
+  {% if plant_tags %}<div class="orn-tags">Tags: {{ plant_tags | map(attribute='name') | join(', ') }}</div>{% endif %}
+  {% if plant_zone_names %}<div class="orn-zones">Zone{% if plant_zone_names | length > 1 %}s{% endif %}: {{ plant_zone_names | join(', ') }}</div>{% endif %}
+  {% if plant.description %}<div class="orn-desc">{{ plant.description }}</div>{% endif %}
+  {% if plant.last_fertilized_date %}
+  <div class="care-row"><span class="orn-care-label">Last fertilized:</span> {{ plant.last_fertilized_date | planted_date }}{% if plant.last_fertilizer_type %} — {{ plant.last_fertilizer_type }}{% endif %}</div>
+  {% endif %}
+  {% if plant.next_fertilization_date %}
+  <div class="care-row"><span class="orn-care-label">Next due:</span> {{ plant.next_fertilization_date | planted_date }}</div>
+  {% endif %}
+  {% if plant.notes %}<div class="care-row"><span class="orn-care-label">Notes:</span> {{ plant.notes }}</div>{% endif %}
+  {% if notes_log %}
+  {% for note in notes_log %}
+  <div class="care-row">{% if note.note_date %}<span style="color:#888">{{ note.note_date | planted_date }}</span> — {% endif %}{{ note.notes }}</div>
+  {% endfor %}
+  {% endif %}
+  <div style="clear:both"></div>
+</div>
+{% endfor %}
+{% else %}
+<p class="muted">No ornamentals in your library yet.</p>
+{% endif %}
+
+</body>
+</html>
