@@ -2819,15 +2819,50 @@ self.addEventListener('fetch', function(e) {
             if row["zone_name"] not in orn_zones.get(row["pname"], []):
                 orn_zones.setdefault(row["pname"], []).append(row["zone_name"])
 
-        # Resolve photo URLs to absolute URLs for xhtml2pdf
-        base = request.url_root.rstrip("/")
+        # Collect HTTP photo URLs for ornamentals (local paths not reliable on Vercel)
+        import base64 as _b64
+        import concurrent.futures as _cf
+        import requests as _req
 
-        def _abs(path):
-            if not path:
-                return None
-            if path.startswith("http://") or path.startswith("https://"):
-                return path
-            return base + url_for("uploads", filename=path)
+        def _fetch_b64(url):
+            try:
+                r = _req.get(url, timeout=4, stream=True)
+                if r.ok:
+                    data = b"".join(r.iter_content(65536))[:400_000]
+                    mime = r.headers.get("content-type", "image/jpeg").split(";")[0]
+                    return url, f"data:{mime};base64,{_b64.b64encode(data).decode()}"
+            except Exception:
+                pass
+            return url, None
+
+        orn_photo_urls = {}  # plant.id -> http url
+        for plant in ornamentals:
+            url = None
+            raw_urls = plant["photo_urls"]
+            if raw_urls:
+                try:
+                    parsed = json.loads(raw_urls)
+                    url = parsed[0] if parsed else None
+                except Exception:
+                    pass
+            if not url and plant["image_url"] and plant["image_url"].startswith("http"):
+                url = plant["image_url"]
+            if url and url.startswith("http"):
+                orn_photo_urls[plant["id"]] = url
+
+        # Fetch all photos concurrently; hard cap 12 seconds total
+        photos_b64 = {}
+        if orn_photo_urls:
+            with _cf.ThreadPoolExecutor(max_workers=8) as executor:
+                futs = {executor.submit(_fetch_b64, u): pid for pid, u in orn_photo_urls.items()}
+                try:
+                    for fut in _cf.as_completed(futs, timeout=12):
+                        pid = futs[fut]
+                        _, data_uri = fut.result()
+                        if data_uri:
+                            photos_b64[pid] = data_uri
+                except _cf.TimeoutError:
+                    pass
 
         html = render_template(
             "diary_pdf.html",
@@ -2841,7 +2876,7 @@ self.addEventListener('fetch', function(e) {
             plant_notes_map=plant_notes_map,
             current_year=current_year,
             today=today,
-            abs_url=_abs,
+            photos_b64=photos_b64,
         )
 
         buf = _io.BytesIO()
