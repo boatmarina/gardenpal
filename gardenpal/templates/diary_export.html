@@ -424,54 +424,26 @@ body {
       </svg>
       Print
     </button>
-    <button class="btn-print" id="share-btn" onclick="diaryShare()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-        <polyline points="16 6 12 2 8 6"/>
-        <line x1="12" y1="2" x2="12" y2="15"/>
-      </svg>
-      Share
-    </button>
-    <button id="pdf-tip-btn" onclick="togglePdfTip()" title="How to save as PDF"
+    <button id="pdf-tip-btn" onclick="togglePdfTip()" title="How to save or share as PDF"
             style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);border-radius:50%;width:26px;height:26px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background 0.15s">?</button>
     <div id="pdf-tip" hidden
-         style="position:absolute;top:calc(100% + 10px);right:0;width:230px;background:#1a2e1e;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;font-size:0.78rem;line-height:1.55;color:rgba(255,255,255,0.85);box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:200">
-      <p style="font-weight:700;margin:0 0 6px;color:#fff">Save as PDF on iPhone</p>
-      <ol style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px">
-        <li>Tap <strong>Share</strong> and choose <strong>Print</strong></li>
-        <li>Pinch outward on the print preview</li>
+         style="position:absolute;top:calc(100% + 10px);right:0;width:250px;background:#1a2e1e;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;font-size:0.78rem;line-height:1.55;color:rgba(255,255,255,0.85);box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:200">
+      <p style="font-weight:700;margin:0 0 8px;color:#fff">Save or share as PDF</p>
+      <p style="margin:0 0 4px;font-size:0.72rem;opacity:0.65;text-transform:uppercase;letter-spacing:0.06em">iPhone</p>
+      <ol style="margin:0 0 10px;padding-left:16px;display:flex;flex-direction:column;gap:3px">
+        <li>Tap <strong>Print</strong> above</li>
+        <li>Pinch outward on the preview</li>
         <li>Tap the Share icon → <strong>Save to Files</strong></li>
+      </ol>
+      <p style="margin:0 0 4px;font-size:0.72rem;opacity:0.65;text-transform:uppercase;letter-spacing:0.06em">Desktop</p>
+      <ol style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
+        <li>Tap <strong>Print</strong> above</li>
+        <li>Set destination to <strong>Save as PDF</strong></li>
       </ol>
       <button onclick="document.getElementById('pdf-tip').hidden=true" style="margin-top:10px;background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.7);font-size:0.72rem;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:inherit">Got it</button>
     </div>
   </div>
 <script>
-var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-if (isIOS) { var pb = document.getElementById('print-btn'); if (pb) pb.hidden = true; }
-function diaryShare() {
-  if (!navigator.share) return;
-  var btn = document.getElementById('share-btn');
-  var orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Preparing…';
-  var controller = new AbortController();
-  var timer = setTimeout(function() { controller.abort(); }, 20000);
-  fetch('/export/diary.pdf', { signal: controller.signal })
-    .then(function(r) { return r.ok ? r.blob() : Promise.reject(r.status); })
-    .then(function(blob) {
-      clearTimeout(timer);
-      var file = new File([blob], 'garden-diary-{{ current_year }}.pdf', { type: 'application/pdf' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        return navigator.share({ files: [file], title: 'Garden Diary {{ current_year }}' });
-      }
-      return navigator.share({ title: 'Garden Diary {{ current_year }}', url: window.location.href });
-    })
-    .catch(function() {
-      clearTimeout(timer);
-      window.open('/export/diary.pdf', '_blank');
-    })
-    .finally(function() { btn.disabled = false; btn.innerHTML = orig; });
-}
 function togglePdfTip() {
   var tip = document.getElementById('pdf-tip');
   tip.hidden = !tip.hidden;
