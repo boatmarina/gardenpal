@@ -6964,6 +6964,13 @@ self.addEventListener('fetch', function(e) {
     def legacy_plant_detail(plant_id: int):
         return redirect(url_for("idea_detail", plant_id=plant_id))
 
+    @app.route("/sw.js")
+    def service_worker():
+        resp = send_from_directory(app.static_folder, "sw.js")
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        resp.headers["Service-Worker-Allowed"] = "/"
+        return resp
+
     @app.route("/uploads/<path:filename>")
     @login_required
     def uploads(filename: str):
