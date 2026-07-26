@@ -397,31 +397,46 @@ body {
 /* ── Print styles ────────────────────────────────────────────────── */
 @media print {
   .toolbar { display: none !important; }
-  body { background: #fff; font-size: 8.5pt; }
-  .cover { padding: 20px 0 16px; margin-bottom: 12px; }
-  .cover h1 { font-size: 1.5rem; }
-  .cover-year { font-size: 2.2rem; }
+  body { background: #fff; font-size: 7.5pt; line-height: 1.3; }
+  /* Compact cover */
+  .cover { padding: 12px 0 10px; margin-bottom: 10px; }
+  .cover-leaf svg { width: 30px; height: 30px; }
+  .cover h1 { font-size: 1.25rem; }
+  .cover-year { font-size: 1.8rem; margin-bottom: 6px; }
+  /* Section headings */
+  .section-heading { margin-bottom: 8px; padding-bottom: 4px; }
+  .section-heading h2 { font-size: 1.25rem; }
   .diary-section { page-break-before: always; margin-bottom: 0; }
   .diary-section:first-of-type { page-break-before: avoid; }
-  .zones-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .zone-card { padding: 7px 9px; }
+  /* Zone cards */
+  .zones-grid { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+  .zone-card { padding: 5px 8px; }
   /* Edibles in 2 columns */
-  .edibles-content { columns: 2; column-gap: 14px; }
-  .zone-group-heading { column-span: all; margin: 10px 0 6px; }
-  .edible-entry { border: 1px solid #ccc; page-break-inside: avoid; break-inside: avoid; margin-bottom: 5px; }
-  /* Ornamentals in 2 columns */
-  .ornamentals-grid { grid-template-columns: repeat(2, 1fr); gap: 7px; }
-  .orn-card { border: 1px solid #ccc; page-break-inside: avoid; }
-  .orn-photo { height: 110px; }
-  .orn-photo-placeholder { height: 110px; }
-  .orn-body { padding: 7px 9px 9px; gap: 4px; }
-  /* Photos must not split across pages */
-  .log-photos { page-break-inside: avoid; break-inside: avoid; }
+  .edibles-content { columns: 2; column-gap: 12px; }
+  .zone-group-heading { column-span: all; margin: 8px 0 4px; }
+  .edible-entry { padding: 5px 8px 4px; margin-bottom: 3px; border: 1px solid #ccc; page-break-inside: avoid; break-inside: avoid; }
+  .edible-header { margin-bottom: 2px; }
+  .edible-meta { margin-bottom: 2px; gap: 1px 10px; }
+  .edible-notes { padding: 3px 8px; margin-bottom: 3px; }
+  /* Tighter growth log */
+  .growth-log-heading { margin-bottom: 2px; }
+  .log-entry { padding: 2px 0; gap: 6px; }
+  .log-date { width: 44px; font-size: 0.64rem; }
+  .log-note { font-size: 0.75rem; line-height: 1.3; margin-bottom: 1px; }
+  .log-fert-badge { margin-bottom: 2px; padding: 1px 5px; font-size: 0.62rem; }
+  .log-photos { gap: 4px; margin-top: 2px; page-break-inside: avoid; break-inside: avoid; }
+  .log-photo { width: 76px; height: 54px; }
+  /* Ornamentals: columns layout so break-inside: avoid works reliably in print */
+  .ornamentals-grid { display: block; columns: 2; column-gap: 12px; }
+  .orn-card { display: block; break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 7px; }
+  .orn-photo { height: 95px; }
+  .orn-photo-placeholder { height: 95px; }
+  .orn-body { padding: 6px 8px 7px; gap: 3px; }
   a { color: inherit; text-decoration: none; }
 }
 
 @page {
-  margin: 1.2cm 1.2cm;
+  margin: 0.9cm 0.9cm;
 }
 </style>
 </head>
