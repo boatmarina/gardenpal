@@ -2309,11 +2309,18 @@ self.addEventListener('fetch', function(e) {
                 " WHERE al.action IN ('watered', 'watered_all', 'fertilized')"
                 " ORDER BY al.logged_at DESC LIMIT 300"
             ).fetchall()
+            diary_activity = db.execute(
+                "SELECT al.action, al.logged_at, u.username"
+                " FROM activity_log al JOIN users u ON u.id = al.user_id"
+                " WHERE al.action IN ('diary_opened', 'diary_print')"
+                " ORDER BY al.logged_at DESC LIMIT 200"
+            ).fetchall()
         else:
             ai_chat_entries = []
             suggestion_adds = []
             app_error_log = []
             care_activity = []
+            diary_activity = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -2330,6 +2337,7 @@ self.addEventListener('fetch', function(e) {
                                chat_error_log=chat_error_log,
                                app_error_log=app_error_log,
                                care_activity=care_activity,
+                               diary_activity=diary_activity,
                                ai_chat_entries=ai_chat_entries,
                                suggestion_adds=suggestion_adds,
                                garden_shares=garden_shares,
@@ -2596,6 +2604,7 @@ self.addEventListener('fetch', function(e) {
     def export_diary():
         db = get_db()
         user_id = g.user["id"]
+        _log_activity(db, user_id, "diary_opened", "diary")
         ids = _shared_user_ids(db, user_id)
         ph, id_args = _in_ids(ids)
 
@@ -2889,6 +2898,13 @@ self.addEventListener('fetch', function(e) {
             mimetype="application/pdf",
             headers={"Content-Disposition": f'inline; filename="garden-diary-{current_year}.pdf"'},
         )
+
+    @app.route("/export/diary/log", methods=["POST"])
+    @login_required
+    def export_diary_log():
+        db = get_db()
+        _log_activity(db, g.user["id"], "diary_print", "diary")
+        return "", 204
 
     @app.route("/settings/photo-id-provider", methods=["POST"])
     @login_required

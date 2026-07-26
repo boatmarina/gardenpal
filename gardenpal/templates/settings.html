@@ -361,6 +361,34 @@
     </section>
     {% endif %}
 
+    {% if diary_activity is defined %}
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Diary usage</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+        Every time a user opened the diary or tapped Print / Share — last 200 entries.
+      </p>
+      {% if diary_activity %}
+        <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          {% for row in diary_activity %}
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+            {% if row.action == 'diary_opened' %}
+            <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#F3E5F5;color:#6A1B9A;border:1px solid #CE93D8;white-space:nowrap;flex-shrink:0">📖 opened</span>
+            {% else %}
+            <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#E8EAF6;color:#283593;border:1px solid #9FA8DA;white-space:nowrap;flex-shrink:0">🖨 print / share</span>
+            {% endif %}
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto">
+              <span style="font-size:0.72rem;color:var(--muted);font-weight:600">{{ row.username }}</span>
+              <span style="font-size:0.72rem;color:var(--muted)">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No diary activity yet.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
     {% if perenual_log is defined %}
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Perenual usage log</h2>
