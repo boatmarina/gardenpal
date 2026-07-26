@@ -22,6 +22,17 @@ git checkout <feature-branch>
 - Admin-only features must also include `"admin_only": True` so they are filtered from the public dialog.
 - Never publish a What's New entry without user approval.
 
+## Admin activity logging
+
+Any feature significant enough to get a What's New entry should also have admin-visible usage logging so engagement can be tracked.
+
+**Process:**
+- Add one or more `action` strings to `activity_log` via `_log_activity(db, user_id, action, item_name)` in `web.py`.
+- For server-side entry points (page loads, form submissions) log inline in the route handler.
+- For client-side actions (button clicks with no page navigation) fire `navigator.sendBeacon('/some/log/endpoint')` wrapped in `try { } catch(e) {}` and add a matching `POST` route that calls `_log_activity`.
+- Add a query for the new action(s) in the `tools()` admin route (around line 2300) alongside the existing `diary_activity`, `care_activity`, etc. queries, and pass the result to `render_template`.
+- Add a display section for it in `templates/settings.html` following the same pattern as the "Diary usage" or "Watering & fertilization activity" panels (scrollable list, colour-coded badge, username, timestamp).
+
 ## Frontend Architecture
 
 ### Add-plant mechanisms
