@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ plant.name }} — GardenPal</title>
 <meta name="description" content="{% if plant.description %}{{ plant.description[:160] }}{% else %}{{ plant.name }} shared from GardenPal{% endif %}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ plant.name }}{% if plant.scientific_name %} ({{ plant.scientific_name }}){% endif %}">
+<meta property="og:description" content="{% if plant.description %}{{ plant.description[:160] }}{% else %}{{ plant.name }} shared from GardenPal{% endif %}">
+{% if og_photo_url %}<meta property="og:image" content="{{ og_photo_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="{{ og_photo_url }}">{% endif %}
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
@@ -188,7 +194,7 @@ body {
       <p class="plant-desc">{{ plant.description }}</p>
       {% endif %}
 
-      {% set has_meta = plant.sun_exposure or plant.lifecycle or plant.water_needs or plant.height_category or zones %}
+      {% set has_meta = plant.sun_exposure or plant.lifecycle or plant.water_needs or plant.height_category or plant.plant_form or plant.size_info or plant.flowering_schedule or plant.deadheading or plant.deer_resistant or zones %}
       {% if has_meta %}
       <hr class="divider">
       {% if zones %}
@@ -201,6 +207,9 @@ body {
         </div>
       </div>
       {% endif %}
+      {% if plant.plant_form %}
+      <div class="meta-row"><span class="meta-label">Form</span><span>{{ plant.plant_form }}</span></div>
+      {% endif %}
       {% if plant.sun_exposure %}
       <div class="meta-row"><span class="meta-label">Sun</span><span>{{ plant.sun_exposure }}</span></div>
       {% endif %}
@@ -212,6 +221,18 @@ body {
       {% endif %}
       {% if plant.height_category %}
       <div class="meta-row"><span class="meta-label">Height</span><span>{{ plant.height_category }}</span></div>
+      {% endif %}
+      {% if plant.size_info %}
+      <div class="meta-row"><span class="meta-label">Size</span><span>{{ plant.size_info }}</span></div>
+      {% endif %}
+      {% if plant.flowering_schedule %}
+      <div class="meta-row"><span class="meta-label">Flowering</span><span>{{ plant.flowering_schedule }}</span></div>
+      {% endif %}
+      {% if plant.deadheading %}
+      <div class="meta-row"><span class="meta-label">Deadheading</span><span>{{ plant.deadheading }}</span></div>
+      {% endif %}
+      {% if plant.deer_resistant %}
+      <div class="meta-row"><span class="meta-label">Deer</span><span>{{ plant.deer_resistant }}</span></div>
       {% endif %}
       {% endif %}
 

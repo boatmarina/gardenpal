@@ -1329,7 +1329,23 @@ self.addEventListener('fetch', function(e) {
                ORDER BY z.name ASC""",
             (plant["name"], plant["user_id"]),
         ).fetchall()
-        return render_template("plant_public.html", plant=plant, tags=tags, zones=zones)
+        # Pre-compute photo URL for Open Graph meta tags (can't use Jinja filters in <head>)
+        og_photo_url = None
+        if plant["photo_urls"]:
+            try:
+                _urls = json.loads(plant["photo_urls"])
+                og_photo_url = _urls[0] if _urls else None
+            except Exception:
+                pass
+        if not og_photo_url and plant["image_path"]:
+            _p = plant["image_path"]
+            if _p.startswith("http://") or _p.startswith("https://"):
+                og_photo_url = _p
+            else:
+                og_photo_url = url_for("uploads", filename=_p, _external=True)
+        if not og_photo_url:
+            og_photo_url = plant["image_url"] or None
+        return render_template("plant_public.html", plant=plant, tags=tags, zones=zones, og_photo_url=og_photo_url)
 
     @app.route("/ideas/<int:plant_id>/add-to-zone", methods=["POST"])
     @login_required
