@@ -423,18 +423,13 @@ def create_app() -> Flask:
 self.addEventListener('install', function() { self.skipWaiting(); });
 self.addEventListener('activate', function(e) {
   e.waitUntil(
-    clients.claim().then(function() {
-      return clients.matchAll({ includeUncontrolled: true, type: 'window' });
-    }).then(function(all) {
-      all.forEach(function(c) { try { c.navigate(c.url); } catch(_) {} });
-    })
+    caches.keys().then(function(names) {
+      return Promise.all(names.map(function(n) { return caches.delete(n); }));
+    }).then(function() { return clients.claim(); })
   );
 });
-self.addEventListener('fetch', function(e) {
-  if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request));
-  }
-});
+// No fetch handler — SW is fully transparent to all requests after clearing caches.
+// A respondWith(fetch()) on navigate requests blocks window.print() on Safari/WebKit.
 """
 
     @app.route("/sw.js")
@@ -446,6 +441,8 @@ self.addEventListener('fetch', function(e) {
 
     @app.before_request
     def ensure_db_ready():
+        if request.endpoint in ("service_worker", "static"):
+            return
         if not app.config["_DB_READY"]:
             db_url = app.config.get("DATABASE_URL")
             if not db_url:
@@ -6963,13 +6960,6 @@ self.addEventListener('fetch', function(e) {
     @app.route("/plants/<int:plant_id>")
     def legacy_plant_detail(plant_id: int):
         return redirect(url_for("idea_detail", plant_id=plant_id))
-
-    @app.route("/sw.js")
-    def service_worker():
-        resp = send_from_directory(app.static_folder, "sw.js")
-        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        resp.headers["Service-Worker-Allowed"] = "/"
-        return resp
 
     @app.route("/uploads/<path:filename>")
     @login_required
