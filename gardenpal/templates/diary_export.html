@@ -430,9 +430,11 @@ body {
   .log-fert-badge { margin-bottom: 2px; padding: 1px 5px; font-size: 0.62rem; }
   .log-photos { gap: 4px; margin-top: 2px; page-break-inside: avoid; break-inside: avoid; }
   .log-photo { width: 72px; height: 52px; }
-  /* Ornamentals: columns layout — overflow:visible prevents BFC that breaks column flow */
-  .ornamentals-grid { display: block; columns: 2; column-gap: 12px; }
-  .orn-card { display: block; overflow: visible; break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 7px; }
+  /* Ornamentals: JS beforeprint splits cards into two explicit column divs;
+     CSS columns is unreliable in iOS Safari print — explicit flex columns are not */
+  .ornamentals-grid { display: flex; gap: 12px; align-items: flex-start; }
+  .orn-print-col { flex: 1; min-width: 0; }
+  .orn-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 7px; }
   .orn-photo { height: 95px; }
   .orn-photo-placeholder { height: 95px; }
   .orn-body { padding: 6px 8px 7px; gap: 3px; }
@@ -468,8 +470,7 @@ body {
       <p style="margin:0 0 4px;font-size:0.72rem;opacity:0.65;text-transform:uppercase;letter-spacing:0.06em">iPhone</p>
       <ol style="margin:0 0 10px;padding-left:16px;display:flex;flex-direction:column;gap:3px">
         <li>Tap <strong>Print / Share</strong> above</li>
-        <li>In the print sheet, <strong>pinch outward</strong> on the preview thumbnail</li>
-        <li>Tap the <strong>Share</strong> icon (↑) → <strong>Save to Files</strong></li>
+        <li>Tap the <strong>Share</strong> icon (↑) in the print sheet</li>
       </ol>
       <p style="margin:0 0 4px;font-size:0.72rem;opacity:0.65;text-transform:uppercase;letter-spacing:0.06em">Desktop</p>
       <ol style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
@@ -494,6 +495,35 @@ document.addEventListener('click', function(e) {
     tip.hidden = true;
   }
 });
+(function() {
+  var savedInnerHTML = null;
+  function splitForPrint() {
+    var grid = document.querySelector('.ornamentals-grid');
+    if (!grid) return;
+    savedInnerHTML = grid.innerHTML;
+    var cards = Array.from(grid.querySelectorAll('.orn-card'));
+    if (cards.length === 0) return;
+    var col1 = document.createElement('div');
+    col1.className = 'orn-print-col';
+    var col2 = document.createElement('div');
+    col2.className = 'orn-print-col';
+    cards.forEach(function(card, i) {
+      (i % 2 === 0 ? col1 : col2).appendChild(card);
+    });
+    grid.innerHTML = '';
+    grid.appendChild(col1);
+    grid.appendChild(col2);
+  }
+  function restoreAfterPrint() {
+    var grid = document.querySelector('.ornamentals-grid');
+    if (grid && savedInnerHTML !== null) {
+      grid.innerHTML = savedInnerHTML;
+      savedInnerHTML = null;
+    }
+  }
+  window.addEventListener('beforeprint', splitForPrint);
+  window.addEventListener('afterprint', restoreAfterPrint);
+})();
 </script>
 </div>
 
