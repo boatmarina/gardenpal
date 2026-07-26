@@ -1288,6 +1288,49 @@ self.addEventListener('fetch', function(e) {
                                next_watering=next_watering, water_deadline=water_deadline,
                                plant_notes=plant_notes)
 
+    @app.route("/ideas/<int:plant_id>/share-token")
+    @login_required
+    def idea_share_token(plant_id: int):
+        import uuid as _uuid
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        plant = db.execute(
+            f"SELECT id, share_token FROM plants WHERE id = ? AND user_id IN {ph}",
+            (plant_id, *id_args),
+        ).fetchone()
+        if plant is None:
+            return jsonify({"error": "not found"}), 404
+        token = plant["share_token"]
+        if not token:
+            token = _uuid.uuid4().hex
+            db.execute("UPDATE plants SET share_token = ? WHERE id = ?", (token, plant_id))
+            db.commit()
+        return jsonify({"token": token})
+
+    @app.route("/p/<token>")
+    def plant_public(token: str):
+        db = get_db()
+        plant = db.execute(
+            "SELECT * FROM plants WHERE share_token = ?", (token,)
+        ).fetchone()
+        if plant is None:
+            return "Plant not found", 404
+        tags = db.execute(
+            """SELECT t.name, t.color FROM tags t
+               JOIN plant_tags pt ON pt.tag_id = t.id
+               WHERE pt.plant_id = ? ORDER BY t.name ASC""",
+            (plant["id"],),
+        ).fetchall()
+        zones = db.execute(
+            """SELECT DISTINCT z.name FROM yard_plants yp
+               JOIN yard_zones z ON z.id = yp.zone_id
+               WHERE lower(yp.plant_name) = lower(?) AND yp.user_id = ?
+               ORDER BY z.name ASC""",
+            (plant["name"], plant["user_id"]),
+        ).fetchall()
+        return render_template("plant_public.html", plant=plant, tags=tags, zones=zones)
+
     @app.route("/ideas/<int:plant_id>/add-to-zone", methods=["POST"])
     @login_required
     def idea_add_to_zone(plant_id: int):
@@ -7074,6 +7117,7 @@ def init_db():
     ensure_column(db, "plants",         "watering_note",             "TEXT")
     ensure_column(db, "plants",         "watering_generated_at",     "TEXT")
     ensure_column(db, "plants",         "next_watering_date",        "TEXT")
+    ensure_column(db, "plants",         "share_token",               "TEXT")
 
     # Backfill watering frequency for plants that have never had a suggestion.
     # Uses simple heuristics so home-screen alerts and thumbnail badges appear immediately

@@ -1309,24 +1309,33 @@ function gpToggleNote(pzId) {
   if (el) el.hidden = !el.hidden;
 }
 
-// Share button — native share sheet on iOS/Android, clipboard fallback on desktop
+// Share button — generates a public /p/<token> URL anyone can view without logging in
 (function() {
   var btn = document.getElementById('gp-share-btn');
   if (!btn) return;
   var plantName = {{ plant.name | tojson }};
-  var url = window.location.href.split('?')[0];
+  var tokenUrl = '/ideas/{{ plant.id }}/share-token';
 
   btn.addEventListener('click', function() {
-    if (navigator.share) {
-      navigator.share({ title: plantName, url: url }).catch(function() {});
-    } else {
-      // Desktop: copy to clipboard and show the URL so it's clear what was copied
-      navigator.clipboard.writeText(url).then(function() {
-        showUrlToast(url, true);
-      }).catch(function() {
-        showUrlToast(url, false);
+    btn.disabled = true;
+    fetch(tokenUrl)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btn.disabled = false;
+        var shareUrl = window.location.origin + '/p/' + data.token;
+        if (navigator.share) {
+          navigator.share({ title: plantName, url: shareUrl }).catch(function() {});
+        } else {
+          navigator.clipboard.writeText(shareUrl).then(function() {
+            showUrlToast(shareUrl, true);
+          }).catch(function() {
+            showUrlToast(shareUrl, false);
+          });
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
       });
-    }
   });
 
   function showUrlToast(url, copied) {
