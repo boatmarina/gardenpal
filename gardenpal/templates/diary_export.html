@@ -478,7 +478,7 @@ function togglePdfTip() {
 }
 document.addEventListener('click', function(e) {
   var tip = document.getElementById('pdf-tip');
-  if (!tip.hidden && !tip.contains(e.target) && e.target.id !== 'pdf-tip-btn') {
+  if (!tip.hidden && !tip.contains(e.target) && !e.target.closest('#pdf-tip-btn, #print-btn')) {
     tip.hidden = true;
   }
 });
