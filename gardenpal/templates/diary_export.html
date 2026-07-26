@@ -448,8 +448,9 @@ body {
       <p style="font-weight:700;margin:0 0 8px;color:#fff">Save or share as PDF</p>
       <p style="margin:0 0 4px;font-size:0.72rem;opacity:0.65;text-transform:uppercase;letter-spacing:0.06em">iPhone</p>
       <ol style="margin:0 0 10px;padding-left:16px;display:flex;flex-direction:column;gap:3px">
-        <li>Tap <strong>Print / Share</strong> above → choose <strong>Print</strong></li>
-        <li>Tap the Share icon → <strong>Save to Files</strong></li>
+        <li>Tap the <strong>Share</strong> icon in Safari's toolbar (↑)</li>
+        <li>Choose <strong>Print</strong></li>
+        <li>Tap the Share icon in the preview → <strong>Save to Files</strong> to save as PDF</li>
       </ol>
       <p style="margin:0 0 4px;font-size:0.72rem;opacity:0.65;text-transform:uppercase;letter-spacing:0.06em">Desktop</p>
       <ol style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:3px">
@@ -462,8 +463,10 @@ body {
 <script>
 var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 function doPrint() {
-  if (isIOS && navigator.share) {
-    navigator.share({ url: window.location.href, title: 'Garden Diary {{ current_year }}' });
+  if (isIOS) {
+    // iOS 16+ blocks window.print() with a system dialog regardless of user gesture.
+    // Show the tip instead, which directs users to Safari's native Share → Print flow.
+    document.getElementById('pdf-tip').hidden = false;
   } else {
     window.print();
   }
