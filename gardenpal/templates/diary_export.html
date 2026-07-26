@@ -463,7 +463,7 @@ body {
 <script>
 var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 function doPrint() {
-  navigator.sendBeacon('/export/diary/log');
+  try { navigator.sendBeacon('/export/diary/log'); } catch(e) {}
   if (isIOS) {
     // iOS 16+ blocks window.print() with a system dialog regardless of user gesture.
     // Show the tip instead, which directs users to Safari's native Share → Print flow.
