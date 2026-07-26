@@ -408,9 +408,9 @@ body {
   .section-heading h2 { font-size: 1.25rem; }
   .diary-section { page-break-before: always; margin-bottom: 0; }
   .diary-section:first-of-type { page-break-before: avoid; }
-  /* Zone cards */
-  .zones-grid { grid-template-columns: repeat(3, 1fr); gap: 5px; }
-  .zone-card { padding: 5px 8px; }
+  /* Zone cards: columns layout for reliable break-inside */
+  .zones-grid { display: block; columns: 3; column-gap: 8px; }
+  .zone-card { padding: 5px 8px; break-inside: avoid; page-break-inside: avoid; margin-bottom: 6px; }
   /* Edibles in 2 columns */
   .edibles-content { columns: 2; column-gap: 12px; }
   .zone-group-heading { column-span: all; margin: 8px 0 4px; }
@@ -418,6 +418,10 @@ body {
   .edible-header { margin-bottom: 2px; }
   .edible-meta { margin-bottom: 2px; gap: 1px 10px; }
   .edible-notes { padding: 3px 8px; margin-bottom: 3px; }
+  /* Edible card: details left, growth log right */
+  .edible-cols { display: flex; gap: 8px; align-items: flex-start; }
+  .edible-col-details { flex: 0 0 44%; min-width: 0; }
+  .edible-col-log { flex: 1; min-width: 0; padding-left: 8px; border-left: 1px solid #e8e8e8; }
   /* Tighter growth log */
   .growth-log-heading { margin-bottom: 2px; }
   .log-entry { padding: 2px 0; gap: 6px; }
@@ -425,10 +429,10 @@ body {
   .log-note { font-size: 0.75rem; line-height: 1.3; margin-bottom: 1px; }
   .log-fert-badge { margin-bottom: 2px; padding: 1px 5px; font-size: 0.62rem; }
   .log-photos { gap: 4px; margin-top: 2px; page-break-inside: avoid; break-inside: avoid; }
-  .log-photo { width: 76px; height: 54px; }
-  /* Ornamentals: columns layout so break-inside: avoid works reliably in print */
+  .log-photo { width: 72px; height: 52px; }
+  /* Ornamentals: columns layout — overflow:visible prevents BFC that breaks column flow */
   .ornamentals-grid { display: block; columns: 2; column-gap: 12px; }
-  .orn-card { display: block; break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 7px; }
+  .orn-card { display: block; overflow: visible; break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 7px; }
   .orn-photo { height: 95px; }
   .orn-photo-placeholder { height: 95px; }
   .orn-body { padding: 6px 8px 7px; gap: 3px; }
@@ -586,66 +590,71 @@ document.addEventListener('click', function(e) {
         {% endif %}
       {% endif %}
 
+      {% set log = growth_log.get(entry.id, []) %}
       <div class="edible-entry">
-        <div class="edible-header">
-          <span class="edible-name">{{ entry.plant_name }}</span>
-          {% if entry.variety %}<span class="edible-variety">{{ entry.variety }}</span>{% endif %}
-        </div>
-        <div class="edible-meta">
-          {% if entry.planted_date %}
-          <span class="edible-meta-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Planted {{ entry.planted_date | planted_date }}
-          </span>
-          {% endif %}
-          {% if entry.planting_method %}
-          {% set pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"} %}
-          <span class="edible-meta-item">{{ pm_labels.get(entry.planting_method, entry.planting_method) }}</span>
-          {% endif %}
-          {% if entry.location_type or entry.location_name %}
-          <span class="edible-meta-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            {% if entry.location_type %}{{ entry.location_type.replace("_", " ").title() }}{% endif %}{% if entry.location_name and entry.location_type %} — {% endif %}{% if entry.location_name %}{{ entry.location_name }}{% endif %}
-          </span>
-          {% endif %}
-          {% if entry.last_fertilized_date %}
-          <span class="edible-meta-item">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18.5 2C17 4 15 5 15 5c0-3 3.5-5 3.5-5z"/><path d="M18.5 8.5c1.5 2 3.5 3 3.5 3s-3.5 2-3.5 5"/></svg>
-            Last fertilized {{ entry.last_fertilized_date | planted_date }}{% if entry.last_fertilizer_type %} ({{ entry.last_fertilizer_type }}){% endif %}
-          </span>
-          {% endif %}
-        </div>
-        {% if entry.notes %}
-        <div class="edible-notes">{{ entry.notes }}</div>
-        {% endif %}
-
-        {% set log = growth_log.get(entry.id, []) %}
-        {% if log %}
-        <div class="growth-log-heading">Growth Log</div>
-        {% for item in log %}
-        <div class="log-entry">
-          <div class="log-date">
-            {% if item.photo_date %}{{ item.photo_date | planted_date }}{% else %}&mdash;{% endif %}
-          </div>
-          <div class="log-body">
-            {% if item.is_fertilization %}
-            <div class="log-fert-badge">
-              Fertilized{% if item.fertilizer_type %} · {{ item.fertilizer_type }}{% endif %}
+        <div class="edible-cols">
+          <div class="edible-col-details">
+            <div class="edible-header">
+              <span class="edible-name">{{ entry.plant_name }}</span>
+              {% if entry.variety %}<span class="edible-variety">{{ entry.variety }}</span>{% endif %}
             </div>
-            {% endif %}
-            {% if item.notes %}
-            <div class="log-note">{{ item.notes }}</div>
-            {% endif %}
-            {% if item.image_path %}
-            <div class="log-photos">
-              <img class="log-photo" src="{{ item.image_path | media_url }}" alt="" loading="eager"
-                   onerror="this.closest('.log-photos').remove()" />
+            <div class="edible-meta">
+              {% if entry.planted_date %}
+              <span class="edible-meta-item">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Planted {{ entry.planted_date | planted_date }}
+              </span>
+              {% endif %}
+              {% if entry.planting_method %}
+              {% set pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"} %}
+              <span class="edible-meta-item">{{ pm_labels.get(entry.planting_method, entry.planting_method) }}</span>
+              {% endif %}
+              {% if entry.location_type or entry.location_name %}
+              <span class="edible-meta-item">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {% if entry.location_type %}{{ entry.location_type.replace("_", " ").title() }}{% endif %}{% if entry.location_name and entry.location_type %} — {% endif %}{% if entry.location_name %}{{ entry.location_name }}{% endif %}
+              </span>
+              {% endif %}
+              {% if entry.last_fertilized_date %}
+              <span class="edible-meta-item">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18.5 2C17 4 15 5 15 5c0-3 3.5-5 3.5-5z"/><path d="M18.5 8.5c1.5 2 3.5 3 3.5 3s-3.5 2-3.5 5"/></svg>
+                Last fertilized {{ entry.last_fertilized_date | planted_date }}{% if entry.last_fertilizer_type %} ({{ entry.last_fertilizer_type }}){% endif %}
+              </span>
+              {% endif %}
             </div>
+            {% if entry.notes %}
+            <div class="edible-notes">{{ entry.notes }}</div>
             {% endif %}
           </div>
+          {% if log %}
+          <div class="edible-col-log">
+            <div class="growth-log-heading">Growth Log</div>
+            {% for item in log %}
+            <div class="log-entry">
+              <div class="log-date">
+                {% if item.photo_date %}{{ item.photo_date | planted_date }}{% else %}&mdash;{% endif %}
+              </div>
+              <div class="log-body">
+                {% if item.is_fertilization %}
+                <div class="log-fert-badge">
+                  Fertilized{% if item.fertilizer_type %} · {{ item.fertilizer_type }}{% endif %}
+                </div>
+                {% endif %}
+                {% if item.notes %}
+                <div class="log-note">{{ item.notes }}</div>
+                {% endif %}
+                {% if item.image_path %}
+                <div class="log-photos">
+                  <img class="log-photo" src="{{ item.image_path | media_url }}" alt="" loading="eager"
+                       onerror="this.closest('.log-photos').remove()" />
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
-        {% endfor %}
-        {% endif %}
       </div>
     {% endfor %}
     {% else %}
