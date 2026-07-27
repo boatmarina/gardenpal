@@ -301,14 +301,20 @@ body {
   display: flex;
   flex-direction: column;
 }
-.orn-photo {
-  width: 100%;
+.orn-photo-row {
+  display: flex;
+  gap: 2px;
   height: 130px;
+  overflow: hidden;
+  background: #e8f5e9;
+  flex-shrink: 0;
+}
+.orn-photo-row img {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   object-fit: cover;
   display: block;
-  background: #e8f5e9;
-  break-inside: avoid;
-  page-break-inside: avoid;
 }
 .orn-photo-placeholder {
   width: 100%;
@@ -442,7 +448,7 @@ body {
   .ornamentals-grid { display: flex; gap: 12px; align-items: flex-start; }
   .orn-print-col { flex: 1; min-width: 0; }
   .orn-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 7px; }
-  .orn-photo { height: 95px; }
+  .orn-photo-row { height: 95px; }
   .orn-photo-placeholder { height: 95px; }
   .orn-body { padding: 6px 8px 7px; gap: 3px; }
   .orn-details { gap: 2px 10px; font-size: 0.7rem; }
@@ -716,16 +722,24 @@ document.addEventListener('click', function(e) {
     {% if ornamentals %}
     <div class="ornamentals-grid">
       {% for plant in ornamentals %}
-      {% set photo_url = plant.photo_urls | first_photo or (plant.image_path | media_url if plant.image_path else None) or plant.image_url %}
+      {% set photos = plant.photo_urls | photos_list %}
+      {% if not photos %}
+        {% if plant.image_path %}{% set photos = [plant.image_path | media_url] %}
+        {% elif plant.image_url %}{% set photos = [plant.image_url] %}
+        {% endif %}
+      {% endif %}
       {% set plant_tags = tags_map.get(plant.id, []) %}
       {% set plant_zone_names = orn_zones.get(plant.name | lower, []) %}
       {% set notes_log = plant_notes_map.get(plant.id, []) %}
       <div class="orn-card">
-        {% if photo_url %}
-        <img class="orn-photo" src="{{ photo_url }}" alt="{{ plant.name }}"
-             loading="eager" onerror="this.replaceWith(this.nextElementSibling)" />
+        {% if photos %}
+        <div class="orn-photo-row">
+          {% for url in photos %}
+          <img src="{{ url }}" alt="{{ plant.name }}" loading="eager" onerror="this.style.display='none'">
+          {% endfor %}
+        </div>
         {% endif %}
-        <div class="orn-photo-placeholder" style="{% if photo_url %}display:none{% endif %}">
+        <div class="orn-photo-placeholder" style="{% if photos %}display:none{% endif %}">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
             <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
