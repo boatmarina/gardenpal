@@ -411,9 +411,6 @@ body {
   /* Zone cards: columns layout for reliable break-inside */
   .zones-grid { display: block; columns: 3; column-gap: 8px; }
   .zone-card { padding: 5px 8px; break-inside: avoid; page-break-inside: avoid; margin-bottom: 6px; }
-  /* Edibles: JS beforeprint splits into two explicit flex columns (same as ornamentals) */
-  .edibles-content { display: flex; gap: 12px; align-items: flex-start; }
-  .edible-print-col { flex: 1; min-width: 0; }
   .zone-group-heading { margin: 8px 0 4px; }
   .edible-entry { padding: 5px 8px 4px; margin-bottom: 3px; border: 1px solid #ccc; page-break-inside: avoid; break-inside: avoid; }
   .edible-header { margin-bottom: 2px; }
@@ -524,47 +521,6 @@ document.addEventListener('click', function(e) {
   }
   window.addEventListener('beforeprint', splitForPrint);
   window.addEventListener('afterprint', restoreAfterPrint);
-})();
-(function() {
-  var savedEdiblesHTML = null;
-  function splitEdiblesForPrint() {
-    var container = document.querySelector('.edibles-content');
-    if (!container) return;
-    savedEdiblesHTML = container.innerHTML;
-    var children = Array.from(container.children);
-    var entries = children.filter(function(el) { return el.classList.contains('edible-entry'); });
-    if (entries.length === 0) return;
-    var splitAt = Math.ceil(entries.length / 2);
-    var col1 = document.createElement('div');
-    col1.className = 'edible-print-col';
-    var col2 = document.createElement('div');
-    col2.className = 'edible-print-col';
-    var entryCount = 0;
-    var pendingHeading = null;
-    children.forEach(function(child) {
-      if (child.classList.contains('zone-group-heading')) {
-        pendingHeading = child;
-      } else if (child.classList.contains('edible-entry')) {
-        var target = entryCount < splitAt ? col1 : col2;
-        if (pendingHeading) { target.appendChild(pendingHeading); pendingHeading = null; }
-        target.appendChild(child);
-        entryCount++;
-      }
-    });
-    if (pendingHeading) col1.appendChild(pendingHeading);
-    container.innerHTML = '';
-    container.appendChild(col1);
-    container.appendChild(col2);
-  }
-  function restoreEdiblesAfterPrint() {
-    var container = document.querySelector('.edibles-content');
-    if (container && savedEdiblesHTML !== null) {
-      container.innerHTML = savedEdiblesHTML;
-      savedEdiblesHTML = null;
-    }
-  }
-  window.addEventListener('beforeprint', splitEdiblesForPrint);
-  window.addEventListener('afterprint', restoreEdiblesAfterPrint);
 })();
 </script>
 </div>
