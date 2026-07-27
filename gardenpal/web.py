@@ -7060,20 +7060,87 @@ def current_app():
 
 def init_db():
     db = get_db()
-    # Autocommit each DDL statement independently so the transaction pooler
-    # can't split a SERIAL column's implicit CREATE SEQUENCE from its CREATE TABLE,
-    # and so a failed statement doesn't abort the rest.
-    db._conn.autocommit = True
-    for stmt in _SCHEMA_STATEMENTS:
-        try:
-            db.execute(stmt)
-        except Exception:
-            pass  # table or sequence already exists — safe to continue
-    db._conn.autocommit = False
 
-    ensure_column(db, "users", "api_token", "TEXT")
-    ensure_column(db, "users", "is_admin", "INTEGER NOT NULL DEFAULT 0")
-    ensure_column(db, "users", "fertilization_tracking", "INTEGER NOT NULL DEFAULT 0")
+    # One round-trip: skip ~58 DDL statements if tables already exist
+    if not db.execute(
+        "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users'"
+    ).fetchone():
+        # Autocommit each DDL statement independently so the transaction pooler
+        # can't split a SERIAL column's implicit CREATE SEQUENCE from its CREATE TABLE,
+        # and so a failed statement doesn't abort the rest.
+        db._conn.autocommit = True
+        for stmt in _SCHEMA_STATEMENTS:
+            try:
+                db.execute(stmt)
+            except Exception:
+                pass  # table or sequence already exists — safe to continue
+        db._conn.autocommit = False
+
+    # One round-trip: check all columns at once instead of ~62 individual queries
+    _ensure_columns_batch(db, [
+        ("users",           "api_token",                       "TEXT"),
+        ("users",           "is_admin",                        "INTEGER NOT NULL DEFAULT 0"),
+        ("users",           "fertilization_tracking",          "INTEGER NOT NULL DEFAULT 0"),
+        ("users",           "photo_id_provider",               "TEXT"),
+        ("users",           "location",                        "TEXT"),
+        ("users",           "whats_new_seen",                  "TEXT"),
+        ("users",           "suggestion_history",              "TEXT"),
+        ("users",           "suggestion_queue",                "TEXT"),
+        ("users",           "current_suggestion",              "TEXT"),
+        ("plants",          "user_id",                         "INTEGER"),
+        ("plants",          "scientific_name",                 "TEXT"),
+        ("plants",          "lookup_query",                    "TEXT"),
+        ("plants",          "label_photo_path",                "TEXT"),
+        ("plants",          "lookup_status",                   "TEXT"),
+        ("plants",          "pnw_native",                      "INTEGER"),
+        ("plants",          "photo_urls",                      "TEXT"),
+        ("plants",          "evergreen_status",                "TEXT"),
+        ("plants",          "plant_form",                      "TEXT"),
+        ("plants",          "height_category",                 "TEXT"),
+        ("plants",          "description",                     "TEXT"),
+        ("plants",          "water_needs",                     "TEXT"),
+        ("plants",          "deadheading",                     "TEXT"),
+        ("plants",          "deer_resistant",                  "TEXT"),
+        ("plants",          "last_fertilized_date",            "TEXT"),
+        ("plants",          "last_fertilizer_type",            "TEXT"),
+        ("plants",          "next_fertilization_date",         "TEXT"),
+        ("plants",          "next_fertilization_note",         "TEXT"),
+        ("plants",          "next_fertilization_generated_at", "TEXT"),
+        ("plants",          "planned_fertilization_date",      "TEXT"),
+        ("plants",          "never_fertilize",                 "INTEGER"),
+        ("plants",          "next_fertilization_not_needed",   "INTEGER DEFAULT 0"),
+        ("plants",          "never_water",                     "INTEGER"),
+        ("plants",          "last_watered_date",               "TEXT"),
+        ("plants",          "watering_frequency_days",         "INTEGER"),
+        ("plants",          "watering_note",                   "TEXT"),
+        ("plants",          "watering_generated_at",           "TEXT"),
+        ("plants",          "next_watering_date",              "TEXT"),
+        ("plants",          "share_token",                     "TEXT"),
+        ("garden_shares",   "confirmed",                       "INTEGER NOT NULL DEFAULT 1"),
+        ("garden_shares",   "requested_by",                    "INTEGER"),
+        ("categories",      "is_default",                      "INTEGER NOT NULL DEFAULT 0"),
+        ("perenual_log",    "user_id",                         "INTEGER"),
+        ("garden_photos",   "is_fertilization",                "INTEGER"),
+        ("garden_photos",   "fertilizer_type",                 "TEXT"),
+        ("garden_photos",   "fertilization_date",              "TEXT"),
+        ("garden_entries",  "last_fertilized_date",            "TEXT"),
+        ("garden_entries",  "last_fertilizer_type",            "TEXT"),
+        ("garden_entries",  "next_fertilization_date",         "TEXT"),
+        ("garden_entries",  "next_fertilization_note",         "TEXT"),
+        ("garden_entries",  "next_fertilization_generated_at", "TEXT"),
+        ("garden_entries",  "planned_fertilization_date",      "TEXT"),
+        ("garden_entries",  "never_fertilize",                 "INTEGER"),
+        ("garden_entries",  "next_fertilization_not_needed",   "INTEGER DEFAULT 0"),
+        ("garden_entries",  "never_water",                     "INTEGER"),
+        ("garden_entries",  "zone_id",                         "INTEGER"),
+        ("garden_entries",  "last_watered_date",               "TEXT"),
+        ("garden_entries",  "watering_frequency_days",         "INTEGER"),
+        ("garden_entries",  "watering_note",                   "TEXT"),
+        ("garden_entries",  "watering_generated_at",           "TEXT"),
+        ("garden_entries",  "next_watering_date",              "TEXT"),
+        ("garden_entries",  "planting_method",                 "TEXT"),
+    ])
+
     db.execute("UPDATE users SET is_admin = 1 WHERE lower(username) = lower('boatmarina')")
     # Seed fertilization tracking for early-access users (idempotent — only sets 1, never resets)
     for _fert_user in ("boatmarina", "holval@gmail.com", "pitad"):
@@ -7082,71 +7149,12 @@ def init_db():
             (_fert_user,),
         )
     db.commit()
-    ensure_column(db, "plants", "user_id", "INTEGER")
-    ensure_column(db, "plants", "scientific_name", "TEXT")
-    ensure_column(db, "plants", "lookup_query", "TEXT")
-    ensure_column(db, "plants", "label_photo_path", "TEXT")
-    ensure_column(db, "plants", "lookup_status", "TEXT")
-    ensure_column(db, "plants", "pnw_native", "INTEGER")
-    ensure_column(db, "plants", "photo_urls", "TEXT")
-    ensure_column(db, "plants", "evergreen_status", "TEXT")
-    ensure_column(db, "plants", "plant_form", "TEXT")
-    ensure_column(db, "plants", "height_category", "TEXT")
-    ensure_column(db, "plants", "description", "TEXT")
-    ensure_column(db, "plants", "water_needs", "TEXT")
-    ensure_column(db, "plants", "deadheading", "TEXT")
-    ensure_column(db, "plants", "deer_resistant", "TEXT")
-    ensure_column(db, "plants", "last_fertilized_date", "TEXT")
-    ensure_column(db, "plants", "last_fertilizer_type", "TEXT")
-    ensure_column(db, "plants", "next_fertilization_date", "TEXT")
-    ensure_column(db, "plants", "next_fertilization_note", "TEXT")
-    ensure_column(db, "plants", "next_fertilization_generated_at", "TEXT")
-    ensure_column(db, "plants", "planned_fertilization_date", "TEXT")
-    ensure_column(db, "plants", "never_fertilize", "INTEGER")
-    ensure_column(db, "plants", "next_fertilization_not_needed", "INTEGER DEFAULT 0")
-    ensure_column(db, "plants", "never_water", "INTEGER")
-    ensure_column(db, "users", "photo_id_provider", "TEXT")
-    ensure_column(db, "users", "location", "TEXT")
-    ensure_column(db, "users", "whats_new_seen", "TEXT")
-    ensure_column(db, "users", "suggestion_history", "TEXT")
-    ensure_column(db, "users", "suggestion_queue", "TEXT")
-    ensure_column(db, "users", "current_suggestion", "TEXT")
-    ensure_column(db, "garden_shares", "confirmed", "INTEGER NOT NULL DEFAULT 1")
-    ensure_column(db, "garden_shares", "requested_by", "INTEGER")
-    ensure_column(db, "categories", "is_default", "INTEGER NOT NULL DEFAULT 0")
     # Allow note-only growth log entries (image_path may be NULL)
     try:
         db.execute("ALTER TABLE garden_photos ALTER COLUMN image_path DROP NOT NULL")
         db.commit()
     except Exception:
         pass
-
-    ensure_column(db, "perenual_log", "user_id", "INTEGER")
-    ensure_column(db, "garden_photos", "is_fertilization", "INTEGER")
-    ensure_column(db, "garden_photos", "fertilizer_type", "TEXT")
-    ensure_column(db, "garden_photos", "fertilization_date", "TEXT")
-    ensure_column(db, "garden_entries", "last_fertilized_date", "TEXT")
-    ensure_column(db, "garden_entries", "last_fertilizer_type", "TEXT")
-    ensure_column(db, "garden_entries", "next_fertilization_date", "TEXT")
-    ensure_column(db, "garden_entries", "next_fertilization_note", "TEXT")
-    ensure_column(db, "garden_entries", "next_fertilization_generated_at", "TEXT")
-    ensure_column(db, "garden_entries", "planned_fertilization_date", "TEXT")
-    ensure_column(db, "garden_entries", "never_fertilize", "INTEGER")
-    ensure_column(db, "garden_entries", "next_fertilization_not_needed", "INTEGER DEFAULT 0")
-    ensure_column(db, "garden_entries", "never_water", "INTEGER")
-    ensure_column(db, "garden_entries", "zone_id",                  "INTEGER")
-    ensure_column(db, "garden_entries", "last_watered_date",         "TEXT")
-    ensure_column(db, "garden_entries", "watering_frequency_days",   "INTEGER")
-    ensure_column(db, "garden_entries", "watering_note",             "TEXT")
-    ensure_column(db, "garden_entries", "watering_generated_at",     "TEXT")
-    ensure_column(db, "garden_entries", "next_watering_date",        "TEXT")
-    ensure_column(db, "garden_entries", "planting_method",           "TEXT")
-    ensure_column(db, "plants",         "last_watered_date",         "TEXT")
-    ensure_column(db, "plants",         "watering_frequency_days",   "INTEGER")
-    ensure_column(db, "plants",         "watering_note",             "TEXT")
-    ensure_column(db, "plants",         "watering_generated_at",     "TEXT")
-    ensure_column(db, "plants",         "next_watering_date",        "TEXT")
-    ensure_column(db, "plants",         "share_token",               "TEXT")
 
     # Backfill watering frequency for plants that have never had a suggestion.
     # Uses simple heuristics so home-screen alerts and thumbnail badges appear immediately
@@ -7700,6 +7708,20 @@ def ensure_column(db, table_name: str, column_name: str, column_spec: str):
     ).fetchone()
     if exists is None:
         db.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_spec}")
+
+
+def _ensure_columns_batch(db, specs):
+    """Check all (table, column) pairs in one information_schema query; ALTER only for missing ones."""
+    tables = list({t for t, _, _ in specs})
+    ph = "({})".format(",".join(["?"] * len(tables)))
+    rows = db.execute(
+        f"SELECT table_name, column_name FROM information_schema.columns WHERE table_name IN {ph}",
+        tables,
+    ).fetchall()
+    existing = {(r["table_name"], r["column_name"]) for r in rows}
+    for table, col, spec in specs:
+        if (table, col) not in existing:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {spec}")
 
 
 # (keyword_fragment, display_type) — first match wins; None type means extract via AI or use "fertilizer"
