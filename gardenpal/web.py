@@ -2727,7 +2727,10 @@ self.addEventListener('activate', function(e) {
         ornamentals = db.execute(
             f"""SELECT id, name, scientific_name, description, notes,
                        photo_urls, image_path, image_url,
-                       last_fertilized_date, last_fertilizer_type, next_fertilization_date
+                       last_fertilized_date, last_fertilizer_type, next_fertilization_date,
+                       sun_exposure, water_needs, lifecycle, evergreen_status,
+                       plant_form, height_category, size_info,
+                       flowering_schedule, deadheading, deer_resistant
                 FROM plants WHERE user_id IN {ph}
                 ORDER BY name ASC""",
             id_args,
@@ -2847,7 +2850,10 @@ self.addEventListener('activate', function(e) {
         ornamentals = db.execute(
             f"""SELECT id, name, scientific_name, description, notes,
                        photo_urls, image_path, image_url,
-                       last_fertilized_date, last_fertilizer_type, next_fertilization_date
+                       last_fertilized_date, last_fertilizer_type, next_fertilization_date,
+                       sun_exposure, water_needs, lifecycle, evergreen_status,
+                       plant_form, height_category, size_info,
+                       flowering_schedule, deadheading, deer_resistant
                 FROM plants WHERE user_id IN {ph}
                 ORDER BY name ASC""",
             id_args,
