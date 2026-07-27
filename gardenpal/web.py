@@ -357,6 +357,16 @@ def create_app() -> Flask:
         except Exception:
             return None
 
+    @app.template_filter("photos_list")
+    def photos_list_filter(photo_urls_json, count=3):
+        if not photo_urls_json:
+            return []
+        try:
+            urls = json.loads(photo_urls_json)
+            return urls[:count] if urls else []
+        except Exception:
+            return []
+
     @app.template_filter("month_day")
     def month_day_filter(date_str):
         if not date_str:
