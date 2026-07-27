@@ -2700,7 +2700,7 @@ self.addEventListener('activate', function(e) {
                         WHERE photo_date >= ? AND entry_id IS NOT NULL
                     )
                 )
-                ORDER BY ge.zone_id NULLS LAST, ge.planted_date ASC NULLS LAST, ge.plant_name ASC""",
+                ORDER BY ge.zone_id NULLS LAST, ge.plant_name ASC, ge.variety ASC NULLS LAST""",
             id_args + [season_start, season_start],
         ).fetchall()
 
@@ -2833,7 +2833,7 @@ self.addEventListener('activate', function(e) {
                         WHERE photo_date >= ? AND entry_id IS NOT NULL
                     )
                 )
-                ORDER BY ge.zone_id NULLS LAST, ge.planted_date ASC NULLS LAST, ge.plant_name ASC""",
+                ORDER BY ge.zone_id NULLS LAST, ge.plant_name ASC, ge.variety ASC NULLS LAST""",
             id_args + [season_start, season_start],
         ).fetchall()
 
