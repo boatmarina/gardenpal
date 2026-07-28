@@ -180,6 +180,9 @@ class _PgDB:
     def commit(self):
         self._conn.commit()
 
+    def rollback(self):
+        self._conn.rollback()
+
     def close(self):
         self._conn.close()
 
@@ -2368,14 +2371,22 @@ self.addEventListener('activate', function(e) {
             login_by_uid[r["user_id"]].append(r)
 
         notes_by_uid = {uid: [] for uid in uids}
-        for r in db.execute(
-            f"SELECT gp.user_id, gp.created_at, gp.image_path, gp.is_fertilization,"
-            " gp.fertilizer_type, gp.fertilization_date, gp.notes, ge.plant_name"
-            " FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
-            f" WHERE gp.user_id IN {ph} AND gp.created_at >= ? ORDER BY gp.created_at ASC",
-            uids + [week_since],
-        ):
-            notes_by_uid[r["user_id"]].append(r)
+        try:
+            for r in db.execute(
+                f"SELECT gp.user_id, gp.created_at, gp.image_path, gp.is_fertilization,"
+                " gp.fertilizer_type, gp.fertilization_date, gp.notes, ge.plant_name"
+                " FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
+                f" WHERE gp.user_id IN {ph} AND gp.created_at >= ? ORDER BY gp.created_at ASC",
+                uids + [week_since],
+            ):
+                notes_by_uid[r["user_id"]].append(r)
+        except Exception:
+            # fertilization columns may not exist yet; rollback aborted txn so subsequent
+            # queries in the same request can still run, then skip garden notes
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
         _METHOD_LABELS = {
             "name": "by name", "photo": "from photo", "label": "from label",
@@ -7867,8 +7878,11 @@ def _ensure_columns_batch(db, specs):
     """Check all (table, column) pairs in one information_schema query; ALTER only for missing ones."""
     tables = list({t for t, _, _ in specs})
     ph = "({})".format(",".join(["?"] * len(tables)))
+    # table_schema = 'public' prevents Supabase's auth.users etc. from
+    # shadowing our public-schema tables in the existence check.
     rows = db.execute(
-        f"SELECT table_name, column_name FROM information_schema.columns WHERE table_name IN {ph}",
+        f"SELECT table_name, column_name FROM information_schema.columns"
+        f" WHERE table_schema = 'public' AND table_name IN {ph}",
         tables,
     ).fetchall()
     existing = {(r["table_name"], r["column_name"]) for r in rows}
