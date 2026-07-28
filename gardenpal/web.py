@@ -4879,7 +4879,8 @@ self.addEventListener('activate', function(e) {
                                         db.execute(
                                             "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
                                             " next_fertilization_date = NULL, next_fertilization_note = NULL,"
-                                            " next_fertilization_generated_at = NULL WHERE id = ? AND (last_fertilized_date IS NULL OR last_fertilized_date <= ?)",
+                                            " next_fertilization_generated_at = NULL, planned_fertilization_date = NULL"
+                                            " WHERE id = ? AND (last_fertilized_date IS NULL OR last_fertilized_date <= ?)",
                                             (fert_date, fert_type or None, eid, fert_date),
                                         )
                                     db.commit()
@@ -5790,7 +5791,8 @@ self.addEventListener('activate', function(e) {
                                         db.execute(
                                             "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
                                             " next_fertilization_date = NULL, next_fertilization_note = NULL,"
-                                            " next_fertilization_generated_at = NULL WHERE id = ? AND (last_fertilized_date IS NULL OR last_fertilized_date <= ?)",
+                                            " next_fertilization_generated_at = NULL, planned_fertilization_date = NULL"
+                                            " WHERE id = ? AND (last_fertilized_date IS NULL OR last_fertilized_date <= ?)",
                                             (fert_date, fert_type or None, eid, fert_date),
                                         )
                                     db.commit()
@@ -6280,6 +6282,7 @@ self.addEventListener('activate', function(e) {
                                     if last_f:
                                         fields.append("last_fertilized_date = ?"); vals.append(last_f)
                                         if ftype: fields.append("last_fertilizer_type = ?"); vals.append(ftype)
+                                        fields.append("planned_fertilization_date = NULL")
                                     if next_f:
                                         fields.append("next_fertilization_date = ?"); vals.append(next_f)
                                         fields.append("next_fertilization_generated_at = ?"); vals.append(now_iso)
@@ -6351,6 +6354,7 @@ self.addEventListener('activate', function(e) {
                                     if last_f:
                                         fields.append("last_fertilized_date = ?"); vals.append(last_f)
                                         if ftype: fields.append("last_fertilizer_type = ?"); vals.append(ftype)
+                                        fields.append("planned_fertilization_date = NULL")
                                     if next_f:
                                         fields.append("next_fertilization_date = ?"); vals.append(next_f)
                                         fields.append("next_fertilization_generated_at = ?"); vals.append(now_iso)
