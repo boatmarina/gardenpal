@@ -28,7 +28,7 @@
     @keyframes gp-spin{to{transform:rotate(360deg)}}
     /* Bar starts animating immediately on page load; JS calls barFinish() when interactive */
     #gp-bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#2E7D32,#66BB6A);animation:_gp_bar 8s ease forwards}
-    @keyframes _gp_bar{0%{width:0;opacity:1}6%{width:35%}30%{width:72%}100%{width:88%;opacity:1}}
+    @keyframes _gp_bar{0%{width:20%;opacity:1}8%{width:45%}35%{width:74%}100%{width:88%;opacity:1}}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
