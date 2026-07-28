@@ -201,6 +201,8 @@
       if (!bar) return;
       clearTids();
       bar.style.transition = '';
+      bar.style.opacity = '';  /* clear inline opacity so keyframe opacity:1 takes effect */
+      bar.style.width = '';    /* clear inline width so keyframe width:0 takes effect */
       bar.style.animation = 'none';
       void bar.offsetWidth; /* force reflow so animation restarts from 0 */
       bar.style.animation = '_gp_bar 8s ease forwards';
