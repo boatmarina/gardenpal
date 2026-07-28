@@ -158,6 +158,10 @@ class _PgCursor:
     def __init__(self, cur):
         self._cur = cur
 
+    def __iter__(self):
+        for row in self._cur:
+            yield _Row(self._cur.description, row)
+
     def fetchone(self):
         row = self._cur.fetchone()
         return None if row is None else _Row(self._cur.description, row)
