@@ -200,9 +200,11 @@
     function barStart() {
       if (!bar) return;
       clearTids();
+      try { sessionStorage.gpNavStart = Date.now(); } catch(e) {}
       bar.style.transition = '';
       bar.style.opacity = '';  /* clear inline opacity so keyframe opacity:1 takes effect */
       bar.style.width = '';    /* clear inline width so keyframe width:0 takes effect */
+      bar.style.animationDelay = '';
       bar.style.animation = 'none';
       void bar.offsetWidth; /* force reflow so animation restarts from 0 */
       bar.style.animation = '_gp_bar 8s ease forwards';
@@ -221,8 +223,24 @@
       tids.push(setTimeout(function () { bar.style.transition = 'opacity 0.25s'; bar.style.opacity = '0'; }, 130));
     }
 
-    /* Page is now interactive — complete the page-load bar */
-    barFinish();
+    /* Page is now interactive — resume bar from where the navigation started */
+    (function () {
+      var navStart = null;
+      try { navStart = parseInt(sessionStorage.gpNavStart, 10) || null; } catch(e) {}
+      try { sessionStorage.removeItem('gpNavStart'); } catch(e) {}
+      if (navStart && bar) {
+        /* Restart the animation with a negative delay so getComputedStyle
+           in barFinish() reads the width at the elapsed position in the timeline */
+        var elapsed = Math.min((Date.now() - navStart) / 1000, 7.5);
+        bar.style.animation = 'none';
+        bar.style.animationDelay = '-' + elapsed.toFixed(2) + 's';
+        void bar.offsetWidth; /* reflow: applies the delay before we read width */
+        bar.style.animation = '_gp_bar 8s ease forwards';
+        void bar.offsetWidth; /* reflow: let computed width reflect new position */
+      }
+      barFinish();
+      if (bar) bar.style.animationDelay = '';
+    })();
 
     /* Form submits — start bar and disable the triggering button.
        onsubmit= attribute listeners (confirm dialogs) fire before addEventListener
