@@ -2331,6 +2331,155 @@ self.addEventListener('activate', function(e) {
             "week_activity": week_activity,
         }
 
+    def _user_stats_batch(db, users):
+        """Like _user_stats but fetches all users in 7 queries instead of 7 per user."""
+        if not users:
+            return {}
+        uids = [u["id"] for u in users]
+        ph = "({})".format(",".join(["?"] * len(uids)))
+        week_since = (datetime.utcnow() - timedelta(days=7)).isoformat(timespec="seconds")
+
+        plant_counts = {r["user_id"]: r["n"] for r in db.execute(
+            f"SELECT user_id, COUNT(*) AS n FROM plants WHERE user_id IN {ph} GROUP BY user_id", uids)}
+        zone_counts = {r["user_id"]: r["n"] for r in db.execute(
+            f"SELECT user_id, COUNT(*) AS n FROM yard_zones WHERE user_id IN {ph} GROUP BY user_id", uids)}
+        garden_counts = {r["user_id"]: r["n"] for r in db.execute(
+            f"SELECT user_id, COUNT(*) AS n FROM garden_entries WHERE user_id IN {ph} GROUP BY user_id", uids)}
+        login_agg = {}
+        for r in db.execute(
+            f"SELECT user_id, COUNT(*) AS n, MAX(logged_in_at) AS last FROM login_log WHERE user_id IN {ph} GROUP BY user_id", uids
+        ):
+            login_agg[r["user_id"]] = {"n": r["n"], "last": r["last"]}
+
+        act_by_uid = {uid: [] for uid in uids}
+        for r in db.execute(
+            f"SELECT user_id, action, item_name, logged_at FROM activity_log"
+            f" WHERE user_id IN {ph} AND logged_at >= ? ORDER BY logged_at ASC",
+            uids + [week_since],
+        ):
+            act_by_uid[r["user_id"]].append(r)
+
+        login_by_uid = {uid: [] for uid in uids}
+        for r in db.execute(
+            f"SELECT user_id, logged_in_at FROM login_log"
+            f" WHERE user_id IN {ph} AND logged_in_at >= ? ORDER BY logged_in_at ASC",
+            uids + [week_since],
+        ):
+            login_by_uid[r["user_id"]].append(r)
+
+        notes_by_uid = {uid: [] for uid in uids}
+        for r in db.execute(
+            f"SELECT gp.user_id, gp.created_at, gp.image_path, gp.is_fertilization,"
+            " gp.fertilizer_type, gp.fertilization_date, gp.notes, ge.plant_name"
+            " FROM garden_photos gp JOIN garden_entries ge ON ge.id = gp.entry_id"
+            f" WHERE gp.user_id IN {ph} AND gp.created_at >= ? ORDER BY gp.created_at ASC",
+            uids + [week_since],
+        ):
+            notes_by_uid[r["user_id"]].append(r)
+
+        _METHOD_LABELS = {
+            "name": "by name", "photo": "from photo", "label": "from label",
+            "url": "by URL", "library": "from library",
+        }
+        today_local = date.fromisoformat(_local_today())
+        result = {}
+        for u in users:
+            uid = u["id"]
+            lg = login_agg.get(uid, {"n": 0, "last": None})
+            login_count = lg["n"]
+            try:
+                created = datetime.fromisoformat(u["created_at"])
+                weeks = max(1.0, (datetime.utcnow() - created).days / 7.0)
+            except Exception:
+                weeks = 1.0
+            day_data = {}
+
+            def _day(ds, _dd=day_data):
+                return _dd.setdefault(ds, {
+                    "logins": 0, "plant_entries": [], "yard_entries": [],
+                    "zones": [], "garden_entries": [], "chat_queries": [],
+                    "garden_notes": [], "tags": [], "suggestion_adds": [],
+                    "notes": [], "edits": [], "deletions": [], "photos": [],
+                    "_sp": set(), "_sy": set(),
+                })
+
+            for row in login_by_uid[uid]:
+                _day(row["logged_in_at"][:10])["logins"] += 1
+            for row in act_by_uid[uid]:
+                d = _day(row["logged_at"][:10])
+                act = row["action"]
+                name = (row["item_name"] or "").strip()
+                if not name:
+                    continue
+                if act.startswith("plant_added"):
+                    if name not in d["_sp"]:
+                        d["_sp"].add(name)
+                        suffix = act[len("plant_added"):].lstrip("_")
+                        d["plant_entries"].append({"name": name, "method_label": _METHOD_LABELS.get(suffix, "")})
+                elif act.startswith("yard_plant_added"):
+                    if name not in d["_sy"]:
+                        d["_sy"].add(name)
+                        suffix = act[len("yard_plant_added"):].lstrip("_")
+                        d["yard_entries"].append({"name": name, "method_label": _METHOD_LABELS.get(suffix, "")})
+                elif act == "zone_added" and name not in d["zones"]:
+                    d["zones"].append(name)
+                elif act == "garden_entry_added" and name not in d["garden_entries"]:
+                    d["garden_entries"].append(name)
+                elif act in ("garden_chat", "plant_chat", "home_chat"):
+                    d["chat_queries"].append(name)
+                elif act == "tag_applied":
+                    d["tags"].append(name)
+                elif act == "suggestion_added" and name not in d.get("suggestion_adds", []):
+                    d.setdefault("suggestion_adds", []).append(name)
+                elif act in ("plant_note_added", "yard_note_added"):
+                    d["notes"].append(name)
+                elif act == "garden_entry_edited" and name not in d["edits"]:
+                    d["edits"].append(name)
+                elif act in ("plant_deleted", "garden_entry_deleted"):
+                    d["deletions"].append(name)
+                elif act == "photo_uploaded":
+                    d["photos"].append(name)
+                elif act == "garden_entry_duplicated" and name not in d["garden_entries"]:
+                    d["garden_entries"].append(name)
+            for row in notes_by_uid[uid]:
+                _day(row["created_at"][:10])["garden_notes"].append({
+                    "plant_name": row["plant_name"],
+                    "has_photo": bool(row["image_path"]),
+                    "is_fertilization": bool(row["is_fertilization"]),
+                    "fertilizer_type": row["fertilizer_type"],
+                    "fertilization_date": row["fertilization_date"],
+                    "note_text": (row["notes"] or "")[:120],
+                })
+
+            week_activity = []
+            for day_str in sorted(day_data.keys(), reverse=True):
+                try:
+                    day_date = datetime.strptime(day_str, "%Y-%m-%d").date()
+                except Exception:
+                    continue
+                diff = (today_local - day_date).days
+                if diff <= 0:
+                    date_label = "Today"
+                elif diff == 1:
+                    date_label = "Yesterday"
+                else:
+                    date_label = day_date.strftime("%a %b %-d")
+                entry = {k: v for k, v in day_data[day_str].items() if not k.startswith("_")}
+                entry["date_label"] = date_label
+                entry["day_str"] = day_str
+                week_activity.append(entry)
+
+            result[uid] = {
+                "plants": plant_counts.get(uid, 0),
+                "zones": zone_counts.get(uid, 0),
+                "garden": garden_counts.get(uid, 0),
+                "login_count": login_count,
+                "last_login": lg["last"],
+                "avg_per_week": round(login_count / weeks, 1),
+                "week_activity": week_activity,
+            }
+        return result
+
     @app.route("/tools")
     @login_required
     def tools():
@@ -2342,9 +2491,9 @@ self.addEventListener('activate', function(e) {
             rows = db.execute(
                 "SELECT id, username, is_admin, created_at FROM users ORDER BY created_at ASC"
             ).fetchall()
+            stats_by_uid = _user_stats_batch(db, rows)
             for u in rows:
-                stats = _user_stats(db, u["id"], u["created_at"])
-                users_with_stats.append({"user": u, "stats": stats})
+                users_with_stats.append({"user": u, "stats": stats_by_uid[u["id"]]})
             users_with_stats.sort(key=lambda x: x["stats"].get("last_login") or "", reverse=True)
             perenual_log = db.execute(
                 "SELECT pl.query, pl.result_count, pl.logged_at, u.username"
