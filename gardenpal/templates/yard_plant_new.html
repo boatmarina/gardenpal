@@ -1152,5 +1152,20 @@ function applyYardDetails(details) {
     });
   }
 })();
+
+(function () {
+  var form = document.getElementById('yard-plant-form');
+  if (!form) return;
+  form.addEventListener('submit', function (e) {
+    if (e.defaultPrevented) return;
+    var btn = e.submitter;
+    if (btn && btn.value === 'save') {
+      var ov = document.getElementById('gp-loading-overlay');
+      var ovMsg = document.getElementById('gp-loading-msg');
+      if (ovMsg) ovMsg.textContent = 'Adding plant…';
+      if (ov) ov.style.display = 'flex';
+    }
+  });
+})();
 </script>
 {% endblock %}
