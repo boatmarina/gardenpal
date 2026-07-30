@@ -27,8 +27,8 @@
     }
     @keyframes gp-spin{to{transform:rotate(360deg)}}
     /* Bar starts animating immediately on page load; JS calls barFinish() when interactive */
-    #gp-bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#2E7D32,#66BB6A);animation:_gp_bar 8s ease forwards}
-    @keyframes _gp_bar{0%{width:20%;opacity:1}8%{width:45%}35%{width:74%}100%{width:88%;opacity:1}}
+    #gp-bar{position:fixed;top:env(safe-area-inset-top,0px);left:0;height:4px;width:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#a5d6a7,#66BB6A,#2E7D32);box-shadow:0 0 6px rgba(102,187,106,0.7);animation:_gp_bar 8s ease-out forwards}
+    @keyframes _gp_bar{0%{width:0;opacity:1}3%{width:35%}12%{width:55%}40%{width:78%}100%{width:90%;opacity:1}}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
@@ -200,14 +200,12 @@
     function barStart() {
       if (!bar) return;
       clearTids();
-      try { sessionStorage.gpNavStart = Date.now(); } catch(e) {}
       bar.style.transition = '';
       bar.style.opacity = '';  /* clear inline opacity so keyframe opacity:1 takes effect */
       bar.style.width = '';    /* clear inline width so keyframe width:0 takes effect */
-      bar.style.animationDelay = '';
       bar.style.animation = 'none';
       void bar.offsetWidth; /* force reflow so animation restarts from 0 */
-      bar.style.animation = '_gp_bar 8s ease forwards';
+      bar.style.animation = '_gp_bar 8s ease-out forwards';
     }
 
     function barFinish() {
@@ -223,24 +221,8 @@
       tids.push(setTimeout(function () { bar.style.transition = 'opacity 0.25s'; bar.style.opacity = '0'; }, 130));
     }
 
-    /* Page is now interactive — resume bar from where the navigation started */
-    (function () {
-      var navStart = null;
-      try { navStart = parseInt(sessionStorage.gpNavStart, 10) || null; } catch(e) {}
-      try { sessionStorage.removeItem('gpNavStart'); } catch(e) {}
-      if (navStart && bar) {
-        /* Restart the animation with a negative delay so getComputedStyle
-           in barFinish() reads the width at the elapsed position in the timeline */
-        var elapsed = Math.min((Date.now() - navStart) / 1000, 7.5);
-        bar.style.animation = 'none';
-        bar.style.animationDelay = '-' + elapsed.toFixed(2) + 's';
-        void bar.offsetWidth; /* reflow: applies the delay before we read width */
-        bar.style.animation = '_gp_bar 8s ease forwards';
-        void bar.offsetWidth; /* reflow: let computed width reflect new position */
-      }
-      barFinish();
-      if (bar) bar.style.animationDelay = '';
-    })();
+    /* Page is now interactive — complete the page-load bar */
+    barFinish();
 
     /* Form submits — start bar and disable the triggering button.
        onsubmit= attribute listeners (confirm dialogs) fire before addEventListener
