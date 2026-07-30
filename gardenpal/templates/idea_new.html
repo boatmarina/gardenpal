@@ -549,6 +549,8 @@ function applyDetails(details) {
       const clickedBtn = e.submitter;
       if (clickedBtn && clickedBtn.value === 'save') {
         clickedBtn.disabled = true;
+        clickedBtn.style.opacity = '0.55';
+        clickedBtn.textContent = 'Saving…';
         // Disable file inputs so large files aren't uploaded with the save request
         document.querySelectorAll('input[type="file"]').forEach(f => { f.disabled = true; });
       }
