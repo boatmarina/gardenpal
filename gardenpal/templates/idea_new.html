@@ -553,6 +553,10 @@ function applyDetails(details) {
         clickedBtn.textContent = 'Saving…';
         // Disable file inputs so large files aren't uploaded with the save request
         document.querySelectorAll('input[type="file"]').forEach(f => { f.disabled = true; });
+        var ov = document.getElementById('gp-loading-overlay');
+        var ovMsg = document.getElementById('gp-loading-msg');
+        if (ovMsg) ovMsg.textContent = 'Adding plant…';
+        if (ov) ov.style.display = 'flex';
       }
       const mode = activeModeField ? activeModeField.value : 'name';
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
