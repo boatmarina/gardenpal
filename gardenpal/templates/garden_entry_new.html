@@ -157,5 +157,17 @@ document.addEventListener('DOMContentLoaded', function() {
     plantNames, plantVarieties
   );
 });
+
+(function () {
+  var form = document.querySelector('form');
+  if (!form) return;
+  form.addEventListener('submit', function (e) {
+    if (e.defaultPrevented) return;
+    var ov = document.getElementById('gp-loading-overlay');
+    var ovMsg = document.getElementById('gp-loading-msg');
+    if (ovMsg) ovMsg.textContent = 'Adding plant…';
+    if (ov) ov.style.display = 'flex';
+  });
+})();
 </script>
 {% endblock %}
