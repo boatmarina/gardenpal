@@ -1156,9 +1156,13 @@ function applyYardDetails(details) {
 (function () {
   var form = document.getElementById('yard-plant-form');
   if (!form) return;
+  var _lastClickedSaveBtn = null;
+  form.querySelectorAll('button[type="submit"]').forEach(function(b) {
+    b.addEventListener('click', function() { _lastClickedSaveBtn = b; });
+  });
   form.addEventListener('submit', function (e) {
     if (e.defaultPrevented) return;
-    var btn = e.submitter;
+    var btn = e.submitter || _lastClickedSaveBtn;
     if (btn && btn.value === 'save') {
       var ov = document.getElementById('gp-loading-overlay');
       var ovMsg = document.getElementById('gp-loading-msg');
