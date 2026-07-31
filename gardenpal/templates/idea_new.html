@@ -544,9 +544,16 @@ function applyDetails(details) {
     });
   }
 
+  var _lastClickedSaveBtn = null;
+  if (form) {
+    form.querySelectorAll('button[type="submit"]').forEach(function(b) {
+      b.addEventListener('click', function() { _lastClickedSaveBtn = b; });
+    });
+  }
+
   if (form) {
     form.addEventListener('submit', (e) => {
-      const clickedBtn = e.submitter;
+      const clickedBtn = e.submitter || _lastClickedSaveBtn;
       if (clickedBtn && clickedBtn.value === 'save') {
         clickedBtn.disabled = true;
         clickedBtn.style.opacity = '0.55';
