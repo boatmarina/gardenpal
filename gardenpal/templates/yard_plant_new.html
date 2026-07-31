@@ -1157,17 +1157,26 @@ function applyYardDetails(details) {
   var form = document.getElementById('yard-plant-form');
   if (!form) return;
   var _lastClickedSaveBtn = null;
+  var _savePending = false;
   form.querySelectorAll('button[type="submit"]').forEach(function(b) {
     b.addEventListener('click', function() { _lastClickedSaveBtn = b; });
   });
   form.addEventListener('submit', function (e) {
-    if (e.defaultPrevented) return;
+    if (_savePending || e.defaultPrevented) return;
     var btn = e.submitter || _lastClickedSaveBtn;
     if (btn && btn.value === 'save') {
+      e.preventDefault();
       var ov = document.getElementById('gp-loading-overlay');
       var ovMsg = document.getElementById('gp-loading-msg');
       if (ovMsg) ovMsg.textContent = 'Adding plant…';
       if (ov) ov.style.display = 'flex';
+      var f = form;
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          _savePending = true;
+          f.submit();
+        });
+      });
     }
   });
 })();

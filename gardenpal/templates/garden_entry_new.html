@@ -161,12 +161,21 @@ document.addEventListener('DOMContentLoaded', function() {
 (function () {
   var form = document.querySelector('form');
   if (!form) return;
+  var _pending = false;
   form.addEventListener('submit', function (e) {
-    if (e.defaultPrevented) return;
+    if (_pending || e.defaultPrevented) return;
+    e.preventDefault();
     var ov = document.getElementById('gp-loading-overlay');
     var ovMsg = document.getElementById('gp-loading-msg');
     if (ovMsg) ovMsg.textContent = 'Adding plant…';
     if (ov) ov.style.display = 'flex';
+    var f = form;
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        _pending = true;
+        f.submit();
+      });
+    });
   });
 })();
 </script>

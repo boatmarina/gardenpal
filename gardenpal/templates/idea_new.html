@@ -545,6 +545,7 @@ function applyDetails(details) {
   }
 
   var _lastClickedSaveBtn = null;
+  var _savePending = false;
   if (form) {
     form.querySelectorAll('button[type="submit"]').forEach(function(b) {
       b.addEventListener('click', function() { _lastClickedSaveBtn = b; });
@@ -553,18 +554,26 @@ function applyDetails(details) {
 
   if (form) {
     form.addEventListener('submit', (e) => {
+      // Let the programmatic submission (after overlay paints) go through.
+      if (_savePending) return;
+
       const clickedBtn = e.submitter || _lastClickedSaveBtn;
-      if (clickedBtn && clickedBtn.value === 'save') {
+      const isSave = clickedBtn && clickedBtn.value === 'save';
+
+      if (isSave) {
+        // Prevent immediate navigation so the overlay has time to paint.
+        e.preventDefault();
         clickedBtn.disabled = true;
         clickedBtn.style.opacity = '0.55';
         clickedBtn.textContent = 'Saving…';
-        // Disable file inputs so large files aren't uploaded with the save request
         document.querySelectorAll('input[type="file"]').forEach(f => { f.disabled = true; });
         var ov = document.getElementById('gp-loading-overlay');
         var ovMsg = document.getElementById('gp-loading-msg');
         if (ovMsg) ovMsg.textContent = 'Adding plant…';
         if (ov) ov.style.display = 'flex';
       }
+
+      // Populate hidden fields for all submit types.
       const mode = activeModeField ? activeModeField.value : 'name';
       if (mode === 'name' && nameInput) nameHidden.value = nameInput.value;
       if (mode === 'url' && urlNameInput) nameHidden.value = urlNameInput.value;
@@ -582,6 +591,18 @@ function applyDetails(details) {
       if (preview && photoUrlsHidden) {
         const urls = Array.from(preview.querySelectorAll('.photo-item img')).map(img => img.src);
         if (urls.length) photoUrlsHidden.value = JSON.stringify(urls);
+      }
+
+      if (isSave) {
+        // Wait two frames so the overlay is painted, then submit.
+        // form.submit() omits button values, but the server defaults form_action to "save".
+        var f = form;
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            _savePending = true;
+            f.submit();
+          });
+        });
       }
     });
   }
