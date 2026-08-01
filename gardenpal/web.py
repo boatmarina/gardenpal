@@ -2098,8 +2098,7 @@ self.addEventListener('activate', function(e) {
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         row = db.execute(
-            f"SELECT yp.id, p.name AS plant_name FROM yard_plants yp"
-            f" JOIN plants p ON p.id = yp.plant_id"
+            f"SELECT yp.id, yp.plant_name FROM yard_plants yp"
             f" WHERE yp.id = ? AND yp.user_id IN {ph}",
             (yard_plant_id, *id_args),
         ).fetchone()
