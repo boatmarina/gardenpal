@@ -1599,7 +1599,7 @@ self.addEventListener('activate', function(e) {
         fertilizer_type = (request.form.get("fertilizer_type") or "").strip() or None
         db.execute(
             "UPDATE plants SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
-            " next_fertilization_generated_at = NULL WHERE id = ?",
+            " planned_fertilization_date = NULL, next_fertilization_generated_at = NULL WHERE id = ?",
             (today, fertilizer_type, plant_id),
         )
         _log_activity(db, g.user["id"], "fertilized", plant["name"])
@@ -4113,7 +4113,7 @@ self.addEventListener('activate', function(e) {
         fertilizer_type = (request.form.get("fertilizer_type") or "").strip() or None
         db.execute(
             "UPDATE garden_entries SET last_fertilized_date = ?, last_fertilizer_type = COALESCE(?, last_fertilizer_type),"
-            " next_fertilization_generated_at = NULL WHERE id = ?",
+            " planned_fertilization_date = NULL, next_fertilization_generated_at = NULL WHERE id = ?",
             (today, fertilizer_type, entry_id),
         )
         note_text = "Fertilized" + (f" — {fertilizer_type}" if fertilizer_type else "")
