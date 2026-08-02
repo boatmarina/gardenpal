@@ -1443,6 +1443,11 @@ self.addEventListener('activate', function(e) {
             last_fertilized_date = ""
             last_fertilizer_type = None
         invalidate = (bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")) or clear_planned
+        # If the new last-fertilized date is on/after the planned date, the planned date is stale.
+        if planned_date and last_fertilized_date and last_fertilized_date >= planned_date:
+            planned_date = ""
+            clear_planned = True
+            invalidate = True
         db.execute(
             "UPDATE plants SET planned_fertilization_date = ?, never_fertilize = ?,"
             " next_fertilization_not_needed = 0,"
@@ -3872,6 +3877,11 @@ self.addEventListener('activate', function(e) {
             last_fert_date = None
             last_fert_type = None
         fert_date_changed = last_fert_date != (entry["last_fertilized_date"] or None)
+        # If the user moved last-fertilized to a date on/after the planned date, the
+        # planned date is now stale — clear it so the system recalculates.
+        if planned_date and last_fert_date and last_fert_date >= planned_date:
+            planned_date = None
+            clear_planned = True
         if never:
             db.execute(
                 "UPDATE garden_entries SET never_fertilize = 1, planned_fertilization_date = NULL,"
