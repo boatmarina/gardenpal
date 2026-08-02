@@ -4329,7 +4329,7 @@ self.addEventListener('activate', function(e) {
 
         # Zone placements and yard notes
         pz_rows = db.execute(
-            f"""SELECT yp.id, z.name AS zone_name
+            f"""SELECT yp.id, z.name AS zone_name, z.description AS zone_description
                 FROM yard_plants yp JOIN yard_zones z ON z.id = yp.zone_id
                 WHERE yp.user_id IN {ph} AND lower(yp.plant_name) = lower(?)
                 ORDER BY z.name ASC""",
@@ -4348,6 +4348,8 @@ self.addEventListener('activate', function(e) {
                 notes_by_pz.setdefault(n["yard_plant_id"], []).append(n)
             for r in pz_rows:
                 lines.append(f"Yard zone: {r['zone_name']}")
+                if r["zone_description"]:
+                    lines.append(f"  Zone notes: {r['zone_description']}")
                 for n in notes_by_pz.get(r["id"], []):
                     date_part = f" ({n['note_date']})" if n["note_date"] else ""
                     lines.append(f"  Note{date_part}: {n['notes']}")
@@ -4476,7 +4478,7 @@ self.addEventListener('activate', function(e) {
         ph, id_args = _in_ids(ids)
 
         entry = db.execute(
-            f"SELECT ge.*, yz.name AS zone_name"
+            f"SELECT ge.*, yz.name AS zone_name, yz.description AS zone_description"
             f" FROM garden_entries ge"
             f" LEFT JOIN yard_zones yz ON yz.id = ge.zone_id"
             f" WHERE ge.id = ? AND ge.user_id IN {ph}",
@@ -4501,6 +4503,7 @@ self.addEventListener('activate', function(e) {
         if entry["location_type"]: lines.append(f"Location type: {entry['location_type'].replace('_', ' ')}")
         if entry["location_name"]: lines.append(f"Location name: {entry['location_name']}")
         if entry["zone_name"]:     lines.append(f"Yard zone: {entry['zone_name']}")
+        if entry.get("zone_description"): lines.append(f"Zone notes: {entry['zone_description']}")
         if entry["planted_date"]:  lines.append(f"Planted: {entry['planted_date']}")
         if entry["notes"]:         lines.append(f"Entry notes: {entry['notes']}")
 
@@ -4667,7 +4670,8 @@ self.addEventListener('activate', function(e) {
 
         entries = db.execute(
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
-                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name, ge.planting_method
+                       ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name,
+                       yz.description AS zone_description, ge.planting_method
             FROM garden_entries ge
             LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
             WHERE ge.user_id IN {ph}
@@ -4676,7 +4680,7 @@ self.addEventListener('activate', function(e) {
         ).fetchall()
 
         zones = db.execute(
-            f"SELECT id, name FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC",
+            f"SELECT id, name, description FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC",
             id_args,
         ).fetchall()
 
@@ -4706,7 +4710,9 @@ self.addEventListener('activate', function(e) {
                     if e["location_name"]:
                         loc = f"{loc} — {e['location_name']}" if loc else e["location_name"]
                     ln += f"\n    Location: {loc}"
-                if e["zone_name"]: ln += f"\n    Zone: {e['zone_name']}"
+                if e["zone_name"]:
+                    ln += f"\n    Zone: {e['zone_name']}"
+                    if e.get("zone_description"): ln += f"\n    Zone notes: {e['zone_description']}"
                 if e["planted_date"]: ln += f"\n    Planted: {e['planted_date']}"
                 if e.get("planting_method"):
                     _pm_labels = {"direct_sow": "Direct sow", "seed_transplant": "Seed transplant", "young_plant": "Young plant / starts"}
@@ -4720,7 +4726,10 @@ self.addEventListener('activate', function(e) {
         else:
             entries_text = "  (no entries yet)"
 
-        zones_text = "\n".join(f"  - {z['name']} (ID {z['id']})" for z in zones) or "  (no zones yet)"
+        zones_text = "\n".join(
+            f"  - {z['name']} (ID {z['id']})" + (f": {z['description']}" if z.get("description") else "")
+            for z in zones
+        ) or "  (no zones yet)"
         system = (
             f"You are a concise assistant for an edible garden tracker. Today is {today}.\n\n"
             f"Current garden entries (includes notes, log entries, location types, dates, and yard zone):\n{entries_text}\n\n"
