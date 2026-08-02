@@ -108,7 +108,8 @@
         </svg>
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex:1">Fertilization</span>
         {% if next_fertilization and not next_fertilization.never %}
-          {% set eff_fert_hdr = next_fertilization.planned_date or next_fertilization.date %}
+          {% set _planned_stale_hdr = next_fertilization.planned_date and entry.last_fertilized_date and next_fertilization.planned_date <= entry.last_fertilized_date %}
+          {% set eff_fert_hdr = (next_fertilization.planned_date if not _planned_stale_hdr else None) or next_fertilization.date %}
           {% if ff_fert and eff_fert_hdr and eff_fert_hdr <= fert_deadline %}
             <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#E8F5E9;color:#388E3C;border:1px solid #A5D6A7{% endif %}">
               {% if eff_fert_hdr < today %}Overdue{% else %}Due soon{% endif %}
@@ -149,7 +150,8 @@
 
       <!-- Row 2: Next fertilization — always tappable -->
       {% if next_fertilization %}
-      {% set eff_fert_date = next_fertilization.planned_date or next_fertilization.date %}
+      {% set planned_is_stale = next_fertilization.planned_date and entry.last_fertilized_date and next_fertilization.planned_date <= entry.last_fertilized_date %}
+      {% set eff_fert_date = (next_fertilization.planned_date if not planned_is_stale else None) or next_fertilization.date %}
       <div style="padding:0 16px 6px">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;min-height:36px">
           <span style="color:var(--muted);font-size:0.82rem">Next fertilization</span>
@@ -160,7 +162,7 @@
             {% elif next_fertilization.not_needed %}
               <span id="detail-next-fert-date" style="font-size:0.85rem;color:var(--muted)">Not needed</span>
             {% elif eff_fert_date %}
-              {% if next_fertilization.planned_date %}
+              {% if next_fertilization.planned_date and not planned_is_stale %}
                 <span style="font-size:0.65rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 5px;font-weight:700;white-space:nowrap">Planned</span>
               {% endif %}
               <span id="detail-next-fert-date" style="font-size:0.85rem;color:var(--fg)">{% if eff_fert_date == today %}Due today{% else %}{{ eff_fert_date | planted_date }}{% endif %}</span>
@@ -194,13 +196,13 @@
               <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
                 Update next fertilization date
                 <input type="date" name="planned_date"
-                       value="{{ next_fertilization.planned_date or '' }}"
+                       value="{{ (next_fertilization.planned_date if not planned_is_stale else None) or next_fertilization.date or '' }}"
                        style="font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0" />
               </label>
             </div>
             <div style="display:flex;gap:8px">
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
-              {% if next_fertilization.planned_date and not next_fertilization.never %}
+              {% if next_fertilization.planned_date and not planned_is_stale and not next_fertilization.never %}
               <button type="button"
                       onclick="this.textContent='Clearing…';this.disabled=true;document.getElementById('fert-next-clear-planned').value='1';this.closest('form').submit()"
                       style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap">Clear date</button>
