@@ -169,7 +169,7 @@
           <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
         </svg>
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex:1">Fertilization</span>
-        {% if next_fertilization and not next_fertilization.never %}
+        {% if next_fertilization and not next_fertilization.never and not next_fertilization.not_needed %}
           {% set _planned_stale_hdr = next_fertilization.planned_date and last_fertilized and last_fertilized.date and next_fertilization.planned_date <= last_fertilized.date %}
           {% set eff_fert_hdr = (next_fertilization.planned_date if not _planned_stale_hdr else None) or next_fertilization.date %}
           {% if eff_fert_hdr and eff_fert_hdr <= fert_deadline %}
@@ -276,7 +276,7 @@
       {% endif %}
 
       <!-- Mark as fertilized today — prominent button below both rows -->
-      {% if next_fertilization and not next_fertilization.never and (next_fertilization.date or next_fertilization.planned_date) %}
+      {% if next_fertilization and not next_fertilization.never and not next_fertilization.not_needed and (next_fertilization.date or next_fertilization.planned_date) %}
       <div style="padding:6px 16px 14px">
         {% if last_fertilized and last_fertilized.date == today %}
         <button type="button" id="idea-fert-done-btn" disabled
