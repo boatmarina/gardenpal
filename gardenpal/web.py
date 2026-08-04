@@ -906,6 +906,7 @@ self.addEventListener('activate', function(e) {
         ).fetchall()
         _today_str = _local_today()
         _fert_deadline = _local_date_plus(3)
+        _fert_stale_threshold = _local_date_plus(-7)
         _water_deadline = _local_date_plus(1)
         zoned_plant_names = set()
         if plants:
@@ -924,6 +925,7 @@ self.addEventListener('activate', function(e) {
             active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "plant_form": plant_form, "height_category": height_category, "water_needs": water_needs, "category": category_id, "tag": tag_id},
             today=_today_str,
             fert_deadline=_fert_deadline,
+            fert_stale_threshold=_fert_stale_threshold,
             ff_fert=_feature_fertilization(g.user),
             water_deadline=_water_deadline,
             ff_water=_feature_watering(g.user),
@@ -1743,9 +1745,10 @@ self.addEventListener('activate', function(e) {
                       p.image_url                   AS lib_image_url,
                       p.next_watering_date          AS next_watering_date,
                       p.never_water                 AS never_water,
-                      p.next_fertilization_date     AS next_fertilization_date,
-                      p.planned_fertilization_date  AS planned_fertilization_date,
-                      p.never_fertilize             AS never_fertilize
+                      p.next_fertilization_date              AS next_fertilization_date,
+                      p.planned_fertilization_date           AS planned_fertilization_date,
+                      p.never_fertilize                      AS never_fertilize,
+                      p.next_fertilization_generated_at      AS next_fertilization_generated_at
                FROM yard_plants yp
                LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
                WHERE yp.zone_id = ? AND yp.user_id IN {ph}
@@ -1769,7 +1772,8 @@ self.addEventListener('activate', function(e) {
             garden_entries = db.execute(
                 f"SELECT id, plant_name, variety, location_name, planted_date,"
                 f"       next_watering_date, never_water,"
-                f"       next_fertilization_date, planned_fertilization_date, never_fertilize"
+                f"       next_fertilization_date, planned_fertilization_date, never_fertilize,"
+                f"       next_fertilization_generated_at"
                 f" FROM garden_entries"
                 f" WHERE zone_id = ? AND user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
@@ -1779,10 +1783,12 @@ self.addEventListener('activate', function(e) {
         today = _local_today()
         water_deadline = _local_date_plus(1)
         fert_deadline = _local_date_plus(3)
+        fert_stale_threshold = _local_date_plus(-7)
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
                                garden_entries=garden_entries, ff_water=ff_water, ff_fert=ff_fert,
-                               today=today, water_deadline=water_deadline, fert_deadline=fert_deadline)
+                               today=today, water_deadline=water_deadline, fert_deadline=fert_deadline,
+                               fert_stale_threshold=fert_stale_threshold)
 
     @app.route("/yard/zones/<int:zone_id>/add-edible")
     @login_required
@@ -3266,6 +3272,7 @@ self.addEventListener('activate', function(e) {
         today_str = _local_today()
         current_year = date.fromisoformat(today_str).year
         fert_deadline = _local_date_plus(3)
+        fert_stale_threshold = _local_date_plus(-7)
 
         # All dated entries across all years
         entries = db.execute(
@@ -3303,6 +3310,7 @@ self.addEventListener('activate', function(e) {
             shared_names=shared_names,
             today=today_str,
             fert_deadline=fert_deadline,
+            fert_stale_threshold=fert_stale_threshold,
             ff_fert=ff_fert,
             ff_water=ff_water,
             water_deadline=water_deadline,
