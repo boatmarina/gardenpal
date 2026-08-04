@@ -629,7 +629,8 @@ self.addEventListener('activate', function(e) {
             edible_candidates = db.execute(
                 f"SELECT id, plant_name AS name, variety, next_fertilization_date, planned_fertilization_date,"
                 f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize,"
-                f" next_fertilization_generated_at"
+                f" next_fertilization_generated_at,"
+                f" fertilization_cutoff_date, fertilization_frequency_days"
                 f" FROM garden_entries WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)"
@@ -669,6 +670,14 @@ self.addEventListener('activate', function(e) {
                 eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
                 if not eff or eff > deadline:
                     continue
+                cutoff = r["fertilization_cutoff_date"]
+                if cutoff and today > cutoff:
+                    continue
+                gen_at = r["next_fertilization_generated_at"]
+                stale_threshold = _local_date_plus(-7)
+                gen_fresh = bool(gen_at and gen_at[:10] >= stale_threshold)
+                if eff < today and not r["planned_fertilization_date"] and not gen_fresh:
+                    continue
                 fert_alerts.append({
                     "kind": "edible", "id": r["id"], "name": r["name"],
                     "variety": r["variety"] or None,
@@ -683,7 +692,8 @@ self.addEventListener('activate', function(e) {
             # --- Ornamental candidates ---
             ornamental_candidates = db.execute(
                 f"SELECT id, name, next_fertilization_date, planned_fertilization_date,"
-                f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize"
+                f" last_fertilized_date, last_fertilizer_type, next_fertilization_note, never_fertilize,"
+                f" fertilization_cutoff_date"
                 f" FROM plants WHERE user_id IN {ph}"
                 f" AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 f" AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)"
@@ -696,6 +706,9 @@ self.addEventListener('activate', function(e) {
                 # Use stored data only — detail page handles stale regeneration on visit.
                 eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
                 if not eff or eff > deadline:
+                    continue
+                cutoff = r["fertilization_cutoff_date"]
+                if cutoff and today > cutoff:
                     continue
                 fert_alerts.append({
                     "kind": "ornamental", "id": r["id"], "name": r["name"],
@@ -906,7 +919,6 @@ self.addEventListener('activate', function(e) {
         ).fetchall()
         _today_str = _local_today()
         _fert_deadline = _local_date_plus(3)
-        _fert_stale_threshold = _local_date_plus(-7)
         _water_deadline = _local_date_plus(1)
         zoned_plant_names = set()
         if plants:
@@ -915,6 +927,10 @@ self.addEventListener('activate', function(e) {
                 list(id_args),
             ).fetchall()
             zoned_plant_names = {r["pn"] for r in _zoned}
+        _fert_pill_map = {}
+        if _feature_fertilization(g.user):
+            for _p in plants:
+                _fert_pill_map[_p["id"]] = _fert_pill_date(_p, _today_str)
         return render_template(
             "ideas_index.html",
             plants=plants,
@@ -925,7 +941,7 @@ self.addEventListener('activate', function(e) {
             active_filters={"q": q, "sun": sun, "lifecycle": lifecycle, "evergreen": evergreen, "plant_form": plant_form, "height_category": height_category, "water_needs": water_needs, "category": category_id, "tag": tag_id},
             today=_today_str,
             fert_deadline=_fert_deadline,
-            fert_stale_threshold=_fert_stale_threshold,
+            fert_pill_map=_fert_pill_map,
             ff_fert=_feature_fertilization(g.user),
             water_deadline=_water_deadline,
             ff_water=_feature_watering(g.user),
@@ -1748,7 +1764,10 @@ self.addEventListener('activate', function(e) {
                       p.next_fertilization_date              AS next_fertilization_date,
                       p.planned_fertilization_date           AS planned_fertilization_date,
                       p.never_fertilize                      AS never_fertilize,
-                      p.next_fertilization_generated_at      AS next_fertilization_generated_at
+                      p.next_fertilization_generated_at      AS next_fertilization_generated_at,
+                      p.fertilization_frequency_days AS fertilization_frequency_days,
+                      p.fertilization_cutoff_date    AS fertilization_cutoff_date,
+                      p.last_fertilized_date         AS last_fertilized_date
                FROM yard_plants yp
                LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
                WHERE yp.zone_id = ? AND yp.user_id IN {ph}
@@ -1773,7 +1792,9 @@ self.addEventListener('activate', function(e) {
                 f"SELECT id, plant_name, variety, location_name, planted_date,"
                 f"       next_watering_date, never_water,"
                 f"       next_fertilization_date, planned_fertilization_date, never_fertilize,"
-                f"       next_fertilization_generated_at"
+                f"       next_fertilization_generated_at,"
+                f"       fertilization_frequency_days, fertilization_cutoff_date,"
+                f"       last_fertilized_date"
                 f" FROM garden_entries"
                 f" WHERE zone_id = ? AND user_id IN {user_ph} ORDER BY plant_name ASC",
                 [zone_id] + id_args,
@@ -1783,12 +1804,18 @@ self.addEventListener('activate', function(e) {
         today = _local_today()
         water_deadline = _local_date_plus(1)
         fert_deadline = _local_date_plus(3)
-        fert_stale_threshold = _local_date_plus(-7)
+        plant_pill_map = {}
+        ge_pill_map = {}
+        if ff_fert:
+            for _p in plants:
+                plant_pill_map[_p["id"]] = _fert_pill_date(_p, today)
+            for _ge in garden_entries:
+                ge_pill_map[_ge["id"]] = _fert_pill_date(_ge, today)
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
                                garden_entries=garden_entries, ff_water=ff_water, ff_fert=ff_fert,
                                today=today, water_deadline=water_deadline, fert_deadline=fert_deadline,
-                               fert_stale_threshold=fert_stale_threshold)
+                               plant_pill_map=plant_pill_map, ge_pill_map=ge_pill_map)
 
     @app.route("/yard/zones/<int:zone_id>/add-edible")
     @login_required
@@ -3272,7 +3299,6 @@ self.addEventListener('activate', function(e) {
         today_str = _local_today()
         current_year = date.fromisoformat(today_str).year
         fert_deadline = _local_date_plus(3)
-        fert_stale_threshold = _local_date_plus(-7)
 
         # All dated entries across all years
         entries = db.execute(
@@ -3302,6 +3328,11 @@ self.addEventListener('activate', function(e) {
         ff_fert = _feature_fertilization(g.user)
         ff_water = _feature_watering(g.user)
         water_deadline = _local_date_plus(1)
+        today_for_pill = today_str
+        fert_pill_map = {}
+        if ff_fert:
+            for _e in list(entries) + list(unscheduled):
+                fert_pill_map[_e["id"]] = _fert_pill_date(_e, today_for_pill)
         return render_template(
             "garden_index.html",
             grouped_entries=grouped_entries,
@@ -3310,7 +3341,7 @@ self.addEventListener('activate', function(e) {
             shared_names=shared_names,
             today=today_str,
             fert_deadline=fert_deadline,
-            fert_stale_threshold=fert_stale_threshold,
+            fert_pill_map=fert_pill_map,
             ff_fert=ff_fert,
             ff_water=ff_water,
             water_deadline=water_deadline,
@@ -8402,21 +8433,42 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 "cause harm or provide no meaningful benefit, use NOT_NEEDED instead of a date.\n"
                 "Reply with ONLY:\n"
                 "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
-                "Line 2+: 2-3 sentence explanation of your reasoning.\n"
-                "No labels, no extra text."
+                "Line 2: INTERVAL_DAYS: <integer days between fertilizations, e.g. 28> OR INTERVAL_DAYS: none\n"
+                "Line 3: CUTOFF_DATE: <YYYY-MM-DD last date fertilizing is beneficial this season> OR CUTOFF_DATE: none\n"
+                "Line 4+: 2-3 sentence explanation of your reasoning.\n"
+                "No other labels or text."
             ),
             messages=[{"role": "user", "content": user_msg}],
         )
         raw = resp.content[0].text.strip()
         lines = raw.splitlines()
         date_line = lines[0].strip() if lines else ""
-        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        freq_days = None
+        cutoff_date = None
+        note_lines = []
+        for ln in lines[1:]:
+            ul = ln.strip().upper()
+            if ul.startswith("INTERVAL_DAYS:"):
+                val = ln.split(":", 1)[1].strip()
+                if val.isdigit():
+                    freq_days = int(val)
+            elif ul.startswith("CUTOFF_DATE:"):
+                val = ln.split(":", 1)[1].strip()
+                if _ISO_DATE_RE.match(val):
+                    cutoff_date = val
+            else:
+                if ln.strip():
+                    note_lines.append(ln)
+        note_text = "\n".join(note_lines).strip()
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         if date_line.upper() == "NOT_NEEDED":
             db.execute(
                 "UPDATE garden_entries SET next_fertilization_date = NULL, next_fertilization_note = ?,"
-                " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1 WHERE id = ?",
-                (note_text or None, generated_at, entry["id"]),
+                " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1,"
+                " fertilization_frequency_days = COALESCE(?, fertilization_frequency_days),"
+                " fertilization_cutoff_date = COALESCE(?, fertilization_cutoff_date)"
+                " WHERE id = ?",
+                (note_text or None, generated_at, freq_days, cutoff_date, entry["id"]),
             )
             db.commit()
             return {"not_needed": True, "note": note_text or None}
@@ -8426,8 +8478,11 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
             date_line = today_str
         db.execute(
             "UPDATE garden_entries SET next_fertilization_date = ?, next_fertilization_note = ?,"
-            " next_fertilization_generated_at = ?, next_fertilization_not_needed = 0 WHERE id = ?",
-            (date_line, note_text or None, generated_at, entry["id"]),
+            " next_fertilization_generated_at = ?, next_fertilization_not_needed = 0,"
+            " fertilization_frequency_days = COALESCE(?, fertilization_frequency_days),"
+            " fertilization_cutoff_date = COALESCE(?, fertilization_cutoff_date)"
+            " WHERE id = ?",
+            (date_line, note_text or None, generated_at, freq_days, cutoff_date, entry["id"]),
         )
         db.commit()
         return {"date": date_line, "note": note_text or None, "not_needed": False}
@@ -8475,21 +8530,42 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
                 "use NOT_NEEDED instead of a date.\n"
                 "Reply with ONLY:\n"
                 "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
-                "Line 2+: 2-3 sentence explanation of your reasoning.\n"
-                "No labels, no extra text."
+                "Line 2: INTERVAL_DAYS: <integer days between fertilizations, e.g. 28> OR INTERVAL_DAYS: none\n"
+                "Line 3: CUTOFF_DATE: <YYYY-MM-DD last date fertilizing is beneficial this season> OR CUTOFF_DATE: none\n"
+                "Line 4+: 2-3 sentence explanation of your reasoning.\n"
+                "No other labels or text."
             ),
             messages=[{"role": "user", "content": user_msg}],
         )
         raw = resp.content[0].text.strip()
         lines = raw.splitlines()
         date_line = lines[0].strip() if lines else ""
-        note_text = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+        freq_days = None
+        cutoff_date = None
+        note_lines = []
+        for ln in lines[1:]:
+            ul = ln.strip().upper()
+            if ul.startswith("INTERVAL_DAYS:"):
+                val = ln.split(":", 1)[1].strip()
+                if val.isdigit():
+                    freq_days = int(val)
+            elif ul.startswith("CUTOFF_DATE:"):
+                val = ln.split(":", 1)[1].strip()
+                if _ISO_DATE_RE.match(val):
+                    cutoff_date = val
+            else:
+                if ln.strip():
+                    note_lines.append(ln)
+        note_text = "\n".join(note_lines).strip()
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         if date_line.upper() == "NOT_NEEDED":
             db.execute(
                 "UPDATE plants SET next_fertilization_date = NULL, next_fertilization_note = ?,"
-                " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1 WHERE id = ?",
-                (note_text or None, generated_at, plant["id"]),
+                " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1,"
+                " fertilization_frequency_days = COALESCE(?, fertilization_frequency_days),"
+                " fertilization_cutoff_date = COALESCE(?, fertilization_cutoff_date)"
+                " WHERE id = ?",
+                (note_text or None, generated_at, freq_days, cutoff_date, plant["id"]),
             )
             db.commit()
             return {"not_needed": True, "note": note_text or None}
@@ -8499,8 +8575,11 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
             date_line = today_str
         db.execute(
             "UPDATE plants SET next_fertilization_date = ?, next_fertilization_note = ?,"
-            " next_fertilization_generated_at = ?, next_fertilization_not_needed = 0 WHERE id = ?",
-            (date_line, note_text or None, generated_at, plant["id"]),
+            " next_fertilization_generated_at = ?, next_fertilization_not_needed = 0,"
+            " fertilization_frequency_days = COALESCE(?, fertilization_frequency_days),"
+            " fertilization_cutoff_date = COALESCE(?, fertilization_cutoff_date)"
+            " WHERE id = ?",
+            (date_line, note_text or None, generated_at, freq_days, cutoff_date, plant["id"]),
         )
         db.commit()
         return {"date": date_line, "note": note_text or None, "not_needed": False}

@@ -58,9 +58,8 @@
         </div>
         <div class="cards">
           {% for entry in month_entries %}
-            {% set eff_fert = entry.planned_fertilization_date or entry.next_fertilization_date %}
-            {% set _fert_gen_ok = eff_fert >= today or entry.planned_fertilization_date or (entry.next_fertilization_generated_at and entry.next_fertilization_generated_at[:10] >= fert_stale_threshold) %}
-            {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline and not entry.never_fertilize and _fert_gen_ok %}
+            {% set eff_fert = fert_pill_map.get(entry.id) %}
+            {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline %}
             {% set water_alert = ff_water and entry.next_watering_date and entry.next_watering_date <= water_deadline and not entry.never_water %}
             <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
                data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
@@ -105,9 +104,8 @@
       <div class="timeline-month-header"><span>No date</span></div>
       <div class="cards">
         {% for entry in unscheduled %}
-          {% set eff_fert = entry.planned_fertilization_date or entry.next_fertilization_date %}
-          {% set _fert_gen_ok = eff_fert >= today or entry.planned_fertilization_date or (entry.next_fertilization_generated_at and entry.next_fertilization_generated_at[:10] >= fert_stale_threshold) %}
-          {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline and not entry.never_fertilize and _fert_gen_ok %}
+          {% set eff_fert = fert_pill_map.get(entry.id) %}
+          {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline %}
           {% set water_alert = ff_water and entry.next_watering_date and entry.next_watering_date <= water_deadline and not entry.never_water %}
           <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
              data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">

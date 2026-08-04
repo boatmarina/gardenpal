@@ -143,9 +143,8 @@
             </div>
             <div class="card-content">
               <h3>{{ plant.name }}</h3>
-              {% set eff_fert = plant.planned_fertilization_date or plant.next_fertilization_date %}
-              {% set _fert_gen_ok = eff_fert >= today or plant.planned_fertilization_date or (plant.next_fertilization_generated_at and plant.next_fertilization_generated_at[:10] >= fert_stale_threshold) %}
-              {% if ff_fert and plant.name|lower in zoned_plant_names and eff_fert and eff_fert <= fert_deadline and not plant.never_fertilize and _fert_gen_ok %}
+              {% set eff_fert = fert_pill_map.get(plant.id) %}
+              {% if ff_fert and plant.name|lower in zoned_plant_names and eff_fert and eff_fert <= fert_deadline %}
                 <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
                   {% if eff_fert < today %}Fert overdue{% else %}Fert due soon{% endif %}
                 </span>
