@@ -7333,6 +7333,10 @@ def init_db():
         ("garden_entries",  "watering_generated_at",           "TEXT"),
         ("garden_entries",  "next_watering_date",              "TEXT"),
         ("garden_entries",  "planting_method",                 "TEXT"),
+        ("plants",          "fertilization_frequency_days",    "INTEGER"),
+        ("plants",          "fertilization_cutoff_date",       "TEXT"),
+        ("garden_entries",  "fertilization_frequency_days",    "INTEGER"),
+        ("garden_entries",  "fertilization_cutoff_date",       "TEXT"),
     ])
 
     db.execute("UPDATE users SET is_admin = 1 WHERE lower(username) = lower('boatmarina')")
@@ -8266,6 +8270,48 @@ def _check_api_rate(db, user_id, feature):
     )
     db.commit()
     return True, None
+
+
+def _fert_pill_date(row, today):
+    """
+    Return the effective fertilization pill date for list views, or None if no pill.
+    Handles structured data (frequency_days + cutoff_date) with fallback to cached AI date.
+    """
+    def _g(col):
+        try:
+            return row[col]
+        except (IndexError, KeyError):
+            return None
+
+    if _g("never_fertilize"):
+        return None
+    # Cutoff: fertilizing no longer beneficial this season
+    cutoff = _g("fertilization_cutoff_date")
+    if cutoff and today > cutoff:
+        return None
+    # User-planned date always wins
+    planned = _g("planned_fertilization_date")
+    if planned:
+        return planned
+    # Frequency-based: compute next date from last fertilized + interval
+    freq = _g("fertilization_frequency_days")
+    last_fert = _g("last_fertilized_date")
+    if freq and last_fert:
+        try:
+            from datetime import date as _date, timedelta as _td
+            return (_date.fromisoformat(last_fert) + _td(days=int(freq))).isoformat()
+        except Exception:
+            pass
+    # Fallback: cached AI date with staleness suppression
+    next_fert = _g("next_fertilization_date")
+    if not next_fert:
+        return None
+    gen_at = _g("next_fertilization_generated_at")
+    stale_threshold = _local_date_plus(-7)
+    gen_fresh = bool(gen_at and gen_at[:10] >= stale_threshold)
+    if next_fert >= today or gen_fresh:
+        return next_fert
+    return None
 
 
 def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes):
