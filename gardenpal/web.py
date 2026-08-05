@@ -8316,6 +8316,8 @@ def _fert_pill_date(row, today):
 
     if _g("never_fertilize"):
         return None
+    if _g("next_fertilization_not_needed"):
+        return None
     # Cutoff: fertilizing no longer beneficial this season
     cutoff = _g("fertilization_cutoff_date")
     if cutoff and today > cutoff:
