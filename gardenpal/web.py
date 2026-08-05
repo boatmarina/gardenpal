@@ -793,6 +793,13 @@ self.addEventListener('activate', function(e) {
     def weather_data():
         if not _feature_weather(g.user):
             return jsonify(error="not_enabled"), 403
+        try:
+            return _weather_data_inner()
+        except Exception as exc:
+            import traceback
+            return jsonify(error="server_error", detail=traceback.format_exc()[-500:]), 500
+
+    def _weather_data_inner():
         user_id = g.user["id"]
         location_str = (g.user.get("location") or "").strip()
         if not location_str:
@@ -7601,6 +7608,35 @@ def init_db():
                  AND next_fertilization_generated_at IS NOT NULL
                  AND next_fertilization_generated_at < '2026-06-28'"""
         )
+    except Exception:
+        pass
+
+    # New tables for seasonal weather feature — must run outside the fresh-db guard
+    # so they are created on existing databases too.
+    try:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS weather_geocache (
+                user_id INTEGER PRIMARY KEY,
+                location_str TEXT NOT NULL,
+                lat REAL NOT NULL,
+                lon REAL NOT NULL,
+                display_name TEXT,
+                fetched_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS weather_cache (
+                user_id INTEGER NOT NULL,
+                year INTEGER NOT NULL,
+                data_json TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                PRIMARY KEY (user_id, year),
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+        db.execute("ALTER TABLE weather_geocache ENABLE ROW LEVEL SECURITY")
+        db.execute("ALTER TABLE weather_cache    ENABLE ROW LEVEL SECURITY")
     except Exception:
         pass
 
