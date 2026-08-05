@@ -8327,7 +8327,15 @@ def _fert_pill_date(row, today):
     planned = _g("planned_fertilization_date")
     if planned and not (last_fert and planned <= last_fert):
         return planned
-    # Frequency-based: compute next date from last fertilized + interval
+    # Fresh AI date takes priority over generic interval computation — the AI
+    # knows the plant's actual schedule; frequency is only a fallback
+    next_fert = _g("next_fertilization_date")
+    gen_at = _g("next_fertilization_generated_at")
+    stale_threshold = _local_date_plus(-7)
+    gen_fresh = bool(gen_at and gen_at[:10] >= stale_threshold)
+    if next_fert and (next_fert >= today or gen_fresh):
+        return next_fert
+    # Frequency-based: fallback when AI date is absent or stale+past
     freq = _g("fertilization_frequency_days")
     if freq and last_fert:
         try:
@@ -8335,15 +8343,6 @@ def _fert_pill_date(row, today):
             return (_date.fromisoformat(last_fert) + _td(days=int(freq))).isoformat()
         except Exception:
             pass
-    # Fallback: cached AI date with staleness suppression
-    next_fert = _g("next_fertilization_date")
-    if not next_fert:
-        return None
-    gen_at = _g("next_fertilization_generated_at")
-    stale_threshold = _local_date_plus(-7)
-    gen_fresh = bool(gen_at and gen_at[:10] >= stale_threshold)
-    if next_fert >= today or gen_fresh:
-        return next_fert
     return None
 
 
