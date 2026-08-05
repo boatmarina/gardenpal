@@ -777,6 +777,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 (function () {
   var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var FULL_MS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   function fmtDate(d) {
     if (!d) return '—';
@@ -825,7 +826,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (!cur || cm < gsStart) {
-      return 'The growing season for this area typically begins around ' + MS[gsStart] + '.';
+      return 'The growing season for this area typically begins around ' + FULL_MS[gsStart] + '.';
     }
 
     /* ── Range helpers (close over cur, avg, cm) ── */
@@ -897,12 +898,12 @@ document.addEventListener('DOMContentLoaded', function() {
           var lyC = lmLyTd > 0 ? '#C62828' : '#1565C0';
           var lyW = lmLyTd > 0 ? 'warmer' : 'cooler';
           lyNote = sameDir
-            ? ' — and ' + col(lyW + ' than last ' + MS[lastM] + ' too', lyC)
-            : ', though ' + col(lyW + ' than last ' + MS[lastM], lyC);
+            ? ' — and ' + col(lyW + ' than last ' + FULL_MS[lastM] + ' too', lyC)
+            : ', though ' + col(lyW + ' than last ' + FULL_MS[lastM], lyC);
         }
       }
       if ((lmTd != null && Math.abs(lmTd) >= 0.5) || (lmRd != null && Math.abs(lmRd) >= 0.25) || lyNote) {
-        s2 = MS[lastM] + ' was ' + tempDesc(lmTd) + ' with ' + rainDesc(lmRd) + lyNote + '.';
+        s2 = FULL_MS[lastM] + ' was ' + tempDesc(lmTd) + ' with ' + rainDesc(lmRd) + lyNote + '.';
       }
     }
 
@@ -951,50 +952,63 @@ document.addEventListener('DOMContentLoaded', function() {
       /* ── Expandable details ── */
       h += '<div id="wx-det" hidden style="border-top:1px solid var(--border)">';
 
-      /* Monthly breakdown */
+      /* Temperature table */
       if (cur) {
         h += '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">';
-        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Monthly breakdown</div>';
-        h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:280px">';
+        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Temperature (avg high)</div>';
+        h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:220px">';
         h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
         h += '<td></td>';
         h += '<td style="text-align:right;padding:0 6px 4px">High</td>';
-        h += '<td style="text-align:right;padding:0 6px 4px">Rain</td>';
-        h += '<td style="text-align:right;padding:0 6px 4px">vs avg °</td>';
-        h += '<td style="text-align:right;padding:0 0 4px">vs ' + data.last_year + ' °</td>';
+        h += '<td style="text-align:right;padding:0 6px 4px">vs ' + data.avg_years_label + '</td>';
+        h += '<td style="text-align:right;padding:0 0 4px">vs ' + data.last_year + '</td>';
         h += '</tr>';
         for (var m = 0; m <= cm; m++) {
           var mc = cur.months[m], ma = avg[m], ml = ly ? ly.months[m] : null;
           h += '<tr style="border-top:1px solid var(--border)">';
           h += '<td style="padding:4px 12px 4px 0;font-size:0.78rem;font-weight:600;white-space:nowrap">' + MS[m] + '</td>';
           h += '<td style="text-align:right;font-size:0.78rem;padding:4px 6px">' + (mc && mc.avg_high != null ? mc.avg_high.toFixed(1) + '°' : '—') + '</td>';
-          h += '<td style="text-align:right;font-size:0.78rem;padding:4px 6px">' + (mc && mc.total_rain != null ? mc.total_rain.toFixed(1) + '"' : '—') + '</td>';
           h += tdel(mc && mc.avg_high, ma && ma.avg_high, 0.5, '#C62828', '#1565C0');
           h += tdel(mc && mc.avg_high, ml && ml.avg_high, 0.5, '#C62828', '#1565C0');
           h += '</tr>';
         }
         h += '</table></div></div>';
+
+        /* Rainfall table */
+        h += '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">';
+        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Rainfall</div>';
+        h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:220px">';
+        h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
+        h += '<td></td>';
+        h += '<td style="text-align:right;padding:0 6px 4px">Rain</td>';
+        h += '<td style="text-align:right;padding:0 6px 4px">vs ' + data.avg_years_label + '</td>';
+        h += '<td style="text-align:right;padding:0 0 4px">vs ' + data.last_year + '</td>';
+        h += '</tr>';
+        for (var m = 0; m <= cm; m++) {
+          var mc = cur.months[m], ma = avg[m], ml = ly ? ly.months[m] : null;
+          h += '<tr style="border-top:1px solid var(--border)">';
+          h += '<td style="padding:4px 12px 4px 0;font-size:0.78rem;font-weight:600;white-space:nowrap">' + MS[m] + '</td>';
+          h += '<td style="text-align:right;font-size:0.78rem;padding:4px 6px">' + (mc && mc.total_rain != null ? mc.total_rain.toFixed(1) + '"' : '—') + '</td>';
+          h += tdel(mc && mc.total_rain, ma && ma.total_rain, 0.25, '#1565C0', '#E65100');
+          h += tdel(mc && mc.total_rain, ml && ml.total_rain, 0.25, '#1565C0', '#E65100');
+          h += '</tr>';
+        }
+        h += '</table></div></div>';
       }
 
-      /* Frost dates */
-      if (data.frost_table && data.frost_table.length) {
+      /* Last spring frost */
+      if (data.frost_table && data.frost_table.some(function(fr){ return fr.last_spring_frost; })) {
         h += '<div style="padding:12px 16px">';
-        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Frost dates</div>';
+        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Last spring frost by year</div>';
         h += '<table style="width:100%;border-collapse:collapse">';
         h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
-        h += '<td>Year</td><td style="text-align:right">Last spring</td><td style="text-align:right">First fall</td><td style="text-align:right">Season</td></tr>';
+        h += '<td>Year</td><td style="text-align:right">Last frost</td></tr>';
         data.frost_table.forEach(function(fr) {
-          var season = '';
-          if (fr.last_spring_frost && fr.first_fall_frost) {
-            var s = new Date(fr.last_spring_frost + 'T12:00:00'), f = new Date(fr.first_fall_frost + 'T12:00:00');
-            season = Math.round((f - s) / 86400000) + 'd';
-          }
+          if (!fr.last_spring_frost) return;
           var isCur = fr.year === data.current_year;
           h += '<tr style="border-top:1px solid var(--border)">';
           h += '<td style="padding:5px 0;font-size:0.82rem' + (isCur ? ';font-weight:700' : '') + '">' + fr.year + (isCur ? ' <span style="font-size:0.58rem;padding:1px 4px;border-radius:3px;background:#E8F5E9;color:#2E7D32;font-weight:800">now</span>' : '') + '</td>';
           h += '<td style="text-align:right;font-size:0.82rem">' + fmtDate(fr.last_spring_frost) + '</td>';
-          h += '<td style="text-align:right;font-size:0.82rem">' + fmtDate(fr.first_fall_frost) + '</td>';
-          h += '<td style="text-align:right;font-size:0.78rem;color:var(--muted)">' + (season || '—') + '</td>';
           h += '</tr>';
         });
         h += '</table></div>';
