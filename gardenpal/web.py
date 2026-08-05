@@ -667,7 +667,9 @@ self.addEventListener('activate', function(e) {
                 else:
                     effective_last_fert = None
                     effective_fert_type = None
-                eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
+                planned = r["planned_fertilization_date"]
+                planned_stale = bool(planned and effective_last_fert and planned <= effective_last_fert)
+                eff = (planned if not planned_stale else None) or r["next_fertilization_date"]
                 if not eff or eff > deadline:
                     continue
                 cutoff = r["fertilization_cutoff_date"]
@@ -676,7 +678,7 @@ self.addEventListener('activate', function(e) {
                 gen_at = r["next_fertilization_generated_at"]
                 stale_threshold = _local_date_plus(-7)
                 gen_fresh = bool(gen_at and gen_at[:10] >= stale_threshold)
-                if eff < today and not r["planned_fertilization_date"] and not gen_fresh:
+                if eff < today and not (planned and not planned_stale) and not gen_fresh:
                     continue
                 fert_alerts.append({
                     "kind": "edible", "id": r["id"], "name": r["name"],
@@ -704,7 +706,10 @@ self.addEventListener('activate', function(e) {
             ).fetchall()
             for r in ornamental_candidates:
                 # Use stored data only — detail page handles stale regeneration on visit.
-                eff = r["planned_fertilization_date"] or r["next_fertilization_date"]
+                _last_fert_o = r["last_fertilized_date"]
+                _planned_o = r["planned_fertilization_date"]
+                _planned_stale_o = bool(_planned_o and _last_fert_o and _planned_o <= _last_fert_o)
+                eff = (_planned_o if not _planned_stale_o else None) or r["next_fertilization_date"]
                 if not eff or eff > deadline:
                     continue
                 cutoff = r["fertilization_cutoff_date"]
