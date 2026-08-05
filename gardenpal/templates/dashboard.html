@@ -828,8 +828,10 @@ document.addEventListener('DOMContentLoaded', function() {
           el.textContent = 'Set your location in Settings to see weather data.';
         else if (data.error === 'geocode_failed')
           el.textContent = 'Location not recognised — try a city name in Settings.';
+        else if (data.error === 'fetch_failed')
+          el.textContent = 'Could not reach weather service — check back shortly.';
         else
-          el.textContent = 'Weather data temporarily unavailable.';
+          el.textContent = 'Weather error: ' + (data.detail || data.error || 'unknown');
         return;
       }
 
