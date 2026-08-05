@@ -112,7 +112,7 @@
           {% set eff_fert_hdr = (next_fertilization.planned_date if not _planned_stale_hdr else None) or next_fertilization.date %}
           {% if ff_fert and eff_fert_hdr and eff_fert_hdr <= fert_deadline %}
             <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#E8F5E9;color:#388E3C;border:1px solid #A5D6A7{% endif %}">
-              {% if eff_fert_hdr < today %}Overdue{% else %}Due soon{% endif %}
+              {% if eff_fert_hdr < today %}Overdue{% elif eff_fert_hdr == today %}Due today{% else %}Due soon{% endif %}
             </span>
           {% endif %}
         {% endif %}

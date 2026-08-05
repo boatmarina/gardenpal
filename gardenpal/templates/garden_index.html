@@ -66,8 +66,8 @@
               <div class="card-content" style="padding:16px 18px">
                 <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
                 {% if fert_alert %}
-                  <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
-                    {% if eff_fert < today %}Fert overdue{% else %}Fert due soon{% endif %}
+                  <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7{% endif %}">
+                    {% if eff_fert < today %}Fert overdue{% elif eff_fert == today %}Fert due today{% else %}Fert due soon{% endif %}
                   </span>
                 {% endif %}
                 {% if water_alert %}
@@ -114,8 +114,8 @@
                 <div style="flex:1;min-width:0">
                   <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
                   {% if fert_alert %}
-                    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#FFF3E0;color:#C15400;border:1px solid #FFB74D{% endif %}">
-                      {% if eff_fert < today %}Fert overdue{% else %}Fert due soon{% endif %}
+                    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7{% endif %}">
+                      {% if eff_fert < today %}Fert overdue{% elif eff_fert == today %}Fert due today{% else %}Fert due soon{% endif %}
                     </span>
                   {% endif %}
                   {% if water_alert %}
