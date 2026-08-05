@@ -8322,13 +8322,13 @@ def _fert_pill_date(row, today):
     cutoff = _g("fertilization_cutoff_date")
     if cutoff and today > cutoff:
         return None
-    # User-planned date always wins
+    last_fert = _g("last_fertilized_date")
+    # User-planned date wins unless it predates the last fertilization (stale)
     planned = _g("planned_fertilization_date")
-    if planned:
+    if planned and not (last_fert and planned <= last_fert):
         return planned
     # Frequency-based: compute next date from last fertilized + interval
     freq = _g("fertilization_frequency_days")
-    last_fert = _g("last_fertilized_date")
     if freq and last_fert:
         try:
             from datetime import date as _date, timedelta as _td
