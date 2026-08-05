@@ -784,7 +784,108 @@ self.addEventListener('activate', function(e) {
             fert_alerts=fert_alerts,
             ff_water=ff_water,
             watering_alerts=watering_alerts,
+            ff_weather=_feature_weather(g.user),
             today=today,
+        )
+
+    @app.route("/weather/data")
+    @login_required
+    def weather_data():
+        if not _feature_weather(g.user):
+            return jsonify(error="not_enabled"), 403
+        user_id = g.user["id"]
+        location_str = (g.user.get("location") or "").strip()
+        if not location_str:
+            return jsonify(error="no_location")
+        db = get_db()
+        geo = _weather_geocode(db, user_id, location_str)
+        if not geo:
+            return jsonify(error="geocode_failed")
+        lat, lon, display_name = geo
+
+        from datetime import date as _date
+        current_year = _date.today().year
+        last_year = current_year - 1
+        avg_start = current_year - 10   # 10 full past years: e.g. 2016–2025
+        avg_end = current_year - 1
+        all_years = list(range(avg_start, current_year + 1))  # 11 years
+
+        # Load from cache
+        cached = {}
+        now_iso = datetime.utcnow().isoformat(timespec="seconds")
+        for row in db.execute(
+            f"SELECT year, data_json, fetched_at FROM weather_cache"
+            f" WHERE user_id = ? AND year IN ({','.join(['?']*len(all_years))})",
+            [user_id] + all_years,
+        ).fetchall():
+            try:
+                import json as _json
+                max_age_h = 6 if row["year"] == current_year else 24 * 30
+                age_h = (datetime.utcnow() - datetime.fromisoformat(row["fetched_at"])).total_seconds() / 3600
+                if age_h < max_age_h:
+                    cached[row["year"]] = _json.loads(row["data_json"])
+            except Exception:
+                pass
+
+        years_to_fetch = [y for y in all_years if y not in cached]
+        if years_to_fetch:
+            import json as _json
+            fetched = _weather_fetch_years(lat, lon, years_to_fetch)
+            for y, summary in fetched.items():
+                cached[y] = summary
+                db.execute(
+                    "INSERT INTO weather_cache (user_id, year, data_json, fetched_at)"
+                    " VALUES (?, ?, ?, ?)"
+                    " ON CONFLICT (user_id, year) DO UPDATE SET"
+                    " data_json=EXCLUDED.data_json, fetched_at=EXCLUDED.fetched_at",
+                    (user_id, y, _json.dumps(summary), now_iso),
+                )
+            db.commit()
+
+        if not cached:
+            return jsonify(error="fetch_failed")
+
+        # 10-year monthly averages
+        avg_years = [y for y in range(avg_start, avg_end + 1) if y in cached]
+        ten_year_avg = []
+        for m in range(1, 13):
+            highs = [cached[y]["months"][m - 1]["avg_high"] for y in avg_years
+                     if cached[y]["months"][m - 1]["avg_high"] is not None]
+            lows  = [cached[y]["months"][m - 1]["avg_low"]  for y in avg_years
+                     if cached[y]["months"][m - 1]["avg_low"]  is not None]
+            rains = [cached[y]["months"][m - 1]["total_rain"] for y in avg_years
+                     if cached[y]["months"][m - 1]["total_rain"] is not None]
+            ten_year_avg.append({
+                "month": m,
+                "avg_high":   round(sum(highs) / len(highs), 1) if highs else None,
+                "avg_low":    round(sum(lows)  / len(lows),  1) if lows  else None,
+                "total_rain": round(sum(rains) / len(rains), 2) if rains else None,
+            })
+
+        # Frost table: last 5 complete years + current year
+        frost_years = sorted(
+            [y for y in range(last_year - 4, current_year + 1) if y in cached],
+            reverse=True,
+        )
+        frost_table = [
+            {
+                "year": y,
+                "last_spring_frost": cached[y]["frost"]["last_spring"],
+                "first_fall_frost":  cached[y]["frost"]["first_fall"],
+            }
+            for y in frost_years
+        ]
+
+        return jsonify(
+            display_name=display_name,
+            current_year=current_year,
+            last_year=last_year,
+            avg_years_label=f"{avg_start}–{avg_end}",
+            current=cached.get(current_year),
+            last_year_data=cached.get(last_year),
+            ten_year_avg=ten_year_avg,
+            frost_table=frost_table,
+            today=_date.today().isoformat(),
         )
 
     @app.route("/fert-never", methods=["POST"])
@@ -7833,6 +7934,29 @@ _SCHEMA_STATEMENTS = [
     "ALTER TABLE api_usage          ENABLE ROW LEVEL SECURITY",
     "ALTER TABLE yard_plant_notes   ENABLE ROW LEVEL SECURITY",
     "ALTER TABLE plant_notes        ENABLE ROW LEVEL SECURITY",
+    """
+    CREATE TABLE IF NOT EXISTS weather_geocache (
+        user_id INTEGER PRIMARY KEY,
+        location_str TEXT NOT NULL,
+        lat REAL NOT NULL,
+        lon REAL NOT NULL,
+        display_name TEXT,
+        fetched_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS weather_cache (
+        user_id INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        data_json TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, year),
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+    """,
+    "ALTER TABLE weather_geocache ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE weather_cache    ENABLE ROW LEVEL SECURITY",
     # Normalise any sun_exposure values that were stored as raw API strings
     # (e.g. "Part Sun", "Partial Shade", "Full Sun") instead of the canonical
     # "part-sun" / "full-sun" / "shade" values the filter UI expects.
@@ -8248,6 +8372,11 @@ def _feature_watering(user):
     return (user or {}).get("username") in {"boatmarina", "holval@gmail.com"}
 
 
+def _feature_weather(user):
+    """Feature flag: seasonal weather tracker. Early-access for boatmarina and demo."""
+    return (user or {}).get("username") in {"boatmarina", "demo"}
+
+
 def _feature_home_assistant(user):
     """Home-screen garden assistant — available to all users."""
     return True
@@ -8306,6 +8435,133 @@ def _check_api_rate(db, user_id, feature):
     )
     db.commit()
     return True, None
+
+
+def _weather_geocode(db, user_id, location_str):
+    """Return (lat, lon, display_name) for location_str, using DB cache. Returns None on failure."""
+    import urllib.request as _ur, json as _json, urllib.parse as _up
+    if not location_str:
+        return None
+    cached = db.execute(
+        "SELECT lat, lon, display_name FROM weather_geocache WHERE user_id = ? AND location_str = ?",
+        (user_id, location_str),
+    ).fetchone()
+    if cached:
+        return cached["lat"], cached["lon"], cached["display_name"]
+    url = "https://geocoding-api.open-meteo.com/v1/search?" + _up.urlencode(
+        {"name": location_str, "count": 1, "format": "json"}
+    )
+    try:
+        with _ur.urlopen(url, timeout=8) as resp:
+            data = _json.loads(resp.read())
+        results = data.get("results") or []
+        if not results:
+            return None
+        r = results[0]
+        lat, lon = r["latitude"], r["longitude"]
+        parts = [r.get("name", location_str)]
+        if r.get("admin1"):
+            parts.append(r["admin1"])
+        if r.get("country_code"):
+            parts.append(r["country_code"])
+        display_name = ", ".join(parts)
+    except Exception:
+        return None
+    db.execute(
+        "INSERT INTO weather_geocache (user_id, location_str, lat, lon, display_name, fetched_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)"
+        " ON CONFLICT (user_id) DO UPDATE SET location_str=EXCLUDED.location_str,"
+        " lat=EXCLUDED.lat, lon=EXCLUDED.lon, display_name=EXCLUDED.display_name,"
+        " fetched_at=EXCLUDED.fetched_at",
+        (user_id, location_str, lat, lon, display_name,
+         datetime.utcnow().isoformat(timespec="seconds")),
+    )
+    db.commit()
+    return lat, lon, display_name
+
+
+def _weather_summarise_year(daily, year):
+    """Compute per-month averages and frost dates from an Open-Meteo daily dict for one year."""
+    from datetime import date as _date
+    months = {m: {"highs": [], "lows": [], "rain": 0.0} for m in range(1, 13)}
+    last_spring_frost = None
+    first_fall_frost = None
+    for t, hi, lo, pr in zip(
+        daily["time"],
+        daily["temperature_2m_max"],
+        daily["temperature_2m_min"],
+        daily["precipitation_sum"],
+    ):
+        mo = int(t[5:7])
+        if hi is not None:
+            months[mo]["highs"].append(hi)
+        if lo is not None:
+            months[mo]["lows"].append(lo)
+        if pr is not None:
+            months[mo]["rain"] += pr
+        if lo is not None and lo <= 32.0:
+            if mo <= 6:
+                if last_spring_frost is None or t > last_spring_frost:
+                    last_spring_frost = t
+            else:
+                if first_fall_frost is None or t < first_fall_frost:
+                    first_fall_frost = t
+    monthly = []
+    for m in range(1, 13):
+        h, l = months[m]["highs"], months[m]["lows"]
+        monthly.append({
+            "month": m,
+            "avg_high": round(sum(h) / len(h), 1) if h else None,
+            "avg_low": round(sum(l) / len(l), 1) if l else None,
+            "total_rain": round(months[m]["rain"], 2),
+        })
+    return {
+        "year": year,
+        "months": monthly,
+        "frost": {"last_spring": last_spring_frost, "first_fall": first_fall_frost},
+    }
+
+
+def _weather_fetch_years(lat, lon, years):
+    """Fetch daily data from Open-Meteo archive for the given years in one call.
+    Returns {year: summary_dict}."""
+    import urllib.request as _ur, json as _json, urllib.parse as _up
+    from datetime import date as _date, timedelta as _td
+    if not years:
+        return {}
+    start_year, end_year = min(years), max(years)
+    yesterday = (_date.today() - _td(days=2)).isoformat()
+    end = min(f"{end_year}-12-31", yesterday)
+    params = _up.urlencode({
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": f"{start_year}-01-01",
+        "end_date": end,
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+        "temperature_unit": "fahrenheit",
+        "precipitation_unit": "inch",
+        "timezone": "auto",
+    })
+    try:
+        with _ur.urlopen(
+            f"https://archive-api.open-meteo.com/v1/archive?{params}", timeout=20
+        ) as resp:
+            data = _json.loads(resp.read())
+    except Exception:
+        return {}
+    daily_all = data.get("daily", {})
+    if not daily_all or not daily_all.get("time"):
+        return {}
+    by_year = {y: {"time": [], "temperature_2m_max": [], "temperature_2m_min": [], "precipitation_sum": []}
+               for y in years}
+    for i, t in enumerate(daily_all["time"]):
+        y = int(t[:4])
+        if y in by_year:
+            by_year[y]["time"].append(t)
+            by_year[y]["temperature_2m_max"].append(daily_all["temperature_2m_max"][i])
+            by_year[y]["temperature_2m_min"].append(daily_all["temperature_2m_min"][i])
+            by_year[y]["precipitation_sum"].append(daily_all["precipitation_sum"][i])
+    return {y: _weather_summarise_year(by_year[y], y) for y in years if by_year[y]["time"]}
 
 
 def _fert_pill_date(row, today):

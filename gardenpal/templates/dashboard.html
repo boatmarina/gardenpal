@@ -752,4 +752,157 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+{% if ff_weather %}
+<div id="weather-section" style="margin-bottom:20px">
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      <circle cx="12" cy="12" r="4"/>
+    </svg>
+    <h2 style="font-size:0.75rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin:0">Seasonal Weather</h2>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="weather-loading" style="padding:18px 16px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.85rem">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 1s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      Loading weather data…
+    </div>
+    <div id="weather-content" hidden></div>
+    <div id="weather-error" hidden style="padding:16px;color:var(--muted);font-size:0.85rem;text-align:center"></div>
+  </div>
+</div>
+<script>
+(function () {
+  var MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var MONTH_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function fmt1(v, unit) { return v != null ? v.toFixed(1) + unit : '—'; }
+  function fmtDate(d) {
+    if (!d) return '—';
+    var p = d.split('-');
+    return MONTH_SHORT[+p[1] - 1] + ' ' + +p[2];
+  }
+  function diff(a, b) {
+    if (a == null || b == null) return null;
+    return a - b;
+  }
+  function diffStr(d, unit) {
+    if (d == null) return '—';
+    return (d > 0 ? '+' : '') + d.toFixed(1) + unit;
+  }
+  function diffStyle(d) {
+    if (d == null) return 'color:var(--muted)';
+    if (d > 0) return 'color:#C62828;font-weight:700';   /* warmer / wetter = red */
+    if (d < 0) return 'color:#1565C0;font-weight:700';   /* cooler / drier  = blue */
+    return 'color:var(--muted)';
+  }
+  // For rainfall negative diff (less rain) should be orange not blue — gardeners care about drought
+  function rainDiffStyle(d) {
+    if (d == null) return 'color:var(--muted)';
+    if (d > 0) return 'color:#1565C0;font-weight:700';   /* more rain = blue */
+    if (d < 0) return 'color:#E65100;font-weight:700';   /* less rain = orange */
+    return 'color:var(--muted)';
+  }
+
+  function row(label, cur, avg, ly, unit, rainMode) {
+    var ds = rainMode ? rainDiffStyle : diffStyle;
+    var dAvg = diff(cur, avg), dLy = diff(cur, ly);
+    return '<tr style="border-top:1px solid var(--border)">'
+      + '<td style="padding:6px 0;font-size:0.78rem;color:var(--muted);white-space:nowrap">' + label + '</td>'
+      + '<td style="text-align:right;font-size:0.85rem;font-weight:600">' + fmt1(cur, unit) + '</td>'
+      + '<td style="text-align:right;font-size:0.82rem;color:var(--muted)">' + fmt1(avg, unit) + '</td>'
+      + '<td style="text-align:right;font-size:0.82rem;' + ds(dAvg) + '">' + diffStr(dAvg, unit) + '</td>'
+      + '<td style="text-align:right;font-size:0.82rem;color:var(--muted)">' + fmt1(ly, unit) + '</td>'
+      + '<td style="text-align:right;font-size:0.82rem;' + ds(dLy) + '">' + diffStr(dLy, unit) + '</td>'
+      + '</tr>';
+  }
+
+  fetch('/weather/data')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      document.getElementById('weather-loading').hidden = true;
+      if (data.error) {
+        var el = document.getElementById('weather-error');
+        el.hidden = false;
+        if (data.error === 'no_location')
+          el.textContent = 'Set your location in Settings to see weather data.';
+        else if (data.error === 'geocode_failed')
+          el.textContent = 'Location not recognised — try a city name in Settings.';
+        else
+          el.textContent = 'Weather data temporarily unavailable.';
+        return;
+      }
+
+      var today = new Date(data.today + 'T12:00:00');
+      var cm = today.getMonth(); /* 0-indexed current month */
+      var cur  = data.current && data.current.months[cm];
+      var ly   = data.last_year_data && data.last_year_data.months[cm];
+      var avg  = data.ten_year_avg[cm];
+
+      var h = '';
+
+      /* ── Header ── */
+      h += '<div style="padding:12px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;justify-content:space-between;gap:8px">';
+      h += '<span style="font-size:0.88rem;font-weight:700;color:var(--fg)">' + data.display_name + '</span>';
+      h += '<span style="font-size:0.68rem;color:var(--muted);white-space:nowrap">vs ' + data.avg_years_label + ' avg &amp; ' + data.last_year + '</span>';
+      h += '</div>';
+
+      /* ── This month ── */
+      if (cur) {
+        h += '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">';
+        h += '<div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">' + MONTH_FULL[cm] + ' so far</div>';
+        h += '<table style="width:100%;border-collapse:collapse">';
+        h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted)">'
+          + '<td></td>'
+          + '<td style="text-align:right">This yr</td>'
+          + '<td style="text-align:right">' + data.avg_years_label + '</td>'
+          + '<td style="text-align:right">vs avg</td>'
+          + '<td style="text-align:right">' + data.last_year + '</td>'
+          + '<td style="text-align:right">vs ' + data.last_year + '</td>'
+          + '</tr>';
+        h += row('Avg High', cur.avg_high, avg && avg.avg_high, ly && ly.avg_high, '°', false);
+        h += row('Avg Low',  cur.avg_low,  avg && avg.avg_low,  ly && ly.avg_low,  '°', false);
+        h += row('Rainfall', cur.total_rain, avg && avg.total_rain, ly && ly.total_rain, '"', true);
+        h += '</table></div>';
+      }
+
+      /* ── Frost dates ── */
+      if (data.frost_table && data.frost_table.length) {
+        h += '<div style="padding:12px 16px">';
+        h += '<div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Frost Dates</div>';
+        h += '<table style="width:100%;border-collapse:collapse">';
+        h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted)">'
+          + '<td>Year</td><td style="text-align:right">Last Spring</td>'
+          + '<td style="text-align:right">First Fall</td><td style="text-align:right">Season</td></tr>';
+        data.frost_table.forEach(function(fr) {
+          var season = '';
+          if (fr.last_spring_frost && fr.first_fall_frost) {
+            var s = new Date(fr.last_spring_frost + 'T12:00:00');
+            var f = new Date(fr.first_fall_frost  + 'T12:00:00');
+            var days = Math.round((f - s) / 86400000);
+            season = days + 'd';
+          }
+          var isCur = fr.year === data.current_year;
+          h += '<tr style="border-top:1px solid var(--border);' + (isCur ? 'font-weight:700' : '') + '">'
+            + '<td style="padding:5px 0;font-size:0.82rem">' + fr.year + (isCur ? ' <span style="font-size:0.6rem;font-weight:800;padding:1px 4px;border-radius:3px;background:var(--green-light,#E8F5E9);color:#2E7D32">now</span>' : '') + '</td>'
+            + '<td style="text-align:right;font-size:0.82rem">' + fmtDate(fr.last_spring_frost) + '</td>'
+            + '<td style="text-align:right;font-size:0.82rem">' + fmtDate(fr.first_fall_frost) + '</td>'
+            + '<td style="text-align:right;font-size:0.78rem;color:var(--muted)">' + (season || '—') + '</td>'
+            + '</tr>';
+        });
+        h += '</table></div>';
+      }
+
+      document.getElementById('weather-content').innerHTML = h;
+      document.getElementById('weather-content').hidden = false;
+    })
+    .catch(function() {
+      document.getElementById('weather-loading').hidden = true;
+      var el = document.getElementById('weather-error');
+      el.hidden = false;
+      el.textContent = 'Weather data temporarily unavailable.';
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}
