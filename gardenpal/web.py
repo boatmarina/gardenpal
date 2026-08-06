@@ -295,8 +295,8 @@ def create_app() -> Flask:
     WHATS_NEW_CHANGELOG = [
         {
             "version": "2026-08-a",
-            "title": "Growing season weather — now in your diary too",
-            "body": "The growing season summary now appears at the top of your Season Diary export. It includes the narrative overview, monthly temperature and rainfall detail tables (with 10-year averages and last-year comparisons), and last spring frost dates by year.",
+            "title": "Growing season weather on your home screen",
+            "body": "See how your growing season is tracking right from the home screen — a plain-English summary with color-coded signals for temperature and rainfall, compared to your 10-year average. Tap Details for a full monthly breakdown and frost date history. The same summary also appears at the top of your Season Diary export.",
             "draft": True,
         },
         {
