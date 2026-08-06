@@ -3874,13 +3874,19 @@ self.addEventListener('activate', function(e) {
                      datetime.utcnow().isoformat(timespec="seconds"), new_fert_type, new_fert_date),
                 )
             if not never_fertilize and new_fert_date != old_fert_date:
-                db.execute(
-                    "UPDATE garden_entries SET next_fertilization_generated_at = NULL,"
-                    " planned_fertilization_date = CASE"
-                    " WHEN planned_fertilization_date IS NOT NULL AND ? IS NOT NULL AND planned_fertilization_date <= ? THEN NULL"
-                    " ELSE planned_fertilization_date END WHERE id = ?",
-                    (new_fert_date, new_fert_date, entry_id),
-                )
+                if new_fert_date:
+                    db.execute(
+                        "UPDATE garden_entries SET next_fertilization_generated_at = NULL,"
+                        " planned_fertilization_date = CASE"
+                        " WHEN planned_fertilization_date IS NOT NULL AND planned_fertilization_date <= ? THEN NULL"
+                        " ELSE planned_fertilization_date END WHERE id = ?",
+                        (new_fert_date, entry_id),
+                    )
+                else:
+                    db.execute(
+                        "UPDATE garden_entries SET next_fertilization_generated_at = NULL WHERE id = ?",
+                        (entry_id,),
+                    )
             _log_activity(db, g.user["id"], "garden_entry_edited", plant_name)
             db.commit()
             flash("Entry updated.")
