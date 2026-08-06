@@ -8749,10 +8749,13 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 "are typically already past this stage and can be fertilized soon after transplanting.\n"
                 "If a reseeding or transplanting date is given, use that age, not the original planting date.\n"
                 "Consider any planting notes provided — they may contain important context about the plant's origin.\n"
-                "If the plant is at the end of its life cycle, is bolting, has died, or fertilizing would "
-                "cause harm or provide no meaningful benefit, use NOT_NEEDED instead of a date.\n"
-                "Do NOT use NOT_NEEDED simply because the plant was recently fertilized and just needs "
-                "a waiting period — in that case return the next scheduled date (e.g. 21 days from today).\n"
+                "NOT_NEEDED means this plant should NOT be fertilized for the rest of the season. "
+                "Use it ONLY when the plant is bolting, dead, past harvest, or where any future "
+                "fertilization would cause harm or have zero benefit for the remainder of the season.\n"
+                "If the plant was recently fertilized and simply needs time before the next application, "
+                "ALWAYS return the future date (e.g. today + 28 days). "
+                "A plant that was just fertilized is not a NOT_NEEDED plant — it will need fertilizing "
+                "again; return the next scheduled date.\n"
                 "Reply with ONLY:\n"
                 "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
                 "Line 2: INTERVAL_DAYS: <integer days between fertilizations, e.g. 28> OR INTERVAL_DAYS: none\n"
@@ -8784,16 +8787,23 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
         note_text = "\n".join(note_lines).strip()
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         if date_line.upper() == "NOT_NEEDED":
-            db.execute(
-                "UPDATE garden_entries SET next_fertilization_date = NULL, next_fertilization_note = ?,"
-                " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1,"
-                " fertilization_frequency_days = COALESCE(?, fertilization_frequency_days),"
-                " fertilization_cutoff_date = COALESCE(?, fertilization_cutoff_date)"
-                " WHERE id = ?",
-                (note_text or None, generated_at, freq_days, cutoff_date, entry["id"]),
-            )
-            db.commit()
-            return {"not_needed": True, "note": note_text or None}
+            # Try to salvage a future date the AI mentioned in its note text
+            _m = _re.search(r'\b(\d{4}-\d{2}-\d{2})\b', note_text)
+            _salvaged = _m.group(1) if _m else None
+            if _salvaged and _salvaged >= today_str:
+                date_line = _salvaged
+                # Fall through to normal date handling below
+            else:
+                db.execute(
+                    "UPDATE garden_entries SET next_fertilization_date = NULL, next_fertilization_note = ?,"
+                    " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1,"
+                    " fertilization_frequency_days = COALESCE(?, fertilization_frequency_days),"
+                    " fertilization_cutoff_date = COALESCE(?, fertilization_cutoff_date)"
+                    " WHERE id = ?",
+                    (note_text or None, generated_at, freq_days, cutoff_date, entry["id"]),
+                )
+                db.commit()
+                return {"not_needed": True, "note": note_text or None}
         if not _ISO_DATE_RE.match(date_line):
             return None
         if date_line < today_str:

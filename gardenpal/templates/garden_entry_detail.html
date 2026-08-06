@@ -694,9 +694,13 @@
               nextEl.style.color = 'var(--muted)';
               var fertDoneWrap = detailFertDoneBtn.parentElement;
               if (fertDoneWrap) fertDoneWrap.style.display = 'none';
+              var plannedInp = document.querySelector('#fert-next-date-section input[name="planned_date"]');
+              if (plannedInp) plannedInp.value = '';
             } else if (d.next_date) {
               nextEl.textContent = gpFormatDate(d.next_date);
               nextEl.style.color = '';
+              var plannedInp2 = document.querySelector('#fert-next-date-section input[name="planned_date"]');
+              if (plannedInp2 && !plannedInp2.value) plannedInp2.value = d.next_date;
             }
           }
           if (d.next_note) {
