@@ -401,6 +401,65 @@ body {
 }
 .orn-note-date { font-size: 0.7rem; color: #888; margin-right: 6px; }
 
+/* ── Weather section ─────────────────────────────────────────────── */
+.wx-narrative {
+  font-size: 0.92rem;
+  line-height: 1.75;
+  color: #1a1a1a;
+  margin-bottom: 14px;
+}
+.wx-sublabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #558B2F;
+  margin-bottom: 6px;
+}
+.wx-tables {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.wx-table-wrap { flex: 1; min-width: 180px; }
+.wx-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.78rem;
+}
+.wx-table thead tr {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #666;
+}
+.wx-table thead td { padding: 0 6px 5px; text-align: right; }
+.wx-table thead td:first-child { text-align: left; padding-left: 0; }
+.wx-table tbody tr { border-top: 1px solid #e8e8e8; }
+.wx-table tbody td { padding: 4px 6px; text-align: right; }
+.wx-table tbody td:first-child { text-align: left; font-weight: 600; padding-left: 0; white-space: nowrap; }
+.wx-frost-table { border-collapse: collapse; width: 180px; font-size: 0.78rem; }
+.wx-frost-table thead tr {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #666;
+}
+.wx-frost-table thead td { padding: 0 0 5px; }
+.wx-frost-table thead td:last-child { text-align: right; }
+.wx-frost-table tbody tr { border-top: 1px solid #e8e8e8; }
+.wx-frost-table tbody td { padding: 4px 0; }
+.wx-frost-table tbody td:last-child { text-align: right; }
+.wx-meta { font-size: 0.72rem; color: #888; margin-top: 4px; }
+
+@media print {
+  .wx-tables { gap: 16px; }
+  .wx-narrative { font-size: 0.8rem; line-height: 1.6; }
+}
+
 /* ── Empty states ────────────────────────────────────────────────── */
 .empty-note {
   font-size: 0.85rem;
@@ -555,6 +614,203 @@ document.addEventListener('click', function(e) {
     <div class="cover-year">{{ current_year }}</div>
     <p class="cover-meta">Generated {{ today | planted_date }}</p>
   </div>
+
+  <!-- ── Growing Season Weather ───────────────────────────────────── -->
+  {% if weather_json %}
+  <section class="diary-section" id="wx-diary-section">
+    <div class="section-heading">
+      <span class="section-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/>
+          <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </span>
+      <h2>Growing Season Weather</h2>
+    </div>
+    <div id="wx-diary-content"></div>
+  </section>
+  <script>
+  (function() {
+    var data = {{ weather_json | safe }};
+    var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var FULL_MS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    function fmtDate(d) {
+      if (!d) return '—';
+      var p = d.split('-');
+      return MS[+p[1]-1] + ' ' + +p[2];
+    }
+
+    function col(text, color, bold) {
+      return '<span style="color:' + color + (bold === false ? '' : ';font-weight:700') + '">' + text + '</span>';
+    }
+
+    function tempDesc(delta) {
+      if (delta == null) return col('near-average temperatures', '#888', false);
+      var a = Math.abs(delta), w = delta > 0;
+      if (a < 0.5) return col('near-average', '#888', false) + ' temperatures';
+      var c = w ? '#C62828' : '#1565C0';
+      var q = a > 2.5 ? a.toFixed(1) + '° ' : a > 1.5 ? a.toFixed(1) + '° ' : 'a bit ';
+      return col(q + (w ? 'warmer' : 'cooler') + ' than usual', c);
+    }
+
+    function rainDesc(delta) {
+      if (delta == null) return col('near-average rainfall', '#888', false);
+      var a = Math.abs(delta), w = delta > 0;
+      if (a < 0.25) return col('near-average', '#888', false) + ' rainfall';
+      var c = w ? '#1565C0' : '#E65100';
+      var int_ = a > 2 ? 'much ' : a > 0.75 ? '' : 'a bit ';
+      var amt = a > 1 ? ' (' + a.toFixed(1) + '")' : '';
+      return col(int_ + (w ? 'above' : 'below') + ' average for rain' + amt, c);
+    }
+
+    function buildNarrative(cur, avg, ly, cm) {
+      var ft = data.frost_table || [];
+      var histFrosts = ft.filter(function(r){ return r.year !== data.current_year && r.last_spring_frost; });
+      var gsStart = 3;
+      if (histFrosts.length) {
+        var mSum = histFrosts.reduce(function(s, r) {
+          return s + new Date(r.last_spring_frost + 'T12:00:00').getMonth();
+        }, 0);
+        gsStart = Math.round(mSum / histFrosts.length);
+      }
+      if (!cur || cm < gsStart) {
+        return 'The growing season for this area typically begins around ' + FULL_MS[gsStart] + '.';
+      }
+      function hd(s, e) {
+        var end = Math.min(e, cm);
+        if (s > end) return null;
+        var cv = [], av = [];
+        for (var m = s; m <= end; m++) {
+          if (cur.months[m] && cur.months[m].avg_high != null) cv.push(cur.months[m].avg_high);
+          if (avg[m] && avg[m].avg_high != null) av.push(avg[m].avg_high);
+        }
+        if (!cv.length || !av.length) return null;
+        return cv.reduce(function(a,b){return a+b;},0)/cv.length - av.reduce(function(a,b){return a+b;},0)/av.length;
+      }
+      function rd(s, e) {
+        var end = Math.min(e, cm);
+        if (s > end) return null;
+        var cs = 0, as_ = 0;
+        for (var m = s; m <= end; m++) {
+          if (cur.months[m] && cur.months[m].total_rain != null) cs += cur.months[m].total_rain;
+          if (avg[m] && avg[m].total_rain != null) as_ += avg[m].total_rain;
+        }
+        return cs - as_;
+      }
+      var startPhrase = 'This growing season';
+      var curFrostRow = ft.find(function(r){ return r.year === data.current_year; });
+      if (curFrostRow && curFrostRow.last_spring_frost && histFrosts.length) {
+        var doy = function(ds) {
+          var d = new Date(ds + 'T12:00:00');
+          return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+        };
+        var curDOY = doy(curFrostRow.last_spring_frost);
+        var avgDOY = histFrosts.reduce(function(s,r){ return s + doy(r.last_spring_frost); }, 0) / histFrosts.length;
+        var diff = curDOY - avgDOY;
+        if (diff < -10) startPhrase = 'The growing season ' + col('started early', '#2E7D32') + ' this year';
+        else if (diff > 10) startPhrase = 'The growing season got off to a ' + col('late start', '#E65100') + ' this year';
+        else startPhrase = 'The growing season started around its usual time';
+      }
+      var springEnd = Math.min(5, cm);
+      var sTd = hd(gsStart, springEnd);
+      var sRd = rd(gsStart, springEnd);
+      var s1 = cm <= 5
+        ? startPhrase + ' is running ' + tempDesc(sTd) + ' with ' + rainDesc(sRd) + ' so far.'
+        : startPhrase + ', with ' + tempDesc(sTd) + ' in spring and ' + rainDesc(sRd) + '.';
+      var s2 = '';
+      var lastM = cm - 1;
+      if (lastM >= 6) {
+        var mc2 = cur.months[lastM], ma2 = avg[lastM];
+        var lmTd = (mc2 && ma2 && mc2.avg_high != null && ma2.avg_high != null) ? mc2.avg_high - ma2.avg_high : null;
+        var lmRd = (mc2 && ma2 && mc2.total_rain != null && ma2.total_rain != null) ? mc2.total_rain - ma2.total_rain : null;
+        var lyNote = '';
+        if (ly && ly.months && ly.months[lastM] && mc2 && mc2.avg_high != null && ly.months[lastM].avg_high != null) {
+          var lmLyTd = mc2.avg_high - ly.months[lastM].avg_high;
+          if (Math.abs(lmLyTd) >= 1.2) {
+            var sameDir = lmTd != null && Math.abs(lmTd) >= 0.5 && (lmTd > 0) === (lmLyTd > 0);
+            var lyC = lmLyTd > 0 ? '#C62828' : '#1565C0';
+            var lyW = lmLyTd > 0 ? 'warmer' : 'cooler';
+            lyNote = sameDir
+              ? ' — and ' + col(lyW + ' than last ' + FULL_MS[lastM] + ' too', lyC)
+              : ', though ' + col(lyW + ' than last ' + FULL_MS[lastM], lyC);
+          }
+        }
+        if ((lmTd != null && Math.abs(lmTd) >= 0.5) || (lmRd != null && Math.abs(lmRd) >= 0.25) || lyNote) {
+          s2 = FULL_MS[lastM] + ' was ' + tempDesc(lmTd) + ' with ' + rainDesc(lmRd) + lyNote + '.';
+        }
+      }
+      return s1 + (s2 ? ' ' + s2 : '');
+    }
+
+    function deltaCell(a, b, thr, pos, neg) {
+      if (a == null || b == null) return '<td style="text-align:right;color:#aaa">—</td>';
+      var d = a - b, ab = Math.abs(d);
+      var s = ab < thr ? 'color:#999' : (d > 0 ? 'color:' + pos + ';font-weight:700' : 'color:' + neg + ';font-weight:700');
+      return '<td style="text-align:right;' + s + '">' + (d > 0 ? '+' : '') + d.toFixed(1) + '</td>';
+    }
+
+    var cm  = new Date(data.today + 'T12:00:00').getMonth();
+    var cur = data.current, avg = data.ten_year_avg, ly = data.last_year_data;
+    var narrative = buildNarrative(cur, avg, ly, cm);
+
+    var h = '<p class="wx-narrative">' + narrative + '</p>';
+    h += '<p class="wx-meta">' + data.display_name + ' &middot; vs ' + data.avg_years_label + ' avg</p>';
+
+    if (cur) {
+      h += '<div class="wx-tables">';
+
+      /* Temperature table */
+      h += '<div class="wx-table-wrap">';
+      h += '<div class="wx-sublabel">Temperature (avg high &deg;F)</div>';
+      h += '<table class="wx-table"><thead><tr><td></td><td>High</td><td>vs ' + data.avg_years_label + '</td><td>vs ' + data.last_year + '</td></tr></thead><tbody>';
+      for (var m = 0; m <= cm; m++) {
+        var mc = cur.months[m], ma = avg[m], ml = ly ? ly.months[m] : null;
+        h += '<tr><td>' + MS[m] + '</td>';
+        h += '<td style="text-align:right">' + (mc && mc.avg_high != null ? mc.avg_high.toFixed(1) + '°' : '—') + '</td>';
+        h += deltaCell(mc && mc.avg_high, ma && ma.avg_high, 0.5, '#C62828', '#1565C0');
+        h += deltaCell(mc && mc.avg_high, ml && ml.avg_high, 0.5, '#C62828', '#1565C0');
+        h += '</tr>';
+      }
+      h += '</tbody></table></div>';
+
+      /* Rainfall table */
+      h += '<div class="wx-table-wrap">';
+      h += '<div class="wx-sublabel">Rainfall (inches)</div>';
+      h += '<table class="wx-table"><thead><tr><td></td><td>Rain</td><td>vs ' + data.avg_years_label + '</td><td>vs ' + data.last_year + '</td></tr></thead><tbody>';
+      for (var m = 0; m <= cm; m++) {
+        var mc = cur.months[m], ma = avg[m], ml = ly ? ly.months[m] : null;
+        h += '<tr><td>' + MS[m] + '</td>';
+        h += '<td style="text-align:right">' + (mc && mc.total_rain != null ? mc.total_rain.toFixed(1) + '"' : '—') + '</td>';
+        h += deltaCell(mc && mc.total_rain, ma && ma.total_rain, 0.25, '#1565C0', '#E65100');
+        h += deltaCell(mc && mc.total_rain, ml && ml.total_rain, 0.25, '#1565C0', '#E65100');
+        h += '</tr>';
+      }
+      h += '</tbody></table></div>';
+
+      h += '</div>'; /* end wx-tables */
+    }
+
+    /* Last spring frost table */
+    if (data.frost_table && data.frost_table.some(function(fr){ return fr.last_spring_frost; })) {
+      h += '<div class="wx-sublabel">Last spring frost by year</div>';
+      h += '<table class="wx-frost-table"><thead><tr><td>Year</td><td>Last frost</td></tr></thead><tbody>';
+      data.frost_table.forEach(function(fr) {
+        if (!fr.last_spring_frost) return;
+        var isCur = fr.year === data.current_year;
+        h += '<tr><td style="' + (isCur ? 'font-weight:700' : '') + '">' + fr.year + (isCur ? ' <span style="font-size:0.6rem;padding:1px 4px;border-radius:3px;background:#E8F5E9;color:#2E7D32;font-weight:800">now</span>' : '') + '</td>';
+        h += '<td style="text-align:right">' + fmtDate(fr.last_spring_frost) + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+
+    document.getElementById('wx-diary-content').innerHTML = h;
+  })();
+  </script>
+  {% endif %}
 
   <!-- ── Zones Overview ──────────────────────────────────────────── -->
   {% if zones %}
