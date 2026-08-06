@@ -790,15 +790,13 @@ self.addEventListener('activate', function(e) {
             fert_alerts=fert_alerts,
             ff_water=ff_water,
             watering_alerts=watering_alerts,
-            ff_weather=_feature_weather(g.user),
+            ff_weather=True,
             today=today,
         )
 
     @app.route("/weather/data")
     @login_required
     def weather_data():
-        if not _feature_weather(g.user):
-            return jsonify(error="not_enabled"), 403
         try:
             return _weather_data_inner()
         except Exception as exc:
@@ -2908,17 +2906,16 @@ self.addEventListener('activate', function(e) {
         current_year = today[:4]
         season_start = f"{current_year}-01-01"
 
-        # Weather summary for diary header (feature-gated)
+        # Weather summary for diary header
         weather_json = None
-        if _feature_weather(g.user):
-            try:
-                import json as _json
-                location_str = (g.user.get("location") or "").strip()
-                payload = _weather_payload(db, user_id, location_str)
-                if "error" not in payload:
-                    weather_json = _json.dumps(payload)
-            except Exception:
-                pass
+        try:
+            import json as _json
+            location_str = (g.user.get("location") or "").strip()
+            payload = _weather_payload(db, user_id, location_str)
+            if "error" not in payload:
+                weather_json = _json.dumps(payload)
+        except Exception:
+            pass
 
         # ── Zones ──────────────────────────────────────────────────────────
         zones = db.execute(
@@ -8335,11 +8332,6 @@ def _feature_fertilization(user):
 def _feature_watering(user):
     """Feature flag: watering tracker. Early-access only."""
     return (user or {}).get("username") in {"boatmarina", "holval@gmail.com"}
-
-
-def _feature_weather(user):
-    """Feature flag: seasonal weather tracker. Early-access for boatmarina and demo."""
-    return (user or {}).get("username") in {"boatmarina", "demo"}
 
 
 def _feature_home_assistant(user):
