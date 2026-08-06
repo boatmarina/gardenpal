@@ -38,7 +38,6 @@
   </div>
 
   <!-- Growing season weather -->
-  {% if ff_weather %}
   <div id="weather-section" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#558B2F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -59,7 +58,6 @@
       <div id="weather-error" hidden style="padding:14px 16px;color:var(--muted);font-size:0.82rem"></div>
     </div>
   </div>
-  {% endif %}
 
   <!-- Plant suggestion card -->
   <div id="suggestion-wrap" style="margin-bottom:20px">
@@ -777,7 +775,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{% if ff_weather %}
 <script>
 (function () {
   var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1039,5 +1036,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 })();
 </script>
-{% endif %}
 {% endblock %}
