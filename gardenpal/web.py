@@ -802,98 +802,8 @@ self.addEventListener('activate', function(e) {
     def _weather_data_inner():
         user_id = g.user["id"]
         location_str = (g.user.get("location") or "").strip()
-        if not location_str:
-            return jsonify(error="no_location")
         db = get_db()
-        geo = _weather_geocode(db, user_id, location_str)
-        if not geo:
-            return jsonify(error="geocode_failed")
-        lat, lon, display_name = geo
-
-        from datetime import date as _date
-        current_year = _date.today().year
-        last_year = current_year - 1
-        avg_start = current_year - 10   # 10 full past years: e.g. 2016–2025
-        avg_end = current_year - 1
-        all_years = list(range(avg_start, current_year + 1))  # 11 years
-
-        # Load from cache
-        cached = {}
-        now_iso = datetime.utcnow().isoformat(timespec="seconds")
-        for row in db.execute(
-            f"SELECT year, data_json, fetched_at FROM weather_cache"
-            f" WHERE user_id = ? AND year IN ({','.join(['?']*len(all_years))})",
-            [user_id] + all_years,
-        ).fetchall():
-            try:
-                import json as _json
-                max_age_h = 6 if row["year"] == current_year else 24 * 30
-                age_h = (datetime.utcnow() - datetime.fromisoformat(row["fetched_at"])).total_seconds() / 3600
-                if age_h < max_age_h:
-                    cached[row["year"]] = _json.loads(row["data_json"])
-            except Exception:
-                pass
-
-        years_to_fetch = [y for y in all_years if y not in cached]
-        if years_to_fetch:
-            import json as _json
-            fetched = _weather_fetch_years(lat, lon, years_to_fetch)
-            for y, summary in fetched.items():
-                cached[y] = summary
-                db.execute(
-                    "INSERT INTO weather_cache (user_id, year, data_json, fetched_at)"
-                    " VALUES (?, ?, ?, ?)"
-                    " ON CONFLICT (user_id, year) DO UPDATE SET"
-                    " data_json=EXCLUDED.data_json, fetched_at=EXCLUDED.fetched_at",
-                    (user_id, y, _json.dumps(summary), now_iso),
-                )
-            db.commit()
-
-        if not cached:
-            return jsonify(error="fetch_failed")
-
-        # 10-year monthly averages
-        avg_years = [y for y in range(avg_start, avg_end + 1) if y in cached]
-        ten_year_avg = []
-        for m in range(1, 13):
-            highs = [cached[y]["months"][m - 1]["avg_high"] for y in avg_years
-                     if cached[y]["months"][m - 1]["avg_high"] is not None]
-            lows  = [cached[y]["months"][m - 1]["avg_low"]  for y in avg_years
-                     if cached[y]["months"][m - 1]["avg_low"]  is not None]
-            rains = [cached[y]["months"][m - 1]["total_rain"] for y in avg_years
-                     if cached[y]["months"][m - 1]["total_rain"] is not None]
-            ten_year_avg.append({
-                "month": m,
-                "avg_high":   round(sum(highs) / len(highs), 1) if highs else None,
-                "avg_low":    round(sum(lows)  / len(lows),  1) if lows  else None,
-                "total_rain": round(sum(rains) / len(rains), 2) if rains else None,
-            })
-
-        # Frost table: last 5 complete years + current year
-        frost_years = sorted(
-            [y for y in range(last_year - 4, current_year + 1) if y in cached],
-            reverse=True,
-        )
-        frost_table = [
-            {
-                "year": y,
-                "last_spring_frost": cached[y]["frost"]["last_spring"],
-                "first_fall_frost":  cached[y]["frost"]["first_fall"],
-            }
-            for y in frost_years
-        ]
-
-        return jsonify(
-            display_name=display_name,
-            current_year=current_year,
-            last_year=last_year,
-            avg_years_label=f"{avg_start}–{avg_end}",
-            current=cached.get(current_year),
-            last_year_data=cached.get(last_year),
-            ten_year_avg=ten_year_avg,
-            frost_table=frost_table,
-            today=_date.today().isoformat(),
-        )
+        return jsonify(_weather_payload(db, user_id, location_str))
 
     @app.route("/fert-never", methods=["POST"])
     @login_required
@@ -2992,6 +2902,18 @@ self.addEventListener('activate', function(e) {
         current_year = today[:4]
         season_start = f"{current_year}-01-01"
 
+        # Weather summary for diary header (feature-gated)
+        weather_json = None
+        if _feature_weather(g.user):
+            try:
+                import json as _json
+                location_str = (g.user.get("location") or "").strip()
+                payload = _weather_payload(db, user_id, location_str)
+                if "error" not in payload:
+                    weather_json = _json.dumps(payload)
+            except Exception:
+                pass
+
         # ── Zones ──────────────────────────────────────────────────────────
         zones = db.execute(
             f"SELECT id, name, description FROM yard_zones WHERE user_id IN {ph} ORDER BY name ASC",
@@ -3106,6 +3028,7 @@ self.addEventListener('activate', function(e) {
             plant_notes_map=plant_notes_map,
             current_year=current_year,
             today=today,
+            weather_json=weather_json,
         )
 
     @app.route("/export/diary.pdf")
@@ -8598,6 +8521,98 @@ def _weather_fetch_years(lat, lon, years):
             by_year[y]["temperature_2m_min"].append(daily_all["temperature_2m_min"][i])
             by_year[y]["precipitation_sum"].append(daily_all["precipitation_sum"][i])
     return {y: _weather_summarise_year(by_year[y], y) for y in years if by_year[y]["time"]}
+
+
+def _weather_payload(db, user_id, location_str):
+    """Fetch and return weather data dict. Returns {"error": reason} on failure."""
+    import json as _json
+    from datetime import date as _date
+
+    if not location_str:
+        return {"error": "no_location"}
+    geo = _weather_geocode(db, user_id, location_str)
+    if not geo:
+        return {"error": "geocode_failed"}
+    lat, lon, display_name = geo
+
+    current_year = _date.today().year
+    last_year = current_year - 1
+    avg_start = current_year - 10
+    avg_end = current_year - 1
+    all_years = list(range(avg_start, current_year + 1))
+
+    cached = {}
+    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    for row in db.execute(
+        f"SELECT year, data_json, fetched_at FROM weather_cache"
+        f" WHERE user_id = ? AND year IN ({','.join(['?']*len(all_years))})",
+        [user_id] + all_years,
+    ).fetchall():
+        try:
+            max_age_h = 6 if row["year"] == current_year else 24 * 30
+            age_h = (datetime.utcnow() - datetime.fromisoformat(row["fetched_at"])).total_seconds() / 3600
+            if age_h < max_age_h:
+                cached[row["year"]] = _json.loads(row["data_json"])
+        except Exception:
+            pass
+
+    years_to_fetch = [y for y in all_years if y not in cached]
+    if years_to_fetch:
+        fetched = _weather_fetch_years(lat, lon, years_to_fetch)
+        for y, summary in fetched.items():
+            cached[y] = summary
+            db.execute(
+                "INSERT INTO weather_cache (user_id, year, data_json, fetched_at)"
+                " VALUES (?, ?, ?, ?)"
+                " ON CONFLICT (user_id, year) DO UPDATE SET"
+                " data_json=EXCLUDED.data_json, fetched_at=EXCLUDED.fetched_at",
+                (user_id, y, _json.dumps(summary), now_iso),
+            )
+        db.commit()
+
+    if not cached:
+        return {"error": "fetch_failed"}
+
+    avg_years = [y for y in range(avg_start, avg_end + 1) if y in cached]
+    ten_year_avg = []
+    for m in range(1, 13):
+        highs = [cached[y]["months"][m - 1]["avg_high"] for y in avg_years
+                 if cached[y]["months"][m - 1]["avg_high"] is not None]
+        lows  = [cached[y]["months"][m - 1]["avg_low"]  for y in avg_years
+                 if cached[y]["months"][m - 1]["avg_low"]  is not None]
+        rains = [cached[y]["months"][m - 1]["total_rain"] for y in avg_years
+                 if cached[y]["months"][m - 1]["total_rain"] is not None]
+        ten_year_avg.append({
+            "month": m,
+            "avg_high":   round(sum(highs) / len(highs), 1) if highs else None,
+            "avg_low":    round(sum(lows)  / len(lows),  1) if lows  else None,
+            "total_rain": round(sum(rains) / len(rains), 2) if rains else None,
+        })
+
+    frost_years = sorted(
+        [y for y in range(last_year - 4, current_year + 1) if y in cached],
+        reverse=True,
+    )
+    frost_table = [
+        {
+            "year": y,
+            "last_spring_frost": cached[y]["frost"]["last_spring"],
+            "first_fall_frost":  cached[y]["frost"]["first_fall"],
+        }
+        for y in frost_years
+    ]
+
+    return {
+        "display_name": display_name,
+        "current_year": current_year,
+        "last_year": last_year,
+        "avg_years_label": f"{avg_start}–{avg_end}",
+        "current": cached.get(current_year),
+        "last_year_data": cached.get(last_year),
+        "ten_year_avg": ten_year_avg,
+        "frost_table": frost_table,
+        "today": _date.today().isoformat(),
+    }
 
 
 def _fert_pill_date(row, today):
