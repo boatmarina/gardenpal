@@ -452,15 +452,10 @@
               <span style="font-size:0.7rem;background:#fce8e8;color:#b04040;border:1px solid #f5c0c0;border-radius:4px;padding:1px 6px;font-weight:600">{{ row.error_type or 'error' }}</span>
               <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
                 <span style="font-size:0.72rem;color:var(--muted)">{{ row.username or '(anon)' }} · {{ row.logged_at[:16].replace('T', ' ') }}</span>
-                {% if row.error_detail %}
                 <button class="err-copy-btn" data-idx="{{ loop.index }}" title="Copy full error"
-                        style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;color:var(--muted);font-size:0.68rem;font-family:inherit;display:flex;align-items:center;gap:3px;white-space:nowrap;flex-shrink:0">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                  </svg>
+                        style="background:#f0f0f0;border:1px solid #ccc;border-radius:4px;padding:3px 8px;cursor:pointer;color:#333;font-size:0.72rem;font-weight:600;font-family:inherit;white-space:nowrap;flex-shrink:0">
                   Copy
                 </button>
-                {% endif %}
               </div>
             </div>
             {% if row.error_detail %}
