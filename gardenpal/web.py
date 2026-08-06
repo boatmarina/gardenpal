@@ -296,7 +296,7 @@ def create_app() -> Flask:
         {
             "version": "2026-08-a",
             "title": "Growing season weather on your home screen",
-            "body": "See how your growing season is tracking right from the home screen — a plain-English summary with color-coded signals for temperature and rainfall, compared to your 10-year average. Tap Details for a full monthly breakdown and frost date history. The same summary also appears at the top of your Season Diary export.",
+            "body": "See how your season is tracking — temperature and rainfall vs. your 10-year average, in plain English. Tap Details for a full monthly breakdown. Also appears in your Season Diary export.",
             "draft": True,
         },
         {
