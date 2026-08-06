@@ -2899,6 +2899,7 @@ self.addEventListener('activate', function(e) {
         db = get_db()
         user_id = g.user["id"]
         _log_activity(db, user_id, "diary_opened", "diary")
+        db.commit()
         ids = _shared_user_ids(db, user_id)
         ph, id_args = _in_ids(ids)
 
@@ -3216,6 +3217,7 @@ self.addEventListener('activate', function(e) {
     def export_diary_log():
         db = get_db()
         _log_activity(db, g.user["id"], "diary_print", "diary")
+        db.commit()
         return "", 204
 
     @app.route("/settings/photo-id-provider", methods=["POST"])
