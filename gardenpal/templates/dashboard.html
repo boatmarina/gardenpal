@@ -857,6 +857,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /* ── Season-start phrase (from frost timing comparison) ── */
     var startPhrase = 'This growing season';
+    var startHasVerb = false;
     var curFrostRow = ft.find(function(r){ return r.year === data.current_year; });
     if (curFrostRow && curFrostRow.last_spring_frost && histFrosts.length) {
       var doy = function(ds) {
@@ -868,10 +869,13 @@ document.addEventListener('DOMContentLoaded', function() {
       var diff = curDOY - avgDOY; /* negative = frost cleared earlier = season started early */
       if (diff < -10) {
         startPhrase = 'The growing season ' + col('started early', '#2E7D32') + ' this year';
+        startHasVerb = true;
       } else if (diff > 10) {
         startPhrase = 'The growing season got off to a ' + col('late start', '#E65100') + ' this year';
+        startHasVerb = true;
       } else {
         startPhrase = 'The growing season started around its usual time';
+        startHasVerb = true;
       }
     }
 
@@ -881,7 +885,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var sRd = rd(gsStart, springEnd);
     var s1 = cm <= 5
       ? startPhrase + ' is running ' + tempDesc(sTd) + ' with ' + rainDesc(sRd) + ' so far.'
-      : startPhrase + ', with ' + tempDesc(sTd) + ' in spring and ' + rainDesc(sRd) + '.';
+      : startPhrase + (startHasVerb ? ' — ' : ' has been ') + tempDesc(sTd) + ' through spring, with ' + rainDesc(sRd) + '.';
 
     /* ── Sentence 2: Last completed summer month (July+) ── */
     var s2 = '';
