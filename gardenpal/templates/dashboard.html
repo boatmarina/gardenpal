@@ -7,6 +7,60 @@
     <p class="hero-sub">Save plants you love. Track what you grow. Remember how it went.</p>
   </div>
 
+  <!-- Home garden assistant -->
+  <div class="card" style="padding:0;margin-bottom:20px;overflow:hidden">
+    <button id="home-chat-toggle" type="button"
+            style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 20px 10px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--fg);text-align:left">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--green-dark)">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Ask your garden assistant
+      <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="home-chat-examples" style="padding:0 20px 14px">
+      <p style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:5px">Try asking</p>
+      <p id="home-chat-example-text" style="font-size:0.82rem;color:var(--fg);margin:0;transition:opacity 0.35s;font-style:italic;line-height:1.4;min-height:2.8em">"Add zucchini planted today in front yard zone, variety spineless beauty"</p>
+    </div>
+    <div id="home-chat-panel" hidden>
+      <div id="home-chat-messages" style="padding:4px 20px 10px;display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;padding:10px 20px 18px;border-top:1px solid var(--border);align-items:flex-end">
+        <textarea id="home-chat-input" rows="2" placeholder="Ask about your garden, add a note, change a zone…"
+                  enterkeyhint="send"
+                  style="flex:1;font-size:16px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--fg);font-family:inherit;resize:none;line-height:1.4;max-height:100px;overflow-y:auto"></textarea>
+        <button id="home-chat-send"
+                style="flex-shrink:0;width:38px;height:38px;background:#1C3829;color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.18)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Growing season weather -->
+  {% if ff_weather %}
+  <div id="weather-section" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#558B2F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#558B2F">Growing Season</span>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="weather-loading" style="padding:14px 16px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.82rem">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 1s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        Loading…
+      </div>
+      <div id="weather-content" hidden></div>
+      <div id="weather-error" hidden style="padding:14px 16px;color:var(--muted);font-size:0.82rem"></div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Plant suggestion card -->
   <div id="suggestion-wrap" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
@@ -44,87 +98,6 @@
       </div>
     </a>
   </div>
-
-  <!-- Home garden assistant -->
-  <div class="card" style="padding:0;margin-bottom:20px;overflow:hidden">
-    <button id="home-chat-toggle" type="button"
-            style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 20px 10px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--fg);text-align:left">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--green-dark)">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-      Ask your garden assistant
-      <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div id="home-chat-examples" style="padding:0 20px 14px">
-      <p style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:5px">Try asking</p>
-      <p id="home-chat-example-text" style="font-size:0.82rem;color:var(--fg);margin:0;transition:opacity 0.35s;font-style:italic;line-height:1.4;min-height:2.8em">"Add zucchini planted today in front yard zone, variety spineless beauty"</p>
-    </div>
-    <div id="home-chat-panel" hidden>
-      <div id="home-chat-messages" style="padding:4px 20px 10px;display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto"></div>
-      <div style="display:flex;gap:8px;padding:10px 20px 18px;border-top:1px solid var(--border);align-items:flex-end">
-        <textarea id="home-chat-input" rows="2" placeholder="Ask about your garden, add a note, change a zone…"
-                  enterkeyhint="send"
-                  style="flex:1;font-size:16px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);color:var(--fg);font-family:inherit;resize:none;line-height:1.4;max-height:100px;overflow-y:auto"></textarea>
-        <button id="home-chat-send"
-                style="flex-shrink:0;width:38px;height:38px;background:#1C3829;color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.18)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  {% if ff_water %}
-  <div id="water-section" style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-      </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
-      {% if watering_alerts %}
-      <button type="button" id="water-mark-all-btn"
-              style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
-      {% endif %}
-    </div>
-    {% if watering_alerts %}
-    <div id="water-alert-list" class="card" style="padding:0;overflow:hidden">
-      {% for alert in watering_alerts %}
-      <div data-water-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
-        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
-          <div style="flex:1;min-width:0">
-            <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
-            <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
-          </div>
-          {% if alert.overdue %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Overdue</span>
-          {% else %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
-          {% endif %}
-          <button type="button" class="water-done-btn"
-                  data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
-                  data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
-                  title="Mark as watered today"
-                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
-                  <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
-                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
-                    <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  Done</button>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="card" style="padding:11px 14px;display:flex;align-items:center;gap:10px">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-      <span style="font-size:0.85rem;color:var(--muted)">All plants are watered — nothing due today or tomorrow.</span>
-    </div>
-    {% endif %}
-  </div>
-  {% endif %}
 
   {% if ff_fert %}
   <div data-fert-section style="margin-bottom:20px">
@@ -254,6 +227,57 @@
     </div>
   </div>
 
+  {% if ff_water %}
+  <div id="water-section" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+      </svg>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+      {% if watering_alerts %}
+      <button type="button" id="water-mark-all-btn"
+              style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
+      {% endif %}
+    </div>
+    {% if watering_alerts %}
+    <div id="water-alert-list" class="card" style="padding:0;overflow:hidden">
+      {% for alert in watering_alerts %}
+      <div data-water-row style="{% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
+          <div style="flex:1;min-width:0">
+            <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
+            <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
+          </div>
+          {% if alert.overdue %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Overdue</span>
+          {% else %}
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
+          {% endif %}
+          <button type="button" class="water-done-btn"
+                  data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
+                  data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
+                  title="Mark as watered today"
+                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
+                    <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Done</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="padding:11px 14px;display:flex;align-items:center;gap:10px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span style="font-size:0.85rem;color:var(--muted)">All plants are watered — nothing due today or tomorrow.</span>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <div class="action-cards" style="grid-template-columns:repeat(3,1fr)">
     <a href="{{ url_for('new_idea') }}" class="action-card">
       <div class="action-card-icon">
@@ -286,29 +310,6 @@
       <span class="action-card-label">Add Zone</span>
     </a>
   </div>
-
-  {% if ff_weather %}
-  <div id="weather-section" style="margin-bottom:20px">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#558B2F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="4"/>
-        <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-        <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#558B2F">Growing Season</span>
-    </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <div id="weather-loading" style="padding:14px 16px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.82rem">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 1s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        Loading…
-      </div>
-      <div id="weather-content" hidden></div>
-      <div id="weather-error" hidden style="padding:14px 16px;color:var(--muted);font-size:0.82rem"></div>
-    </div>
-  </div>
-  {% endif %}
 
 {% endblock %}
 
