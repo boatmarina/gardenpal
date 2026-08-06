@@ -294,6 +294,12 @@ def create_app() -> Flask:
     # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
     WHATS_NEW_CHANGELOG = [
         {
+            "version": "2026-08-a",
+            "title": "Growing season weather — now in your diary too",
+            "body": "The growing season summary now appears at the top of your Season Diary export. It includes the narrative overview, monthly temperature and rainfall detail tables (with 10-year averages and last-year comparisons), and last spring frost dates by year.",
+            "draft": True,
+        },
+        {
             "version": "2026-07-a",
             "title": "Season Diary — your garden in print",
             "body": "Export a beautifully formatted garden diary from Settings. It captures your zones, every edible plant's growth log with photos, and your full ornamentals library — ready to view, share, or print as a PDF.",
