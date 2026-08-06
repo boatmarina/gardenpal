@@ -688,7 +688,17 @@
             }
           }
           var nextEl = document.getElementById('detail-next-fert-date');
-          if (nextEl && d.next_date) nextEl.textContent = gpFormatDate(d.next_date);
+          if (nextEl) {
+            if (d.next_not_needed) {
+              nextEl.textContent = 'Not needed';
+              nextEl.style.color = 'var(--muted)';
+              var fertDoneWrap = detailFertDoneBtn.parentElement;
+              if (fertDoneWrap) fertDoneWrap.style.display = 'none';
+            } else if (d.next_date) {
+              nextEl.textContent = gpFormatDate(d.next_date);
+              nextEl.style.color = '';
+            }
+          }
           if (d.next_note) {
             var noteEl = document.querySelector('#fert-next-panel p');
             if (noteEl) noteEl.textContent = d.next_note;

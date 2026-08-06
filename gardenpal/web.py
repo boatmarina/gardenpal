@@ -4233,7 +4233,8 @@ self.addEventListener('activate', function(e) {
         result = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes_list)
         next_date = result.get("date") if result else None
         next_note = result.get("note") if result else None
-        return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note})
+        next_not_needed = bool(result.get("not_needed")) if result else False
+        return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note, "next_not_needed": next_not_needed})
 
     @app.route("/watering/mark-all-today", methods=["POST"])
     @login_required
@@ -8750,6 +8751,8 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 "Consider any planting notes provided — they may contain important context about the plant's origin.\n"
                 "If the plant is at the end of its life cycle, is bolting, has died, or fertilizing would "
                 "cause harm or provide no meaningful benefit, use NOT_NEEDED instead of a date.\n"
+                "Do NOT use NOT_NEEDED simply because the plant was recently fertilized and just needs "
+                "a waiting period — in that case return the next scheduled date (e.g. 21 days from today).\n"
                 "Reply with ONLY:\n"
                 "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
                 "Line 2: INTERVAL_DAYS: <integer days between fertilizations, e.g. 28> OR INTERVAL_DAYS: none\n"
