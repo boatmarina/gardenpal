@@ -1656,8 +1656,8 @@ self.addEventListener('activate', function(e) {
         db.commit()
         user_location = g.user.get("location") if g.user else None
         result = _suggest_next_fertilization_ornamental(db, plant, user_location, today)
-        next_date = result["date"] if result else None
-        next_note = result["note"] if result else None
+        next_date = result.get("date") if result else None
+        next_note = result.get("note") if result else None
         return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note})
 
     @app.route("/yard")
@@ -4005,8 +4005,8 @@ self.addEventListener('activate', function(e) {
                 user_location = g.user.get("location") if g.user else None
                 lf = {"date": last_fert_date, "type": last_fert_type}
                 result = _suggest_next_fertilization(db, entry, user_location, lf, growth_notes_list)
-                next_date = result["date"] if result else None
-                next_note = result["note"] if result else None
+                next_date = result.get("date") if result else None
+                next_note = result.get("note") if result else None
             return jsonify({"ok": True, "last_date": last_fert_date or None,
                             "cleared": bool(clear_fertilized),
                             "next_date": next_date, "next_note": next_note})
@@ -4225,8 +4225,8 @@ self.addEventListener('activate', function(e) {
         user_location = g.user.get("location") if g.user else None
         last_fertilized = {"date": today, "type": fertilizer_type}
         result = _suggest_next_fertilization(db, entry, user_location, last_fertilized, growth_notes_list)
-        next_date = result["date"] if result else None
-        next_note = result["note"] if result else None
+        next_date = result.get("date") if result else None
+        next_note = result.get("note") if result else None
         return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note})
 
     @app.route("/watering/mark-all-today", methods=["POST"])
