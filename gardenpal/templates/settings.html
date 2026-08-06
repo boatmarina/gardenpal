@@ -450,14 +450,43 @@
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
               <span style="font-size:0.75rem;font-weight:600;font-family:monospace;color:var(--muted)">{{ row.method }} {{ row.path }}</span>
               <span style="font-size:0.7rem;background:#fce8e8;color:#b04040;border:1px solid #f5c0c0;border-radius:4px;padding:1px 6px;font-weight:600">{{ row.error_type or 'error' }}</span>
-              <span style="font-size:0.72rem;color:var(--muted);margin-left:auto">{{ row.username or '(anon)' }} · {{ row.logged_at[:16].replace('T', ' ') }}</span>
+              <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0">
+                <span style="font-size:0.72rem;color:var(--muted)">{{ row.username or '(anon)' }} · {{ row.logged_at[:16].replace('T', ' ') }}</span>
+                {% if row.error_detail %}
+                <button class="err-copy-btn" data-idx="{{ loop.index }}" title="Copy full error"
+                        style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;cursor:pointer;color:var(--muted);font-size:0.68rem;font-family:inherit;display:flex;align-items:center;gap:3px;white-space:nowrap;flex-shrink:0">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+                {% endif %}
+              </div>
             </div>
             {% if row.error_detail %}
-              <pre style="font-size:0.72rem;color:var(--muted);margin:0;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto">{{ row.error_detail[:600] }}</pre>
+              <pre id="err-detail-{{ loop.index }}" style="font-size:0.72rem;color:var(--muted);margin:0;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto">{{ row.error_detail }}</pre>
             {% endif %}
           </div>
           {% endfor %}
         </div>
+        <script>
+        document.querySelectorAll('.err-copy-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var idx = btn.dataset.idx;
+            var pre = document.getElementById('err-detail-' + idx);
+            if (!pre) return;
+            var row = btn.closest('div[style]');
+            var meta = row ? (row.querySelector('span[style*="monospace"]') || {}).textContent || '' : '';
+            var text = meta.trim() + '\n' + pre.textContent;
+            navigator.clipboard.writeText(text.trim()).then(function() {
+              btn.textContent = 'Copied!';
+              setTimeout(function() {
+                btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+              }, 1500);
+            });
+          });
+        });
+        </script>
       {% else %}
         <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No errors logged yet.</p>
       {% endif %}
