@@ -162,7 +162,7 @@
                       style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit;text-align:left">
                 <span style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Update next fertilization date</span>
                 <span style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:0.85rem;color:var(--fg)">
+                  <span id="dash-fert-next-label-{{ loop.index }}" style="font-size:0.85rem;color:var(--fg)">
                     {%- set eff_next = alert.planned_date or alert.date -%}
                     {%- if not eff_next %}Never
                     {%- elif eff_next == today %}Today
@@ -172,7 +172,8 @@
                   <svg id="dash-fert-next-chev-{{ loop.index }}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);transition:transform 0.2s;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
                 </span>
               </button>
-              <div id="dash-fert-next-{{ loop.index }}" hidden style="padding:4px 0 4px">
+              <div id="dash-fert-next-{{ loop.index }}" hidden style="padding:4px 0 4px"
+                   data-has-planned="{{ 'true' if alert.planned_date else 'false' }}">
                 <input type="date" name="planned_date"
                        value="{{ alert.planned_date or alert.date or '' }}"
                        style="font-size:0.85rem;width:100%;box-sizing:border-box" />
@@ -373,6 +374,16 @@ function fertToggle(n) {
               chip.style.background = '#E8F5E9';
               chip.style.color = '#2E7D32';
               chip.style.borderColor = '#A5D6A7';
+            }
+            var nextLabel = document.getElementById('dash-fert-next-label-' + n);
+            if (nextLabel) {
+              var today2 = '{{ today }}';
+              nextLabel.textContent = d.date === today2 ? 'Today' : new Date(d.date + 'T00:00:00').toLocaleDateString([], {month:'short', day:'numeric'});
+            }
+            var nextPanel = document.getElementById('dash-fert-next-' + n);
+            if (nextPanel && nextPanel.dataset.hasPlanned !== 'true') {
+              var inp = nextPanel.querySelector('input[name="planned_date"]');
+              if (inp) inp.value = d.date;
             }
           }
         })
