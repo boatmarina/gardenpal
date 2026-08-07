@@ -611,6 +611,15 @@
     </div>
   </div>
 
+  <!-- Fertilize-today loading overlay -->
+  <div id="idea-fert-loading-overlay" hidden
+       style="position:fixed;inset:0;z-index:910;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center">
+    <div style="background:var(--card);border-radius:14px;padding:28px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.22);min-width:160px">
+      <div class="spinner"></div>
+      <p style="margin:0;font-size:0.88rem;font-weight:600;color:var(--fg)">Updating…</p>
+    </div>
+  </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -720,9 +729,11 @@
       var origHtml = ideaFertDoneBtn.innerHTML;
       ideaFertDoneBtn.disabled = true;
       ideaFertDoneBtn.style.opacity = '0.5';
+      document.getElementById('idea-fert-loading-overlay').hidden = false;
       fetch('{{ url_for("idea_fertilized_today", plant_id=plant.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
         .then(function(r){return r.json();})
         .then(function(d){
+          document.getElementById('idea-fert-loading-overlay').hidden = true;
           if (d.ok) {
             var lastEl = document.getElementById('idea-last-fert-value');
             if (lastEl && d.today) lastEl.textContent = gpFormatDate(d.today);
@@ -737,9 +748,9 @@
             ideaFertDoneBtn.style.cursor = 'default';
             ideaFertDoneBtn.style.pointerEvents = 'none';
             showFertTypePopup();
-          } else { ideaFertDoneBtn.innerHTML = origHtml; ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '1'; }
+          } else { document.getElementById('idea-fert-loading-overlay').hidden = true; ideaFertDoneBtn.innerHTML = origHtml; ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '1'; }
         })
-        .catch(function(){ ideaFertDoneBtn.innerHTML = origHtml; ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '1'; });
+        .catch(function(){ document.getElementById('idea-fert-loading-overlay').hidden = true; ideaFertDoneBtn.innerHTML = origHtml; ideaFertDoneBtn.disabled = false; ideaFertDoneBtn.style.opacity = '1'; });
     });
   }
 
