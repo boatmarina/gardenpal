@@ -616,12 +616,18 @@
     if (fertTypeOverlay) fertTypeOverlay.hidden = true;
   }
 
-  function _prependGrowthLogEntry(dateStr, noteText) {
+  function _prependGrowthLogEntry(dateStr, noteText, photoId) {
     var container = document.getElementById('growth-log-entries');
     if (!container || !dateStr) return;
+    var editLink = photoId
+      ? '<a href="/garden/photos/' + photoId + '/edit" style="position:absolute;top:8px;right:10px;padding:4px;color:var(--muted);line-height:1;display:flex" aria-label="Edit note">'
+        + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+        + '</a>'
+      : '';
     var div = document.createElement('div');
     div.style.borderTop = '1px solid var(--border)';
     div.innerHTML = '<div style="padding:12px 14px;position:relative">'
+      + editLink
       + '<p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">' + gpFormatDate(dateStr) + '</p>'
       + '<p style="font-size:0.8rem;color:var(--muted)">' + (noteText || '') + '</p>'
       + '</div>';
@@ -642,7 +648,7 @@
         .then(function(r){return r.json();})
         .then(function(d){
           if (d.ok) {
-            _prependGrowthLogEntry(d.date, d.note_text);
+            _prependGrowthLogEntry(d.date, d.note_text, d.photo_id);
             // Update last-fert display to include type on second line
             if (val) {
               var lastEl = document.getElementById('detail-last-fert-value');
@@ -726,8 +732,12 @@
           detailFertDoneBtn.style.color = '#A5D6A7';
           detailFertDoneBtn.style.cursor = 'default';
           detailFertDoneBtn.style.pointerEvents = 'none';
+          var lastInp = document.getElementById('detail-last-fert-date-input');
+          if (lastInp) lastInp.value = d.today;
+          var clearBtn = document.getElementById('detail-clear-fert-date-btn');
+          if (clearBtn) clearBtn.style.display = '';
           var noteText = 'Fertilized' + (fertType ? ' — ' + fertType : '');
-          _prependGrowthLogEntry(d.today, noteText);
+          _prependGrowthLogEntry(d.today, noteText, d.photo_id);
         } else { document.getElementById('fert-loading-overlay').hidden = true; detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; }
       })
       .catch(function(){ document.getElementById('fert-loading-overlay').hidden = true; detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; });
