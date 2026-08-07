@@ -717,7 +717,7 @@
               nextEl.textContent = gpFormatDate(d.next_date);
               nextEl.style.color = '';
               var plannedInp2 = document.querySelector('#fert-next-date-section input[name="planned_date"]');
-              if (plannedInp2 && !plannedInp2.value) plannedInp2.value = d.next_date;
+              if (plannedInp2) plannedInp2.value = d.next_date;
             }
           }
           if (d.next_note) {
