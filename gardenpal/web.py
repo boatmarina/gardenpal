@@ -4075,7 +4075,7 @@ self.addEventListener('activate', function(e) {
             (entry_id, g.user["id"], fert_date, note_text,
              datetime.utcnow().isoformat(timespec="seconds"), fertilizer_type, fert_date),
         ).fetchone()
-        photo_id = photo_row[0] if photo_row else None
+        photo_id = photo_row["id"] if photo_row else None
         if fertilizer_type:
             db.execute(
                 "UPDATE garden_entries SET last_fertilizer_type = COALESCE(?, last_fertilizer_type) WHERE id = ?",
@@ -4227,7 +4227,7 @@ self.addEventListener('activate', function(e) {
             (entry_id, g.user["id"], today, note_text,
              datetime.utcnow().isoformat(timespec="seconds"), fertilizer_type, today),
         ).fetchone()
-        photo_id = photo_row[0] if photo_row else None
+        photo_id = photo_row["id"] if photo_row else None
         _log_activity(db, g.user["id"], "fertilized", entry["plant_name"])
         db.commit()
         entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", [entry_id]).fetchone()
