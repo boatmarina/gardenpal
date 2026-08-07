@@ -1019,6 +1019,9 @@ document.addEventListener('DOMContentLoaded', function() {
         h += '</table></div>';
       }
 
+      h += '<div style="padding:10px 16px;border-top:1px solid var(--border)">';
+      h += '<p style="font-size:0.65rem;color:var(--muted);margin:0;line-height:1.5">Historical weather data from <a href="https://open-meteo.com" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:underline;text-decoration-style:dotted">Open-Meteo</a> (Archive API). Monthly averages updated weekly.</p>';
+      h += '</div>';
       h += '</div>'; /* end wx-det */
 
       var el = document.getElementById('weather-content');
