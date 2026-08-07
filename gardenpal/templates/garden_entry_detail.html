@@ -389,6 +389,15 @@
     </div>
   </div>
 
+  <!-- Fertilize-today loading overlay -->
+  <div id="fert-loading-overlay" hidden
+       style="position:fixed;inset:0;z-index:910;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center">
+    <div style="background:var(--card);border-radius:14px;padding:28px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.22);min-width:160px">
+      <div class="spinner"></div>
+      <p style="margin:0;font-size:0.88rem;font-weight:600;color:var(--fg)">Updating…</p>
+    </div>
+  </div>
+
   <!-- ── Growth log ── -->
   <div class="card" style="margin-top:20px;padding:0;overflow:hidden">
 
@@ -672,11 +681,13 @@
     var origHtml = detailFertDoneBtn.innerHTML;
     detailFertDoneBtn.disabled = true;
     detailFertDoneBtn.style.opacity = '0.5';
+    document.getElementById('fert-loading-overlay').hidden = false;
     var fd = new FormData();
     if (fertType) fd.append('fertilizer_type', fertType);
     fetch('{{ url_for("garden_fertilized_today", entry_id=entry.id) }}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd})
       .then(function(r){return r.json();})
       .then(function(d){
+        document.getElementById('fert-loading-overlay').hidden = true;
         if (d.ok) {
           var lastEl = document.getElementById('detail-last-fert-value');
           if (lastEl && d.today) {
@@ -717,9 +728,9 @@
           detailFertDoneBtn.style.pointerEvents = 'none';
           var noteText = 'Fertilized' + (fertType ? ' — ' + fertType : '');
           _prependGrowthLogEntry(d.today, noteText);
-        } else { detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; }
+        } else { document.getElementById('fert-loading-overlay').hidden = true; detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; }
       })
-      .catch(function(){ detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; });
+      .catch(function(){ document.getElementById('fert-loading-overlay').hidden = true; detailFertDoneBtn.innerHTML = origHtml; detailFertDoneBtn.disabled = false; detailFertDoneBtn.style.opacity = '1'; });
   }
 
   if (detailFertDoneBtn && !detailFertDoneBtn.disabled) {
