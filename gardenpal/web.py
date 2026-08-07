@@ -4063,20 +4063,22 @@ self.addEventListener('activate', function(e) {
         if not fert_date or not _ISO_DATE_RE.match(fert_date):
             return jsonify({"error": "Invalid date"}), 400
         note_text = "Fertilized" + (f" — {fertilizer_type}" if fertilizer_type else "")
-        db.execute(
+        photo_row = db.execute(
             "INSERT INTO garden_photos"
             " (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
-            " VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?, 1, ?, ?)"
+            " RETURNING id",
             (entry_id, g.user["id"], fert_date, note_text,
              datetime.utcnow().isoformat(timespec="seconds"), fertilizer_type, fert_date),
-        )
+        ).fetchone()
+        photo_id = photo_row[0] if photo_row else None
         if fertilizer_type:
             db.execute(
                 "UPDATE garden_entries SET last_fertilizer_type = COALESCE(?, last_fertilizer_type) WHERE id = ?",
                 (fertilizer_type, entry_id),
             )
         db.commit()
-        return jsonify({"ok": True, "date": fert_date, "note_text": note_text})
+        return jsonify({"ok": True, "date": fert_date, "note_text": note_text, "photo_id": photo_id})
 
     @app.route("/garden/<int:entry_id>/never-fertilize", methods=["POST"])
     @login_required
@@ -4213,13 +4215,15 @@ self.addEventListener('activate', function(e) {
             (today, fertilizer_type, entry_id),
         )
         note_text = "Fertilized" + (f" — {fertilizer_type}" if fertilizer_type else "")
-        db.execute(
+        photo_row = db.execute(
             "INSERT INTO garden_photos"
             " (entry_id, user_id, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date)"
-            " VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?, 1, ?, ?)"
+            " RETURNING id",
             (entry_id, g.user["id"], today, note_text,
              datetime.utcnow().isoformat(timespec="seconds"), fertilizer_type, today),
-        )
+        ).fetchone()
+        photo_id = photo_row[0] if photo_row else None
         _log_activity(db, g.user["id"], "fertilized", entry["plant_name"])
         db.commit()
         entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", [entry_id]).fetchone()
@@ -4234,7 +4238,7 @@ self.addEventListener('activate', function(e) {
         next_date = result.get("date") if result else None
         next_note = result.get("note") if result else None
         next_not_needed = bool(result.get("not_needed")) if result else False
-        return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note, "next_not_needed": next_not_needed})
+        return jsonify({"ok": True, "today": today, "next_date": next_date, "next_note": next_note, "next_not_needed": next_not_needed, "photo_id": photo_id})
 
     @app.route("/watering/mark-all-today", methods=["POST"])
     @login_required
