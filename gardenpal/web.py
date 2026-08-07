@@ -8765,8 +8765,12 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 "Never put a date when your advice is to not fertilize.\n"
                 "If the plant was recently fertilized and simply needs time before the next application, "
                 "return the future date (e.g. today + 28 days) — not NOT_NEEDED.\n"
+                "CRITICAL: If last fertilized is today, the plant was JUST fertilized. "
+                "Line 1 MUST be a future date (at least several days from now). "
+                "Never return today's date when the plant was just fertilized today — "
+                "that would immediately re-trigger fertilization.\n"
                 "Reply with ONLY:\n"
-                "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
+                "Line 1: YYYY-MM-DD (the suggested FUTURE date) OR the word NOT_NEEDED\n"
                 "Line 2: INTERVAL_DAYS: <integer days between fertilizations, e.g. 28> OR INTERVAL_DAYS: none\n"
                 "Line 3: CUTOFF_DATE: <YYYY-MM-DD last date fertilizing is beneficial this season> OR CUTOFF_DATE: none\n"
                 "Line 4+: 2-3 sentence explanation of your reasoning.\n"
@@ -8831,6 +8835,13 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
             return None
         if date_line < today_str:
             date_line = today_str
+        # If AI returned today's date but the plant was just fertilized today,
+        # it misread the prompt — try to extract a future date from the note instead.
+        if date_line == today_str and last_fert_str == today_str:
+            _future_dates = _re.findall(r'\b(\d{4}-\d{2}-\d{2})\b', note_text)
+            _future = next((d for d in _future_dates if d > today_str), None)
+            if _future:
+                date_line = _future
         # Reverse check: AI returned a date but its note clearly says to skip fertilizing
         if _note_implies_not_needed(note_text):
             _commit_not_needed()
