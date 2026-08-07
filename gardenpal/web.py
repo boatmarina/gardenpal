@@ -1487,7 +1487,11 @@ self.addEventListener('activate', function(e) {
         if clear_fertilized:
             last_fertilized_date = ""
             last_fertilizer_type = None
-        invalidate = (bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or "")) or clear_planned
+        invalidate = (
+            (bool(last_fertilized_date) and last_fertilized_date != (plant["last_fertilized_date"] or ""))
+            or clear_planned
+            or (clear_fertilized and bool(plant["last_fertilized_date"]))
+        )
         # If the new last-fertilized date is on/after the planned date, the planned date is stale.
         if planned_date and last_fertilized_date and last_fertilized_date >= planned_date:
             planned_date = ""
