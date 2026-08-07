@@ -8793,8 +8793,8 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
         _not_needed_phrases = [
             "skip fertiliz", "avoid fertiliz", "do not fertiliz", "don't fertiliz",
-            "should not fertiliz", "not benefit from fertiliz", "no fertiliz",
-            "not recommended to fertiliz", "harmful to fertiliz",
+            "should not fertiliz", "not recommended to fertiliz", "harmful to fertiliz",
+            "forgo fertiliz", "refrain from fertiliz",
         ]
         def _note_implies_not_needed(txt):
             tl = txt.lower()
