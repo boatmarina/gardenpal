@@ -366,6 +366,8 @@ function fertToggle(n) {
               chip.style.color = '#9E9E9E';
               chip.style.borderColor = '#E0E0E0';
             }
+            var nextLabelNn = document.getElementById('dash-fert-next-label-' + n);
+            if (nextLabelNn) nextLabelNn.textContent = 'Not needed';
           } else if (d.date) {
             if (chip) {
               var today = '{{ today }}';
