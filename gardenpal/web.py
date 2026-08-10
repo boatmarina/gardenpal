@@ -1286,6 +1286,7 @@ self.addEventListener('activate', function(e) {
                     or (last_fert_date and last_fert_date > gen_at[:10])
                     or (plant.get("next_fertilization_date") and plant["next_fertilization_date"] < today)
                     or (gen_at and gen_at[:10] < _local_date_plus(-7))
+                    or (plant.get("next_fertilization_not_needed") and gen_at and gen_at[:10] < today)
                 )
                 if needs_regen:
                     fert_allowed, _ = _check_api_rate(db, g.user["id"], "fertilization")
@@ -3536,6 +3537,7 @@ self.addEventListener('activate', function(e) {
                 or (entry["next_fertilization_date"] and entry["next_fertilization_date"] < today and not last_fert_date)
                 or (last_note_at and gen_at and last_note_at > gen_at)
                 or (gen_at and gen_at[:10] < _local_date_plus(-7))
+                or (entry.get("next_fertilization_not_needed") and gen_at and gen_at[:10] < today)
             )
             if needs_regen:
                 growth_notes = [
