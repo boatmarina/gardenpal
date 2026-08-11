@@ -163,17 +163,17 @@
     <div style="border-top:1px solid var(--border)">
       <!-- Fertilization section header (non-interactive) -->
       <div style="display:flex;align-items:center;gap:8px;padding:11px 16px 6px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)">
           <path d="M12 22V12"/>
           <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
           <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
         </svg>
-        <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);flex:1">Fertilization</span>
+        <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);flex:1">Fertilization</span>
         {% if next_fertilization and not next_fertilization.never and not next_fertilization.not_needed %}
           {% set _planned_stale_hdr = next_fertilization.planned_date and last_fertilized and last_fertilized.date and next_fertilization.planned_date <= last_fertilized.date %}
           {% set eff_fert_hdr = (next_fertilization.planned_date if not _planned_stale_hdr else None) or next_fertilization.date %}
           {% if eff_fert_hdr and eff_fert_hdr <= fert_deadline %}
-            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2{% else %}background:#E8F5E9;color:#388E3C;border:1px solid #A5D6A7{% endif %}">
+            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
               {% if eff_fert_hdr < today %}Overdue{% elif eff_fert_hdr == today %}Due today{% else %}Due soon{% endif %}
             </span>
           {% endif %}
@@ -280,17 +280,17 @@
       <div style="padding:6px 16px 14px">
         {% if last_fertilized and last_fertilized.date == today %}
         <button type="button" id="idea-fert-done-btn" disabled
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E8F5E9;border:1px solid #C8E6C9;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#A5D6A7">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#EAEEE3;border:1px solid #D8E0CC;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#9DAE93">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Fertilized today
         </button>
         {% else %}
         <button type="button" id="idea-fert-done-btn"
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:#2E7D32">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#EAEEE3;border:1px solid #C9D6BE;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:#4A6647">
           <svg width="16" height="16" viewBox="0 0 24 24">
-            <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#388E3C"/>
-            <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#388E3C"/>
-            <line x1="12" y1="12" x2="12" y2="19" stroke="#388E3C" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z" fill="#4A6647"/>
+            <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z" fill="#4A6647"/>
+            <line x1="12" y1="12" x2="12" y2="19" stroke="#4A6647" stroke-width="2" stroke-linecap="round"/>
           </svg>
           Mark as fertilized today
         </button>
@@ -309,7 +309,7 @@
         </svg>
         <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
         {% if not next_watering.never and next_watering.date and next_watering.date <= water_deadline %}
-          <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9{% else %}background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9{% endif %}">
+          <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4{% else %}background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8{% endif %}">
             {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
           </span>
         {% endif %}
@@ -388,15 +388,15 @@
       <div id="idea-water-done-row" style="padding:6px 16px 14px"{% if next_watering.never %} hidden{% endif %}>
         {% if last_watered and last_watered.date == today %}
         <button type="button" id="idea-water-done-btn" disabled
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E3F2FD;border:1px solid #BBDEFB;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#90CAF9">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E9F0F2;border:1px solid #D3E1E6;border-radius:8px;cursor:default;font-family:inherit;font-size:0.85rem;font-weight:600;color:#9FB6BF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Watered today
         </button>
         {% else %}
         <button type="button" id="idea-water-done-btn"
-                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:#1565C0">
+                style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;background:#E9F0F2;border:1px solid #C7DEE8;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:#4A7C95">
           <svg width="16" height="16" viewBox="0 0 24 24">
-            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#4A7C95"/>
             <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           Mark as watered today
@@ -473,7 +473,7 @@
       </form>
     </div>
     <button id="gp-plant-note-btn" type="button" onclick="gpTogglePlantNote()"
-            style="margin-top:{% if plant_notes %}8{% else %}0{% endif %}px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0{% if not plant_notes %};border-top:1px solid var(--border);padding-top:9px;display:block{% endif %}">+ Add note</button>
+            style="margin-top:{% if plant_notes %}8{% else %}0{% endif %}px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--accent);font-family:inherit;padding:0{% if not plant_notes %};border-top:1px solid var(--border);padding-top:9px;display:block{% endif %}">+ Add note</button>
     {% endif %}
   </div>
 
@@ -513,11 +513,11 @@
         </div>
         {% endfor %}
         <button type="button" onclick="gpToggleNote('{{ pz.id }}')"
-                style="margin-top:8px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0">+ Add note</button>
+                style="margin-top:8px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--accent);font-family:inherit;padding:0">+ Add note</button>
       {% else %}
       <div style="border-top:1px solid var(--border);padding-top:9px">
         <button type="button" onclick="gpToggleNote('{{ pz.id }}')"
-                style="background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--green-dark);font-family:inherit;padding:0;white-space:nowrap">+ Add note</button>
+                style="background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--accent);font-family:inherit;padding:0;white-space:nowrap">+ Add note</button>
       </div>
       {% endif %}
 
@@ -742,9 +742,9 @@
             ideaFertDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Fertilized today';
             ideaFertDoneBtn.style.opacity = '1';
             ideaFertDoneBtn.style.filter = '';
-            ideaFertDoneBtn.style.background = '#E8F5E9';
-            ideaFertDoneBtn.style.borderColor = '#C8E6C9';
-            ideaFertDoneBtn.style.color = '#A5D6A7';
+            ideaFertDoneBtn.style.background = '#EAEEE3';
+            ideaFertDoneBtn.style.borderColor = '#D8E0CC';
+            ideaFertDoneBtn.style.color = '#9DAE93';
             ideaFertDoneBtn.style.cursor = 'default';
             ideaFertDoneBtn.style.pointerEvents = 'none';
             showFertTypePopup();
@@ -845,9 +845,9 @@
             ideaWaterDoneBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Watered today';
             ideaWaterDoneBtn.style.opacity = '1';
             ideaWaterDoneBtn.style.filter = '';
-            ideaWaterDoneBtn.style.background = '#E3F2FD';
-            ideaWaterDoneBtn.style.borderColor = '#BBDEFB';
-            ideaWaterDoneBtn.style.color = '#90CAF9';
+            ideaWaterDoneBtn.style.background = '#E9F0F2';
+            ideaWaterDoneBtn.style.borderColor = '#D3E1E6';
+            ideaWaterDoneBtn.style.color = '#9FB6BF';
             ideaWaterDoneBtn.style.cursor = 'default';
             ideaWaterDoneBtn.style.pointerEvents = 'none';
           } else { ideaWaterDoneBtn.innerHTML = origHtml; ideaWaterDoneBtn.disabled = false; ideaWaterDoneBtn.style.opacity = '1'; }
