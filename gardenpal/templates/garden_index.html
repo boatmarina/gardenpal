@@ -37,9 +37,9 @@
     <!-- Sort toggle: segmented control -->
     <div style="display:flex;flex-shrink:0;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px;gap:2px;margin-right:8px">
       <button id="sort-date" type="button"
-              style="font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap">Date</button>
+              style="font-size:0.85rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap">Date</button>
       <button id="sort-az" type="button"
-              style="font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#5E7F5A;color:#fff;white-space:nowrap">A–Z</button>
+              style="font-size:0.85rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#5E7F5A;color:#fff;white-space:nowrap">A–Z</button>
     </div>
   </div>
   <p id="garden-search-empty" style="display:none" class="empty">No results.</p>
@@ -66,12 +66,12 @@
               <div class="card-content" style="padding:16px 18px">
                 <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
                 {% if fert_alert %}
-                  <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
+                  <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
                     {% if eff_fert < today %}Fert overdue{% elif eff_fert == today %}Fert due today{% else %}Fert due soon{% endif %}
                   </span>
                 {% endif %}
                 {% if water_alert %}
-                  <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if entry.next_watering_date < today %}background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4{% else %}background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8{% endif %}">
+                  <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if entry.next_watering_date < today %}background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4{% else %}background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8{% endif %}">
                     {% if entry.next_watering_date < today %}Water overdue{% else %}Water due{% endif %}
                   </span>
                 {% endif %}
@@ -80,7 +80,7 @@
                   <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
                 {% endif %}
                 {% if entry.user_id != current_user.id %}
-                  <p style="font-size:0.72rem;color:var(--muted);margin-top:3px">
+                  <p style="font-size:0.85rem;color:var(--muted);margin-top:3px">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="vertical-align:-1px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
                     {{ shared_names.get(entry.user_id, 'Partner') }}
                   </p>
@@ -114,12 +114,12 @@
                 <div style="flex:1;min-width:0">
                   <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
                   {% if fert_alert %}
-                    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
+                    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
                       {% if eff_fert < today %}Fert overdue{% elif eff_fert == today %}Fert due today{% else %}Fert due soon{% endif %}
                     </span>
                   {% endif %}
                   {% if water_alert %}
-                    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if entry.next_watering_date < today %}background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4{% else %}background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8{% endif %}">
+                    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if entry.next_watering_date < today %}background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4{% else %}background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8{% endif %}">
                       {% if entry.next_watering_date < today %}Water overdue{% else %}Water due{% endif %}
                     </span>
                   {% endif %}
@@ -128,7 +128,7 @@
                     <p class="muted" style="font-size:0.82rem;margin-top:4px">{{ entry.location_name }}</p>
                   {% endif %}
                   {% if entry.user_id != current_user.id %}
-                    <p style="font-size:0.72rem;color:var(--muted);margin-top:3px">
+                    <p style="font-size:0.85rem;color:var(--muted);margin-top:3px">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="vertical-align:-1px"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
                       {{ shared_names.get(entry.user_id, 'Partner') }}
                     </p>
@@ -169,8 +169,8 @@
   /* All original timeline cards, captured before any DOM moves */
   var allCards = Array.from(document.querySelectorAll('.timeline-section .card[data-search]'));
 
-  var ACTIVE_STYLE   = 'font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#5E7F5A;color:#fff;white-space:nowrap';
-  var INACTIVE_STYLE = 'font-size:0.72rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap';
+  var ACTIVE_STYLE   = 'font-size:0.85rem;font-weight:700;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:#5E7F5A;color:#fff;white-space:nowrap';
+  var INACTIVE_STYLE = 'font-size:0.85rem;font-weight:600;padding:4px 12px;border-radius:999px;border:none;cursor:pointer;font-family:inherit;background:transparent;color:var(--muted);white-space:nowrap';
 
   function buildAzCards() {
     var sorted = allCards.slice().sort(function(a, b) {
@@ -357,7 +357,7 @@
 
       if (data.changed) {
         var note = document.createElement('div');
-        note.style.cssText = 'margin:0 auto;font-size:0.72rem;color:var(--muted);padding:4px 0';
+        note.style.cssText = 'margin:0 auto;font-size:0.85rem;color:var(--muted);padding:4px 0';
         note.textContent = 'Refreshing…';
         messages.appendChild(note);
         messages.scrollTop = messages.scrollHeight;
