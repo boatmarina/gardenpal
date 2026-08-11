@@ -118,9 +118,9 @@
               <span style="font-size:0.72rem;color:var(--muted)">{{ alert.variety if alert.variety else ('Edible' if alert.kind == 'edible' else 'Ornamental') }}</span>
             </div>
             {% if alert.overdue %}
-            <span id="fert-chip-{{ loop.index }}" style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;white-space:nowrap;flex-shrink:0">Overdue</span>
+            <span id="fert-chip-{{ loop.index }}" style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE;white-space:nowrap;flex-shrink:0">Overdue</span>
             {% else %}
-            <span id="fert-chip-{{ loop.index }}" style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
+            <span id="fert-chip-{{ loop.index }}" style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
             {% endif %}
             <svg id="fert-chevron-{{ loop.index }}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
           </button>
@@ -235,7 +235,7 @@
       <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
       {% if watering_alerts %}
       <button type="button" id="water-mark-all-btn"
-              style="background:none;border:1px solid #90CAF9;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
+              style="background:none;border:1px solid #C7DEE8;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
       {% endif %}
     </div>
     {% if watering_alerts %}
@@ -248,15 +248,15 @@
             <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
           </div>
           {% if alert.overdue %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#BBDEFB;color:#0D47A1;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Overdue</span>
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4;white-space:nowrap;flex-shrink:0">Overdue</span>
           {% else %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
+          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
           {% endif %}
           <button type="button" class="water-done-btn"
                   data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
                   data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
                   title="Mark as watered today"
-                  style="flex-shrink:0;background:none;border:1px solid #90CAF9;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#1565C0;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+                  style="flex-shrink:0;background:none;border:1px solid #C7DEE8;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
                   <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
                     <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -373,9 +373,9 @@ function fertToggle(n) {
               var today = '{{ today }}';
               var label = d.date === today ? 'Due today' : 'Due ' + new Date(d.date + 'T00:00:00').toLocaleDateString([], {month:'short', day:'numeric'});
               chip.textContent = label;
-              chip.style.background = '#E8F5E9';
-              chip.style.color = '#2E7D32';
-              chip.style.borderColor = '#A5D6A7';
+              chip.style.background = '#EAEEE3';
+              chip.style.color = '#4A6647';
+              chip.style.borderColor = '#C9D6BE';
             }
             var nextLabel = document.getElementById('dash-fert-next-label-' + n);
             if (nextLabel) {
@@ -1025,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!fr.last_spring_frost) return;
           var isCur = fr.year === data.current_year;
           h += '<tr style="border-top:1px solid var(--border)">';
-          h += '<td style="padding:5px 0;font-size:0.82rem' + (isCur ? ';font-weight:700' : '') + '">' + fr.year + (isCur ? ' <span style="font-size:0.58rem;padding:1px 4px;border-radius:3px;background:#E8F5E9;color:#2E7D32;font-weight:800">now</span>' : '') + '</td>';
+          h += '<td style="padding:5px 0;font-size:0.82rem' + (isCur ? ';font-weight:700' : '') + '">' + fr.year + (isCur ? ' <span style="font-size:0.58rem;padding:1px 4px;border-radius:3px;background:#EAEEE3;color:#4A6647;font-weight:800">now</span>' : '') + '</td>';
           h += '<td style="text-align:right;font-size:0.82rem">' + fmtDate(fr.last_spring_frost) + '</td>';
           h += '</tr>';
         });

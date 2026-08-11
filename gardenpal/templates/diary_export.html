@@ -4,14 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Garden Diary {{ current_year }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ── Reset & Base ─────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Georgia, serif;
-  background: #f5f3ef;
-  color: #1a1a1a;
+  font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #F3E9DD;
+  color: #402E22;
   line-height: 1.4;
 }
 
@@ -20,7 +23,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: #1C3829;
+  background: #4A6647;
   color: #fff;
   padding: 10px 24px;
   display: flex;
@@ -64,33 +67,34 @@ body {
 .cover {
   text-align: center;
   padding: 28px 20px 22px;
-  border-bottom: 3px solid #1C3829;
+  border-bottom: 3px solid #5E7F5A;
   margin-bottom: 18px;
 }
 .cover-leaf {
-  color: #1C3829;
+  color: #5E7F5A;
   margin-bottom: 10px;
   opacity: 0.8;
 }
 .cover h1 {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-size: 1.9rem;
-  font-weight: 700;
-  color: #1C3829;
+  font-weight: 600;
+  font-style: italic;
+  color: #5E7F5A;
   letter-spacing: -0.01em;
   margin-bottom: 4px;
 }
 .cover-year {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-size: 2.8rem;
-  font-weight: 700;
-  color: #2E7D32;
+  font-weight: 600;
+  color: #5E7F5A;
   line-height: 1;
   margin-bottom: 10px;
 }
 .cover-meta {
   font-size: 0.82rem;
-  color: #666;
+  color: #8A7A6A;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -102,15 +106,16 @@ body {
   gap: 12px;
   margin-bottom: 12px;
   padding-bottom: 6px;
-  border-bottom: 2px solid #1C3829;
+  border-bottom: 2px solid #5E7F5A;
 }
 .section-heading h2 {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-size: 1.6rem;
-  color: #1C3829;
-  font-weight: 700;
+  color: #5E7F5A;
+  font-weight: 600;
+  font-style: italic;
 }
-.section-icon { flex-shrink: 0; color: #2E7D32; }
+.section-icon { flex-shrink: 0; color: #5E7F5A; }
 
 .diary-section { margin-bottom: 22px; }
 
@@ -121,22 +126,22 @@ body {
   gap: 10px;
 }
 .zone-card {
-  background: #fff;
-  border: 1px solid #d4e6d4;
+  background: #FBF3E9;
+  border: 1px solid #E4D5C2;
   border-radius: 8px;
   padding: 10px 12px;
   break-inside: avoid;
 }
 .zone-card-name {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-size: 1.05rem;
-  font-weight: 700;
-  color: #1C3829;
+  font-weight: 600;
+  color: #5E7F5A;
   margin-bottom: 4px;
 }
 .zone-card-desc {
   font-size: 0.8rem;
-  color: #666;
+  color: #8A7A6A;
   margin-bottom: 10px;
   font-style: italic;
 }
@@ -145,39 +150,39 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #2E7D32;
+  color: #5E7F5A;
   margin-bottom: 4px;
   margin-top: 10px;
 }
 .zone-plant-list {
   list-style: none;
   font-size: 0.82rem;
-  color: #333;
+  color: #402E22;
 }
 .zone-plant-list li {
   padding: 2px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #EDE0D0;
 }
 .zone-plant-list li:last-child { border-bottom: none; }
-.zone-planted-date { color: #888; font-size: 0.75rem; }
+.zone-planted-date { color: #8A7A6A; font-size: 0.75rem; }
 
 /* ── Edibles ─────────────────────────────────────────────────────── */
 .zone-group-heading {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-size: 1.05rem;
-  font-weight: 700;
-  color: #1C3829;
+  font-weight: 600;
+  color: #5E7F5A;
   margin: 14px 0 8px;
   padding-left: 10px;
-  border-left: 4px solid #2E7D32;
+  border-left: 4px solid #5E7F5A;
 }
 
 .edible-entry {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: #FBF3E9;
+  border: 1px solid #E4D5C2;
   border-radius: 8px;
   padding: 10px 12px 8px;
   margin-bottom: 6px;
@@ -191,14 +196,14 @@ body {
   margin-bottom: 5px;
 }
 .edible-name {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-size: 1.05rem;
-  font-weight: 700;
-  color: #1C3829;
+  font-weight: 600;
+  color: #5E7F5A;
 }
 .edible-variety {
   font-size: 0.82rem;
-  color: #555;
+  color: #8A7A6A;
   font-style: italic;
 }
 .edible-meta {
@@ -207,17 +212,17 @@ body {
   gap: 3px 14px;
   margin-bottom: 6px;
   font-size: 0.75rem;
-  color: #555;
+  color: #8A7A6A;
 }
 .edible-meta-item { display: flex; align-items: center; gap: 4px; }
 .edible-notes {
   font-size: 0.82rem;
-  color: #333;
+  color: #402E22;
   margin-bottom: 8px;
   padding: 6px 10px;
-  background: #f9f9f7;
+  background: #F3E9DD;
   border-radius: 6px;
-  border-left: 3px solid #a5d6a7;
+  border-left: 3px solid #C9D6BE;
   line-height: 1.45;
 }
 
@@ -227,14 +232,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #2E7D32;
+  color: #5E7F5A;
   margin-bottom: 4px;
 }
 .log-entry {
   display: flex;
   gap: 10px;
   padding: 5px 0;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #EDE0D0;
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -243,7 +248,7 @@ body {
   flex-shrink: 0;
   width: 52px;
   font-size: 0.68rem;
-  color: #888;
+  color: #8A7A6A;
   padding-top: 2px;
   text-align: right;
   line-height: 1.3;
@@ -251,7 +256,7 @@ body {
 .log-body { flex: 1; min-width: 0; }
 .log-note {
   font-size: 0.8rem;
-  color: #333;
+  color: #402E22;
   line-height: 1.4;
   margin-bottom: 4px;
 }
@@ -262,9 +267,9 @@ body {
   letter-spacing: 0.05em;
   padding: 1px 6px;
   border-radius: 4px;
-  background: #E8F5E9;
-  color: #2E7D32;
-  border: 1px solid #A5D6A7;
+  background: #EAEEE3;
+  color: #4A6647;
+  border: 1px solid #C9D6BE;
   margin-bottom: 4px;
   text-transform: uppercase;
 }
@@ -281,7 +286,7 @@ body {
   height: 82px;
   object-fit: cover;
   border-radius: 5px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #E4D5C2;
   display: block;
 }
 
@@ -292,8 +297,8 @@ body {
   gap: 10px;
 }
 .orn-card {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: #FBF3E9;
+  border: 1px solid #E4D5C2;
   border-radius: 8px;
   overflow: hidden;
   break-inside: avoid;
@@ -306,7 +311,7 @@ body {
   gap: 2px;
   height: 130px;
   overflow: hidden;
-  background: #e8f5e9;
+  background: #EAEEE3;
   flex-shrink: 0;
 }
 .orn-photo-row img {
@@ -319,23 +324,23 @@ body {
 .orn-photo-placeholder {
   width: 100%;
   height: 130px;
-  background: #e8f5e9;
+  background: #EAEEE3;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #a5d6a7;
+  color: #C9D6BE;
 }
 .orn-body { padding: 10px 12px 12px; flex: 1; display: flex; flex-direction: column; gap: 5px; }
 .orn-name {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   font-size: 1.05rem;
-  font-weight: 700;
-  color: #1C3829;
+  font-weight: 600;
+  color: #5E7F5A;
 }
 .orn-sci {
   font-style: italic;
   font-size: 0.8rem;
-  color: #777;
+  color: #8A7A6A;
   margin-top: 1px;
 }
 .orn-tags {
@@ -353,15 +358,15 @@ body {
 }
 .orn-zones-row {
   font-size: 0.78rem;
-  color: #555;
+  color: #8A7A6A;
   display: flex;
   align-items: flex-start;
   gap: 6px;
 }
-.orn-zones-label { font-weight: 600; color: #2E7D32; flex-shrink: 0; }
+.orn-zones-label { font-weight: 600; color: #5E7F5A; flex-shrink: 0; }
 .orn-desc {
   font-size: 0.82rem;
-  color: #444;
+  color: #402E22;
   line-height: 1.55;
 }
 .orn-details {
@@ -369,16 +374,16 @@ body {
   flex-wrap: wrap;
   gap: 3px 12px;
   font-size: 0.77rem;
-  color: #444;
+  color: #402E22;
 }
 .orn-detail-item { display: flex; gap: 4px; align-items: baseline; }
-.orn-detail-label { font-weight: 600; color: #2E7D32; flex-shrink: 0; }
-.orn-care { font-size: 0.8rem; color: #333; }
+.orn-detail-label { font-weight: 600; color: #5E7F5A; flex-shrink: 0; }
+.orn-care { font-size: 0.8rem; color: #402E22; }
 .orn-care-row {
   display: flex;
   gap: 8px;
   padding: 5px 0;
-  border-top: 1px solid #f5f5f5;
+  border-top: 1px solid #EDE0D0;
   align-items: flex-start;
 }
 .orn-care-label {
@@ -387,25 +392,32 @@ body {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #888;
+  color: #8A7A6A;
   width: 58px;
   padding-top: 1px;
 }
 .orn-notes-log { margin-top: 8px; }
 .orn-note-entry {
   font-size: 0.78rem;
-  color: #444;
+  color: #402E22;
   padding: 5px 0;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #EDE0D0;
   line-height: 1.45;
 }
-.orn-note-date { font-size: 0.7rem; color: #888; margin-right: 6px; }
+.orn-note-date { font-size: 0.7rem; color: #8A7A6A; margin-right: 6px; }
 
 /* ── Weather section ─────────────────────────────────────────────── */
+.wx-card {
+  background: #FBF3E9;
+  border: 1px solid #E4D5C2;
+  border-radius: 8px;
+  padding: 14px 16px;
+  break-inside: avoid;
+}
 .wx-narrative {
   font-size: 0.92rem;
   line-height: 1.75;
-  color: #1a1a1a;
+  color: #402E22;
   margin-bottom: 14px;
 }
 .wx-sublabel {
@@ -413,7 +425,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #558B2F;
+  color: #5E7F5A;
   margin-bottom: 6px;
 }
 .wx-tables {
@@ -433,11 +445,11 @@ body {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #666;
+  color: #8A7A6A;
 }
 .wx-table thead td { padding: 0 6px 5px; text-align: right; }
 .wx-table thead td:first-child { text-align: left; padding-left: 0; }
-.wx-table tbody tr { border-top: 1px solid #e8e8e8; }
+.wx-table tbody tr { border-top: 1px solid #E4D5C2; }
 .wx-table tbody td { padding: 4px 6px; text-align: right; }
 .wx-table tbody td:first-child { text-align: left; font-weight: 600; padding-left: 0; white-space: nowrap; }
 .wx-frost-table { border-collapse: collapse; width: 180px; font-size: 0.78rem; }
@@ -446,14 +458,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #666;
+  color: #8A7A6A;
 }
 .wx-frost-table thead td { padding: 0 0 5px; }
 .wx-frost-table thead td:last-child { text-align: right; }
-.wx-frost-table tbody tr { border-top: 1px solid #e8e8e8; }
+.wx-frost-table tbody tr { border-top: 1px solid #E4D5C2; }
 .wx-frost-table tbody td { padding: 4px 0; }
 .wx-frost-table tbody td:last-child { text-align: right; }
-.wx-meta { font-size: 0.72rem; color: #888; margin-top: 4px; }
+.wx-meta { font-size: 0.72rem; color: #8A7A6A; margin-top: 4px; }
 
 @media print {
   .wx-tables { gap: 16px; }
@@ -463,7 +475,7 @@ body {
 /* ── Empty states ────────────────────────────────────────────────── */
 .empty-note {
   font-size: 0.85rem;
-  color: #888;
+  color: #8A7A6A;
   font-style: italic;
   padding: 12px 0;
 }
@@ -486,14 +498,14 @@ body {
   .zones-grid { display: block; columns: 3; column-gap: 8px; }
   .zone-card { padding: 5px 8px; break-inside: avoid; page-break-inside: avoid; margin-bottom: 6px; }
   .zone-group-heading { margin: 8px 0 4px; }
-  .edible-entry { padding: 5px 8px 4px; margin-bottom: 3px; border: 1px solid #ccc; page-break-inside: avoid; break-inside: avoid; }
+  .edible-entry { padding: 5px 8px 4px; margin-bottom: 3px; border: 1px solid #E4D5C2; page-break-inside: avoid; break-inside: avoid; }
   .edible-header { margin-bottom: 2px; }
   .edible-meta { margin-bottom: 2px; gap: 1px 10px; }
   .edible-notes { padding: 3px 8px; margin-bottom: 3px; }
   /* Edible card: details left, growth log right */
   .edible-cols { display: flex; gap: 8px; align-items: flex-start; }
   .edible-col-details { flex: 0 0 44%; min-width: 0; }
-  .edible-col-log { flex: 1; min-width: 0; padding-left: 8px; border-left: 1px solid #e8e8e8; }
+  .edible-col-log { flex: 1; min-width: 0; padding-left: 8px; border-left: 1px solid #E4D5C2; }
   /* Tighter growth log */
   .growth-log-heading { margin-bottom: 2px; }
   .log-entry { padding: 2px 0; gap: 6px; }
@@ -506,11 +518,12 @@ body {
      CSS columns is unreliable in iOS Safari print — explicit flex columns are not */
   .ornamentals-grid { display: flex; gap: 12px; align-items: flex-start; }
   .orn-print-col { flex: 1; min-width: 0; }
-  .orn-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; margin-bottom: 7px; }
+  .orn-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #E4D5C2; margin-bottom: 7px; }
   .orn-photo-row { height: 95px; }
   .orn-photo-placeholder { height: 95px; }
   .orn-body { padding: 6px 8px 7px; gap: 3px; }
   .orn-details { gap: 2px 10px; font-size: 0.7rem; }
+  .wx-card { border: 1px solid #E4D5C2; padding: 8px 10px; }
   a { color: inherit; text-decoration: none; }
 }
 
@@ -538,7 +551,7 @@ body {
     <button id="pdf-tip-btn" onclick="togglePdfTip()" title="How to save or share as PDF"
             style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);border-radius:50%;width:26px;height:26px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background 0.15s">?</button>
     <div id="pdf-tip" hidden
-         style="position:absolute;top:calc(100% + 10px);right:0;width:250px;background:#1a2e1e;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;font-size:0.78rem;line-height:1.55;color:rgba(255,255,255,0.85);box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:200">
+         style="position:absolute;top:calc(100% + 10px);right:0;width:250px;background:#2a3a28;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;font-size:0.78rem;line-height:1.55;color:rgba(255,255,255,0.85);box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:200">
       <p style="font-weight:700;margin:0 0 8px;color:#fff">Save or share as PDF</p>
       <p style="margin:0 0 4px;font-size:0.72rem;opacity:0.65;text-transform:uppercase;letter-spacing:0.06em">iPhone</p>
       <ol style="margin:0 0 10px;padding-left:16px;display:flex;flex-direction:column;gap:3px">
@@ -630,7 +643,9 @@ document.addEventListener('click', function(e) {
       </span>
       <h2>Growing Season Weather</h2>
     </div>
-    <div id="wx-diary-content"></div>
+    <div class="wx-card">
+      <div id="wx-diary-content"></div>
+    </div>
   </section>
   <script>
   (function() {
@@ -649,18 +664,18 @@ document.addEventListener('click', function(e) {
     }
 
     function tempDesc(delta) {
-      if (delta == null) return col('near-average temperatures', '#888', false);
+      if (delta == null) return col('near-average temperatures', '#8A7A6A', false);
       var a = Math.abs(delta), w = delta > 0;
-      if (a < 0.5) return col('near-average', '#888', false) + ' temperatures';
+      if (a < 0.5) return col('near-average', '#8A7A6A', false) + ' temperatures';
       var c = w ? '#C62828' : '#1565C0';
       var q = a > 2.5 ? a.toFixed(1) + '° ' : a > 1.5 ? a.toFixed(1) + '° ' : 'a bit ';
       return col(q + (w ? 'warmer' : 'cooler') + ' than usual', c);
     }
 
     function rainDesc(delta) {
-      if (delta == null) return col('near-average rainfall', '#888', false);
+      if (delta == null) return col('near-average rainfall', '#8A7A6A', false);
       var a = Math.abs(delta), w = delta > 0;
-      if (a < 0.25) return col('near-average', '#888', false) + ' rainfall';
+      if (a < 0.25) return col('near-average', '#8A7A6A', false) + ' rainfall';
       var c = w ? '#1565C0' : '#E65100';
       var int_ = a > 2 ? 'much ' : a > 0.75 ? '' : 'a bit ';
       var amt = a > 1 ? ' (' + a.toFixed(1) + '")' : '';
@@ -712,7 +727,7 @@ document.addEventListener('click', function(e) {
         var curDOY = doy(curFrostRow.last_spring_frost);
         var avgDOY = histFrosts.reduce(function(s,r){ return s + doy(r.last_spring_frost); }, 0) / histFrosts.length;
         var diff = curDOY - avgDOY;
-        if (diff < -10) { startPhrase = 'The growing season ' + col('started early', '#2E7D32') + ' this year'; startHasVerb = true; }
+        if (diff < -10) { startPhrase = 'The growing season ' + col('started early', '#5E7F5A') + ' this year'; startHasVerb = true; }
         else if (diff > 10) { startPhrase = 'The growing season got off to a ' + col('late start', '#E65100') + ' this year'; startHasVerb = true; }
         else { startPhrase = 'The growing season started around its usual time'; startHasVerb = true; }
       }
@@ -802,7 +817,7 @@ document.addEventListener('click', function(e) {
       data.frost_table.forEach(function(fr) {
         if (!fr.last_spring_frost) return;
         var isCur = fr.year === data.current_year;
-        h += '<tr><td style="' + (isCur ? 'font-weight:700' : '') + '">' + fr.year + (isCur ? ' <span style="font-size:0.6rem;padding:1px 4px;border-radius:3px;background:#E8F5E9;color:#2E7D32;font-weight:800">now</span>' : '') + '</td>';
+        h += '<tr><td style="' + (isCur ? 'font-weight:700' : '') + '">' + fr.year + (isCur ? ' <span style="font-size:0.6rem;padding:1px 4px;border-radius:3px;background:#EAEEE3;color:#4A6647;font-weight:800">now</span>' : '') + '</td>';
         h += '<td style="text-align:right">' + fmtDate(fr.last_spring_frost) + '</td></tr>';
       });
       h += '</tbody></table>';
@@ -887,7 +902,7 @@ document.addEventListener('click', function(e) {
           {{ entry.zone_name }}
         </div>
         {% elif not entry.zone_id %}
-        <div class="zone-group-heading" style="border-left-color:#bbb;color:#666">No Zone Assigned</div>
+        <div class="zone-group-heading" style="border-left-color:#C9D6BE;color:#8A7A6A">No Zone Assigned</div>
         {% endif %}
       {% endif %}
 
@@ -902,7 +917,7 @@ document.addEventListener('click', function(e) {
             <div class="edible-meta">
               {% if entry.planted_date %}
               <span class="edible-meta-item">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5E7F5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 Planted {{ entry.planted_date | planted_date }}
               </span>
               {% endif %}
@@ -912,13 +927,13 @@ document.addEventListener('click', function(e) {
               {% endif %}
               {% if entry.location_type or entry.location_name %}
               <span class="edible-meta-item">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5E7F5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 {% if entry.location_type %}{{ entry.location_type.replace("_", " ").title() }}{% endif %}{% if entry.location_name and entry.location_type %} — {% endif %}{% if entry.location_name %}{{ entry.location_name }}{% endif %}
               </span>
               {% endif %}
               {% if entry.last_fertilized_date %}
               <span class="edible-meta-item">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18.5 2C17 4 15 5 15 5c0-3 3.5-5 3.5-5z"/><path d="M18.5 8.5c1.5 2 3.5 3 3.5 3s-3.5 2-3.5 5"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5E7F5A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18.5 2C17 4 15 5 15 5c0-3 3.5-5 3.5-5z"/><path d="M18.5 8.5c1.5 2 3.5 3 3.5 3s-3.5 2-3.5 5"/></svg>
                 Last fertilized {{ entry.last_fertilized_date | planted_date }}{% if entry.last_fertilizer_type %} ({{ entry.last_fertilizer_type }}){% endif %}
               </span>
               {% endif %}
@@ -1100,7 +1115,7 @@ document.addEventListener('click', function(e) {
     {% endif %}
   </section>
 
-  <p style="text-align:center;font-size:0.75rem;color:#aaa;margin-top:32px;padding-top:20px;border-top:1px solid #e0e0e0">
+  <p style="text-align:center;font-size:0.75rem;color:#8A7A6A;margin-top:32px;padding-top:20px;border-top:1px solid #E4D5C2">
     Generated by GardenPal · {{ today }}
   </p>
 

@@ -14,8 +14,10 @@ body { visibility: visible; }
   --bg:        #F3E9DD;
   --card:      #FBF3E9;
   --fg:        #402E22;
-  --green:     #5E7F5A;
-  --green-mid: #7C8F6E;
+  --green:      #5E7F5A;
+  --green-mid:  #7C8F6E;
+  --green-dark: #4A6647;
+  --green-light:#EAEEE3;
   --accent:    #C1652F;
   --muted:     #8A7A6A;
   --border:    #E4D5C2;
@@ -455,6 +457,16 @@ form { min-width: 0; }
   line-height: 1.05;
   color: var(--fg);
   margin-bottom: 10px;
+}
+
+.section-title-serif {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 2rem;
+  line-height: 1.1;
+  color: var(--fg);
+  margin-bottom: 0.4rem;
 }
 
 .hero-sub {
@@ -1091,9 +1103,9 @@ dd { margin: 0; }
 }
 
 .autofill-summary .chip {
-  background: #EBF5ED;
+  background: var(--green-light);
   border-color: var(--green-mid);
-  color: var(--green);
+  color: var(--green-dark);
 }
 
 .autofill-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1109,7 +1121,7 @@ dd { margin: 0; }
 
 .identified-name {
   padding: 10px 14px;
-  background: #EBF5ED;
+  background: var(--green-light);
   border-radius: var(--r-sm);
   border: 1px solid var(--green-mid);
   font-size: 0.95rem;
@@ -1153,7 +1165,7 @@ dd { margin: 0; }
   color: var(--green);
 }
 
-.mode-card.active { background: #EBF5ED; }
+.mode-card.active { background: var(--green-light); }
 
 .mode-title {
   font-size: 0.78rem;

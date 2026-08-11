@@ -11,7 +11,7 @@
     body{visibility:hidden}
     #gp-splash{
       visibility:visible;position:fixed;inset:0;z-index:9999;
-      background:#1c3829;
+      background:#4A6647;
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
     }
     #gp-splash-name{
@@ -27,13 +27,13 @@
     }
     @keyframes gp-spin{to{transform:rotate(360deg)}}
     /* Bar starts animating immediately on page load; JS calls barFinish() when interactive */
-    #gp-bar{position:fixed;top:env(safe-area-inset-top,0px);left:0;height:4px;width:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#a5d6a7,#66BB6A,#2E7D32);box-shadow:0 0 6px rgba(102,187,106,0.7);animation:_gp_bar 8s ease-out forwards}
+    #gp-bar{position:fixed;top:env(safe-area-inset-top,0px);left:0;height:4px;width:0;z-index:10000;pointer-events:none;background:linear-gradient(90deg,#D6E0D2,#9AB093,#5E7F5A);box-shadow:0 0 6px rgba(94,127,90,0.5);animation:_gp_bar 8s ease-out forwards}
     @keyframes _gp_bar{0%{width:25%;opacity:1}3%{width:45%}12%{width:62%}40%{width:80%}100%{width:90%;opacity:1}}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
-  <meta name="theme-color" content="#1C3829" />
+  <meta name="theme-color" content="#4A6647" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="GardenPal" />
