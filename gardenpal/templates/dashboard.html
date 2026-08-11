@@ -11,7 +11,7 @@
   <div class="card" style="padding:0;margin-bottom:20px;overflow:hidden">
     <button id="home-chat-toggle" type="button"
             style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 20px 10px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--fg);text-align:left">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--green-dark)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
       Ask your garden assistant
@@ -40,14 +40,14 @@
   <!-- Growing season weather -->
   <div id="weather-section" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#558B2F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="4"/>
         <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
         <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
         <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#558B2F">Growing Season</span>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent)">Growing Season</span>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <div id="weather-loading" style="padding:14px 16px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.82rem">
@@ -100,10 +100,10 @@
   {% if ff_fert %}
   <div data-fert-section style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Fertilization due</span>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent)">Fertilization due</span>
     </div>
     {% if fert_alerts %}
     <div id="fert-alert-card" class="card" style="padding:0;overflow:hidden">
@@ -126,7 +126,7 @@
           </button>
           <button type="button" class="fert-done-today-btn"
                   data-kind="{{ alert.kind }}" data-id="{{ alert.id }}"
-                  style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--green-dark);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600">Done today</button>
+                  style="background:#F7EDE8;border:1px solid #E3C4AE;border-radius:4px;padding:3px 7px;font-size:0.7rem;color:#A24A2E;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600">Done today</button>
         </div>
         <!-- Expandable fertilization form -->
         <div id="fert-panel-{{ loop.index }}" hidden

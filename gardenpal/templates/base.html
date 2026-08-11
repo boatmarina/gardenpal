@@ -11,18 +11,18 @@
     body{visibility:hidden}
     #gp-splash{
       visibility:visible;position:fixed;inset:0;z-index:9999;
-      background:#4A6647;
+      background:#F3E9DD;
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
     }
     #gp-splash-name{
-      color:rgba(255,255,255,0.9);
+      color:rgba(64,46,34,0.75);
       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       font-size:1.2rem;font-weight:500;letter-spacing:0.04em;
     }
     #gp-splash-ring{
       width:26px;height:26px;border-radius:50%;
-      border:2.5px solid rgba(255,255,255,0.18);
-      border-top-color:rgba(255,255,255,0.8);
+      border:2.5px solid rgba(193,101,47,0.2);
+      border-top-color:rgba(193,101,47,0.7);
       animation:gp-spin 0.75s linear infinite;
     }
     @keyframes gp-spin{to{transform:rotate(360deg)}}
@@ -33,7 +33,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
-  <meta name="theme-color" content="#4A6647" />
+  <meta name="theme-color" content="#C1652F" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="GardenPal" />
@@ -147,7 +147,7 @@
   <div id="whats-new-overlay" style="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;padding:0 0 20px;box-sizing:border-box">
     <div style="background:var(--card);border-radius:var(--r-xl) var(--r-xl) var(--r-md) var(--r-md);padding:22px 20px 18px;max-width:480px;width:calc(100% - 32px);max-height:82vh;overflow-y:auto;box-shadow:0 -2px 24px rgba(0,0,0,0.12)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 8px;margin:0">What's new</p>
+        <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#A24A2E;background:#F7EDE8;border:1px solid #E3C4AE;border-radius:4px;padding:3px 8px;margin:0">What's new</p>
         <button id="whats-new-close" type="button" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.3rem;line-height:1;padding:2px 4px">×</button>
       </div>
 
