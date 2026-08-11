@@ -229,10 +229,10 @@
   {% if ff_water %}
   <div id="water-section" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4A7C95" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4A7C95;flex:1">Watering</span>
       {% if watering_alerts %}
       <button type="button" id="water-mark-all-btn"
               style="background:none;border:1px solid #C7DEE8;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
@@ -258,7 +258,7 @@
                   title="Mark as watered today"
                   style="flex-shrink:0;background:none;border:1px solid #C7DEE8;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
                   <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
-                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#4A7C95"/>
                     <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                   Done</button>
@@ -268,7 +268,7 @@
     </div>
     {% else %}
     <div class="card" style="padding:11px 14px;display:flex;align-items:center;gap:10px">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7C95" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.6">
         <polyline points="20 6 9 17 4 12"/>
       </svg>
       <span style="font-size:0.85rem;color:var(--muted)">All plants are watered — nothing due today or tomorrow.</span>
@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (delta == null) return col('near-average temperatures', 'var(--muted)', false);
     var a = Math.abs(delta), w = delta > 0;
     if (a < 0.5) return col('near-average', 'var(--muted)', false) + ' temperatures';
-    var c = w ? '#C62828' : '#1565C0';
+    var c = w ? '#A24A2E' : '#4A7C95';
     var q = a > 2.5 ? a.toFixed(1) + '° ' : a > 1.5 ? a.toFixed(1) + '° ' : 'a bit ';
     return col(q + (w ? 'warmer' : 'cooler') + ' than usual', c);
   }
@@ -819,7 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (delta == null) return col('near-average rainfall', 'var(--muted)', false);
     var a = Math.abs(delta), w = delta > 0;
     if (a < 0.25) return col('near-average', 'var(--muted)', false) + ' rainfall';
-    var c = w ? '#1565C0' : '#E65100';
+    var c = w ? '#4A7C95' : '#C1652F';
     var int = a > 2 ? 'much ' : a > 0.75 ? '' : 'a bit ';
     var amt = a > 1 ? ' (' + a.toFixed(1) + '")' : '';
     return col(int + (w ? 'above' : 'below') + ' average for rain' + amt, c);
@@ -884,7 +884,7 @@ document.addEventListener('DOMContentLoaded', function() {
         startPhrase = 'The growing season ' + col('started early', '#2E7D32') + ' this year';
         startHasVerb = true;
       } else if (diff > 10) {
-        startPhrase = 'The growing season got off to a ' + col('late start', '#E65100') + ' this year';
+        startPhrase = 'The growing season got off to a ' + col('late start', '#C1652F') + ' this year';
         startHasVerb = true;
       } else {
         startPhrase = 'The growing season started around its usual time';
@@ -913,7 +913,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var lmLyTd = mc2.avg_high - ly.months[lastM].avg_high;
         if (Math.abs(lmLyTd) >= 1.2) {
           var sameDir = lmTd != null && Math.abs(lmTd) >= 0.5 && (lmTd > 0) === (lmLyTd > 0);
-          var lyC = lmLyTd > 0 ? '#C62828' : '#1565C0';
+          var lyC = lmLyTd > 0 ? '#A24A2E' : '#4A7C95';
           var lyW = lmLyTd > 0 ? 'warmer' : 'cooler';
           lyNote = sameDir
             ? ' — and ' + col(lyW + ' than last ' + FULL_MS[lastM] + ' too', lyC)
@@ -986,8 +986,8 @@ document.addEventListener('DOMContentLoaded', function() {
           h += '<tr style="border-top:1px solid var(--border)">';
           h += '<td style="padding:4px 12px 4px 0;font-size:0.78rem;font-weight:600;white-space:nowrap">' + MS[m] + '</td>';
           h += '<td style="text-align:right;font-size:0.78rem;padding:4px 6px">' + (mc && mc.avg_high != null ? mc.avg_high.toFixed(1) + '°' : '—') + '</td>';
-          h += tdel(mc && mc.avg_high, ma && ma.avg_high, 0.5, '#C62828', '#1565C0');
-          h += tdel(mc && mc.avg_high, ml && ml.avg_high, 0.5, '#C62828', '#1565C0');
+          h += tdel(mc && mc.avg_high, ma && ma.avg_high, 0.5, '#A24A2E', '#4A7C95');
+          h += tdel(mc && mc.avg_high, ml && ml.avg_high, 0.5, '#A24A2E', '#4A7C95');
           h += '</tr>';
         }
         h += '</table></div></div>';
@@ -1007,8 +1007,8 @@ document.addEventListener('DOMContentLoaded', function() {
           h += '<tr style="border-top:1px solid var(--border)">';
           h += '<td style="padding:4px 12px 4px 0;font-size:0.78rem;font-weight:600;white-space:nowrap">' + MS[m] + '</td>';
           h += '<td style="text-align:right;font-size:0.78rem;padding:4px 6px">' + (mc && mc.total_rain != null ? mc.total_rain.toFixed(1) + '"' : '—') + '</td>';
-          h += tdel(mc && mc.total_rain, ma && ma.total_rain, 0.25, '#1565C0', '#E65100');
-          h += tdel(mc && mc.total_rain, ml && ml.total_rain, 0.25, '#1565C0', '#E65100');
+          h += tdel(mc && mc.total_rain, ma && ma.total_rain, 0.25, '#4A7C95', '#C1652F');
+          h += tdel(mc && mc.total_rain, ml && ml.total_rain, 0.25, '#4A7C95', '#C1652F');
           h += '</tr>';
         }
         h += '</table></div></div>';
