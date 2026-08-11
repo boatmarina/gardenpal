@@ -179,13 +179,13 @@ p  { line-height: 1.55; }
   width: 58px;
   height: 58px;
   border-radius: 50%;
-  background: var(--green);
+  background: var(--accent);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  box-shadow: 0 4px 20px rgba(28,56,41,0.45);
+  box-shadow: 0 4px 20px rgba(193,101,47,0.4);
   margin-top: -22px;
   flex-shrink: 0;
   transition: transform 0.15s;
@@ -217,7 +217,7 @@ a.btn {
   text-decoration: none;
   transition: opacity 0.15s, transform 0.1s;
   white-space: nowrap;
-  background: var(--green);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -250,7 +250,7 @@ button[type=submit] {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
-  background: var(--green);
+  background: var(--accent);
   color: #fff;
   transition: opacity 0.15s;
 }
