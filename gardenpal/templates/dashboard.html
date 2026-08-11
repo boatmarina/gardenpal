@@ -18,7 +18,7 @@
       <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="home-chat-examples" style="padding:0 20px 14px">
-      <p style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:5px">Try asking</p>
+      <p style="font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:5px">Try asking</p>
       <p id="home-chat-example-text" style="font-size:0.82rem;color:var(--fg);margin:0;transition:opacity 0.35s;font-style:italic;line-height:1.4;min-height:2.8em">"Add zucchini planted today in front yard zone, variety spineless beauty"</p>
     </div>
     <div id="home-chat-panel" hidden>
@@ -47,7 +47,7 @@
         <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#558B2F">Growing Season</span>
+      <span style="font-size:0.82rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#558B2F">Growing Season</span>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <div id="weather-loading" style="padding:14px 16px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.82rem">
@@ -65,7 +65,7 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Suggested for you</span>
+      <span style="font-size:0.82rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Suggested for you</span>
     </div>
 
     <!-- Skeleton shown while loading -->
@@ -103,7 +103,7 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Fertilization due</span>
+      <span style="font-size:0.82rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--green-dark)">Fertilization due</span>
     </div>
     {% if fert_alerts %}
     <div id="fert-alert-card" class="card" style="padding:0;overflow:hidden">
@@ -115,18 +115,18 @@
                   style="flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px">
             <div style="flex:1;min-width:0">
               <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
-              <span style="font-size:0.72rem;color:var(--muted)">{{ alert.variety if alert.variety else ('Edible' if alert.kind == 'edible' else 'Ornamental') }}</span>
+              <span style="font-size:0.85rem;color:var(--muted)">{{ alert.variety if alert.variety else ('Edible' if alert.kind == 'edible' else 'Ornamental') }}</span>
             </div>
             {% if alert.overdue %}
-            <span id="fert-chip-{{ loop.index }}" style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE;white-space:nowrap;flex-shrink:0">Overdue</span>
+            <span id="fert-chip-{{ loop.index }}" style="font-size:0.8rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE;white-space:nowrap;flex-shrink:0">Overdue</span>
             {% else %}
-            <span id="fert-chip-{{ loop.index }}" style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
+            <span id="fert-chip-{{ loop.index }}" style="font-size:0.8rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
             {% endif %}
             <svg id="fert-chevron-{{ loop.index }}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;color:var(--muted);transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
           </button>
           <button type="button" class="fert-done-today-btn"
                   data-kind="{{ alert.kind }}" data-id="{{ alert.id }}"
-                  style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 7px;font-size:0.7rem;color:var(--green-dark);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600">Done today</button>
+                  style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:4px;padding:3px 7px;font-size:0.85rem;color:var(--green-dark);cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;font-weight:600">Done today</button>
         </div>
         <!-- Expandable fertilization form -->
         <div id="fert-panel-{{ loop.index }}" hidden
@@ -143,7 +143,7 @@
                       data-panel="dash-fert-last-{{ loop.index }}"
                       data-chevron="dash-fert-last-chev-{{ loop.index }}"
                       style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit;text-align:left">
-                <span style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Last fertilized</span>
+                <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Last fertilized</span>
                 <span style="display:flex;align-items:center;gap:6px">
                   <span style="font-size:0.85rem;color:var(--fg)">{% if alert.last_fertilized_date %}{{ alert.last_fertilized_date | planted_date }}{% else %}Never{% endif %}</span>
                   <svg id="dash-fert-last-chev-{{ loop.index }}" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="color:var(--muted);transition:transform 0.2s;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>
@@ -160,7 +160,7 @@
                       data-panel="dash-fert-next-{{ loop.index }}"
                       data-chevron="dash-fert-next-chev-{{ loop.index }}"
                       style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit;text-align:left">
-                <span style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Update next fertilization date</span>
+                <span style="font-size:0.85rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Update next fertilization date</span>
                 <span style="display:flex;align-items:center;gap:6px">
                   <span id="dash-fert-next-label-{{ loop.index }}" style="font-size:0.85rem;color:var(--fg)">
                     {%- set eff_next = alert.planned_date or alert.date -%}
@@ -232,10 +232,10 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
       </svg>
-      <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+      <span style="font-size:0.82rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
       {% if watering_alerts %}
       <button type="button" id="water-mark-all-btn"
-              style="background:none;border:1px solid #C7DEE8;border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
+              style="background:none;border:1px solid #C7DEE8;border-radius:4px;padding:2px 8px;font-size:0.82rem;font-weight:700;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap">Mark all watered</button>
       {% endif %}
     </div>
     {% if watering_alerts %}
@@ -245,18 +245,18 @@
         <div style="display:flex;align-items:center;gap:10px;padding:11px 14px">
           <div style="flex:1;min-width:0">
             <span style="font-size:0.88rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">{{ alert.name }}</span>
-            <span style="font-size:0.72rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
+            <span style="font-size:0.85rem;color:var(--muted)">{{ 'Edible' if alert.kind == 'edible' else 'Ornamental' }}{% if alert.frequency_days %} · every {{ alert.frequency_days }}d{% endif %}</span>
           </div>
           {% if alert.overdue %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4;white-space:nowrap;flex-shrink:0">Overdue</span>
+          <span style="font-size:0.8rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4;white-space:nowrap;flex-shrink:0">Overdue</span>
           {% else %}
-          <span style="font-size:0.65rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
+          <span style="font-size:0.8rem;font-weight:800;letter-spacing:0.04em;padding:2px 6px;border-radius:4px;background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8;white-space:nowrap;flex-shrink:0">Due {% if alert.date == today %}today{% else %}{{ alert.date | planted_date }}{% endif %}</span>
           {% endif %}
           <button type="button" class="water-done-btn"
                   data-url="{{ url_for('garden_plan_watering', entry_id=alert.id) if alert.kind == 'edible' else url_for('idea_plan_watering', plant_id=alert.id) }}"
                   data-item="{{ 'edible' if alert.kind == 'edible' else 'ornamental' }}:{{ alert.id }}"
                   title="Mark as watered today"
-                  style="flex-shrink:0;background:none;border:1px solid #C7DEE8;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.7rem;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
+                  style="flex-shrink:0;background:none;border:1px solid #C7DEE8;border-radius:4px;padding:3px 8px 3px 6px;font-size:0.85rem;color:#4A7C95;cursor:pointer;font-family:inherit;white-space:nowrap;display:inline-flex;align-items:center;gap:4px">
                   <svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="#0277BD"/>
                     <polyline points="8.5 14 11 16.5 16 10.5" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -961,8 +961,8 @@ document.addEventListener('DOMContentLoaded', function() {
       h += '<div style="padding:14px 16px 12px">';
       h += '<p style="font-size:0.88rem;line-height:1.7;color:var(--fg);margin:0 0 10px">' + narrative + '</p>';
       h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">';
-      h += '<span style="font-size:0.7rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + data.display_name + ' · vs ' + data.avg_years_label + ' avg</span>';
-      h += '<button id="wx-toggle" type="button" style="flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;font-size:0.7rem;font-weight:700;letter-spacing:0.04em;color:var(--muted);font-family:inherit;display:flex;align-items:center;gap:3px;text-transform:uppercase;white-space:nowrap">';
+      h += '<span style="font-size:0.85rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + data.display_name + ' · vs ' + data.avg_years_label + ' avg</span>';
+      h += '<button id="wx-toggle" type="button" style="flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;font-size:0.85rem;font-weight:700;letter-spacing:0.04em;color:var(--muted);font-family:inherit;display:flex;align-items:center;gap:3px;text-transform:uppercase;white-space:nowrap">';
       h += 'Details<svg id="wx-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.18s"><path d="M6 9l6 6 6-6"/></svg></button>';
       h += '</div>';
       h += '</div>';
@@ -973,9 +973,9 @@ document.addEventListener('DOMContentLoaded', function() {
       /* Temperature table */
       if (cur) {
         h += '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">';
-        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Temperature (avg high)</div>';
+        h += '<div style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Temperature (avg high)</div>';
         h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:220px">';
-        h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
+        h += '<tr style="font-size:0.8rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
         h += '<td></td>';
         h += '<td style="text-align:right;padding:0 6px 4px">High</td>';
         h += '<td style="text-align:right;padding:0 6px 4px">vs ' + data.avg_years_label + '</td>';
@@ -994,9 +994,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         /* Rainfall table */
         h += '<div style="padding:12px 16px;border-bottom:1px solid var(--border)">';
-        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Rainfall</div>';
+        h += '<div style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Rainfall</div>';
         h += '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:220px">';
-        h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
+        h += '<tr style="font-size:0.8rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
         h += '<td></td>';
         h += '<td style="text-align:right;padding:0 6px 4px">Rain</td>';
         h += '<td style="text-align:right;padding:0 6px 4px">vs ' + data.avg_years_label + '</td>';
@@ -1017,9 +1017,9 @@ document.addEventListener('DOMContentLoaded', function() {
       /* Last spring frost */
       if (data.frost_table && data.frost_table.some(function(fr){ return fr.last_spring_frost; })) {
         h += '<div style="padding:12px 16px">';
-        h += '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Last spring frost by year</div>';
+        h += '<div style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Last spring frost by year</div>';
         h += '<table style="width:100%;border-collapse:collapse">';
-        h += '<tr style="font-size:0.6rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
+        h += '<tr style="font-size:0.8rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted)">';
         h += '<td>Year</td><td style="text-align:right">Last frost</td></tr>';
         data.frost_table.forEach(function(fr) {
           if (!fr.last_spring_frost) return;
@@ -1033,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       h += '<div style="padding:10px 16px;border-top:1px solid var(--border)">';
-      h += '<p style="font-size:0.65rem;color:var(--muted);margin:0;line-height:1.5">Historical weather data from <a href="https://open-meteo.com" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:underline;text-decoration-style:dotted">Open-Meteo</a> (Archive API). Monthly averages updated weekly.</p>';
+      h += '<p style="font-size:0.8rem;color:var(--muted);margin:0;line-height:1.5">Historical weather data from <a href="https://open-meteo.com" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:underline;text-decoration-style:dotted">Open-Meteo</a> (Archive API). Monthly averages updated weekly.</p>';
       h += '</div>';
       h += '</div>'; /* end wx-det */
 
