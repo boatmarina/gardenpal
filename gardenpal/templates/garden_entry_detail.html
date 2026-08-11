@@ -106,12 +106,12 @@
           <path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/>
           <path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/>
         </svg>
-        <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);flex:1">Fertilization</span>
+        <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);flex:1">Fertilization</span>
         {% if next_fertilization and not next_fertilization.never and not next_fertilization.not_needed %}
           {% set _planned_stale_hdr = next_fertilization.planned_date and entry.last_fertilized_date and next_fertilization.planned_date <= entry.last_fertilized_date %}
           {% set eff_fert_hdr = (next_fertilization.planned_date if not _planned_stale_hdr else None) or next_fertilization.date %}
           {% if ff_fert and eff_fert_hdr and eff_fert_hdr <= fert_deadline %}
-            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
+            <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if eff_fert_hdr < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
               {% if eff_fert_hdr < today %}Overdue{% elif eff_fert_hdr == today %}Due today{% else %}Due soon{% endif %}
             </span>
           {% endif %}
@@ -142,7 +142,7 @@
             <div style="display:flex;gap:8px">
               <button type="submit" class="button button-secondary" style="font-size:0.8rem;padding:6px 14px">Save</button>
               <button type="button" id="detail-clear-fert-date-btn"
-                      style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.85rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap;{% if not entry.last_fertilized_date %}display:none{% endif %}">Clear</button>
+                      style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap;{% if not entry.last_fertilized_date %}display:none{% endif %}">Clear</button>
             </div>
           </form>
         </div>
@@ -163,7 +163,7 @@
               <span id="detail-next-fert-date" style="font-size:0.85rem;color:var(--muted)">Not needed</span>
             {% elif eff_fert_date %}
               {% if next_fertilization.planned_date and not planned_is_stale %}
-                <span style="font-size:0.8rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 5px;font-weight:700;white-space:nowrap">Planned</span>
+                <span style="font-size:0.65rem;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 5px;font-weight:700;white-space:nowrap">Planned</span>
               {% endif %}
               <span id="detail-next-fert-date" style="font-size:0.85rem;color:var(--fg)">{% if eff_fert_date == today %}Due today{% else %}{{ eff_fert_date | planted_date }}{% endif %}</span>
             {% else %}
@@ -193,7 +193,7 @@
               I don't plan to fertilize this plant
             </label>
             <div id="fert-next-date-section" {% if next_fertilization.never %}hidden{% endif %} style="display:flex;flex-direction:column;gap:10px">
-              <label style="font-size:0.82rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+              <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
                 Update next fertilization date
                 <input type="date" name="planned_date"
                        value="{{ (next_fertilization.planned_date if not planned_is_stale else None) or next_fertilization.date or '' }}"
@@ -205,7 +205,7 @@
               {% if next_fertilization.planned_date and not planned_is_stale and not next_fertilization.never %}
               <button type="button"
                       onclick="this.textContent='Clearing…';this.disabled=true;document.getElementById('fert-next-clear-planned').value='1';this.closest('form').submit()"
-                      style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.85rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap">Clear date</button>
+                      style="background:none;border:1.5px solid var(--border);border-radius:var(--r-md);color:var(--muted);font-family:inherit;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;white-space:nowrap">Clear date</button>
               {% endif %}
             </div>
           </form>
@@ -244,9 +244,9 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
           <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
         </svg>
-        <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
+        <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#0277BD;flex:1">Watering</span>
         {% if not next_watering.never and next_watering.date and next_watering.date <= water_deadline %}
-          <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.8rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4{% else %}background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8{% endif %}">
+          <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;{% if next_watering.date < today %}background:#DCE6EA;color:#3D6478;border:1px solid #B9CCD4{% else %}background:#E9F0F2;color:#4A7C95;border:1px solid #C7DEE8{% endif %}">
             {% if next_watering.date < today %}Overdue{% else %}Due soon{% endif %}
           </span>
         {% endif %}
@@ -266,7 +266,7 @@
         <div id="water-last-panel" hidden style="padding:10px 0 14px;border-top:1px solid var(--border)">
           <form method="post" action="{{ url_for('garden_plan_watering', entry_id=entry.id) }}"
                 style="display:flex;flex-direction:column;gap:10px">
-            <label style="font-size:0.82rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
+            <label style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:5px">
               Last watered date
               <input type="date" name="last_watered_date"
                      value="{{ entry.last_watered_date or '' }}"
@@ -282,7 +282,7 @@
       <!-- Row 2: Next water — always tappable -->
       <div style="padding:0 16px 6px">
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;min-height:36px">
-          <span style="color:var(--muted);font-size:0.82rem">Next water{% if not next_watering.never and next_watering.frequency_days %} <span style="font-size:0.85rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
+          <span style="color:var(--muted);font-size:0.82rem">Next water{% if not next_watering.never and next_watering.frequency_days %} <span style="font-size:0.72rem">· every {{ next_watering.frequency_days }}d</span>{% endif %}</span>
           <button type="button" id="water-next-toggle"
                   style="background:none;border:none;padding:4px 0 4px 12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">
             {% if next_watering.never %}
@@ -404,7 +404,7 @@
     <!-- Section label -->
     <div style="display:flex;align-items:center;gap:7px;padding:12px 16px">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:var(--muted)">Growth log</span>
+      <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:var(--muted)">Growth log</span>
     </div>
 
     <!-- Notes or empty state -->
@@ -436,7 +436,7 @@
 
     <!-- Add a note — sub-section within Growth log -->
     <div style="border-top:1px solid var(--border);padding:14px 16px 18px">
-      <p style="font-size:0.8rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin:0 0 14px">Add a note</p>
+      <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin:0 0 14px">Add a note</p>
       <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
         <input type="file" name="photo" accept="image/*" id="garden-photo-input"
                style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
