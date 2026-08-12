@@ -37,7 +37,7 @@ body { visibility: visible; }
    ================================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; font-size: 106.25%; }
 
 body {
   font-family: 'Source Sans 3', system-ui, -apple-system, sans-serif;
