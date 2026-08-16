@@ -9,6 +9,14 @@
   </a>
 
   <section class="panel">
+    <div id="done-season-banner" {% if not entry.done_for_season %}hidden{% endif %}
+         style="margin:-20px -20px 16px;padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span style="font-size:0.82rem;font-weight:600;color:var(--muted)">Done for the season</span>
+    </div>
+
     <div class="title-row" style="margin-bottom:4px">
       <h2>{{ entry.plant_name }}</h2>
       <div style="display:flex;gap:5px;align-items:center">
@@ -118,7 +126,7 @@
       </span>
     </button>
 
-    <div style="border-top:1px solid var(--border);margin:16px -20px 0">
+    <div id="fert-section" style="border-top:1px solid var(--border);margin:16px -20px 0"{% if entry.done_for_season %} hidden{% endif %}>
       <!-- Fertilization section header (non-interactive, just label) -->
       <div style="display:flex;align-items:center;gap:8px;padding:11px 16px 6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)">
@@ -258,7 +266,7 @@
     </div>
 
     {% if ff_water and next_watering %}
-    <div style="border-top:1px solid var(--border);margin:0 -20px">
+    <div id="water-section" style="border-top:1px solid var(--border);margin:0 -20px"{% if entry.done_for_season %} hidden{% endif %}>
       <!-- Watering section header (non-interactive) -->
       <div style="display:flex;align-items:center;gap:8px;padding:11px 16px 6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0277BD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
@@ -524,6 +532,9 @@
   var knob = pill ? pill.querySelector('span') : null;
   var label = document.getElementById('done-season-label');
   var sub = document.getElementById('done-season-sub');
+  var banner = document.getElementById('done-season-banner');
+  var fertSection = document.getElementById('fert-section');
+  var waterSection = document.getElementById('water-section');
   var isDone = doneBtn.dataset.done === '1';
   doneBtn.addEventListener('click', function() {
     doneBtn.disabled = true;
@@ -537,6 +548,9 @@
         if (knob) knob.style.left = isDone ? '18px' : '2px';
         if (label) label.textContent = isDone ? 'Done for the season' : 'Mark done for the season';
         if (sub) sub.textContent = isDone ? 'This plant is finished — tap to undo.' : 'Dims this plant in the list when the season ends.';
+        if (banner) banner.hidden = !isDone;
+        if (fertSection) fertSection.hidden = isDone;
+        if (waterSection) waterSection.hidden = isDone;
         doneBtn.disabled = false;
       })
       .catch(function() { doneBtn.disabled = false; });
