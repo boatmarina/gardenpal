@@ -294,6 +294,12 @@ def create_app() -> Flask:
     # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
     WHATS_NEW_CHANGELOG = [
         {
+            "version": "2026-08-b",
+            "title": "Mark edible plants done for the season",
+            "body": "Tap any edible plant's detail page and toggle \"Done for the season\" to mark it finished. Done plants are dimmed in your list so you can see at a glance what's still growing.",
+            "draft": True,
+        },
+        {
             "version": "2026-08-a",
             "title": "Growing season weather on your home screen",
             "body": "See how your season is tracking — temperature and rainfall vs. your 10-year average, in plain English. Tap Details for a full monthly breakdown. Also appears in your Season Diary export.",
