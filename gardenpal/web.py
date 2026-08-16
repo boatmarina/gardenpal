@@ -3949,10 +3949,19 @@ self.addEventListener('activate', function(e) {
         if entry is None:
             return jsonify({"error": "not found"}), 404
         new_val = 0 if entry["done_for_season"] else 1
+        now = datetime.utcnow().isoformat(timespec="seconds")
         db.execute(
-            f"UPDATE garden_entries SET done_for_season = ?, updated_at = ? WHERE id = ? AND user_id IN {ph}",
-            [new_val, datetime.utcnow().isoformat(timespec="seconds"), entry_id] + id_args,
+            f"UPDATE garden_entries SET done_for_season = ?, never_fertilize = ?, never_water = ?, updated_at = ?"
+            f" WHERE id = ? AND user_id IN {ph}",
+            [new_val, new_val, new_val, now, entry_id] + id_args,
         )
+        if new_val == 1:
+            # Clear pending alert dates so no alerts fire while done
+            db.execute(
+                "UPDATE garden_entries SET next_fertilization_date = NULL, planned_fertilization_date = NULL,"
+                " next_watering_date = NULL WHERE id = ?",
+                (entry_id,),
+            )
         db.commit()
         return jsonify({"ok": True, "done_for_season": new_val})
 
