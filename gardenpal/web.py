@@ -488,10 +488,11 @@ self.addEventListener('activate', function(e) {
         g.user = None
         g.real_admin = None
         if user_id is not None:
-            real_user = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (user_id,)).fetchone()
+            db = get_db()
+            real_user = db.execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (user_id,)).fetchone()
             impersonating_id = session.get("impersonating_id")
             if impersonating_id and real_user and real_user["is_admin"]:
-                impersonated = get_db().execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (impersonating_id,)).fetchone()
+                impersonated = db.execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (impersonating_id,)).fetchone()
                 if impersonated:
                     g.real_admin = real_user
                     g.user = impersonated
@@ -500,6 +501,13 @@ self.addEventListener('activate', function(e) {
                     g.user = real_user
             else:
                 g.user = real_user
+                # Auto-detect location from Vercel headers on first login (no manual override)
+                if g.user and not g.user["location"]:
+                    detected = _location_from_vercel_headers()
+                    if detected:
+                        db.execute("UPDATE users SET location = ? WHERE id = ?", (detected, g.user["id"]))
+                        db.commit()
+                        g.user = db.execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (g.user["id"],)).fetchone()
 
     @app.context_processor
     def inject_auth_user():
@@ -8400,6 +8408,23 @@ def _feature_fertilization(user):
 def _feature_watering(user):
     """Feature flag: watering tracker. Early-access only."""
     return (user or {}).get("username") in {"holval@gmail.com"}
+
+
+def _location_from_vercel_headers():
+    """Build a human-readable location string from Vercel's IP geo headers.
+
+    Returns a string like "Seattle, WA" or "London, GB", or None when the
+    headers are absent (local dev, non-Vercel host, or VPN with no geo data).
+    """
+    from urllib.parse import unquote
+    city    = request.headers.get("X-Vercel-IP-City", "").strip()
+    region  = request.headers.get("X-Vercel-IP-Country-Region", "").strip()
+    country = request.headers.get("X-Vercel-IP-Country", "").strip()
+    city = unquote(city)
+    if not city and not region:
+        return None
+    parts = [p for p in [city, region or country] if p]
+    return ", ".join(parts) or None
 
 
 def _feature_home_assistant(user):
