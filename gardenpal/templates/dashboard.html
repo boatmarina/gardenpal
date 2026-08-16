@@ -310,6 +310,15 @@
     </a>
   </div>
 
+  <!-- Fert-today loading overlay -->
+  <div id="dash-fert-loading-overlay" hidden
+       style="position:fixed;inset:0;z-index:910;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center">
+    <div style="background:var(--card);border-radius:14px;padding:28px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.22);min-width:160px">
+      <div class="spinner"></div>
+      <p style="margin:0;font-size:0.88rem;font-weight:600;color:var(--fg)">Updating…</p>
+    </div>
+  </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -500,13 +509,16 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
     var url = kind === 'edible'
       ? '/garden/' + id + '/fertilized-today'
       : '/ideas/' + id + '/fertilized-today';
+    overlay.hidden = true;
+    var loadingOverlay = document.getElementById('dash-fert-loading-overlay');
+    if (loadingOverlay) loadingOverlay.hidden = false;
     fetch(url, {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
       body: ftype ? 'fertilizer_type=' + encodeURIComponent(ftype) : ''
     }).finally(function() {
+      if (loadingOverlay) loadingOverlay.hidden = true;
       if (btn) enableBtn(btn);
-      overlay.hidden = true;
       if (row) removeFertRow(row);
       dashFertPendingRow = null;
       dashFertPendingMode = null;
@@ -537,13 +549,16 @@ document.querySelectorAll('[data-fert-form]').forEach(function(form) {
       var url = kind === 'edible'
         ? '/garden/' + id + '/fertilizer-type'
         : '/ideas/' + id + '/fertilizer-type';
+      overlay.hidden = true;
+      var loadingOverlay = document.getElementById('dash-fert-loading-overlay');
+      if (loadingOverlay) loadingOverlay.hidden = false;
       fetch(url, {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: 'fertilizer_type=' + encodeURIComponent(ftype)
       }).finally(function() {
+        if (loadingOverlay) loadingOverlay.hidden = true;
         enableBtn(saveBtn);
-        overlay.hidden = true;
         if (row) removeFertRow(row);
         dashFertPendingRow = null;
         dashFertPendingMode = null;
