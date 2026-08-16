@@ -9,16 +9,15 @@
   </a>
 
   <section class="panel">
-    <div id="done-season-banner" {% if not entry.done_for_season %}hidden{% endif %}
-         style="margin:-20px -20px 16px;padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-      <span style="font-size:0.82rem;font-weight:600;color:var(--muted)">Done for the season</span>
-    </div>
-
     <div class="title-row" style="margin-bottom:4px">
-      <h2>{{ entry.plant_name }}</h2>
+      <div>
+        <h2 style="margin-bottom:0">{{ entry.plant_name }}</h2>
+        <span id="done-season-chip" {% if not entry.done_for_season %}hidden{% endif %}
+              style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 8px;border-radius:999px;font-size:0.68rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--bg);color:var(--muted);border:1px solid var(--border)">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Done for season
+        </span>
+      </div>
       <div style="display:flex;gap:5px;align-items:center">
         <button id="gp-share-btn" type="button" title="Share link"
                 style="background:none;border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted)">
@@ -532,7 +531,7 @@
   var knob = pill ? pill.querySelector('span') : null;
   var label = document.getElementById('done-season-label');
   var sub = document.getElementById('done-season-sub');
-  var banner = document.getElementById('done-season-banner');
+  var banner = document.getElementById('done-season-chip');
   var fertSection = document.getElementById('fert-section');
   var waterSection = document.getElementById('water-section');
   var isDone = doneBtn.dataset.done === '1';
