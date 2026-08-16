@@ -2620,12 +2620,19 @@ self.addEventListener('activate', function(e) {
                 " WHERE al.action IN ('diary_opened', 'diary_print')"
                 " ORDER BY al.logged_at DESC LIMIT 200"
             ).fetchall()
+            done_season_activity = db.execute(
+                "SELECT al.action, al.item_name, al.logged_at, u.username"
+                " FROM activity_log al JOIN users u ON u.id = al.user_id"
+                " WHERE al.action IN ('garden_done_season', 'garden_undone_season')"
+                " ORDER BY al.logged_at DESC LIMIT 200"
+            ).fetchall()
         else:
             ai_chat_entries = []
             suggestion_adds = []
             app_error_log = []
             care_activity = []
             diary_activity = []
+            done_season_activity = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -2643,6 +2650,7 @@ self.addEventListener('activate', function(e) {
                                app_error_log=app_error_log,
                                care_activity=care_activity,
                                diary_activity=diary_activity,
+                               done_season_activity=done_season_activity,
                                ai_chat_entries=ai_chat_entries,
                                suggestion_adds=suggestion_adds,
                                garden_shares=garden_shares,
@@ -3943,7 +3951,7 @@ self.addEventListener('activate', function(e) {
         ids = _shared_user_ids(db, g.user["id"])
         ph, id_args = _in_ids(ids)
         entry = db.execute(
-            f"SELECT id, done_for_season FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            f"SELECT id, plant_name, done_for_season FROM garden_entries WHERE id = ? AND user_id IN {ph}",
             [entry_id] + id_args,
         ).fetchone()
         if entry is None:
@@ -3962,6 +3970,9 @@ self.addEventListener('activate', function(e) {
                 " next_watering_date = NULL WHERE id = ?",
                 (entry_id,),
             )
+        db.commit()
+        action = "garden_done_season" if new_val == 1 else "garden_undone_season"
+        _log_activity(db, g.user["id"], action, entry["plant_name"])
         db.commit()
         return jsonify({"ok": True, "done_for_season": new_val})
 
