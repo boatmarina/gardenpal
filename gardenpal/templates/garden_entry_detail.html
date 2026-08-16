@@ -109,7 +109,7 @@
         </svg>
         <span>
           <span id="done-season-label" style="font-size:0.88rem;font-weight:600;color:var(--fg)">{% if entry.done_for_season %}Done for the season{% else %}Mark done for the season{% endif %}</span><br>
-          <span style="font-size:0.72rem;color:var(--muted)">{% if entry.done_for_season %}This plant is finished — tap to undo.{% else %}Dims this plant in the list when the season ends.{% endif %}</span>
+          <span id="done-season-sub" style="font-size:0.72rem;color:var(--muted)">{% if entry.done_for_season %}This plant is finished — tap to undo.{% else %}Dims this plant in the list when the season ends.{% endif %}</span>
         </span>
       </span>
       <!-- Toggle pill -->
@@ -523,6 +523,7 @@
   var pill = document.getElementById('done-season-pill');
   var knob = pill ? pill.querySelector('span') : null;
   var label = document.getElementById('done-season-label');
+  var sub = document.getElementById('done-season-sub');
   var isDone = doneBtn.dataset.done === '1';
   doneBtn.addEventListener('click', function() {
     doneBtn.disabled = true;
@@ -535,7 +536,6 @@
         if (pill) pill.style.background = isDone ? 'var(--muted)' : 'var(--border)';
         if (knob) knob.style.left = isDone ? '18px' : '2px';
         if (label) label.textContent = isDone ? 'Done for the season' : 'Mark done for the season';
-        var sub = doneBtn.querySelector('span > span:last-child');
         if (sub) sub.textContent = isDone ? 'This plant is finished — tap to undo.' : 'Dims this plant in the list when the season ends.';
         doneBtn.disabled = false;
       })
