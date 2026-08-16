@@ -62,9 +62,13 @@
             {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline %}
             {% set water_alert = ff_water and entry.next_watering_date and entry.next_watering_date <= water_deadline and not entry.never_water %}
             <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
-               data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
+               data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}"
+               {% if entry.done_for_season %}style="opacity:0.48;filter:grayscale(0.25)"{% endif %}>
               <div class="card-content" style="padding:16px 18px">
                 <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+                {% if entry.done_for_season %}
+                  <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;background:var(--bg);color:var(--muted);border:1px solid var(--border)">Done for season</span>
+                {% endif %}
                 {% if fert_alert %}
                   <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
                     {% if eff_fert < today %}Fert overdue{% elif eff_fert == today %}Fert due today{% else %}Fert due soon{% endif %}
@@ -108,11 +112,15 @@
           {% set fert_alert = ff_fert and eff_fert and eff_fert <= fert_deadline %}
           {% set water_alert = ff_water and entry.next_watering_date and entry.next_watering_date <= water_deadline and not entry.never_water %}
           <a href="{{ url_for('garden_detail', entry_id=entry.id) }}" class="card card-link"
-             data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}">
+             data-search="{{ [entry.plant_name, entry.variety or '', entry.location_name or ''] | join(' ') | lower }}"
+             {% if entry.done_for_season %}style="opacity:0.48;filter:grayscale(0.25)"{% endif %}>
             <div class="card-content" style="padding:16px 18px">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
                 <div style="flex:1;min-width:0">
                   <h3 style="margin-bottom:2px">{{ entry.plant_name }}</h3>
+                  {% if entry.done_for_season %}
+                    <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;background:var(--bg);color:var(--muted);border:1px solid var(--border)">Done for season</span>
+                  {% endif %}
                   {% if fert_alert %}
                     <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-size:0.6rem;font-weight:800;letter-spacing:0.04em;white-space:nowrap;margin-bottom:3px;{% if eff_fert < today %}background:#F7E7DE;color:#A24A2E;border:1px solid #E3C4AE{% else %}background:#EAEEE3;color:#4A6647;border:1px solid #C9D6BE{% endif %}">
                       {% if eff_fert < today %}Fert overdue{% elif eff_fert == today %}Fert due today{% else %}Fert due soon{% endif %}

@@ -3840,11 +3840,12 @@ self.addEventListener('activate', function(e) {
                 else:
                     zone_id_to_save = None  # user cleared the zone field
             never_fertilize = 1 if request.form.get("never_fertilize") else 0
+            done_for_season = 1 if request.form.get("done_for_season") else 0
             db.execute(
                 f"""UPDATE garden_entries
                    SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
                        planted_date = ?, planting_method = ?, notes = ?, last_fertilized_date = ?, last_fertilizer_type = ?,
-                       never_fertilize = ?, zone_id = ?, updated_at = ?
+                       never_fertilize = ?, zone_id = ?, done_for_season = ?, updated_at = ?
                    WHERE id = ? AND user_id IN {ph}""",
                 [
                     plant_name,
@@ -3858,6 +3859,7 @@ self.addEventListener('activate', function(e) {
                     request.form.get("last_fertilizer_type", "").strip() or None,
                     never_fertilize,
                     zone_id_to_save,
+                    done_for_season,
                     datetime.utcnow().isoformat(timespec="seconds"),
                     entry_id,
                 ] + id_args,
@@ -7426,6 +7428,7 @@ def init_db():
         ("plants",          "fertilization_cutoff_date",       "TEXT"),
         ("garden_entries",  "fertilization_frequency_days",    "INTEGER"),
         ("garden_entries",  "fertilization_cutoff_date",       "TEXT"),
+        ("garden_entries",  "done_for_season",                  "INTEGER DEFAULT 0"),
     ])
 
     db.execute("UPDATE users SET is_admin = 1 WHERE lower(username) = lower('boatmarina')")
