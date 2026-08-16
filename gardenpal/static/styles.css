@@ -1045,17 +1045,19 @@ dd { margin: 0; }
 .back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.68rem;
+  gap: 7px;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
   text-decoration: none;
   margin-bottom: 14px;
+  padding: 4px 0;
 }
 
 .back-btn:hover { color: var(--fg); }
+.back-btn svg { width: 16px; height: 16px; }
 
 .photos-grid-placeholder {
   grid-column: 1 / -1;
