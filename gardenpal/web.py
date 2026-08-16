@@ -297,7 +297,7 @@ def create_app() -> Flask:
             "version": "2026-08-b",
             "title": "Mark edible plants done for the season",
             "body": "Tap any edible plant's detail page and toggle \"Done for the season\" to mark it finished. Done plants are dimmed in your list so you can see at a glance what's still growing.",
-            "draft": True,
+            "draft": False,
         },
         {
             "version": "2026-08-a",
