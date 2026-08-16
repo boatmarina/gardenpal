@@ -8399,7 +8399,7 @@ def _feature_fertilization(user):
 
 def _feature_watering(user):
     """Feature flag: watering tracker. Early-access only."""
-    return (user or {}).get("username") in {"boatmarina", "holval@gmail.com"}
+    return (user or {}).get("username") in {"holval@gmail.com"}
 
 
 def _feature_home_assistant(user):
