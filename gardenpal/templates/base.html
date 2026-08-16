@@ -57,7 +57,6 @@
   <header class="brand-bar" {% if real_admin %}style="padding-top:16px"{% endif %}>
     <div>
       <a href="{{ url_for('dashboard') if current_user else url_for('login') }}" class="brand-label" style="text-decoration:none;color:inherit">GardenPal</a>
-      {% block page_label %}{% endblock %}
     </div>
     {% if current_user %}
       <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-shrink:1">

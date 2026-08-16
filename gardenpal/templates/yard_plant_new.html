@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block page_label %}<span class="page-subtitle">Add to Yard</span>{% endblock %}
 {% block content %}
   <a href="{{ url_for('yard_index') }}" class="back-btn">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -27,6 +26,7 @@
     <input type="hidden" name="label_plant_name" id="yard-label-plant-name-hidden"
            value="{{ form_values.plant_name if form_values.yard_input_mode == 'label' else '' }}" />
 
+    <h2 style="margin-bottom:16px">Add to Yard</h2>
     <!-- Primary CTAs -->
     <div class="action-cards" style="margin-bottom:20px">
       <button type="button" class="action-card {% if form_values.active_mode != 'new' %}dark{% endif %}" id="btn-library">

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block page_label %}<span class="page-subtitle">Edit note</span>{% endblock %}
 {% block title %}Edit note · {{ photo.plant_name }} · GardenPal{% endblock %}
 
 {% block content %}
@@ -17,6 +16,7 @@
   {% endif %}
 
   <div class="panel stack">
+    <h2 style="margin-bottom:4px">Edit Note</h2>
     <form method="post" enctype="multipart/form-data" class="stack">
       <label>
         Date

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block page_label %}<span class="page-subtitle">Add Plant</span>{% endblock %}
 {% block title %}Add Plant · GardenPal{% endblock %}
 
 {% block content %}
@@ -9,6 +8,7 @@
   </a>
 
   <div class="panel stack" style="overflow:visible">
+    <h2 style="margin-bottom:4px">Add Plant</h2>
     <form method="post" action="{{ url_for('garden_new') }}" class="stack">
       <label>
         Plant name *
