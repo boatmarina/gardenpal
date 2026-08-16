@@ -84,15 +84,6 @@
         Notes
         <textarea name="notes" rows="3" placeholder="Seed source, spacing, observations…">{{ form_values.notes or '' }}</textarea>
       </label>
-      <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer;padding:12px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
-        <input type="checkbox" name="done_for_season" value="1"
-               {% if entry.done_for_season %}checked{% endif %}
-               style="width:18px;height:18px;accent-color:var(--muted);flex-shrink:0" />
-        <span>
-          <span style="font-weight:600;color:var(--fg);font-size:0.9rem">Done for the season</span><br>
-          <span style="color:var(--muted);font-size:0.75rem">Marks this plant as finished — still shown in the list but visually dimmed.</span>
-        </span>
-      </label>
       <button type="submit" style="margin-top:4px">Save Changes</button>
     </form>
   </div>
