@@ -98,7 +98,27 @@
       {% endif %}
     </div>
 
-    <div style="border-top:1px solid var(--border);margin:0 -20px">
+    <!-- Done for season toggle -->
+    <button id="done-season-btn" type="button"
+            data-entry-id="{{ entry.id }}"
+            data-done="{{ '1' if entry.done_for_season else '0' }}"
+            style="margin-top:14px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:{% if entry.done_for_season %}var(--bg){% else %}var(--card){% endif %};border:1px solid {% if entry.done_for_season %}var(--border){% else %}var(--border){% endif %};border-radius:10px;padding:10px 14px;cursor:pointer;font-family:inherit;text-align:left">
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--muted)">
+          <path d="M10.5 22l1.5-9-6-3 8-10-1.5 9 6 3-8 10z"/>
+        </svg>
+        <span>
+          <span id="done-season-label" style="font-size:0.88rem;font-weight:600;color:var(--fg)">{% if entry.done_for_season %}Done for the season{% else %}Mark done for the season{% endif %}</span><br>
+          <span style="font-size:0.72rem;color:var(--muted)">{% if entry.done_for_season %}This plant is finished — tap to undo.{% else %}Dims this plant in the list when the season ends.{% endif %}</span>
+        </span>
+      </span>
+      <!-- Toggle pill -->
+      <span id="done-season-pill" style="flex-shrink:0;width:36px;height:20px;border-radius:10px;position:relative;transition:background 0.2s;background:{% if entry.done_for_season %}var(--muted){% else %}var(--border){% endif %}">
+        <span style="position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:left 0.2s;left:{% if entry.done_for_season %}18px{% else %}2px{% endif %}"></span>
+      </span>
+    </button>
+
+    <div style="border-top:1px solid var(--border);margin:16px -20px 0">
       <!-- Fertilization section header (non-interactive, just label) -->
       <div style="display:flex;align-items:center;gap:8px;padding:11px 16px 6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)">
@@ -497,6 +517,31 @@
 @keyframes chatDot { 0%,80%,100% { transform:scale(0.7);opacity:0.4; } 40% { transform:scale(1);opacity:1; } }
 </style>
 <script>
+(function() {
+  var doneBtn = document.getElementById('done-season-btn');
+  if (!doneBtn) return;
+  var pill = document.getElementById('done-season-pill');
+  var knob = pill ? pill.querySelector('span') : null;
+  var label = document.getElementById('done-season-label');
+  var isDone = doneBtn.dataset.done === '1';
+  doneBtn.addEventListener('click', function() {
+    doneBtn.disabled = true;
+    fetch('/garden/' + doneBtn.dataset.entryId + '/toggle-done', {method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.ok) { doneBtn.disabled = false; return; }
+        isDone = data.done_for_season === 1;
+        doneBtn.dataset.done = isDone ? '1' : '0';
+        if (pill) pill.style.background = isDone ? 'var(--muted)' : 'var(--border)';
+        if (knob) knob.style.left = isDone ? '18px' : '2px';
+        if (label) label.textContent = isDone ? 'Done for the season' : 'Mark done for the season';
+        var sub = doneBtn.querySelector('span > span:last-child');
+        if (sub) sub.textContent = isDone ? 'This plant is finished — tap to undo.' : 'Dims this plant in the list when the season ends.';
+        doneBtn.disabled = false;
+      })
+      .catch(function() { doneBtn.disabled = false; });
+  });
+})();
 (function() {
   var btn = document.getElementById('gp-share-btn');
   if (!btn) return;

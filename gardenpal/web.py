@@ -3930,6 +3930,26 @@ self.addEventListener('activate', function(e) {
                                today=_today, fert_deadline=_fert_deadline,
                                plant_names=plant_names, plant_varieties=plant_varieties)
 
+    @app.route("/garden/<int:entry_id>/toggle-done", methods=["POST"])
+    @login_required
+    def garden_toggle_done(entry_id):
+        db = get_db()
+        ids = _shared_user_ids(db, g.user["id"])
+        ph, id_args = _in_ids(ids)
+        entry = db.execute(
+            f"SELECT id, done_for_season FROM garden_entries WHERE id = ? AND user_id IN {ph}",
+            [entry_id] + id_args,
+        ).fetchone()
+        if entry is None:
+            return jsonify({"error": "not found"}), 404
+        new_val = 0 if entry["done_for_season"] else 1
+        db.execute(
+            f"UPDATE garden_entries SET done_for_season = ?, updated_at = ? WHERE id = ? AND user_id IN {ph}",
+            [new_val, datetime.utcnow().isoformat(timespec="seconds"), entry_id] + id_args,
+        )
+        db.commit()
+        return jsonify({"ok": True, "done_for_season": new_val})
+
     @app.route("/garden/<int:entry_id>/delete", methods=["POST"])
     @login_required
     def garden_delete(entry_id):
