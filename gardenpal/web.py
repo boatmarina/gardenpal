@@ -509,18 +509,28 @@ self.addEventListener('activate', function(e) {
                         db.commit()
                         g.user = db.execute("SELECT id, username, api_token, is_admin, photo_id_provider, location, whats_new_seen, fertilization_tracking FROM users WHERE id = ?", (g.user["id"],)).fetchone()
 
-    @app.context_processor
-    def inject_auth_user():
-        user = g.get("user")
-        real_admin = g.get("real_admin")
-        whats_new_entries = []
-        if user and not real_admin:
-            seen = user.get("whats_new_seen")
+        # Compute What's New entries now (before render) and immediately mark seen in DB.
+        # This prevents the dialog re-appearing on refresh when the client-side dismiss fetch fails.
+        g.whats_new_entries = []
+        if g.user and not g.real_admin:
+            seen = g.user.get("whats_new_seen")
             seen_idx = next(
                 (i for i, e in enumerate(WHATS_NEW_CHANGELOG) if e["version"] == seen),
                 len(WHATS_NEW_CHANGELOG),
             )
-            whats_new_entries = [e for e in WHATS_NEW_CHANGELOG[:seen_idx] if not e.get("admin_only") and not e.get("draft")][:5]
+            entries = [e for e in WHATS_NEW_CHANGELOG[:seen_idx] if not e.get("admin_only") and not e.get("draft")][:5]
+            if entries:
+                g.whats_new_entries = entries
+                if seen != WHATS_NEW_VERSION:
+                    db = get_db()
+                    db.execute("UPDATE users SET whats_new_seen = ? WHERE id = ?", (WHATS_NEW_VERSION, g.user["id"]))
+                    db.commit()
+
+    @app.context_processor
+    def inject_auth_user():
+        user = g.get("user")
+        real_admin = g.get("real_admin")
+        whats_new_entries = g.get("whats_new_entries") or []
         return {
             "current_user": user,
             "show_whats_new": bool(whats_new_entries),
