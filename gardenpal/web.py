@@ -2343,6 +2343,7 @@ self.addEventListener('activate', function(e) {
                 "zones": [], "garden_entries": [], "chat_queries": [],
                 "garden_notes": [], "tags": [], "suggestion_adds": [],
                 "notes": [], "edits": [], "deletions": [], "photos": [],
+                "done_season": [],
                 "_sp": set(), "_sy": set(),
             })
 
@@ -2387,6 +2388,10 @@ self.addEventListener('activate', function(e) {
             elif act == "garden_entry_duplicated":
                 if name not in d["garden_entries"]:
                     d["garden_entries"].append(name)
+            elif act == "garden_done_season":
+                d["done_season"].append({"name": name, "action": "done"})
+            elif act == "garden_undone_season":
+                d["done_season"].append({"name": name, "action": "undone"})
 
         note_rows = db.execute(
             "SELECT gp.created_at, gp.image_path, gp.is_fertilization, gp.fertilizer_type,"
@@ -2508,6 +2513,7 @@ self.addEventListener('activate', function(e) {
                     "zones": [], "garden_entries": [], "chat_queries": [],
                     "garden_notes": [], "tags": [], "suggestion_adds": [],
                     "notes": [], "edits": [], "deletions": [], "photos": [],
+                    "done_season": [],
                     "_sp": set(), "_sy": set(),
                 })
 
@@ -2549,6 +2555,10 @@ self.addEventListener('activate', function(e) {
                     d["photos"].append(name)
                 elif act == "garden_entry_duplicated" and name not in d["garden_entries"]:
                     d["garden_entries"].append(name)
+                elif act == "garden_done_season":
+                    d["done_season"].append({"name": name, "action": "done"})
+                elif act == "garden_undone_season":
+                    d["done_season"].append({"name": name, "action": "undone"})
             for row in notes_by_uid[uid]:
                 _day(row["created_at"][:10])["garden_notes"].append({
                     "plant_name": row["plant_name"],

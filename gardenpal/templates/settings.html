@@ -286,27 +286,6 @@
     </section>
     {% endif %}
 
-    <section class="panel" style="margin-bottom:16px">
-      <h2 style="margin-bottom:12px">What's new</h2>
-      <div style="display:flex;flex-direction:column;gap:0">
-        {% for entry in changelog %}
-        <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <p style="font-size:0.92rem;font-weight:600;margin:0">{{ entry.title }}</p>
-            {% if entry.draft %}
-            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:#FFF3E0;color:#C15400;border:1px solid #FFB74D;border-radius:4px;padding:1px 6px">draft</span>
-            {% endif %}
-            {% if entry.admin_only %}
-            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px">admin</span>
-            {% endif %}
-          </div>
-          <p style="font-size:0.82rem;color:var(--muted);margin:0 0 4px;line-height:1.5">{{ entry.body }}</p>
-          <p style="font-size:0.68rem;color:var(--muted);margin:0;opacity:0.55">{{ entry.version }}</p>
-        </div>
-        {% endfor %}
-      </div>
-    </section>
-
     {% if suggestion_adds is defined %}
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Suggested plants added to library</h2>
@@ -443,6 +422,27 @@
       {% endif %}
     </section>
     {% endif %}
+
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:12px">What's new</h2>
+      <div style="display:flex;flex-direction:column;gap:0">
+        {% for entry in changelog %}
+        <div style="padding:12px 0{% if not loop.first %};border-top:1px solid var(--border){% endif %}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <p style="font-size:0.92rem;font-weight:600;margin:0">{{ entry.title }}</p>
+            {% if entry.draft %}
+            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:#FFF3E0;color:#C15400;border:1px solid #FFB74D;border-radius:4px;padding:1px 6px">draft</span>
+            {% endif %}
+            {% if entry.admin_only %}
+            <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;background:var(--green-light);color:var(--green-dark);border:1px solid var(--green-mid);border-radius:4px;padding:1px 6px">admin</span>
+            {% endif %}
+          </div>
+          <p style="font-size:0.82rem;color:var(--muted);margin:0 0 4px;line-height:1.5">{{ entry.body }}</p>
+          <p style="font-size:0.68rem;color:var(--muted);margin:0;opacity:0.55">{{ entry.version }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
 
     <section class="panel" style="margin-bottom:16px" id="services-panel">
       <h2 style="margin-bottom:4px">Connected services</h2>
