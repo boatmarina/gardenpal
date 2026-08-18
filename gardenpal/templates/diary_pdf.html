@@ -211,7 +211,8 @@ table.zones-table .zone-name {
 {% if entry.notes %}<div class="edible-notes">{{ entry.notes }}</div>{% endif %}
 
 {% set log = growth_log.get(entry.id, []) %}
-{% if log %}
+{% set done_date = done_season_dates.get(entry.plant_name | lower, '') if done_season_dates is defined else '' %}
+{% if log or (entry.done_for_season and done_date) %}
 <div class="growth-log-label">Growth Log</div>
 {% for item in log %}
 <div class="log-row">
@@ -220,6 +221,12 @@ table.zones-table .zone-name {
   {% if item.notes %}<div class="log-note">{{ item.notes }}</div>{% endif %}
 </div>
 {% endfor %}
+{% if entry.done_for_season and done_date %}
+<div class="log-row">
+  <div class="log-date">{{ done_date | planted_date }}</div>
+  <div class="log-fert" style="background:#F5F5F5;color:#616161;border-color:#BDBDBD">Done for season</div>
+</div>
+{% endif %}
 {% endif %}
 {% endfor %}
 {% else %}

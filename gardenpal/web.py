@@ -2968,6 +2968,7 @@ self.addEventListener('activate', function(e) {
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
                        ge.planted_date, ge.planting_method, ge.notes, ge.zone_id,
                        ge.last_fertilized_date, ge.last_fertilizer_type,
+                       ge.done_for_season,
                        yz.name AS zone_name
                 FROM garden_entries ge
                 LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
@@ -2998,6 +2999,16 @@ self.addEventListener('activate', function(e) {
                 eids,
             ).fetchall():
                 growth_log.setdefault(row["entry_id"], []).append(row)
+
+        # ── Done-for-season dates (most recent per plant name) ──────────────
+        done_season_dates = {}
+        for row in db.execute(
+            f"SELECT item_name, MAX(logged_at) AS logged_at FROM activity_log"
+            f" WHERE user_id IN {ph} AND action = 'garden_done_season'"
+            f" GROUP BY item_name",
+            id_args,
+        ).fetchall():
+            done_season_dates[(row["item_name"] or "").lower()] = row["logged_at"][:10]
 
         # ── Zone membership maps (for overview) ─────────────────────────────
         zone_ornamentals = {}  # zone_id -> [plant_name, ...]
@@ -3063,6 +3074,7 @@ self.addEventListener('activate', function(e) {
             zones=zones,
             edibles=edibles,
             growth_log=growth_log,
+            done_season_dates=done_season_dates,
             zone_ornamentals=zone_ornamentals,
             zone_edibles_overview=zone_edibles_overview,
             ornamentals=ornamentals,
@@ -3102,6 +3114,7 @@ self.addEventListener('activate', function(e) {
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
                        ge.planted_date, ge.planting_method, ge.notes, ge.zone_id,
                        ge.last_fertilized_date, ge.last_fertilizer_type,
+                       ge.done_for_season,
                        yz.name AS zone_name
                 FROM garden_entries ge
                 LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
@@ -3131,6 +3144,15 @@ self.addEventListener('activate', function(e) {
                 eids,
             ).fetchall():
                 growth_log.setdefault(row["entry_id"], []).append(row)
+
+        done_season_dates = {}
+        for row in db.execute(
+            f"SELECT item_name, MAX(logged_at) AS logged_at FROM activity_log"
+            f" WHERE user_id IN {ph} AND action = 'garden_done_season'"
+            f" GROUP BY item_name",
+            id_args,
+        ).fetchall():
+            done_season_dates[(row["item_name"] or "").lower()] = row["logged_at"][:10]
 
         zone_edibles_overview = {}
         for e in edibles:
@@ -3230,6 +3252,7 @@ self.addEventListener('activate', function(e) {
             zones=zones,
             edibles=edibles,
             growth_log=growth_log,
+            done_season_dates=done_season_dates,
             zone_edibles_overview=zone_edibles_overview,
             ornamentals=ornamentals,
             tags_map=tags_map,
