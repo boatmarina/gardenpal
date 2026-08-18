@@ -3986,7 +3986,6 @@ self.addEventListener('activate', function(e) {
                 " next_watering_date = NULL WHERE id = ?",
                 (entry_id,),
             )
-        db.commit()
         action = "garden_done_season" if new_val == 1 else "garden_undone_season"
         _log_activity(db, g.user["id"], action, entry["plant_name"])
         db.commit()
