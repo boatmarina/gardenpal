@@ -907,6 +907,7 @@ document.addEventListener('click', function(e) {
       {% endif %}
 
       {% set log = growth_log.get(entry.id, []) %}
+      {% set done_date = done_season_dates.get(entry.plant_name | lower, '') if done_season_dates is defined else '' %}
       <div class="edible-entry">
         <div class="edible-cols">
           <div class="edible-col-details">
@@ -942,7 +943,7 @@ document.addEventListener('click', function(e) {
             <div class="edible-notes">{{ entry.notes }}</div>
             {% endif %}
           </div>
-          {% if log %}
+          {% if log or (entry.done_for_season and done_date) %}
           <div class="edible-col-log">
             <div class="growth-log-heading">Growth Log</div>
             {% for item in log %}
@@ -968,6 +969,14 @@ document.addEventListener('click', function(e) {
               </div>
             </div>
             {% endfor %}
+            {% if entry.done_for_season and done_date %}
+            <div class="log-entry">
+              <div class="log-date">{{ done_date | planted_date }}</div>
+              <div class="log-body">
+                <div class="log-fert-badge" style="background:#F5F5F5;color:#616161;border-color:#BDBDBD">Done for season</div>
+              </div>
+            </div>
+            {% endif %}
           </div>
           {% endif %}
         </div>
