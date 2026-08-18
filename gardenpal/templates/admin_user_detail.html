@@ -189,7 +189,20 @@
               <span style="color:var(--muted)"> — {{ day.deletions | join(', ') }}</span>
             </li>
             {% endif %}
-            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags and not day.suggestion_adds and not day.notes and not day.photos and not day.edits and not day.deletions %}
+            {% if day.done_season %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:var(--muted)">Marked done for season</span>
+              <div style="margin-top:4px;display:flex;flex-direction:column;gap:3px">
+                {% for item in day.done_season %}
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:0.7rem;font-weight:700;padding:1px 6px;border-radius:4px;{% if item.action == 'done' %}background:#F5F5F5;color:#757575;border:1px solid #BDBDBD{% else %}background:#FFF9C4;color:#F57F17;border:1px solid #FFE082{% endif %};white-space:nowrap">{% if item.action == 'done' %}✓ done{% else %}↩ undone{% endif %}</span>
+                  <span style="color:var(--muted);font-size:0.83rem">{{ item.name }}</span>
+                </div>
+                {% endfor %}
+              </div>
+            </li>
+            {% endif %}
+            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags and not day.suggestion_adds and not day.notes and not day.photos and not day.edits and not day.deletions and not day.done_season %}
               <li style="font-size:0.85rem;color:var(--muted)">No recorded activity.</li>
             {% endif %}
           </ul>
