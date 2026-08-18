@@ -331,9 +331,9 @@
 
     {% if care_activity is defined %}
     <section class="panel" style="margin-bottom:16px">
-      <h2 style="margin-bottom:4px">Watering &amp; fertilization activity</h2>
+      <h2 style="margin-bottom:4px">Garden care activity</h2>
       <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-        Every time any user recorded watering or fertilization from any part of the app — last 300 entries.
+        Watering, fertilization, and done-for-season actions — last 300 entries.
       </p>
       {% if care_activity %}
         <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
@@ -342,6 +342,10 @@
             <div style="display:flex;align-items:center;gap:7px;min-width:0">
               {% if row.action == 'watered' or row.action == 'watered_all' %}
               <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">💧 {{ 'watered all' if row.action == 'watered_all' else 'watered' }}</span>
+              {% elif row.action == 'garden_done_season' %}
+              <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#F5F5F5;color:#757575;border:1px solid #BDBDBD;white-space:nowrap;flex-shrink:0">✓ done</span>
+              {% elif row.action == 'garden_undone_season' %}
+              <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#FFF9C4;color:#F57F17;border:1px solid #FFE082;white-space:nowrap;flex-shrink:0">↩ undone</span>
               {% else %}
               <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;white-space:nowrap;flex-shrink:0">🌱 fertilized</span>
               {% endif %}
@@ -384,37 +388,6 @@
         </div>
       {% else %}
         <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No diary activity yet.</p>
-      {% endif %}
-    </section>
-    {% endif %}
-
-    {% if done_season_activity is defined %}
-    <section class="panel" style="margin-bottom:16px">
-      <h2 style="margin-bottom:4px">Done for the season</h2>
-      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
-        Every time a user marked or un-marked an edible plant as done for the season — last 200 entries.
-      </p>
-      {% if done_season_activity %}
-        <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
-          {% for row in done_season_activity %}
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
-            <div style="display:flex;align-items:center;gap:7px;min-width:0">
-              {% if row.action == 'garden_done_season' %}
-              <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#F5F5F5;color:#757575;border:1px solid #BDBDBD;white-space:nowrap;flex-shrink:0">✓ done</span>
-              {% else %}
-              <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;white-space:nowrap;flex-shrink:0">↩ undone</span>
-              {% endif %}
-              <span style="font-size:0.83rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.item_name }}</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-              <span style="font-size:0.72rem;color:var(--muted);font-weight:600">{{ row.username }}</span>
-              <span style="font-size:0.72rem;color:var(--muted)">{{ row.logged_at[:16].replace('T', ' ') }}</span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No done-for-season activity yet.</p>
       {% endif %}
     </section>
     {% endif %}

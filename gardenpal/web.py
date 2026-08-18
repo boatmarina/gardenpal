@@ -2629,7 +2629,7 @@ self.addEventListener('activate', function(e) {
             care_activity = db.execute(
                 "SELECT al.action, al.item_name, al.logged_at, u.username"
                 " FROM activity_log al JOIN users u ON u.id = al.user_id"
-                " WHERE al.action IN ('watered', 'watered_all', 'fertilized')"
+                " WHERE al.action IN ('watered', 'watered_all', 'fertilized', 'garden_done_season', 'garden_undone_season')"
                 " ORDER BY al.logged_at DESC LIMIT 300"
             ).fetchall()
             diary_activity = db.execute(
@@ -2638,19 +2638,12 @@ self.addEventListener('activate', function(e) {
                 " WHERE al.action IN ('diary_opened', 'diary_print')"
                 " ORDER BY al.logged_at DESC LIMIT 200"
             ).fetchall()
-            done_season_activity = db.execute(
-                "SELECT al.action, al.item_name, al.logged_at, u.username"
-                " FROM activity_log al JOIN users u ON u.id = al.user_id"
-                " WHERE al.action IN ('garden_done_season', 'garden_undone_season')"
-                " ORDER BY al.logged_at DESC LIMIT 200"
-            ).fetchall()
         else:
             ai_chat_entries = []
             suggestion_adds = []
             app_error_log = []
             care_activity = []
             diary_activity = []
-            done_season_activity = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -2668,7 +2661,6 @@ self.addEventListener('activate', function(e) {
                                app_error_log=app_error_log,
                                care_activity=care_activity,
                                diary_activity=diary_activity,
-                               done_season_activity=done_season_activity,
                                ai_chat_entries=ai_chat_entries,
                                suggestion_adds=suggestion_adds,
                                garden_shares=garden_shares,
