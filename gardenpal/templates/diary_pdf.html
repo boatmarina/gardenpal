@@ -153,35 +153,6 @@ table.zones-table .zone-name {
   <p class="cover-meta">Generated {{ today | planted_date }}</p>
 </div>
 
-<!-- Zones Overview -->
-{% if zones %}
-<h2 class="section-title">Garden Zones</h2>
-<table class="zones-table">
-  {% set ns = namespace(col=0) %}
-  {% for zone in zones %}
-  {% if ns.col % 2 == 0 %}<tr>{% endif %}
-  <td style="width:50%">
-    <div class="zone-name">{{ zone.name }}</div>
-    {% if zone.description %}<div style="font-size:8pt;color:#8A7A6A;margin-bottom:3pt">{{ zone.description }}</div>{% endif %}
-    {% set orn_list = zone_ornamentals.get(zone.id, []) if zone_ornamentals else [] %}
-    {% set edible_list = zone_edibles_overview.get(zone.id, []) if zone_edibles_overview else [] %}
-    {% if orn_list %}
-    <div style="font-size:7.5pt;font-weight:700;color:#5E7F5A;margin-top:3pt">Ornamentals</div>
-    {% for n in orn_list %}<div style="font-size:8pt">{{ n }}</div>{% endfor %}
-    {% endif %}
-    {% if edible_list %}
-    <div style="font-size:7.5pt;font-weight:700;color:#5E7F5A;margin-top:3pt">Edibles</div>
-    {% for e in edible_list %}<div style="font-size:8pt">{{ e.plant_name }}{% if e.variety %} · {{ e.variety }}{% endif %}</div>{% endfor %}
-    {% endif %}
-    {% if not orn_list and not edible_list %}<div class="muted">No plants yet</div>{% endif %}
-  </td>
-  {% set ns.col = ns.col + 1 %}
-  {% if ns.col % 2 == 0 %}</tr>{% endif %}
-  {% endfor %}
-  {% if ns.col % 2 != 0 %}<td style="width:50%"></td></tr>{% endif %}
-</table>
-{% endif %}
-
 <!-- Edibles -->
 <h2 class="section-title page-break">Edibles — {{ current_year }} Season</h2>
 {% if edibles %}
@@ -265,6 +236,35 @@ table.zones-table .zone-name {
 {% endfor %}
 {% else %}
 <p class="muted">No ornamentals in your library yet.</p>
+{% endif %}
+
+<!-- Zones Overview -->
+{% if zones %}
+<h2 class="section-title page-break">Garden Zones</h2>
+<table class="zones-table">
+  {% set ns = namespace(col=0) %}
+  {% for zone in zones %}
+  {% if ns.col % 2 == 0 %}<tr>{% endif %}
+  <td style="width:50%">
+    <div class="zone-name">{{ zone.name }}</div>
+    {% if zone.description %}<div style="font-size:8pt;color:#8A7A6A;margin-bottom:3pt">{{ zone.description }}</div>{% endif %}
+    {% set orn_list = zone_ornamentals.get(zone.id, []) if zone_ornamentals else [] %}
+    {% set edible_list = zone_edibles_overview.get(zone.id, []) if zone_edibles_overview else [] %}
+    {% if orn_list %}
+    <div style="font-size:7.5pt;font-weight:700;color:#5E7F5A;margin-top:3pt">Ornamentals</div>
+    {% for n in orn_list %}<div style="font-size:8pt">{{ n }}</div>{% endfor %}
+    {% endif %}
+    {% if edible_list %}
+    <div style="font-size:7.5pt;font-weight:700;color:#5E7F5A;margin-top:3pt">Edibles</div>
+    {% for e in edible_list %}<div style="font-size:8pt">{{ e.plant_name }}{% if e.variety %} · {{ e.variety }}{% endif %}</div>{% endfor %}
+    {% endif %}
+    {% if not orn_list and not edible_list %}<div class="muted">No plants yet</div>{% endif %}
+  </td>
+  {% set ns.col = ns.col + 1 %}
+  {% if ns.col % 2 == 0 %}</tr>{% endif %}
+  {% endfor %}
+  {% if ns.col % 2 != 0 %}<td style="width:50%"></td></tr>{% endif %}
+</table>
 {% endif %}
 
 </body>
