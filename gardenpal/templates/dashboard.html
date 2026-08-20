@@ -951,6 +951,79 @@ document.addEventListener('DOMContentLoaded', function() {
     return s1 + (s2 ? ' ' + s2 : '');
   }
 
+  /* Icon SVGs for weather chips */
+  function chipSvg(icon) {
+    var s = 'width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+    if (icon === 'seedling')        return '<svg ' + s + '><path d="M12 22V12"/><path d="M12 12C12 12 8 10 6 6c4 0 6 2 6 6z"/><path d="M12 12C12 12 16 10 18 6c-4 0-6 2-6 6z"/></svg>';
+    if (icon === 'clock')           return '<svg ' + s + '><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+    if (icon === 'thermo-up')       return '<svg ' + s + '><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/><polyline points="16 4 19 4"/><polyline points="16 8 20 8"/></svg>';
+    if (icon === 'thermo-down')     return '<svg ' + s + '><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/><polyline points="16 10 19 10"/><polyline points="16 14 20 14"/></svg>';
+    if (icon === 'rain')            return '<svg ' + s + '><line x1="16" y1="13" x2="16" y2="21"/><line x1="8" y1="13" x2="8" y2="21"/><line x1="12" y1="15" x2="12" y2="23"/><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/></svg>';
+    if (icon === 'sun')             return '<svg ' + s + '><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+    return '';
+  }
+
+  /* Build weather chips from computed signals */
+  function buildChips(data, cur, avg, cm) {
+    var chips = [];
+    var ft = data.frost_table || [];
+    var histFrosts = ft.filter(function(r){ return r.year !== data.current_year && r.last_spring_frost; });
+
+    var gsStart = 3;
+    if (histFrosts.length) {
+      var mSum = histFrosts.reduce(function(s, r) { return s + new Date(r.last_spring_frost + 'T12:00:00').getMonth(); }, 0);
+      gsStart = Math.round(mSum / histFrosts.length);
+    }
+
+    /* 1. Season start chip */
+    var curFrostRow = ft.find(function(r){ return r.year === data.current_year; });
+    if (curFrostRow && curFrostRow.last_spring_frost && histFrosts.length) {
+      var doy = function(ds) { var d = new Date(ds + 'T12:00:00'); return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000); };
+      var diff = doy(curFrostRow.last_spring_frost) - histFrosts.reduce(function(s,r){ return s + doy(r.last_spring_frost); }, 0) / histFrosts.length;
+      if (diff < -10)      chips.push({icon:'seedling',    label:'Early start',  bg:'#E8F5E9', color:'#2E7D32', border:'#A5D6A7'});
+      else if (diff > 10)  chips.push({icon:'clock',       label:'Late start',   bg:'#FFF3E0', color:'#C15400', border:'#FFCC80'});
+    }
+
+    if (cur && cm >= gsStart) {
+      /* 2. Spring temperature chip */
+      var springEnd = Math.min(5, cm);
+      var cv = [], av = [];
+      for (var m = gsStart; m <= springEnd; m++) {
+        if (cur.months[m] && cur.months[m].avg_high != null) cv.push(cur.months[m].avg_high);
+        if (avg[m]         && avg[m].avg_high         != null) av.push(avg[m].avg_high);
+      }
+      if (cv.length && av.length) {
+        var sTd = cv.reduce(function(a,b){return a+b;},0)/cv.length - av.reduce(function(a,b){return a+b;},0)/av.length;
+        if (sTd > 0.5)       chips.push({icon:'thermo-up',   label: sTd > 2 ? 'Hot spring'  : 'Warm spring',  bg:'#FDECEA', color:'#A24A2E', border:'#F5C0B0'});
+        else if (sTd < -0.5) chips.push({icon:'thermo-down', label: sTd < -2 ? 'Cold spring' : 'Cool spring', bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
+      }
+
+      /* 3. Season rain chip */
+      var cs = 0, as_ = 0;
+      for (var m = gsStart; m <= cm; m++) {
+        if (cur.months[m] && cur.months[m].total_rain != null) cs += cur.months[m].total_rain;
+        if (avg[m]         && avg[m].total_rain         != null) as_ += avg[m].total_rain;
+      }
+      var sRd = cs - as_;
+      if (sRd > 0.25)       chips.push({icon:'rain', label:'Wetter season', bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
+      else if (sRd < -0.25) chips.push({icon:'sun',  label:'Drier season',  bg:'#FFF3E0', color:'#C15400', border:'#FFCC80'});
+    }
+
+    /* 4. Current month so far chip (after day 10, July onwards) */
+    var dom = new Date(data.today + 'T12:00:00').getDate();
+    if (dom > 10 && cm >= 6 && cur) {
+      var mc = cur.months[cm], ma = avg[cm];
+      if (mc && ma && mc.avg_high != null && ma.avg_high != null) {
+        var lmTd = mc.avg_high - ma.avg_high;
+        var mn = MS[cm];
+        if (lmTd > 0.5)       chips.push({icon:'thermo-up',   label: mn + ' warm so far', bg:'#FDECEA', color:'#A24A2E', border:'#F5C0B0'});
+        else if (lmTd < -0.5) chips.push({icon:'thermo-down', label: mn + ' cool so far', bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
+      }
+    }
+
+    return chips;
+  }
+
   /* Delta cell for the monthly details table */
   function tdel(a, b, thr, pos, neg) {
     if (a == null || b == null) return '<td style="text-align:right;font-size:0.78rem;padding:0 6px;color:var(--muted)">—</td>';
@@ -977,21 +1050,36 @@ document.addEventListener('DOMContentLoaded', function() {
       var cur = data.current, avg = data.ten_year_avg, ly = data.last_year_data;
 
       var narrative = buildNarrative(data, cur, avg, ly, cm);
+      var chips = buildChips(data, cur, avg, cm);
 
       var h = '';
 
-      /* ── Narrative paragraph ── */
-      h += '<div style="padding:14px 16px 12px">';
-      h += '<p style="font-size:0.88rem;line-height:1.7;color:var(--fg);margin:0 0 10px">' + narrative + '</p>';
-      h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">';
+      /* ── Chip row ── */
+      if (chips.length) {
+        h += '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px 10px">';
+        chips.forEach(function(c) {
+          h += '<div style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 8px;border-radius:999px;background:' + c.bg + ';border:1px solid ' + c.border + ';font-size:0.73rem;font-weight:600;color:' + c.color + ';line-height:1">';
+          h += '<span style="display:flex;align-items:center;opacity:0.85">' + chipSvg(c.icon) + '</span>';
+          h += '<span>' + c.label + '</span>';
+          h += '</div>';
+        });
+        h += '</div>';
+      }
+
+      /* ── Location + Details toggle ── */
+      h += '<div style="padding:' + (chips.length ? '2px' : '14px') + ' 16px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
       h += '<span style="font-size:0.7rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + data.display_name + ' · vs ' + data.avg_years_label + ' avg</span>';
       h += '<button id="wx-toggle" type="button" style="flex-shrink:0;background:none;border:none;padding:0;cursor:pointer;font-size:0.7rem;font-weight:700;letter-spacing:0.04em;color:var(--muted);font-family:inherit;display:flex;align-items:center;gap:3px;text-transform:uppercase;white-space:nowrap">';
       h += 'Details<svg id="wx-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.18s"><path d="M6 9l6 6 6-6"/></svg></button>';
       h += '</div>';
-      h += '</div>';
 
       /* ── Expandable details ── */
       h += '<div id="wx-det" hidden style="border-top:1px solid var(--border)">';
+
+      /* Narrative at the top of the expanded section */
+      h += '<div style="padding:14px 16px 12px;border-bottom:1px solid var(--border)">';
+      h += '<p style="font-size:0.87rem;line-height:1.7;color:var(--fg);margin:0">' + narrative + '</p>';
+      h += '</div>';
 
       /* Temperature table */
       if (cur) {
