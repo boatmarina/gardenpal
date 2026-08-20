@@ -8672,7 +8672,7 @@ def _weather_payload(db, user_id, location_str):
         [user_id] + all_years,
     ).fetchall():
         try:
-            max_age_h = 24 * 7 if row["year"] == current_year else 24 * 30
+            max_age_h = 24 * 2 if row["year"] == current_year else 24 * 30
             age_h = (datetime.utcnow() - datetime.fromisoformat(row["fetched_at"])).total_seconds() / 3600
             if age_h < max_age_h:
                 cached[row["year"]] = _json.loads(row["data_json"])
