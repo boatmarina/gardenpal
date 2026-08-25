@@ -15,9 +15,12 @@ Key scenarios mirrored from real bugs:
 import pytest
 from gardenpal.fertilization_logic import (
     compute_next_fertilization_date,
+    is_planned_stale,
     note_implies_not_needed,
     parse_ai_fertilization_response,
     repair_stored_fertilization_date,
+    resolve_effective_fert_date,
+    should_clear_planned_date,
 )
 
 
@@ -426,3 +429,144 @@ class TestRepairStoredFertilizationDate:
             today_str="2025-08-25",
         )
         assert result == "2025-08-25"
+
+
+# ---------------------------------------------------------------------------
+# is_planned_stale
+# ---------------------------------------------------------------------------
+
+class TestIsPlannedStale:
+
+    def test_last_fert_equals_planned(self):
+        """Fertilized on exactly the planned day — stale."""
+        assert is_planned_stale("2025-08-10", "2025-08-10")
+
+    def test_last_fert_after_planned(self):
+        """Fertilized after the planned day — stale."""
+        assert is_planned_stale("2025-08-10", "2025-08-15")
+
+    def test_last_fert_before_planned(self):
+        """Fertilized before the planned day — plan still active."""
+        assert not is_planned_stale("2025-08-10", "2025-08-05")
+
+    def test_no_planned_date(self):
+        assert not is_planned_stale(None, "2025-08-10")
+        assert not is_planned_stale("", "2025-08-10")
+        assert not is_planned_stale("never", "2025-08-10")
+
+    def test_no_last_fert(self):
+        assert not is_planned_stale("2025-08-10", None)
+        assert not is_planned_stale("2025-08-10", "")
+        assert not is_planned_stale("2025-08-10", "never")
+
+    def test_invalid_planned_date_ignored(self):
+        assert not is_planned_stale("not-a-date", "2025-08-10")
+
+    def test_invalid_last_fert_ignored(self):
+        assert not is_planned_stale("2025-08-10", "not-a-date")
+
+
+# ---------------------------------------------------------------------------
+# resolve_effective_fert_date
+# ---------------------------------------------------------------------------
+
+class TestResolveEffectiveFertDate:
+
+    def test_active_planned_wins_over_next(self):
+        """User set Aug 20; last fert was Aug 1 (before plan) — show Aug 20."""
+        result = resolve_effective_fert_date(
+            planned_date_str="2025-08-20",
+            next_fert_str="2025-09-05",
+            last_fert_str="2025-08-01",
+        )
+        assert result == "2025-08-20"
+
+    def test_stale_planned_falls_through_to_next(self):
+        """User planned Aug 20 but already fertilized Aug 22 — plan is stale, use next."""
+        result = resolve_effective_fert_date(
+            planned_date_str="2025-08-20",
+            next_fert_str="2025-09-19",
+            last_fert_str="2025-08-22",
+        )
+        assert result == "2025-09-19"
+
+    def test_no_planned_uses_next(self):
+        result = resolve_effective_fert_date(
+            planned_date_str=None,
+            next_fert_str="2025-09-05",
+            last_fert_str="2025-08-01",
+        )
+        assert result == "2025-09-05"
+
+    def test_no_planned_no_next_returns_none(self):
+        result = resolve_effective_fert_date(
+            planned_date_str=None,
+            next_fert_str=None,
+            last_fert_str="2025-08-01",
+        )
+        assert result is None
+
+    def test_empty_planned_uses_next(self):
+        result = resolve_effective_fert_date(
+            planned_date_str="",
+            next_fert_str="2025-09-05",
+            last_fert_str="2025-08-01",
+        )
+        assert result == "2025-09-05"
+
+    def test_planned_with_no_last_fert_active(self):
+        """No last_fert means plan can't be stale — planned date wins."""
+        result = resolve_effective_fert_date(
+            planned_date_str="2025-08-20",
+            next_fert_str="2025-09-05",
+            last_fert_str="never",
+        )
+        assert result == "2025-08-20"
+
+    def test_planned_in_past_still_wins_if_not_stale(self):
+        """
+        A planned date in the past that wasn't acted on yet (last_fert earlier still)
+        should still be returned — it's overdue but not stale.
+        """
+        result = resolve_effective_fert_date(
+            planned_date_str="2025-08-01",  # past planned date
+            next_fert_str="2025-09-01",
+            last_fert_str="2025-07-15",    # last fert before planned day
+        )
+        assert result == "2025-08-01"
+
+    def test_cleared_last_fert_lets_planned_win(self):
+        """
+        User cleared last_fert (set to 'never'). A manually set planned date should show.
+        """
+        result = resolve_effective_fert_date(
+            planned_date_str="2025-09-01",
+            next_fert_str="2025-10-01",
+            last_fert_str="never",
+        )
+        assert result == "2025-09-01"
+
+
+# ---------------------------------------------------------------------------
+# should_clear_planned_date
+# ---------------------------------------------------------------------------
+
+class TestShouldClearPlannedDate:
+
+    def test_new_fert_on_planned_day_clears(self):
+        assert should_clear_planned_date("2025-08-10", "2025-08-10")
+
+    def test_new_fert_after_planned_day_clears(self):
+        assert should_clear_planned_date("2025-08-10", "2025-08-15")
+
+    def test_new_fert_before_planned_day_does_not_clear(self):
+        assert not should_clear_planned_date("2025-08-10", "2025-08-05")
+
+    def test_no_planned_date_no_clear(self):
+        assert not should_clear_planned_date(None, "2025-08-10")
+        assert not should_clear_planned_date("", "2025-08-10")
+
+    def test_no_last_fert_no_clear(self):
+        assert not should_clear_planned_date("2025-08-10", None)
+        assert not should_clear_planned_date("2025-08-10", "")
+        assert not should_clear_planned_date("2025-08-10", "never")
