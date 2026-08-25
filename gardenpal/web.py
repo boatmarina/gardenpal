@@ -2790,6 +2790,41 @@ self.addEventListener('activate', function(e) {
         flash(f"Password reset for {target['username']}.")
         return redirect(url_for("tools"))
 
+    @app.route("/admin/refresh-fertilization", methods=["POST"])
+    @login_required
+    def admin_refresh_fertilization():
+        if not g.user.get("is_admin"):
+            return jsonify(error="Forbidden"), 403
+        raw = request.form.get("usernames", "")
+        usernames = [u.strip() for u in raw.replace(",", "\n").splitlines() if u.strip()]
+        if not usernames:
+            return jsonify(error="No usernames provided"), 400
+        db = get_db()
+        results = []
+        for username in usernames:
+            row = db.execute(
+                "SELECT id FROM users WHERE lower(username) = lower(?)", (username,)
+            ).fetchone()
+            if row is None:
+                results.append({"username": username, "found": False})
+                continue
+            uid = row["id"]
+            ge = db.execute(
+                "UPDATE garden_entries SET next_fertilization_generated_at = NULL"
+                " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)",
+                (uid,),
+            ).rowcount
+            pl = db.execute(
+                "UPDATE plants SET next_fertilization_generated_at = NULL"
+                " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)",
+                (uid,),
+            ).rowcount
+            results.append({"username": username, "found": True, "garden_entries": ge, "plants": pl})
+        db.commit()
+        return jsonify(results=results)
+
     @app.route("/export/library.csv")
     @login_required
     def export_library_csv():
