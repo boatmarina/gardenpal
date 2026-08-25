@@ -146,21 +146,41 @@ class TestComputeNextFertilizationDate:
         assert result == "2025-09-15"
 
     # --- BUG B: missed interval should suggest "do it now" ---
+    # The code fix only corrects AI arithmetic for future schedule dates. For missed intervals
+    # the AI prompt now instructs Claude to return today's date (not the next cycle date), so
+    # these tests verify the code does NOT override a correct AI response for a missed interval.
 
-    def test_bug_b_missed_interval_suggests_today(self):
+    def test_bug_b_ai_says_today_for_missed_interval(self):
         """
-        Bug: interval was missed (Aug 12 already passed), AI rolled to Sep cycle.
-        Should suggest today (Aug 25), not Sep 9.
+        After the prompt fix, AI correctly returns today when interval was missed.
+        Code should honor that and return today as-is.
         """
         result, not_needed = compute_next_fertilization_date(
-            ai_date="2025-09-21",
+            ai_date="2025-08-25",  # AI correctly said today (per prompt instruction)
             last_fert_str="2025-07-15",
             freq_days=28,
             cutoff_date=None,
             today_str="2025-08-25",
         )
         assert not not_needed
-        assert result == "2025-08-25"  # missed Aug 12 → do it now
+        assert result == "2025-08-25"
+
+    def test_bug_b_ai_future_date_honored_when_interval_passed(self):
+        """
+        Regression test for the 'Due today' bug (screenshot Aug 2026).
+        AI recommended Sep 8 for a tomato — a deliberate future recommendation, not a
+        rolled-forward cycle. When sched (last_fert + interval) is already past, we trust
+        the AI's future date rather than overriding to today.
+        """
+        result, not_needed = compute_next_fertilization_date(
+            ai_date="2026-09-08",   # AI's deliberate recommendation
+            last_fert_str="2026-07-27",
+            freq_days=14,           # biweekly interval — sched = Aug 10, already past
+            cutoff_date=None,
+            today_str="2026-08-25",
+        )
+        assert not not_needed
+        assert result == "2026-09-08"  # AI's date kept, NOT overridden to "today"
 
     def test_interval_not_missed_waits_correctly(self):
         """Aug 1 + 28 = Aug 29. Today is Aug 25, so Aug 29 is still in the future — wait."""
@@ -309,8 +329,26 @@ class TestComputeNextFertilizationDate:
 
 class TestRepairStoredFertilizationDate:
 
-    def test_wrong_date_corrected(self):
-        """Sep 21 stored, but Jul 15 + 28 = Aug 12. Today Aug 25: missed → today."""
+    def test_future_wrong_date_corrected(self):
+        """
+        sched = Jul 15 + 28 = Aug 12, still in the future (today = Jul 20).
+        Stored Sep 21 is an AI arithmetic error — repair to Aug 12.
+        """
+        result = repair_stored_fertilization_date(
+            stored_date="2025-09-21",
+            last_fert_str="2025-07-15",
+            freq_days=28,
+            cutoff_date=None,
+            today_str="2025-07-20",
+        )
+        assert result == "2025-08-12"
+
+    def test_missed_interval_stored_future_repaired_to_today(self):
+        """
+        sched = Jul 15 + 28 = Aug 12 — already past (today = Aug 25).
+        Stored date Sep 21 is in the future → AI arithmetic error (probably 'next cycle').
+        Repair to today so user sees it as overdue.
+        """
         result = repair_stored_fertilization_date(
             stored_date="2025-09-21",
             last_fert_str="2025-07-15",
@@ -320,7 +358,20 @@ class TestRepairStoredFertilizationDate:
         )
         assert result == "2025-08-25"
 
-    def test_correct_date_unchanged(self):
+    def test_missed_interval_stored_today_unchanged(self):
+        """
+        sched = Aug 12 (past). Stored date is today (Aug 25) — already correct, no repair.
+        """
+        result = repair_stored_fertilization_date(
+            stored_date="2025-08-25",
+            last_fert_str="2025-07-15",
+            freq_days=28,
+            cutoff_date=None,
+            today_str="2025-08-25",
+        )
+        assert result == "2025-08-25"  # unchanged
+
+    def test_correct_future_date_unchanged(self):
         """Stored date already matches schedule — no repair needed."""
         result = repair_stored_fertilization_date(
             stored_date="2025-08-29",
@@ -332,6 +383,7 @@ class TestRepairStoredFertilizationDate:
         assert result == "2025-08-29"
 
     def test_past_cutoff_returns_none(self):
+        """sched = Aug 12 (past). Stored Sep 21 is in the future but today > cutoff → not needed."""
         result = repair_stored_fertilization_date(
             stored_date="2025-09-21",
             last_fert_str="2025-07-15",
@@ -362,7 +414,10 @@ class TestRepairStoredFertilizationDate:
         assert result == "2025-09-21"
 
     def test_before_cutoff_clamped_to_today(self):
-        """Missed interval, computed date > cutoff, but today still before cutoff."""
+        """
+        sched = Aug 12 (past). Stored Sep 21 is future. today(Aug 25) still before cutoff(Aug 31)
+        → repair to today so the user gets the overdue alert before the season ends.
+        """
         result = repair_stored_fertilization_date(
             stored_date="2025-09-21",
             last_fert_str="2025-07-15",
