@@ -158,3 +158,66 @@ def repair_stored_fertilization_date(
             return None
 
     return correct
+
+
+# ---------------------------------------------------------------------------
+# Planned-date helpers
+# ---------------------------------------------------------------------------
+
+def is_planned_stale(planned_date_str, last_fert_str):
+    """
+    Return True if a manually-set planned date has been superseded by an actual
+    fertilization that happened on or after it.
+
+    A planned date of "2025-08-10" is stale once last_fert_str >= "2025-08-10",
+    meaning the user already fertilized on or after the planned day.
+
+    Returns False when either argument is missing/invalid.
+    """
+    if not (planned_date_str and last_fert_str
+            and planned_date_str not in ("never", "")
+            and last_fert_str not in ("never", "")
+            and _ISO_DATE_RE.match(planned_date_str)
+            and _ISO_DATE_RE.match(last_fert_str)):
+        return False
+    return last_fert_str >= planned_date_str
+
+
+def resolve_effective_fert_date(planned_date_str, next_fert_str, last_fert_str):
+    """
+    Return the date that should actually be shown to the user.
+
+    A manually planned date takes priority over the AI-computed next_fert date,
+    UNLESS that planned date is stale (the user already fertilized on/after it).
+
+    Args:
+        planned_date_str: Manually set planned date (YYYY-MM-DD), or None/"".
+        next_fert_str:    AI/schedule-computed next date (YYYY-MM-DD), or None/"".
+        last_fert_str:    Last fertilization date (YYYY-MM-DD), or "never"/"".
+
+    Returns the winning date string, or None if nothing is available.
+    """
+    has_planned = (planned_date_str
+                   and planned_date_str not in ("never", "")
+                   and _ISO_DATE_RE.match(planned_date_str))
+    if has_planned and not is_planned_stale(planned_date_str, last_fert_str):
+        return planned_date_str
+
+    has_next = (next_fert_str
+                and next_fert_str not in ("never", "")
+                and _ISO_DATE_RE.match(next_fert_str))
+    return next_fert_str if has_next else None
+
+
+def should_clear_planned_date(planned_date_str, new_last_fert_str):
+    """
+    Return True if recording a new fertilization event should also clear the
+    manually planned date.
+
+    Clears when:
+    - A valid planned date exists, AND
+    - new_last_fert_str >= planned_date_str (the new fertilization covers the plan)
+
+    Returns False when either value is missing/invalid (no clearing needed).
+    """
+    return is_planned_stale(planned_date_str, new_last_fert_str)
