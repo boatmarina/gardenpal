@@ -1321,6 +1321,39 @@ self.addEventListener('activate', function(e) {
                             f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}",
                             (plant_id, *id_args),
                         ).fetchone()
+                # Repair: fix AI arithmetic errors without re-calling Claude.
+                elif (
+                    plant.get("fertilization_frequency_days")
+                    and last_fert_date
+                    and plant.get("next_fertilization_date")
+                    and not plant.get("planned_fertilization_date")
+                ):
+                    try:
+                        _freq = int(plant["fertilization_frequency_days"])
+                        _sched = (date.fromisoformat(last_fert_date) + timedelta(days=_freq)).isoformat()
+                        _correct = today if _sched < today else _sched
+                        _cutoff = plant.get("fertilization_cutoff_date")
+                        if _cutoff and _correct > _cutoff:
+                            _correct = today if today <= _cutoff else None
+                        if _correct is None:
+                            db.execute(
+                                "UPDATE plants SET next_fertilization_date = NULL,"
+                                " next_fertilization_not_needed = 1 WHERE id = ?",
+                                (plant_id,),
+                            )
+                            db.commit()
+                        elif _correct != plant["next_fertilization_date"]:
+                            db.execute(
+                                "UPDATE plants SET next_fertilization_date = ? WHERE id = ?",
+                                (_correct, plant_id),
+                            )
+                            db.commit()
+                        plant = db.execute(
+                            f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}",
+                            (plant_id, *id_args),
+                        ).fetchone()
+                    except Exception:
+                        pass
                 next_fertilization = {
                     "date": plant.get("next_fertilization_date"),
                     "note": plant.get("next_fertilization_note"),
@@ -3596,6 +3629,39 @@ self.addEventListener('activate', function(e) {
                 or (gen_at and gen_at[:10] < _local_date_plus(-7))
                 or (entry.get("next_fertilization_not_needed") and gen_at and gen_at[:10] < today)
             )
+            # Repair: if stored date doesn't match schedule-computed date, fix it without
+            # re-calling Claude (catches AI arithmetic errors from before this fix).
+            if (
+                not needs_regen
+                and entry.get("fertilization_frequency_days")
+                and last_fert_date
+                and entry["next_fertilization_date"]
+                and not entry.get("planned_fertilization_date")
+            ):
+                try:
+                    _freq = int(entry["fertilization_frequency_days"])
+                    _sched = (date.fromisoformat(last_fert_date) + timedelta(days=_freq)).isoformat()
+                    _correct = today if _sched < today else _sched
+                    _cutoff = entry.get("fertilization_cutoff_date")
+                    if _cutoff and _correct > _cutoff:
+                        _correct = today if today <= _cutoff else None
+                    if _correct is None:
+                        db.execute(
+                            "UPDATE garden_entries SET next_fertilization_date = NULL,"
+                            " next_fertilization_not_needed = 1 WHERE id = ?",
+                            (entry_id,),
+                        )
+                        db.commit()
+                        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+                    elif _correct != entry["next_fertilization_date"]:
+                        db.execute(
+                            "UPDATE garden_entries SET next_fertilization_date = ? WHERE id = ?",
+                            (_correct, entry_id),
+                        )
+                        db.commit()
+                        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
+                except Exception:
+                    pass
             if needs_regen:
                 growth_notes = [
                     (r["photo_date"], r["notes"])
@@ -8949,6 +9015,14 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
             return None
         if date_line < today_str:
             date_line = today_str
+        # Override AI's suggested date with schedule-derived date to avoid AI arithmetic
+        # errors and so that a missed interval suggests "do it now" rather than next cycle.
+        if freq_days and last_fert_str and last_fert_str != "never" and _ISO_DATE_RE.match(last_fert_str):
+            try:
+                sched = (date.fromisoformat(last_fert_str) + timedelta(days=freq_days)).isoformat()
+                date_line = today_str if sched < today_str else sched
+            except Exception:
+                pass
         # If AI returned today's date but the plant was just fertilized today,
         # it misread the prompt — try to extract a future date from the note instead.
         if date_line == today_str and last_fert_str == today_str:
@@ -8956,6 +9030,15 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
             _future = next((d for d in _future_dates if d > today_str), None)
             if _future:
                 date_line = _future
+        # Cutoff check: don't schedule a date past the seasonal cutoff.
+        if cutoff_date and date_line > cutoff_date:
+            if today_str <= cutoff_date:
+                # Still time to fertilize — do it ASAP before the cutoff.
+                date_line = today_str
+            else:
+                # Past cutoff entirely — skip until next season.
+                _commit_not_needed()
+                return {"not_needed": True, "note": note_text or None}
         # Reverse check: AI returned a date but its note clearly says to skip fertilizing
         if _note_implies_not_needed(note_text):
             _commit_not_needed()
@@ -9042,7 +9125,7 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
                     note_lines.append(ln)
         note_text = "\n".join(note_lines).strip()
         generated_at = datetime.utcnow().isoformat(timespec="seconds")
-        if date_line.upper() == "NOT_NEEDED":
+        def _orn_commit_not_needed():
             db.execute(
                 "UPDATE plants SET next_fertilization_date = NULL, next_fertilization_note = ?,"
                 " next_fertilization_generated_at = ?, next_fertilization_not_needed = 1,"
@@ -9052,11 +9135,29 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
                 (note_text or None, generated_at, freq_days, cutoff_date, plant["id"]),
             )
             db.commit()
+
+        if date_line.upper() == "NOT_NEEDED":
+            _orn_commit_not_needed()
             return {"not_needed": True, "note": note_text or None}
         if not _ISO_DATE_RE.match(date_line):
             return None
         if date_line < today_str:
             date_line = today_str
+        # Override AI's suggested date with schedule-derived date to avoid AI arithmetic
+        # errors and so that a missed interval suggests "do it now" rather than next cycle.
+        if freq_days and last_fert_str and last_fert_str != "never" and _ISO_DATE_RE.match(last_fert_str):
+            try:
+                sched = (date.fromisoformat(last_fert_str) + timedelta(days=freq_days)).isoformat()
+                date_line = today_str if sched < today_str else sched
+            except Exception:
+                pass
+        # Cutoff check: don't schedule a date past the seasonal cutoff.
+        if cutoff_date and date_line > cutoff_date:
+            if today_str <= cutoff_date:
+                date_line = today_str
+            else:
+                _orn_commit_not_needed()
+                return {"not_needed": True, "note": note_text or None}
         db.execute(
             "UPDATE plants SET next_fertilization_date = ?, next_fertilization_note = ?,"
             " next_fertilization_generated_at = ?, next_fertilization_not_needed = 0,"
