@@ -83,9 +83,12 @@ def compute_next_fertilization_date(
 
     Logic:
     1. Start with ai_date, clamped to today if the AI gave a past date.
-    2. If freq_days and last_fert_str are both available, override with the schedule-derived date
-       (last_fert + freq_days). This corrects AI arithmetic errors and ensures missed intervals
-       suggest "today" rather than rolling forward to the next cycle.
+    2. If freq_days and last_fert_str are both available AND the schedule date is still in the
+       future (>= today), use the computed date instead of the AI's guess. This corrects AI
+       arithmetic errors (e.g. "28 days from Jul 15 = Sep 21") for not-yet-due intervals.
+       When the interval has already passed, the AI's date is kept — the prompt instructs the
+       AI to return today's date for missed intervals, so we trust its judgment about whether
+       to apply now or wait for a contextual reason (e.g. "wait until after expected rain").
     3. If the result exceeds cutoff_date: pull to today if there's still time before cutoff;
        otherwise return (None, True) meaning "skip until next season".
     """
@@ -94,7 +97,10 @@ def compute_next_fertilization_date(
     if freq_days and last_fert_str and last_fert_str not in ("never", "") and _ISO_DATE_RE.match(last_fert_str):
         try:
             sched = (date.fromisoformat(last_fert_str) + timedelta(days=freq_days)).isoformat()
-            d = today_str if sched < today_str else sched
+            if sched >= today_str:
+                # Interval not yet due — override AI's arithmetic with computed date
+                d = sched
+            # else: interval already passed — keep AI's date unchanged (AI prompt handles this)
         except (ValueError, TypeError):
             pass
 
@@ -115,17 +121,33 @@ def repair_stored_fertilization_date(
 ):
     """
     Lightweight repair for a date stored in the DB that was computed under old (buggy) logic.
-    Returns the corrected date string, or None if the plant should be marked not-needed.
-    Returns stored_date unchanged if there is not enough info to recompute.
+    Returns the corrected date string, None if the plant should be marked not-needed, or
+    stored_date unchanged if there is not enough info or nothing to correct.
 
     Used on page load to silently fix wrong dates without re-calling Claude.
+
+    Repair strategy:
+    - If the computed schedule date (last_fert + freq_days) is still in the future and differs
+      from stored_date, the AI made an arithmetic error — correct it to the computed date.
+    - If the computed schedule date is already past and stored_date is a future date, the AI
+      made an arithmetic error placing it too far ahead — repair to today (do it now).
+    - If the computed schedule date is already past and stored_date is today or past, no repair
+      is needed (AI correctly identified it as due now/overdue).
+    - Cutoff enforcement applies in all cases.
     """
     if not (freq_days and last_fert_str and last_fert_str not in ("never", "") and _ISO_DATE_RE.match(last_fert_str)):
         return stored_date
 
     try:
         sched = (date.fromisoformat(last_fert_str) + timedelta(days=freq_days)).isoformat()
-        correct = today_str if sched < today_str else sched
+        if sched >= today_str:
+            correct = sched
+        elif stored_date > today_str:
+            # Interval passed but stored date is still in the future — AI arithmetic error
+            correct = today_str
+        else:
+            # Interval passed, stored date is today or overdue — already correct
+            return stored_date
     except (ValueError, TypeError):
         return stored_date
 
