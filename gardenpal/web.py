@@ -19,7 +19,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from gardenpal.plant_lookup import extract_plant_name_from_label_image, extract_plant_name_from_text, extract_text_from_image, fetch_photos_for_suggestion, generate_plant_suggestion, generate_plant_suggestions_batch, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
-from gardenpal.fertilization_logic import compute_next_fertilization_date as _compute_fert_date, note_implies_not_needed as _note_implies_not_needed_fn, parse_ai_fertilization_response as _parse_ai_fert_response, repair_stored_fertilization_date as _repair_fert_date
+from gardenpal.fertilization_logic import compute_next_fertilization_date as _compute_fert_date, note_implies_not_needed as _note_implies_not_needed_fn, parse_ai_fertilization_response as _parse_ai_fert_response
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -1322,40 +1322,6 @@ self.addEventListener('activate', function(e) {
                             f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}",
                             (plant_id, *id_args),
                         ).fetchone()
-                # Repair: fix AI arithmetic errors without re-calling Claude.
-                elif (
-                    plant.get("fertilization_frequency_days")
-                    and last_fert_date
-                    and plant.get("next_fertilization_date")
-                    and not plant.get("planned_fertilization_date")
-                ):
-                    try:
-                        _correct = _repair_fert_date(
-                            plant["next_fertilization_date"],
-                            last_fert_date,
-                            int(plant["fertilization_frequency_days"]),
-                            plant.get("fertilization_cutoff_date"),
-                            today,
-                        )
-                        if _correct is None:
-                            db.execute(
-                                "UPDATE plants SET next_fertilization_date = NULL,"
-                                " next_fertilization_not_needed = 1 WHERE id = ?",
-                                (plant_id,),
-                            )
-                            db.commit()
-                        elif _correct != plant["next_fertilization_date"]:
-                            db.execute(
-                                "UPDATE plants SET next_fertilization_date = ? WHERE id = ?",
-                                (_correct, plant_id),
-                            )
-                            db.commit()
-                        plant = db.execute(
-                            f"SELECT * FROM plants WHERE id = ? AND user_id IN {ph}",
-                            (plant_id, *id_args),
-                        ).fetchone()
-                    except Exception:
-                        pass
                 next_fertilization = {
                     "date": plant.get("next_fertilization_date"),
                     "note": plant.get("next_fertilization_note"),
@@ -3666,40 +3632,6 @@ self.addEventListener('activate', function(e) {
                 or (gen_at and gen_at[:10] < _local_date_plus(-7))
                 or (entry.get("next_fertilization_not_needed") and gen_at and gen_at[:10] < today)
             )
-            # Repair: if stored date doesn't match schedule-computed date, fix it without
-            # re-calling Claude (catches AI arithmetic errors from before this fix).
-            if (
-                not needs_regen
-                and entry.get("fertilization_frequency_days")
-                and last_fert_date
-                and entry["next_fertilization_date"]
-                and not entry.get("planned_fertilization_date")
-            ):
-                try:
-                    _correct = _repair_fert_date(
-                        entry["next_fertilization_date"],
-                        last_fert_date,
-                        int(entry["fertilization_frequency_days"]),
-                        entry.get("fertilization_cutoff_date"),
-                        today,
-                    )
-                    if _correct is None:
-                        db.execute(
-                            "UPDATE garden_entries SET next_fertilization_date = NULL,"
-                            " next_fertilization_not_needed = 1 WHERE id = ?",
-                            (entry_id,),
-                        )
-                        db.commit()
-                        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
-                    elif _correct != entry["next_fertilization_date"]:
-                        db.execute(
-                            "UPDATE garden_entries SET next_fertilization_date = ? WHERE id = ?",
-                            (_correct, entry_id),
-                        )
-                        db.commit()
-                        entry = db.execute("SELECT * FROM garden_entries WHERE id = ?", (entry_id,)).fetchone()
-                except Exception:
-                    pass
             if needs_regen:
                 growth_notes = [
                     (r["photo_date"], r["notes"])
