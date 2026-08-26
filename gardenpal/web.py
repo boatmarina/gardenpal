@@ -8921,7 +8921,8 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 "Line 2: INTERVAL_DAYS: <integer days between applications, e.g. 14> OR INTERVAL_DAYS: none\n"
                 "Line 3: CUTOFF_DATE: <YYYY-MM-DD last date fertilizing is beneficial this season> OR CUTOFF_DATE: none\n"
                 "Line 4+: 1-2 sentences of care advice — fertilizer type, how often this plant typically needs feeding, "
-                "or what to watch for. Do not explain how you calculated the date or reference days since last feeding.\n"
+                "how long since the last feeding, or what to watch for. "
+                "Do not explain the date calculation or show interval arithmetic (e.g. '35 days - 21 days = 14 more days').\n"
                 "No other labels or text."
             ),
             messages=[{"role": "user", "content": user_msg}],
@@ -9033,7 +9034,8 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
                 "Line 2: INTERVAL_DAYS: <integer days between applications, e.g. 28> OR INTERVAL_DAYS: none\n"
                 "Line 3: CUTOFF_DATE: <YYYY-MM-DD last date fertilizing is beneficial this season> OR CUTOFF_DATE: none\n"
                 "Line 4+: 1-2 sentences of care advice — fertilizer type, how often this plant typically needs feeding, "
-                "or what to watch for. Do not explain how you calculated the date or reference days since last feeding.\n"
+                "how long since the last feeding, or what to watch for. "
+                "Do not explain the date calculation or show interval arithmetic (e.g. '35 days - 21 days = 14 more days').\n"
                 "No other labels or text."
             ),
             messages=[{"role": "user", "content": user_msg}],
