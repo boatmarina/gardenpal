@@ -18,7 +18,6 @@ from gardenpal.fertilization_logic import (
     is_planned_stale,
     note_implies_not_needed,
     parse_ai_fertilization_response,
-    repair_stored_fertilization_date,
     resolve_effective_fert_date,
     should_clear_planned_date,
 )
@@ -324,111 +323,6 @@ class TestComputeNextFertilizationDate:
         )
         assert not not_needed
         assert result == "2025-09-01"
-
-
-# ---------------------------------------------------------------------------
-# repair_stored_fertilization_date
-# ---------------------------------------------------------------------------
-
-class TestRepairStoredFertilizationDate:
-
-    def test_future_wrong_date_corrected(self):
-        """
-        sched = Jul 15 + 28 = Aug 12, still in the future (today = Jul 20).
-        Stored Sep 21 is an AI arithmetic error — repair to Aug 12.
-        """
-        result = repair_stored_fertilization_date(
-            stored_date="2025-09-21",
-            last_fert_str="2025-07-15",
-            freq_days=28,
-            cutoff_date=None,
-            today_str="2025-07-20",
-        )
-        assert result == "2025-08-12"
-
-    def test_missed_interval_stored_future_repaired_to_today(self):
-        """
-        sched = Jul 15 + 28 = Aug 12 — already past (today = Aug 25).
-        Stored date Sep 21 is in the future → AI arithmetic error (probably 'next cycle').
-        Repair to today so user sees it as overdue.
-        """
-        result = repair_stored_fertilization_date(
-            stored_date="2025-09-21",
-            last_fert_str="2025-07-15",
-            freq_days=28,
-            cutoff_date=None,
-            today_str="2025-08-25",
-        )
-        assert result == "2025-08-25"
-
-    def test_missed_interval_stored_today_unchanged(self):
-        """
-        sched = Aug 12 (past). Stored date is today (Aug 25) — already correct, no repair.
-        """
-        result = repair_stored_fertilization_date(
-            stored_date="2025-08-25",
-            last_fert_str="2025-07-15",
-            freq_days=28,
-            cutoff_date=None,
-            today_str="2025-08-25",
-        )
-        assert result == "2025-08-25"  # unchanged
-
-    def test_correct_future_date_unchanged(self):
-        """Stored date already matches schedule — no repair needed."""
-        result = repair_stored_fertilization_date(
-            stored_date="2025-08-29",
-            last_fert_str="2025-08-01",
-            freq_days=28,
-            cutoff_date=None,
-            today_str="2025-08-25",
-        )
-        assert result == "2025-08-29"
-
-    def test_past_cutoff_returns_none(self):
-        """sched = Aug 12 (past). Stored Sep 21 is in the future but today > cutoff → not needed."""
-        result = repair_stored_fertilization_date(
-            stored_date="2025-09-21",
-            last_fert_str="2025-07-15",
-            freq_days=28,
-            cutoff_date="2025-08-31",
-            today_str="2025-09-05",
-        )
-        assert result is None
-
-    def test_no_last_fert_returns_stored_unchanged(self):
-        result = repair_stored_fertilization_date(
-            stored_date="2025-09-21",
-            last_fert_str="never",
-            freq_days=28,
-            cutoff_date=None,
-            today_str="2025-08-25",
-        )
-        assert result == "2025-09-21"
-
-    def test_no_freq_returns_stored_unchanged(self):
-        result = repair_stored_fertilization_date(
-            stored_date="2025-09-21",
-            last_fert_str="2025-07-15",
-            freq_days=None,
-            cutoff_date=None,
-            today_str="2025-08-25",
-        )
-        assert result == "2025-09-21"
-
-    def test_before_cutoff_clamped_to_today(self):
-        """
-        sched = Aug 12 (past). Stored Sep 21 is future. today(Aug 25) still before cutoff(Aug 31)
-        → repair to today so the user gets the overdue alert before the season ends.
-        """
-        result = repair_stored_fertilization_date(
-            stored_date="2025-09-21",
-            last_fert_str="2025-07-15",
-            freq_days=28,
-            cutoff_date="2025-08-31",
-            today_str="2025-08-25",
-        )
-        assert result == "2025-08-25"
 
 
 # ---------------------------------------------------------------------------

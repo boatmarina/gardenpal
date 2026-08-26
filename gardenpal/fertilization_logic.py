@@ -112,53 +112,6 @@ def compute_next_fertilization_date(
     return d, False
 
 
-def repair_stored_fertilization_date(
-    stored_date: str,
-    last_fert_str: str,
-    freq_days,
-    cutoff_date,
-    today_str: str,
-):
-    """
-    Lightweight repair for a date stored in the DB that was computed under old (buggy) logic.
-    Returns the corrected date string, None if the plant should be marked not-needed, or
-    stored_date unchanged if there is not enough info or nothing to correct.
-
-    Used on page load to silently fix wrong dates without re-calling Claude.
-
-    Repair strategy:
-    - If the computed schedule date (last_fert + freq_days) is still in the future and differs
-      from stored_date, the AI made an arithmetic error — correct it to the computed date.
-    - If the computed schedule date is already past and stored_date is a future date, the AI
-      made an arithmetic error placing it too far ahead — repair to today (do it now).
-    - If the computed schedule date is already past and stored_date is today or past, no repair
-      is needed (AI correctly identified it as due now/overdue).
-    - Cutoff enforcement applies in all cases.
-    """
-    if not (freq_days and last_fert_str and last_fert_str not in ("never", "") and _ISO_DATE_RE.match(last_fert_str)):
-        return stored_date
-
-    try:
-        sched = (date.fromisoformat(last_fert_str) + timedelta(days=freq_days)).isoformat()
-        if sched >= today_str:
-            correct = sched
-        elif stored_date > today_str:
-            # Interval passed but stored date is still in the future — AI arithmetic error
-            correct = today_str
-        else:
-            # Interval passed, stored date is today or overdue — already correct
-            return stored_date
-    except (ValueError, TypeError):
-        return stored_date
-
-    if cutoff_date and correct > cutoff_date:
-        if today_str <= cutoff_date:
-            correct = today_str
-        else:
-            return None
-
-    return correct
-
 
 # ---------------------------------------------------------------------------
 # Planned-date helpers

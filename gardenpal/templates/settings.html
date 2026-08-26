@@ -530,6 +530,21 @@
       </div>
     </section>
 
+    <section class="panel" style="margin-bottom:16px">
+      <h2 style="margin-bottom:4px">Refresh fertilization suggestions</h2>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
+        Queues a fresh Claude call for every fertilization-tracked plant belonging to the listed users.
+        The background poller picks them up automatically on the next page load.
+      </p>
+      <form id="fert-refresh-form">
+        <textarea id="fert-refresh-names" placeholder="demo, boatmarina, pitad" rows="2"
+          style="width:100%;box-sizing:border-box;font-size:0.9rem;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--text);resize:vertical;margin-bottom:8px"></textarea>
+        <button type="submit" class="btn-primary" style="font-size:0.85rem;padding:6px 14px">Queue refresh</button>
+        <span id="fert-refresh-status" style="margin-left:10px;font-size:0.82rem;color:var(--muted)"></span>
+      </form>
+      <div id="fert-refresh-results" style="margin-top:10px;font-size:0.82rem;display:none"></div>
+    </section>
+
   </div><!-- /panel-admin -->
 
   <!-- ── Errors tab ── -->
@@ -827,6 +842,45 @@ function gpDownloadCsv(url, filename, btn) {
       parts.forEach(function(x){ p[x.type] = x.value; });
       el.textContent = p.year + '-' + p.month + '-' + p.day + ' ' + p.hour + ':' + p.minute;
     } catch(e) {}
+  });
+})();
+
+// ── Fertilization refresh form ──
+(function () {
+  var form = document.getElementById('fert-refresh-form');
+  if (!form) return;
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var names = document.getElementById('fert-refresh-names').value.trim();
+    if (!names) return;
+    var status = document.getElementById('fert-refresh-status');
+    var results = document.getElementById('fert-refresh-results');
+    status.textContent = 'Queuing…';
+    results.style.display = 'none';
+    var fd = new FormData();
+    fd.append('usernames', names);
+    fetch('/admin/refresh-fertilization', { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        status.textContent = '';
+        var rows = (data.results || []);
+        var html = '<table style="border-collapse:collapse;width:100%"><thead><tr>'
+          + '<th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border)">Username</th>'
+          + '<th style="text-align:right;padding:4px 8px;border-bottom:1px solid var(--border)">Garden entries</th>'
+          + '<th style="text-align:right;padding:4px 8px;border-bottom:1px solid var(--border)">Library plants</th>'
+          + '</tr></thead><tbody>';
+        rows.forEach(function (r) {
+          html += '<tr>'
+            + '<td style="padding:4px 8px">' + r.username + (r.found ? '' : ' <span style="color:#b04040">(not found)</span>') + '</td>'
+            + '<td style="text-align:right;padding:4px 8px">' + (r.found ? r.garden_entries : '—') + '</td>'
+            + '<td style="text-align:right;padding:4px 8px">' + (r.found ? r.plants : '—') + '</td>'
+            + '</tr>';
+        });
+        html += '</tbody></table>';
+        results.innerHTML = html;
+        results.style.display = '';
+      })
+      .catch(function () { status.textContent = 'Error — check console.'; });
   });
 })();
 </script>
