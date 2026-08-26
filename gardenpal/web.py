@@ -19,7 +19,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from gardenpal.plant_lookup import extract_plant_name_from_label_image, extract_plant_name_from_text, extract_text_from_image, fetch_photos_for_suggestion, generate_plant_suggestion, generate_plant_suggestions_batch, identify_plant_from_image, lookup_plant_details, lookup_plant_image, lookup_plant_photos, resolve_scientific_name
-from gardenpal.fertilization_logic import compute_next_fertilization_date as _compute_fert_date, note_implies_not_needed as _note_implies_not_needed_fn, parse_ai_fertilization_response as _parse_ai_fert_response
+from gardenpal.fertilization_logic import compute_next_fertilization_date as _compute_fert_date, is_planned_stale as _is_planned_stale_fn, note_implies_not_needed as _note_implies_not_needed_fn, parse_ai_fertilization_response as _parse_ai_fert_response, resolve_effective_fert_date as _resolve_eff_fert_date
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 DEFAULT_CATEGORIES = ["Love this", "Front porch", "Backyard", "Wishlist", "Pollinator friendly"]
@@ -698,9 +698,7 @@ self.addEventListener('activate', function(e) {
                 else:
                     effective_last_fert = None
                     effective_fert_type = None
-                planned = r["planned_fertilization_date"]
-                planned_stale = bool(planned and effective_last_fert and planned <= effective_last_fert)
-                eff = (planned if not planned_stale else None) or r["next_fertilization_date"]
+                eff = _resolve_eff_fert_date(r["planned_fertilization_date"], r["next_fertilization_date"], effective_last_fert)
                 if not eff or eff > deadline:
                     continue
                 cutoff = r["fertilization_cutoff_date"]
@@ -737,10 +735,7 @@ self.addEventListener('activate', function(e) {
             ).fetchall()
             for r in ornamental_candidates:
                 # Use stored data only — detail page handles stale regeneration on visit.
-                _last_fert_o = r["last_fertilized_date"]
-                _planned_o = r["planned_fertilization_date"]
-                _planned_stale_o = bool(_planned_o and _last_fert_o and _planned_o <= _last_fert_o)
-                eff = (_planned_o if not _planned_stale_o else None) or r["next_fertilization_date"]
+                eff = _resolve_eff_fert_date(r["planned_fertilization_date"], r["next_fertilization_date"], r["last_fertilized_date"])
                 if not eff or eff > deadline:
                     continue
                 cutoff = r["fertilization_cutoff_date"]
@@ -6770,12 +6765,12 @@ self.addEventListener('activate', function(e) {
         allowed, _ = _check_api_rate(db, user_id, "fertilization")
         if not allowed:
             if kind == "edible":
-                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, last_fertilized_date, next_fertilization_not_needed FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
             else:
-                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
+                row = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, last_fertilized_date, next_fertilization_not_needed FROM plants WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
             if not row:
                 return jsonify(note=None, date=None, not_needed=False)
-            return jsonify(note=row["next_fertilization_note"], date=row["planned_fertilization_date"] or row["next_fertilization_date"], not_needed=bool(row["next_fertilization_not_needed"]))
+            return jsonify(note=row["next_fertilization_note"], date=_resolve_eff_fert_date(row["planned_fertilization_date"], row["next_fertilization_date"], row["last_fertilized_date"]), not_needed=bool(row["next_fertilization_not_needed"]))
         try:
             if kind == "edible":
                 entry = db.execute("SELECT * FROM garden_entries WHERE id = ? AND user_id = ?", (item_id, user_id)).fetchone()
@@ -6807,7 +6802,7 @@ self.addEventListener('activate', function(e) {
                 updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM garden_entries WHERE id = ?", (item_id,)).fetchone()
                 return jsonify(
                     note=updated["next_fertilization_note"] if updated else None,
-                    date=(updated["planned_fertilization_date"] or updated["next_fertilization_date"]) if updated else None,
+                    date=_resolve_eff_fert_date(updated["planned_fertilization_date"], updated["next_fertilization_date"], last_fert.get("date")) if updated else None,
                     not_needed=bool(updated["next_fertilization_not_needed"]) if updated else False,
                 )
             else:
@@ -6819,7 +6814,7 @@ self.addEventListener('activate', function(e) {
                 updated = db.execute("SELECT next_fertilization_note, next_fertilization_date, planned_fertilization_date, next_fertilization_not_needed FROM plants WHERE id = ?", (item_id,)).fetchone()
                 return jsonify(
                     note=updated["next_fertilization_note"] if updated else None,
-                    date=(updated["planned_fertilization_date"] or updated["next_fertilization_date"]) if updated else None,
+                    date=_resolve_eff_fert_date(updated["planned_fertilization_date"], updated["next_fertilization_date"], last_fert_date) if updated else None,
                     not_needed=bool(updated["next_fertilization_not_needed"]) if updated else False,
                 )
         except Exception as exc:
@@ -8808,7 +8803,7 @@ def _fert_pill_date(row, today):
     last_fert = _g("last_fertilized_date")
     # User-planned date wins unless it predates the last fertilization (stale)
     planned = _g("planned_fertilization_date")
-    if planned and not (last_fert and planned <= last_fert):
+    if planned and not _is_planned_stale_fn(planned, last_fert):
         return planned
     # Fresh AI date takes priority over generic interval computation — the AI
     # knows the plant's actual schedule; frequency is only a fallback
