@@ -8933,7 +8933,10 @@ def _suggest_next_fertilization(db, entry, user_location, last_fertilized, growt
                 "Line 1: YYYY-MM-DD (the suggested FUTURE date, or today if overdue) OR the word NOT_NEEDED\n"
                 "Line 2: INTERVAL_DAYS: <integer days between fertilizations, e.g. 28> OR INTERVAL_DAYS: none\n"
                 "Line 3: CUTOFF_DATE: <YYYY-MM-DD last date fertilizing is beneficial this season> OR CUTOFF_DATE: none\n"
-                "Line 4+: 2-3 sentence explanation of your reasoning.\n"
+                "Line 4+: 1-2 sentences of practical plant care advice — what fertilizer to use, "
+                "why this plant needs feeding now, or what to watch for. "
+                "Do NOT mention dates, intervals, or day counts in your note. "
+                "The user sees the date separately — your note is care guidance only.\n"
                 "No other labels or text."
             ),
             messages=[{"role": "user", "content": user_msg}],
@@ -9041,7 +9044,10 @@ def _suggest_next_fertilization_ornamental(db, plant, user_location, last_fert_d
                 "Line 1: YYYY-MM-DD (the suggested date, today or in the future) OR the word NOT_NEEDED\n"
                 "Line 2: INTERVAL_DAYS: <integer days between fertilizations, e.g. 28> OR INTERVAL_DAYS: none\n"
                 "Line 3: CUTOFF_DATE: <YYYY-MM-DD last date fertilizing is beneficial this season> OR CUTOFF_DATE: none\n"
-                "Line 4+: 2-3 sentence explanation of your reasoning.\n"
+                "Line 4+: 1-2 sentences of practical plant care advice — what fertilizer to use, "
+                "why this plant needs feeding now, or what to watch for. "
+                "Do NOT mention dates, intervals, or day counts in your note. "
+                "The user sees the date separately — your note is care guidance only.\n"
                 "No other labels or text."
             ),
             messages=[{"role": "user", "content": user_msg}],
