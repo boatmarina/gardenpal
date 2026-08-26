@@ -2776,17 +2776,29 @@ self.addEventListener('activate', function(e) {
                 continue
             uid = row["id"]
             ge = db.execute(
+                "SELECT COUNT(*) AS n FROM garden_entries"
+                " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)",
+                (uid,),
+            ).fetchone()["n"]
+            db.execute(
                 "UPDATE garden_entries SET next_fertilization_generated_at = NULL"
                 " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)",
                 (uid,),
-            ).rowcount
+            )
             pl = db.execute(
+                "SELECT COUNT(*) AS n FROM plants"
+                " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
+                " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)",
+                (uid,),
+            ).fetchone()["n"]
+            db.execute(
                 "UPDATE plants SET next_fertilization_generated_at = NULL"
                 " WHERE user_id = ? AND (never_fertilize IS NULL OR never_fertilize = 0)"
                 " AND (next_fertilization_not_needed IS NULL OR next_fertilization_not_needed = 0)",
                 (uid,),
-            ).rowcount
+            )
             results.append({"username": username, "found": True, "garden_entries": ge, "plants": pl})
         db.commit()
         return jsonify(results=results)
