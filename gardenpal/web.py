@@ -6665,14 +6665,14 @@ self.addEventListener('activate', function(e) {
     @app.route("/api/fert-refresh")
     @login_required
     def api_fert_refresh():
-        """Background: regenerate up to 5 stale fertilization suggestions. Fire-and-forget from dashboard JS."""
+        """Background: regenerate up to 10 stale fertilization suggestions. Fire-and-forget from dashboard JS."""
         try:
             db = get_db()
             user_id = g.user["id"]
             user_location = g.user.get("location") or ""
             today = _local_today()
             processed = 0
-            MAX = 5
+            MAX = 10
 
             # Stale = overdue, generated_at invalidated, note older than 7 days,
             # OR next_fertilization_date was cleared (NULL) after recording fertilization via AI.
