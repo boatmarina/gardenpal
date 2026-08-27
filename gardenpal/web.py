@@ -698,7 +698,9 @@ self.addEventListener('activate', function(e) {
                 else:
                     effective_last_fert = None
                     effective_fert_type = None
-                eff = _resolve_eff_fert_date(r["planned_fertilization_date"], r["next_fertilization_date"], effective_last_fert)
+                planned = r["planned_fertilization_date"]
+                planned_stale = _is_planned_stale_fn(planned, effective_last_fert)
+                eff = _resolve_eff_fert_date(planned, r["next_fertilization_date"], effective_last_fert)
                 if not eff or eff > deadline:
                     continue
                 cutoff = r["fertilization_cutoff_date"]
