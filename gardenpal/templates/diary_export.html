@@ -737,29 +737,43 @@ document.addEventListener('click', function(e) {
       var s1 = cm <= 5
         ? startPhrase + ' is running ' + tempDesc(sTd) + ' with ' + rainDesc(sRd) + ' so far.'
         : startPhrase + (startHasVerb ? ' — ' : ' has been ') + tempDesc(sTd) + ' through spring, with ' + rainDesc(sRd) + '.';
+      /* Summer summary (July–Sep) */
       var s2 = '';
-      var lastM = cm - 1;
-      if (lastM >= 6) {
-        var mc2 = cur.months[lastM], ma2 = avg[lastM];
-        var lmTd = (mc2 && ma2 && mc2.avg_high != null && ma2.avg_high != null) ? mc2.avg_high - ma2.avg_high : null;
-        var lmRd = (mc2 && ma2 && mc2.total_rain != null && ma2.total_rain != null) ? mc2.total_rain - ma2.total_rain : null;
-        var lyNote = '';
-        if (ly && ly.months && ly.months[lastM] && mc2 && mc2.avg_high != null && ly.months[lastM].avg_high != null) {
-          var lmLyTd = mc2.avg_high - ly.months[lastM].avg_high;
-          if (Math.abs(lmLyTd) >= 1.2) {
-            var sameDir = lmTd != null && Math.abs(lmTd) >= 0.5 && (lmTd > 0) === (lmLyTd > 0);
-            var lyC = lmLyTd > 0 ? '#C62828' : '#1565C0';
-            var lyW = lmLyTd > 0 ? 'warmer' : 'cooler';
-            lyNote = sameDir
-              ? ' — and ' + col(lyW + ' than last ' + FULL_MS[lastM] + ' too', lyC)
-              : ', though ' + col(lyW + ' than last ' + FULL_MS[lastM], lyC);
-          }
-        }
-        if ((lmTd != null && Math.abs(lmTd) >= 0.5) || (lmRd != null && Math.abs(lmRd) >= 0.25) || lyNote) {
-          s2 = FULL_MS[lastM] + ' was ' + tempDesc(lmTd) + ' with ' + rainDesc(lmRd) + lyNote + '.';
+      if (cm >= 6) {
+        var summerEnd = Math.min(8, cm);
+        var sumTd = hd(6, summerEnd);
+        var sumRd = rd(6, summerEnd);
+        var inSummer = cm <= 8;
+        if ((sumTd != null && Math.abs(sumTd) >= 0.5) || (sumRd != null && Math.abs(sumRd) >= 0.25)) {
+          s2 = inSummer
+            ? 'Summer so far is running ' + tempDesc(sumTd) + ' with ' + rainDesc(sumRd) + '.'
+            : 'Summer was ' + tempDesc(sumTd) + ' with ' + rainDesc(sumRd) + '.';
         }
       }
-      return s1 + (s2 ? ' ' + s2 : '');
+      /* Last completed fall month (October+) */
+      var s3 = '';
+      var lastM = cm - 1;
+      if (lastM >= 9) {
+        var mc3 = cur.months[lastM], ma3 = avg[lastM];
+        var lmTd3 = (mc3 && ma3 && mc3.avg_high != null && ma3.avg_high != null) ? mc3.avg_high - ma3.avg_high : null;
+        var lmRd3 = (mc3 && ma3 && mc3.total_rain != null && ma3.total_rain != null) ? mc3.total_rain - ma3.total_rain : null;
+        var lyNote3 = '';
+        if (ly && ly.months && ly.months[lastM] && mc3 && mc3.avg_high != null && ly.months[lastM].avg_high != null) {
+          var lmLyTd3 = mc3.avg_high - ly.months[lastM].avg_high;
+          if (Math.abs(lmLyTd3) >= 1.2) {
+            var sameDir3 = lmTd3 != null && Math.abs(lmTd3) >= 0.5 && (lmTd3 > 0) === (lmLyTd3 > 0);
+            var lyC3 = lmLyTd3 > 0 ? '#C62828' : '#1565C0';
+            var lyW3 = lmLyTd3 > 0 ? 'warmer' : 'cooler';
+            lyNote3 = sameDir3
+              ? ' — and ' + col(lyW3 + ' than last ' + FULL_MS[lastM] + ' too', lyC3)
+              : ', though ' + col(lyW3 + ' than last ' + FULL_MS[lastM], lyC3);
+          }
+        }
+        if ((lmTd3 != null && Math.abs(lmTd3) >= 0.5) || (lmRd3 != null && Math.abs(lmRd3) >= 0.25) || lyNote3) {
+          s3 = FULL_MS[lastM] + ' was ' + tempDesc(lmTd3) + ' with ' + rainDesc(lmRd3) + lyNote3 + '.';
+        }
+      }
+      return s1 + (s2 ? ' ' + s2 : '') + (s3 ? ' ' + s3 : '');
     }
 
     function deltaCell(a, b, thr, pos, neg) {
