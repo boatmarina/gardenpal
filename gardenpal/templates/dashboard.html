@@ -914,41 +914,32 @@ document.addEventListener('DOMContentLoaded', function() {
       ? startPhrase + ' is running ' + tempDesc(sTd) + ' with ' + rainDesc(sRd) + ' so far.'
       : startPhrase + (startHasVerb ? ' — ' : ' has been ') + tempDesc(sTd) + ' through spring, with ' + rainDesc(sRd) + '.';
 
-    /* ── Sentence 2: Current month so far (if past day 10) or last completed summer month ── */
+    /* ── Sentence 2: Summer summary (July–Sep, months 6–8) ── */
     var s2 = '';
-    var dom = new Date(data.today + 'T12:00:00').getDate();
-    var useCurrentM = dom > 10 && cm >= 6;
-    var s2M = useCurrentM ? cm : cm - 1;
-    if (s2M >= 6) {
-      var mc2 = cur.months[s2M], ma2 = avg[s2M];
-      var lmTd = (mc2 && ma2 && mc2.avg_high != null && ma2.avg_high != null) ? mc2.avg_high - ma2.avg_high : null;
-      var lmRd = (mc2 && ma2 && mc2.total_rain != null && ma2.total_rain != null) ? mc2.total_rain - ma2.total_rain : null;
-      if (useCurrentM) {
-        /* Current month: only compare temperature (partial rain total vs full-month avg is misleading) */
-        if (lmTd != null && Math.abs(lmTd) >= 0.5) {
-          s2 = FULL_MS[s2M] + ' so far is running ' + tempDesc(lmTd) + '.';
-        }
-      } else {
-        /* Last completed month: full comparison including rain and vs-last-year note */
-        var lyNote = '';
-        if (ly && ly.months && ly.months[s2M] && mc2 && mc2.avg_high != null && ly.months[s2M].avg_high != null) {
-          var lmLyTd = mc2.avg_high - ly.months[s2M].avg_high;
-          if (Math.abs(lmLyTd) >= 1.2) {
-            var sameDir = lmTd != null && Math.abs(lmTd) >= 0.5 && (lmTd > 0) === (lmLyTd > 0);
-            var lyC = lmLyTd > 0 ? '#A24A2E' : '#4A7C95';
-            var lyW = lmLyTd > 0 ? 'warmer' : 'cooler';
-            lyNote = sameDir
-              ? ' — and ' + col(lyW + ' than last ' + FULL_MS[s2M] + ' too', lyC)
-              : ', though ' + col(lyW + ' than last ' + FULL_MS[s2M], lyC);
-          }
-        }
-        if ((lmTd != null && Math.abs(lmTd) >= 0.5) || (lmRd != null && Math.abs(lmRd) >= 0.25) || lyNote) {
-          s2 = FULL_MS[s2M] + ' was ' + tempDesc(lmTd) + ' with ' + rainDesc(lmRd) + lyNote + '.';
-        }
+    if (cm >= 6) {
+      var summerEnd = Math.min(8, cm);
+      var sumTd = hd(6, summerEnd);
+      var sumRd = rd(6, summerEnd);
+      var inSummer = cm <= 8;
+      if ((sumTd != null && Math.abs(sumTd) >= 0.5) || (sumRd != null && Math.abs(sumRd) >= 0.25)) {
+        s2 = inSummer
+          ? 'Summer so far is running ' + tempDesc(sumTd) + ' with ' + rainDesc(sumRd) + '.'
+          : 'Summer was ' + tempDesc(sumTd) + ' with ' + rainDesc(sumRd) + '.';
       }
     }
 
-    return s1 + (s2 ? ' ' + s2 : '');
+    /* ── Sentence 3: Current month detail (October+, after day 10) ── */
+    var s3 = '';
+    var dom = new Date(data.today + 'T12:00:00').getDate();
+    if (dom > 10 && cm >= 9 && cur) {
+      var mc3 = cur.months[cm], ma3 = avg[cm];
+      var lmTd3 = (mc3 && ma3 && mc3.avg_high != null && ma3.avg_high != null) ? mc3.avg_high - ma3.avg_high : null;
+      if (lmTd3 != null && Math.abs(lmTd3) >= 0.5) {
+        s3 = FULL_MS[cm] + ' so far is running ' + tempDesc(lmTd3) + '.';
+      }
+    }
+
+    return s1 + (s2 ? ' ' + s2 : '') + (s3 ? ' ' + s3 : '');
   }
 
   /* Icon SVGs for weather chips */
@@ -998,7 +989,22 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (sTd < -0.5) chips.push({icon:'thermo-down', label: sTd < -2 ? 'Cold spring' : 'Cool spring', bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
       }
 
-      /* 3. Season rain chip */
+      /* 3. Summer temperature chip (July–Sep) */
+      if (cm >= 6) {
+        var sumEnd = Math.min(8, cm);
+        var scv = [], sav = [];
+        for (var sm = 6; sm <= sumEnd; sm++) {
+          if (cur.months[sm] && cur.months[sm].avg_high != null) scv.push(cur.months[sm].avg_high);
+          if (avg[sm]         && avg[sm].avg_high         != null) sav.push(avg[sm].avg_high);
+        }
+        if (scv.length && sav.length) {
+          var sumTd2 = scv.reduce(function(a,b){return a+b;},0)/scv.length - sav.reduce(function(a,b){return a+b;},0)/sav.length;
+          if (sumTd2 > 0.5)       chips.push({icon:'thermo-up',   label: sumTd2 > 2 ? 'Hot summer'  : 'Warm summer',  bg:'#FDECEA', color:'#A24A2E', border:'#F5C0B0'});
+          else if (sumTd2 < -0.5) chips.push({icon:'thermo-down', label: sumTd2 < -2 ? 'Cold summer' : 'Cool summer', bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
+        }
+      }
+
+      /* 4. Season rain chip */
       var cs = 0, as_ = 0;
       for (var m = gsStart; m <= cm; m++) {
         if (cur.months[m] && cur.months[m].total_rain != null) cs += cur.months[m].total_rain;
@@ -1009,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', function() {
       else if (sRd < -0.25) chips.push({icon:'sun',  label:'Drier season',  bg:'#FFF3E0', color:'#C15400', border:'#FFCC80'});
     }
 
-    /* 4. Current month so far chip (after day 10, July onwards) */
+    /* 5. Current month so far chip (after day 10, July onwards) */
     var dom = new Date(data.today + 'T12:00:00').getDate();
     if (dom > 10 && cm >= 6 && cur) {
       var mc = cur.months[cm], ma = avg[cm];
