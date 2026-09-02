@@ -743,7 +743,7 @@ document.addEventListener('click', function(e) {
         var summerEnd = Math.min(8, cm);
         var sumTd = hd(6, summerEnd);
         var sumRd = rd(6, summerEnd);
-        var inSummer = cm <= 8;
+        var inSummer = cm < 8;
         if ((sumTd != null && Math.abs(sumTd) >= 0.5) || (sumRd != null && Math.abs(sumRd) >= 0.25)) {
           s2 = inSummer
             ? 'Summer so far is running ' + tempDesc(sumTd) + ' with ' + rainDesc(sumRd) + '.'
