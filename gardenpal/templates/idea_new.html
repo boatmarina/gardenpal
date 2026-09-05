@@ -178,10 +178,13 @@
       <!-- Populated by JS after label scan or name-search selection -->
       <div id="autofill-preview" class="autofill-summary" hidden></div>
 
-      {% if form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info or form_values.plant_form or form_values.height_category %}
+      {% if form_values.description or form_values.image_url or form_values.scientific_name or form_values.sun_exposure or form_values.lifecycle or form_values.size_info or form_values.plant_form or form_values.height_category %}
         <div class="autofill-summary">
           {% if form_values.image_url %}
             <img src="{{ form_values.image_url }}" alt="{{ form_values.name }}" class="autofill-thumb" />
+          {% endif %}
+          {% if form_values.description %}
+            <p class="autofill-description">{{ form_values.description }}</p>
           {% endif %}
           <div class="autofill-chips">
             {% if form_values.scientific_name %}<span class="chip">{{ form_values.scientific_name }}</span>{% endif %}
