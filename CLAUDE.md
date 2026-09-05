@@ -2,14 +2,9 @@
 
 ## Deployment
 
-After pushing changes to the feature branch, always also merge into `main` and push `main` to origin so Vercel deploys to production automatically. Do this on every deploy unless explicitly told otherwise.
+Push changes to the feature branch only. Vercel automatically creates a preview deployment from the feature branch, which the user reviews and manually promotes to production via the Vercel dashboard.
 
-```bash
-git checkout main
-git merge --no-ff <feature-branch>
-git push -u origin main
-git checkout <feature-branch>
-```
+Do **not** merge into `main` or push `main` — that creates a redundant production deployment that bypasses the user's review step.
 
 ## What's New changelog
 
