@@ -195,6 +195,7 @@ def _make_details_prompt(query: str, location: Optional[str]) -> str:
         '  "recognized": true,\n'
         '  "name": "most common English name",\n'
         '  "scientific_name": "Genus species",\n'
+        f'  "description": "1–2 sentence plain-English description — REQUIRED, never empty: {desc_note}",\n'
         '  "sun_needs": "full_sun or part_shade or shade (leave empty string if unknown)",\n'
         '  "watering_needs": "frequent or average or minimal (leave empty string if unknown)",\n'
         '  "lifecycle": "annual or biennial or perennial (leave empty string if unknown)",\n'
@@ -205,8 +206,7 @@ def _make_details_prompt(query: str, location: Optional[str]) -> str:
         '  "plant_form": "one of: tree, shrub, perennial, annual, climber, ground-cover, grass, fern, bulb, succulent, herb, bamboo — empty string if unknown",\n'
         '  "height_category": "low (under 2 ft) or medium (2–5 ft) or tall (5–13 ft) or large (13 ft+) — respond with just the key word: low, medium, tall, or large; empty string if unknown",\n'
         '  "deadheading": "yes (recommended for best blooms) or beneficial (optional but helpful) or not needed — empty string if not applicable (non-flowering) or unknown",\n'
-        '  "deer_resistant": "yes or somewhat or no — empty string if unknown",\n'
-        f'  "description": "1–2 sentence plain-English description: {desc_note}"\n'
+        '  "deer_resistant": "yes or somewhat or no — empty string if unknown"\n'
         "}"
     )
 
@@ -567,7 +567,7 @@ def _lookup_via_claude(query: str, location: Optional[str] = None) -> Tuple[Opti
     try:
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=700,
+            max_tokens=900,
             system=_claude_system(location),
             messages=[{"role": "user", "content": _make_details_prompt(query.strip(), location)}],
         )
