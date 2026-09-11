@@ -5292,7 +5292,8 @@ self.addEventListener('fetch', function(e) {
         lib_plants = db.execute(
             f"""SELECT p.name, p.scientific_name, p.lifecycle, p.plant_form, p.notes, c.name AS category
                 FROM plants p
-                LEFT JOIN categories c ON c.id = p.category_id
+                LEFT JOIN plant_categories pc ON pc.plant_id = p.id
+                LEFT JOIN categories c ON c.id = pc.category_id
                 WHERE p.user_id IN {ph}
                 ORDER BY p.name ASC""",
             id_args,
