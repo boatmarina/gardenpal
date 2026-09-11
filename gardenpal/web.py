@@ -5344,10 +5344,6 @@ self.addEventListener('activate', function(e) {
     @app.route("/api/garden-tips")
     @login_required
     def garden_tips():
-        # TEMP DEBUG: hardcoded tips to verify section renders
-        return jsonify(tips=[
-            {"title": "Test tip — section is working", "detail": "If you see this, the Garden Tips section is rendering correctly."},
-        ])
         try:
             db = get_db()
             user_id = g.user["id"]
