@@ -1212,6 +1212,7 @@ function loadTips(forceRefresh) {
   fetch(url)
     .then(function(r){ return r.json(); })
     .then(function(data) {
+      console.log('[GardenTips]', data);
       loading.hidden = true;
       if (icon) icon.style.animation = '';
       var tips = data.tips || [];

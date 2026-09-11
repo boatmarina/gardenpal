@@ -5342,49 +5342,63 @@ self.addEventListener('activate', function(e) {
     @app.route("/api/garden-tips")
     @login_required
     def garden_tips():
-        db = get_db()
-        user_id = g.user["id"]
-        user_location = (g.user.get("location") or "").strip()
-        today_str = _local_today()
-
-        force = request.args.get("refresh") == "1"
-
-        row = db.execute(
-            "SELECT garden_tips, garden_tips_generated_at FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
-        cached = row["garden_tips"] if row else None
-        generated_at = row["garden_tips_generated_at"] if row else None
-
-        # Cache tips for 6 hours unless forced refresh
-        stale = True
-        if cached and generated_at and not force:
-            try:
-                from datetime import timezone
-                ga = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
-                age_h = (datetime.now(timezone.utc) - ga).total_seconds() / 3600
-                if age_h < 6:
-                    stale = False
-            except Exception:
-                pass
-
-        if stale:
-            result = _generate_garden_tips(db, user_id, user_location, today_str)
-            if result is not None:
-                cached = result
-                db.execute(
-                    "UPDATE users SET garden_tips = ?, garden_tips_generated_at = ? WHERE id = ?",
-                    (cached, datetime.utcnow().isoformat() + "Z", user_id),
-                )
-                db.commit()
-                _log_activity(db, user_id, "garden_tips_refresh", "")
-                db.commit()
-
         try:
-            tips = json.loads(cached) if cached else []
-        except Exception:
-            tips = []
+            db = get_db()
+            user_id = g.user["id"]
+            user_location = (g.user.get("location") or "").strip()
+            today_str = _local_today()
 
-        return jsonify(tips=tips)
+            force = request.args.get("refresh") == "1"
+
+            row = db.execute(
+                "SELECT garden_tips, garden_tips_generated_at FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            cached = row["garden_tips"] if row else None
+            generated_at = row["garden_tips_generated_at"] if row else None
+
+            # Cache tips for 6 hours unless forced refresh
+            stale = True
+            if cached and generated_at and not force:
+                try:
+                    from datetime import timezone
+                    gen_ts = generated_at.replace("Z", "+00:00")
+                    # Python <3.11 fromisoformat doesn't handle offset — fall back to strip+assume UTC
+                    try:
+                        ga = datetime.fromisoformat(gen_ts)
+                    except ValueError:
+                        ga = datetime.fromisoformat(generated_at[:19])
+                    if ga.tzinfo is None:
+                        from datetime import timezone
+                        ga = ga.replace(tzinfo=timezone.utc)
+                    age_h = (datetime.now(timezone.utc) - ga).total_seconds() / 3600
+                    if age_h < 6:
+                        stale = False
+                except Exception:
+                    pass
+
+            if stale:
+                try:
+                    result = _generate_garden_tips(db, user_id, user_location, today_str)
+                except Exception:
+                    result = None
+                if result is not None:
+                    cached = result
+                    db.execute(
+                        "UPDATE users SET garden_tips = ?, garden_tips_generated_at = ? WHERE id = ?",
+                        (cached, datetime.utcnow().isoformat() + "Z", user_id),
+                    )
+                    db.commit()
+                    _log_activity(db, user_id, "garden_tips_refresh", "")
+                    db.commit()
+
+            try:
+                tips = json.loads(cached) if cached else []
+            except Exception:
+                tips = []
+
+            return jsonify(tips=tips)
+        except Exception as exc:
+            return jsonify(tips=[], error=str(exc)), 200
 
     # ── Garden API (token-authenticated) ────────────────────────────────────
 
