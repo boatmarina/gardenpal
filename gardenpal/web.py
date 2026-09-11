@@ -5256,6 +5256,136 @@ self.addEventListener('activate', function(e) {
             _log_chat_error(db, user_id, g.user["username"], message, "unknown", str(exc))
             return jsonify(reply="Something went wrong — please try again.", changed=False), 500
 
+    # ── Garden Tips ─────────────────────────────────────────────────────────
+
+    def _generate_garden_tips(db, user_id, user_location, today_str):
+        """Generate 2-4 timely, actionable garden tips and return JSON string."""
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            return None
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return None
+
+        ids = _shared_user_ids(db, user_id)
+        ph, id_args = _in_ids(ids)
+
+        # Gather edible garden entries
+        entries = db.execute(
+            f"""SELECT ge.plant_name, ge.variety, ge.planted_date, ge.notes,
+                       ge.location_type, ge.location_name, yz.name AS zone_name
+                FROM garden_entries ge
+                LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
+                WHERE ge.user_id IN {ph}
+                ORDER BY ge.planted_date DESC""",
+            id_args,
+        ).fetchall()
+
+        # Gather edibles from library (plants with category "edibles")
+        lib_plants = db.execute(
+            f"""SELECT p.name, p.scientific_name, p.lifecycle, p.plant_form, p.notes
+                FROM plants p
+                JOIN categories c ON c.id = p.category_id
+                WHERE p.user_id IN {ph}
+                  AND lower(c.name) IN ('edibles', 'edible', 'vegetables', 'fruits', 'herbs')
+                ORDER BY p.name ASC""",
+            id_args,
+        ).fetchall()
+
+        if not entries and not lib_plants:
+            return json.dumps([])
+
+        edible_lines = []
+        for e in entries:
+            ln = e["plant_name"]
+            if e["variety"]: ln += f" ({e['variety']})"
+            parts = []
+            if e["planted_date"]: parts.append(f"planted {e['planted_date']}")
+            if e["location_type"]: parts.append(e["location_type"].replace("_", " "))
+            if e["zone_name"]: parts.append(f"zone: {e['zone_name']}")
+            if parts: ln += " — " + ", ".join(parts)
+            edible_lines.append(ln)
+
+        lib_lines = [p["name"] + (f" [{p['lifecycle']}]" if p["lifecycle"] else "") for p in lib_plants]
+
+        prompt = (
+            f"Today is {today_str}. Location: {user_location or 'Pacific Northwest, USA'}.\n\n"
+            "The gardener is growing these edibles:\n" + "\n".join(f"  - {l}" for l in edible_lines) +
+            ("\n\nEdibles in their library:\n" + "\n".join(f"  - {l}" for l in lib_lines) if lib_lines else "") +
+            "\n\nGive 2-4 timely, specific, actionable gardening tips for right now — things that are genuinely worth doing this week or this part of the season for THIS garden. "
+            "Only include tips that are truly relevant and time-sensitive. Skip obvious generic advice. "
+            "If you can't think of 2 good tips for this exact moment in the season, return fewer or even an empty list. "
+            "Each tip should be one punchy sentence (max ~20 words) plus an optional detail sentence. "
+            "Return a JSON array of objects: [{\"title\": \"...\", \"detail\": \"...\"}, ...]. "
+            "Return ONLY the JSON array, no other text."
+        )
+
+        try:
+            client = _anthropic.Anthropic(api_key=api_key)
+            resp = client.messages.create(
+                model="claude-opus-4-8",
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = (resp.content[0].text or "").strip()
+            # strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            tips = json.loads(raw)
+            if not isinstance(tips, list):
+                tips = []
+            return json.dumps(tips)
+        except Exception:
+            return None
+
+    @app.route("/api/garden-tips")
+    @login_required
+    def garden_tips():
+        db = get_db()
+        user_id = g.user["id"]
+        user_location = (g.user.get("location") or "").strip()
+        today_str = _local_today()
+
+        force = request.args.get("refresh") == "1"
+
+        row = db.execute(
+            "SELECT garden_tips, garden_tips_generated_at FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        cached = row["garden_tips"] if row else None
+        generated_at = row["garden_tips_generated_at"] if row else None
+
+        # Cache tips for 6 hours unless forced refresh
+        stale = True
+        if cached and generated_at and not force:
+            try:
+                from datetime import timezone
+                ga = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+                age_h = (datetime.now(timezone.utc) - ga).total_seconds() / 3600
+                if age_h < 6:
+                    stale = False
+            except Exception:
+                pass
+
+        if stale:
+            result = _generate_garden_tips(db, user_id, user_location, today_str)
+            if result is not None:
+                cached = result
+                db.execute(
+                    "UPDATE users SET garden_tips = ?, garden_tips_generated_at = ? WHERE id = ?",
+                    (cached, datetime.utcnow().isoformat() + "Z", user_id),
+                )
+                db.commit()
+                _log_activity(db, user_id, "garden_tips_refresh", "")
+                db.commit()
+
+        try:
+            tips = json.loads(cached) if cached else []
+        except Exception:
+            tips = []
+
+        return jsonify(tips=tips)
+
     # ── Garden API (token-authenticated) ────────────────────────────────────
 
     def token_required(view):
@@ -7503,6 +7633,8 @@ def init_db():
         ("users",           "suggestion_history",              "TEXT"),
         ("users",           "suggestion_queue",                "TEXT"),
         ("users",           "current_suggestion",              "TEXT"),
+        ("users",           "garden_tips",                     "TEXT"),
+        ("users",           "garden_tips_generated_at",        "TEXT"),
         ("plants",          "user_id",                         "INTEGER"),
         ("plants",          "scientific_name",                 "TEXT"),
         ("plants",          "lookup_query",                    "TEXT"),
