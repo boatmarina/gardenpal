@@ -37,7 +37,7 @@
   </div>
 
   <!-- Garden Tips -->
-  <div id="tips-section" style="margin-bottom:20px;display:none">
+  <div id="tips-section" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 2a7 7 0 0 1 7 7c0 3.17-2.1 5.9-5 6.72V17H9v-1.28C6.1 14.9 4 12.17 4 9a7 7 0 0 1 8-6.93"/>
@@ -1216,7 +1216,7 @@ function loadTips(forceRefresh) {
       loading.hidden = true;
       if (icon) icon.style.animation = '';
       var tips = data.tips || [];
-      if (!tips.length) { return; } // keep section hidden
+      if (!tips.length) { section.style.display = 'none'; return; }
       var h = '';
       tips.forEach(function(tip) {
         h += '<div style="display:flex;gap:10px;align-items:flex-start">';
@@ -1232,6 +1232,7 @@ function loadTips(forceRefresh) {
     .catch(function() {
       loading.hidden = true;
       if (icon) icon.style.animation = '';
+      section.style.display = 'none';
     });
 }
 loadTips(false);

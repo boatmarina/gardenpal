@@ -5309,16 +5309,18 @@ self.addEventListener('activate', function(e) {
 
         lib_lines = [p["name"] + (f" [{p['lifecycle']}]" if p["lifecycle"] else "") for p in lib_plants]
 
+        edibles_block = "\n".join(f"  - {l}" for l in edible_lines) if edible_lines else "  (none tracked yet)"
+        lib_block = ("\n\nEdibles in their library:\n" + "\n".join(f"  - {l}" for l in lib_lines)) if lib_lines else ""
         prompt = (
             f"Today is {today_str}. Location: {user_location or 'Pacific Northwest, USA'}.\n\n"
-            "The gardener is growing these edibles:\n" + "\n".join(f"  - {l}" for l in edible_lines) +
-            ("\n\nEdibles in their library:\n" + "\n".join(f"  - {l}" for l in lib_lines) if lib_lines else "") +
-            "\n\nGive 2-4 timely, specific, actionable gardening tips for right now — things that are genuinely worth doing this week or this part of the season for THIS garden. "
-            "Only include tips that are truly relevant and time-sensitive. Skip obvious generic advice. "
-            "If you can't think of 2 good tips for this exact moment in the season, return fewer or even an empty list. "
-            "Each tip should be one punchy sentence (max ~20 words) plus an optional detail sentence. "
-            "Return a JSON array of objects: [{\"title\": \"...\", \"detail\": \"...\"}, ...]. "
-            "Return ONLY the JSON array, no other text."
+            f"The gardener is growing these edibles:\n{edibles_block}{lib_block}\n\n"
+            "Give exactly 2-3 timely, specific, actionable gardening tips for right now — "
+            "things genuinely worth doing THIS week for THIS garden at this point in the season. "
+            "Focus on what's most urgent or highest-impact (harvest timing, end-of-season tasks, "
+            "protecting yields, preparing beds). Skip generic advice that applies any time of year. "
+            "Each tip: a punchy title sentence (≤20 words) and one detail sentence explaining the how or why. "
+            "Return a JSON array: [{\"title\": \"...\", \"detail\": \"...\"}, ...]. "
+            "Return ONLY the JSON array, no markdown, no other text."
         )
 
         try:
