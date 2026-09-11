@@ -1216,6 +1216,8 @@ function loadTips(forceRefresh) {
     .then(function(data) {
       loading.hidden = true;
       if (icon) icon.style.animation = '';
+      if (data.gen_error) console.warn('[GardenTips] generation error:', data.gen_error);
+      if (data.error) console.warn('[GardenTips] endpoint error:', data.error);
       var tips = data.tips || [];
       if (!tips.length) { section.style.display = 'none'; return; }
       var h = '';

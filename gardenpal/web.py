@@ -5288,19 +5288,18 @@ self.addEventListener('fetch', function(e) {
             id_args,
         ).fetchall()
 
-        # Gather edibles from library (plants with category "edibles")
+        # Gather ALL library plants (Claude will decide what's seasonally relevant)
         lib_plants = db.execute(
-            f"""SELECT p.name, p.scientific_name, p.lifecycle, p.plant_form, p.notes
+            f"""SELECT p.name, p.scientific_name, p.lifecycle, p.plant_form, p.notes, c.name AS category
                 FROM plants p
-                JOIN categories c ON c.id = p.category_id
+                LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.user_id IN {ph}
-                  AND lower(c.name) IN ('edibles', 'edible', 'vegetables', 'fruits', 'herbs')
                 ORDER BY p.name ASC""",
             id_args,
         ).fetchall()
 
         if not entries and not lib_plants:
-            return json.dumps([])
+            return None  # Nothing to tip on — don't cache
 
         edible_lines = []
         for e in entries:
@@ -5313,7 +5312,7 @@ self.addEventListener('fetch', function(e) {
             if parts: ln += " — " + ", ".join(parts)
             edible_lines.append(ln)
 
-        lib_lines = [p["name"] + (f" [{p['lifecycle']}]" if p["lifecycle"] else "") for p in lib_plants]
+        lib_lines = [p["name"] + (f" [{p['lifecycle']}]" if p["lifecycle"] else "") + (f" ({p['category']})" if p.get("category") else "") for p in lib_plants]
 
         all_plants = edible_lines + lib_lines
         plants_block = "\n".join(f"  - {l}" for l in all_plants) if all_plants else "  (garden not yet set up)"
@@ -5329,23 +5328,20 @@ self.addEventListener('fetch', function(e) {
             "Return ONLY a JSON array: [{\"title\": \"...\", \"detail\": \"...\"}, ...]. No markdown, no explanation."
         )
 
-        try:
-            client = _anthropic.Anthropic(api_key=api_key)
-            resp = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=600,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = (resp.content[0].text or "").strip()
-            # strip markdown code fences if present
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            tips = json.loads(raw)
-            if not isinstance(tips, list):
-                tips = []
-            return json.dumps(tips)
-        except Exception:
-            return None
+        client = _anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = (resp.content[0].text or "").strip()
+        # strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        tips = json.loads(raw)
+        if not isinstance(tips, list):
+            tips = []
+        return json.dumps(tips)
 
     @app.route("/api/garden-tips")
     @login_required
@@ -5364,13 +5360,19 @@ self.addEventListener('fetch', function(e) {
             cached = row["garden_tips"] if row else None
             generated_at = row["garden_tips_generated_at"] if row else None
 
-            # Cache tips for 6 hours unless forced refresh
+            # Cache tips for 6 hours unless forced refresh.
+            # Don't treat a cached empty list as fresh — always retry when empty.
             stale = True
-            if cached and generated_at and not force:
+            cached_tips_list = []
+            if cached:
+                try:
+                    cached_tips_list = json.loads(cached)
+                except Exception:
+                    pass
+            if cached_tips_list and generated_at and not force:
                 try:
                     from datetime import timezone
                     gen_ts = generated_at.replace("Z", "+00:00")
-                    # Python <3.11 fromisoformat doesn't handle offset — fall back to strip+assume UTC
                     try:
                         ga = datetime.fromisoformat(gen_ts)
                     except ValueError:
@@ -5384,27 +5386,30 @@ self.addEventListener('fetch', function(e) {
                 except Exception:
                     pass
 
+            gen_error = None
             if stale:
                 try:
                     result = _generate_garden_tips(db, user_id, user_location, today_str)
-                except Exception:
+                except Exception as e:
                     result = None
+                    gen_error = str(e)
                 if result is not None:
-                    cached = result
-                    db.execute(
-                        "UPDATE users SET garden_tips = ?, garden_tips_generated_at = ? WHERE id = ?",
-                        (cached, datetime.utcnow().isoformat() + "Z", user_id),
-                    )
-                    db.commit()
-                    _log_activity(db, user_id, "garden_tips_refresh", "")
-                    db.commit()
+                    result_list = json.loads(result) if result else []
+                    if result_list:  # Only cache non-empty results
+                        cached = result
+                        cached_tips_list = result_list
+                        db.execute(
+                            "UPDATE users SET garden_tips = ?, garden_tips_generated_at = ? WHERE id = ?",
+                            (cached, datetime.utcnow().isoformat() + "Z", user_id),
+                        )
+                        db.commit()
+                        _log_activity(db, user_id, "garden_tips_refresh", "")
+                        db.commit()
 
-            try:
-                tips = json.loads(cached) if cached else []
-            except Exception:
-                tips = []
-
-            return jsonify(tips=tips)
+            resp = {"tips": cached_tips_list}
+            if gen_error:
+                resp["gen_error"] = gen_error
+            return jsonify(**resp)
         except Exception as exc:
             return jsonify(tips=[], error=str(exc)), 200
 
