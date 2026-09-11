@@ -307,6 +307,14 @@
   <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
+    /* When a new service worker takes control (e.g. after an app update),
+       reload so the pinned iOS PWA gets fresh HTML instead of a cached shell. */
+    var _swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if (_swRefreshing) return;
+      _swRefreshing = true;
+      window.location.reload();
+    });
   }
   </script>
 </body>
