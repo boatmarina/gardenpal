@@ -5315,18 +5315,18 @@ self.addEventListener('fetch', function(e) {
 
         lib_lines = [p["name"] + (f" [{p['lifecycle']}]" if p["lifecycle"] else "") for p in lib_plants]
 
-        edibles_block = "\n".join(f"  - {l}" for l in edible_lines) if edible_lines else "  (none tracked yet)"
-        lib_block = ("\n\nEdibles in their library:\n" + "\n".join(f"  - {l}" for l in lib_lines)) if lib_lines else ""
+        all_plants = edible_lines + lib_lines
+        plants_block = "\n".join(f"  - {l}" for l in all_plants) if all_plants else "  (garden not yet set up)"
         prompt = (
             f"Today is {today_str}. Location: {user_location or 'Pacific Northwest, USA'}.\n\n"
-            f"The gardener is growing these edibles:\n{edibles_block}{lib_block}\n\n"
-            "Give exactly 2-3 timely, specific, actionable gardening tips for right now — "
-            "things genuinely worth doing THIS week for THIS garden at this point in the season. "
-            "Focus on what's most urgent or highest-impact (harvest timing, end-of-season tasks, "
-            "protecting yields, preparing beds). Skip generic advice that applies any time of year. "
-            "Each tip: a punchy title sentence (≤20 words) and one detail sentence explaining the how or why. "
-            "Return a JSON array: [{\"title\": \"...\", \"detail\": \"...\"}, ...]. "
-            "Return ONLY the JSON array, no markdown, no other text."
+            f"This gardener is actively growing:\n{plants_block}\n\n"
+            "Give 2-3 practical gardening tips for exactly this moment in the growing season. "
+            "These plants are in the ground right now — focus on what to do this week: "
+            "harvest timing, extending the season, ripening, pruning, soil prep, protecting from first frost, etc. "
+            "Be specific to the plants listed and the time of year. "
+            "You MUST return at least 2 tips — if you can't think of highly specific ones, give the most useful seasonal advice for these plants. "
+            "Each tip: a short title (≤15 words) and one concrete detail sentence. "
+            "Return ONLY a JSON array: [{\"title\": \"...\", \"detail\": \"...\"}, ...]. No markdown, no explanation."
         )
 
         try:
