@@ -1198,7 +1198,9 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 // ── Garden Tips ───────────────────────────────────────────────────────────
+var tipsLoaded = false;
 function loadTips(forceRefresh) {
+  if (tipsLoaded && !forceRefresh) return;
   var section  = document.getElementById('tips-section');
   var loading  = document.getElementById('tips-loading');
   var content  = document.getElementById('tips-content');
@@ -1227,11 +1229,12 @@ function loadTips(forceRefresh) {
       content.innerHTML = h;
       content.hidden = false;
       section.style.display = '';
+      tipsLoaded = true;
     })
     .catch(function() {
       loading.hidden = true;
       if (icon) icon.style.animation = '';
-      section.style.display = 'none';
+      if (!tipsLoaded) section.style.display = 'none';
     });
 }
 loadTips(false);
