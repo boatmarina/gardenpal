@@ -458,8 +458,14 @@ self.addEventListener('activate', function(e) {
     }).then(function() { return clients.claim(); })
   );
 });
-// No fetch handler — SW is fully transparent to all requests after clearing caches.
-// A respondWith(fetch()) on navigate requests blocks window.print() on Safari/WebKit.
+// Force navigation requests (HTML page loads) to always go to the network,
+// bypassing the iOS PWA disk cache which ignores Cache-Control headers.
+// Non-navigate requests (API, static assets) are left to the browser default.
+self.addEventListener('fetch', function(e) {
+  if (e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request, { cache: 'no-store' }));
+  }
+});
 """
 
     @app.route("/sw.js")
