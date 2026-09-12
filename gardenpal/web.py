@@ -297,7 +297,7 @@ def create_app() -> Flask:
         {
             "version": "2026-09-a",
             "title": "Garden tips, updated throughout the season",
-            "body": "GardenPal now generates personalised tips based on exactly what you're growing — harvest timing, seasonal care, what to do this week. Tips refresh automatically every few hours and build up over time so you can browse back through them.",
+            "body": "GardenPal now generates personalised tips based on exactly what you're growing — harvest timing, seasonal care, what to do this week.",
             "draft": True,
         },
         {
