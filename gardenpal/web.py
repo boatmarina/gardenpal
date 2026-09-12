@@ -5371,7 +5371,7 @@ self.addEventListener('fetch', function(e) {
             user_location = (g.user.get("location") or "").strip()
             today_str = _local_today()
             force = request.args.get("refresh") == "1"
-            four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
+            four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=3)
 
             row = db.execute(
                 "SELECT garden_tips FROM users WHERE id = ?", (user_id,)
