@@ -5264,7 +5264,7 @@ self.addEventListener('fetch', function(e) {
 
     # ── Garden Tips ─────────────────────────────────────────────────────────
 
-    def _generate_garden_tips(db, user_id, user_location, today_str):
+    def _generate_garden_tips(db, user_id, user_location, today_str, existing_tips=None):
         """Generate 2-4 timely, actionable garden tips and return JSON string."""
         try:
             import anthropic as _anthropic
@@ -5317,9 +5317,20 @@ self.addEventListener('fetch', function(e) {
 
         all_plants = edible_lines + lib_lines
         plants_block = "\n".join(f"  - {l}" for l in all_plants) if all_plants else "  (garden not yet set up)"
+        already_seen = ""
+        if existing_tips:
+            titles = [t.get("title", "") for t in existing_tips if t.get("title")]
+            if titles:
+                already_seen = (
+                    "\n\nThe gardener has already received these tips recently — "
+                    "do NOT repeat the same advice, even if worded differently:\n"
+                    + "\n".join(f"  - {tl}" for tl in titles[:20])
+                )
+
         prompt = (
             f"Today is {today_str}. Location: {user_location or 'Pacific Northwest, USA'}.\n\n"
-            f"This gardener is actively growing:\n{plants_block}\n\n"
+            f"This gardener is actively growing:\n{plants_block}"
+            f"{already_seen}\n\n"
             "Give 2-3 practical gardening tips for exactly this moment in the growing season. "
             "These plants are in the ground right now — focus on what to do this week: "
             "harvest timing, extending the season, ripening, pruning, soil prep, protecting from first frost, etc. "
@@ -5404,29 +5415,12 @@ self.addEventListener('fetch', function(e) {
             gen_error = None
             if stale:
                 try:
-                    result = _generate_garden_tips(db, user_id, user_location, today_str)
+                    result = _generate_garden_tips(db, user_id, user_location, today_str, existing_tips=history)
                 except Exception as e:
                     result = None
                     gen_error = str(e)
                 if result is not None:
                     new_tips = json.loads(result) if result else []
-                    if new_tips:
-                        import re as _re
-                        def _tip_key(title):
-                            return set(_re.sub(r'[^a-z0-9 ]', '', (title or '').lower()).split())
-                        existing_keys = [_tip_key(t.get('title', '')) for t in history]
-                        deduped = []
-                        for t in new_tips:
-                            k = _tip_key(t.get('title', ''))
-                            if not k:
-                                continue
-                            # skip if >=60% of words overlap with any existing tip title
-                            if not any(
-                                len(k & ek) / max(len(k | ek), 1) >= 0.6
-                                for ek in existing_keys if ek
-                            ):
-                                deduped.append(t)
-                        new_tips = deduped
                     if new_tips:
                         now_iso = datetime.utcnow().isoformat() + "Z"
                         stamped = [{**t, "generated_at": now_iso} for t in new_tips]
