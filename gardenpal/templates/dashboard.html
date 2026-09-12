@@ -56,7 +56,7 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation:spin 1s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
         Checking your garden for tips…
       </div>
-      <div id="tips-content" hidden style="padding:12px 16px;display:flex;flex-direction:column;gap:10px"></div>
+      <div id="tips-content" hidden style="padding:14px 16px"></div>
     </div>
   </div>
 
@@ -1197,39 +1197,97 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 })();
 
-// ── Garden Tips ───────────────────────────────────────────────────────────
+// ── Garden Tips carousel ──────────────────────────────────────────────────
 var tipsLoaded = false;
+var _tips = [];
+var _tipIdx = 0;
+
+function _tipDate(isoStr) {
+  try {
+    var d = new Date(isoStr);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch(e) { return ''; }
+}
+
+function _renderTip() {
+  var content = document.getElementById('tips-content');
+  if (!content || !_tips.length) return;
+  var tip   = _tips[_tipIdx];
+  var total = _tips.length;
+  var newestTs = _tips[0] && _tips[0].generated_at;
+  var isNew = tip.generated_at && newestTs && tip.generated_at === newestTs;
+
+  var badge = '';
+  if (isNew) {
+    badge = '<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.65rem;font-weight:700;'
+          + 'letter-spacing:0.07em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">'
+          + '<svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg>'
+          + 'New</span>';
+  } else {
+    var dateStr = _tipDate(tip.generated_at);
+    badge = '<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.65rem;font-weight:600;'
+          + 'letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">'
+          + '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+          + (dateStr ? dateStr : 'Earlier') + '</span>';
+  }
+
+  var titleStyle = 'font-size:0.85rem;font-weight:600;line-height:1.35;'
+                 + (isNew ? 'color:var(--fg)' : 'color:var(--muted)');
+  var detailStyle = 'font-size:0.78rem;line-height:1.45;margin-top:4px;'
+                  + (isNew ? 'color:var(--fg)' : 'color:var(--muted)');
+
+  var nav = '';
+  if (total > 1) {
+    var btnBase = 'background:none;border:none;cursor:pointer;padding:4px 8px;font-size:1rem;'
+                + 'color:var(--accent);line-height:1;border-radius:4px;';
+    var prevDisabled = _tipIdx === 0;
+    var nextDisabled = _tipIdx === total - 1;
+    nav = '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">'
+        + '<button onclick="tipNav(-1)" style="' + btnBase + (prevDisabled ? 'opacity:0.25;cursor:default' : '') + '" '
+        + (prevDisabled ? 'disabled' : '') + '>&#8592;</button>'
+        + '<span style="font-size:0.72rem;color:var(--muted)">' + (_tipIdx + 1) + ' of ' + total + '</span>'
+        + '<button onclick="tipNav(1)" style="' + btnBase + (nextDisabled ? 'opacity:0.25;cursor:default' : '') + '" '
+        + (nextDisabled ? 'disabled' : '') + '>&#8594;</button>'
+        + '</div>';
+  }
+
+  content.innerHTML = badge
+    + '<div style="' + titleStyle + '">' + (tip.title || '') + '</div>'
+    + (tip.detail ? '<div style="' + detailStyle + '">' + tip.detail + '</div>' : '')
+    + nav;
+  content.hidden = false;
+}
+
+function tipNav(dir) {
+  var next = _tipIdx + dir;
+  if (next < 0 || next >= _tips.length) return;
+  _tipIdx = next;
+  _renderTip();
+}
+
 function loadTips(forceRefresh) {
   if (tipsLoaded && !forceRefresh) return;
-  var section  = document.getElementById('tips-section');
-  var loading  = document.getElementById('tips-loading');
-  var content  = document.getElementById('tips-content');
-  var icon     = document.getElementById('tips-refresh-icon');
+  var section = document.getElementById('tips-section');
+  var loading = document.getElementById('tips-loading');
+  var content = document.getElementById('tips-content');
+  var icon    = document.getElementById('tips-refresh-icon');
 
   loading.hidden = false;
   content.hidden = true;
   if (icon) icon.style.animation = 'spin 0.8s linear infinite';
 
-  var url = '/api/garden-tips' + (forceRefresh ? '?refresh=1' : '');
-  fetch(url)
-    .then(function(r){ return r.json(); })
+  fetch('/api/garden-tips' + (forceRefresh ? '?refresh=1' : ''))
+    .then(function(r) { return r.json(); })
     .then(function(data) {
       loading.hidden = true;
       if (icon) icon.style.animation = '';
-      if (data.gen_error) console.warn('[GardenTips] generation error:', data.gen_error);
-      if (data.error) console.warn('[GardenTips] endpoint error:', data.error);
+      if (data.gen_error) console.warn('[GardenTips] gen error:', data.gen_error);
+      if (data.error)     console.warn('[GardenTips] error:', data.error);
       var tips = data.tips || [];
       if (!tips.length) { section.style.display = 'none'; return; }
-      var h = '';
-      tips.forEach(function(tip) {
-        h += '<div style="display:flex;gap:10px;align-items:flex-start">';
-        h += '<span style="flex-shrink:0;margin-top:2px;color:var(--accent)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>';
-        h += '<div><div style="font-size:0.84rem;font-weight:600;color:var(--text)">' + (tip.title || '') + '</div>';
-        if (tip.detail) h += '<div style="font-size:0.78rem;color:var(--muted);margin-top:2px">' + tip.detail + '</div>';
-        h += '</div></div>';
-      });
-      content.innerHTML = h;
-      content.hidden = false;
+      _tips   = tips;
+      _tipIdx = 0;
+      _renderTip();
       section.style.display = '';
       tipsLoaded = true;
     })

@@ -5348,41 +5348,55 @@ self.addEventListener('fetch', function(e) {
     @login_required
     def garden_tips():
         try:
+            from datetime import timezone
             db = get_db()
             user_id = g.user["id"]
             user_location = (g.user.get("location") or "").strip()
             today_str = _local_today()
-
             force = request.args.get("refresh") == "1"
+            four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=4)
 
             row = db.execute(
-                "SELECT garden_tips, garden_tips_generated_at FROM users WHERE id = ?", (user_id,)
+                "SELECT garden_tips FROM users WHERE id = ?", (user_id,)
             ).fetchone()
-            cached = row["garden_tips"] if row else None
-            generated_at = row["garden_tips_generated_at"] if row else None
+            existing_json = row["garden_tips"] if row else None
 
-            # Cache tips for 6 hours unless forced refresh.
-            # Don't treat a cached empty list as fresh — always retry when empty.
-            stale = True
-            cached_tips_list = []
-            if cached:
+            # Parse accumulated history; migrate tips from old format (no generated_at)
+            history = []
+            if existing_json:
                 try:
-                    cached_tips_list = json.loads(cached)
+                    history = json.loads(existing_json)
+                    if not isinstance(history, list):
+                        history = []
                 except Exception:
-                    pass
-            if cached_tips_list and generated_at and not force:
+                    history = []
+
+            # Prune tips older than 4 weeks and migrate old format entries
+            pruned = []
+            for t in history:
+                ts_str = t.get("generated_at", "")
+                if not ts_str:
+                    continue  # drop old-format tips without a timestamp
                 try:
-                    from datetime import timezone
-                    gen_ts = generated_at.replace("Z", "+00:00")
-                    try:
-                        ga = datetime.fromisoformat(gen_ts)
-                    except ValueError:
-                        ga = datetime.fromisoformat(generated_at[:19])
-                    if ga.tzinfo is None:
-                        from datetime import timezone
-                        ga = ga.replace(tzinfo=timezone.utc)
-                    age_h = (datetime.now(timezone.utc) - ga).total_seconds() / 3600
-                    if age_h < 6:
+                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    if ts >= four_weeks_ago:
+                        pruned.append(t)
+                except Exception:
+                    pass  # drop unparseable entries
+            history = pruned
+
+            # Check staleness: is the newest tip < 6 hours old?
+            stale = True
+            if history and not force:
+                try:
+                    newest_ts = datetime.fromisoformat(
+                        history[0]["generated_at"].replace("Z", "+00:00")
+                    )
+                    if newest_ts.tzinfo is None:
+                        newest_ts = newest_ts.replace(tzinfo=timezone.utc)
+                    if (datetime.now(timezone.utc) - newest_ts).total_seconds() < 21600:
                         stale = False
                 except Exception:
                     pass
@@ -5395,19 +5409,20 @@ self.addEventListener('fetch', function(e) {
                     result = None
                     gen_error = str(e)
                 if result is not None:
-                    result_list = json.loads(result) if result else []
-                    if result_list:  # Only cache non-empty results
-                        cached = result
-                        cached_tips_list = result_list
+                    new_tips = json.loads(result) if result else []
+                    if new_tips:
+                        now_iso = datetime.utcnow().isoformat() + "Z"
+                        stamped = [{**t, "generated_at": now_iso} for t in new_tips]
+                        history = stamped + history
                         db.execute(
                             "UPDATE users SET garden_tips = ?, garden_tips_generated_at = ? WHERE id = ?",
-                            (cached, datetime.utcnow().isoformat() + "Z", user_id),
+                            (json.dumps(history), now_iso, user_id),
                         )
                         db.commit()
                         _log_activity(db, user_id, "garden_tips_refresh", "")
                         db.commit()
 
-            resp = {"tips": cached_tips_list}
+            resp = {"tips": history}
             if gen_error:
                 resp["gen_error"] = gen_error
             return jsonify(**resp)
