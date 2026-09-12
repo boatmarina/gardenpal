@@ -1028,15 +1028,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
 
-      /* 4. Season rain chip */
-      var cs = 0, as_ = 0;
-      for (var m = gsStart; m <= cm; m++) {
-        if (cur.months[m] && cur.months[m].total_rain != null) cs += cur.months[m].total_rain;
-        if (avg[m]         && avg[m].total_rain         != null) as_ += avg[m].total_rain;
+      /* 4a. Spring rain chip (gsStart–May) */
+      var spRcs = 0, spRas = 0, spRn = 0;
+      var spEnd = Math.min(5, cm);
+      for (var m = gsStart; m <= spEnd; m++) {
+        if (cur.months[m] && cur.months[m].total_rain != null) { spRcs += cur.months[m].total_rain; spRn++; }
+        if (avg[m]         && avg[m].total_rain         != null)   spRas += avg[m].total_rain;
       }
-      var sRd = cs - as_;
-      if (sRd > 0.25)       chips.push({icon:'rain', label:'Wetter season', bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
-      else if (sRd < -0.25) chips.push({icon:'sun',  label:'Drier season',  bg:'#FFF3E0', color:'#C15400', border:'#FFCC80'});
+      if (spRn) {
+        var spRd = spRcs - spRas;
+        if (spRd > 0.5)       chips.push({icon:'rain', label:'Wet spring',  bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
+        else if (spRd < -0.5) chips.push({icon:'sun',  label:'Dry spring',  bg:'#FFF3E0', color:'#C15400', border:'#FFCC80'});
+      }
+
+      /* 4b. Summer rain chip (June–Sep) — only shown if we've reached June */
+      if (cm >= 6) {
+        var suRcs = 0, suRas = 0, suRn = 0;
+        var suEnd = Math.min(8, cm);
+        for (var m = 6; m <= suEnd; m++) {
+          if (cur.months[m] && cur.months[m].total_rain != null) { suRcs += cur.months[m].total_rain; suRn++; }
+          if (avg[m]         && avg[m].total_rain         != null)   suRas += avg[m].total_rain;
+        }
+        if (suRn) {
+          var suRd = suRcs - suRas;
+          if (suRd > 0.5)       chips.push({icon:'rain', label:'Wetter summer', bg:'#E3F2FD', color:'#1565C0', border:'#90CAF9'});
+          else if (suRd < -0.5) chips.push({icon:'sun',  label:'Drier summer',  bg:'#FFF3E0', color:'#C15400', border:'#FFCC80'});
+        }
+      }
     }
 
     /* 5. Current month so far chip (after day 10, July onwards) */
