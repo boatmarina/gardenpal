@@ -5411,6 +5411,23 @@ self.addEventListener('fetch', function(e) {
                 if result is not None:
                     new_tips = json.loads(result) if result else []
                     if new_tips:
+                        import re as _re
+                        def _tip_key(title):
+                            return set(_re.sub(r'[^a-z0-9 ]', '', (title or '').lower()).split())
+                        existing_keys = [_tip_key(t.get('title', '')) for t in history]
+                        deduped = []
+                        for t in new_tips:
+                            k = _tip_key(t.get('title', ''))
+                            if not k:
+                                continue
+                            # skip if >=60% of words overlap with any existing tip title
+                            if not any(
+                                len(k & ek) / max(len(k | ek), 1) >= 0.6
+                                for ek in existing_keys if ek
+                            ):
+                                deduped.append(t)
+                        new_tips = deduped
+                    if new_tips:
                         now_iso = datetime.utcnow().isoformat() + "Z"
                         stamped = [{**t, "generated_at": now_iso} for t in new_tips]
                         history = stamped + history
