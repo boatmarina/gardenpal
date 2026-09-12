@@ -295,6 +295,12 @@ def create_app() -> Flask:
     # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
     WHATS_NEW_CHANGELOG = [
         {
+            "version": "2026-09-a",
+            "title": "Garden tips, updated throughout the season",
+            "body": "GardenPal now generates personalised tips based on exactly what you're growing — harvest timing, seasonal care, what to do this week. Tips refresh automatically every few hours and build up over time so you can browse back through them.",
+            "draft": True,
+        },
+        {
             "version": "2026-08-b",
             "title": "Mark edible plants done for the season",
             "body": "Tap any edible plant's detail page and toggle \"Done for the season\" to mark it finished. Done plants are dimmed in your list so you can see at a glance what's still growing.",
