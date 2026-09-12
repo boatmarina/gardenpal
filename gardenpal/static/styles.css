@@ -37,14 +37,16 @@ body { visibility: visible; }
    ================================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { -webkit-text-size-adjust: 100%; font-size: 106.25%; }
+html { -webkit-text-size-adjust: 100%; font-size: 106.25%; height: 100%; }
 
 body {
   font-family: 'Source Sans 3', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--fg);
-  min-height: 100dvh;
-  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -55,7 +57,12 @@ body {
 .container {
   max-width: var(--page-w);
   margin: 0 auto;
-  padding: 16px var(--pad) calc(88px + env(safe-area-inset-bottom, 0px));
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding: 16px var(--pad) 24px;
+  width: 100%;
 }
 
 /* ================================================================
@@ -88,7 +95,9 @@ p  { line-height: 1.55; }
    BRAND BAR
    ================================================================ */
 .brand-bar {
+  flex-shrink: 0;
   max-width: var(--page-w);
+  width: 100%;
   margin: 0 auto;
   padding: calc(16px + env(safe-area-inset-top, 0px)) var(--pad) 0;
   display: flex;
@@ -137,14 +146,11 @@ p  { line-height: 1.55; }
    BOTTOM NAV
    ================================================================ */
 .bottom-nav {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  right: 16px;
-  width: auto;
+  position: relative;
+  flex-shrink: 0;
+  width: calc(100% - 32px);
   max-width: 440px;
-  margin-inline: auto;
-  will-change: transform;
+  margin: 8px auto max(16px, env(safe-area-inset-bottom, 16px));
   background: var(--card);
   border-radius: 24px;
   display: flex;
