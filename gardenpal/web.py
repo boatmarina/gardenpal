@@ -5286,7 +5286,8 @@ self.addEventListener('fetch', function(e) {
         # Gather edible garden entries
         entries = db.execute(
             f"""SELECT ge.plant_name, ge.variety, ge.planted_date, ge.notes,
-                       ge.location_type, ge.location_name, yz.name AS zone_name
+                       ge.location_type, ge.location_name, yz.name AS zone_name,
+                       ge.done_for_season
                 FROM garden_entries ge
                 LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
                 WHERE ge.user_id IN {ph}
@@ -5316,6 +5317,7 @@ self.addEventListener('fetch', function(e) {
             if e["planted_date"]: parts.append(f"planted {e['planted_date']}")
             if e["location_type"]: parts.append(e["location_type"].replace("_", " "))
             if e["zone_name"]: parts.append(f"zone: {e['zone_name']}")
+            if e["done_for_season"]: parts.append("done for season")
             if parts: ln += " — " + ", ".join(parts)
             edible_lines.append(ln)
 
@@ -5338,8 +5340,8 @@ self.addEventListener('fetch', function(e) {
             f"This gardener is actively growing:\n{plants_block}"
             f"{already_seen}\n\n"
             "Give 2-3 practical gardening tips for exactly this moment in the growing season. "
-            "These plants are in the ground right now — focus on what to do this week: "
-            "harvest timing, extending the season, ripening, pruning, soil prep, protecting from first frost, etc. "
+            "Plants marked 'done for season' have finished producing — focus tips on what comes next for those (bed cleanup, soil prep, cover cropping, succession planting). "
+            "For plants still actively growing, focus on what to do this week: harvest timing, extending the season, ripening, pruning, protecting from first frost, etc. "
             "Be specific to the plants listed and the time of year. "
             "You MUST return at least 2 tips — if you can't think of highly specific ones, give the most useful seasonal advice for these plants. "
             "Each tip: a short title (≤15 words) and one concrete detail sentence. "
