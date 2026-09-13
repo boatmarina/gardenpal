@@ -305,6 +305,11 @@
   })();
   </script>
   <script>
+  /* Reset scroll position on every page load so iOS doesn't restore a mid-scroll state */
+  (function() {
+    var main = document.querySelector('main');
+    if (main) main.scrollTop = 0;
+  })();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
     /* When a new service worker takes control (e.g. after an app update),
