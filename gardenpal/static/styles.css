@@ -61,7 +61,7 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding: 16px var(--pad) 24px;
+  padding: 16px var(--pad) calc(80px + max(12px, env(safe-area-inset-bottom, 12px)));
   width: 100%;
 }
 
@@ -146,11 +146,13 @@ p  { line-height: 1.55; }
    BOTTOM NAV
    ================================================================ */
 .bottom-nav {
-  position: relative;
-  flex-shrink: 0;
-  width: calc(100% - 32px);
+  position: fixed;
+  bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  left: 16px;
+  right: 16px;
+  width: auto;
   max-width: 440px;
-  margin: 4px auto max(8px, env(safe-area-inset-bottom, 8px));
+  margin-inline: auto;
   background: var(--card);
   border-radius: 24px;
   display: flex;
