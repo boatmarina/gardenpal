@@ -309,6 +309,23 @@
   (function() {
     var main = document.querySelector('main');
     if (main) main.scrollTop = 0;
+
+    /* After the iOS keyboard dismisses the visual viewport grows back. Clamp
+       main.scrollTop to the new valid maximum so content is never stranded
+       off-screen and the back button is always reachable. */
+    if (window.visualViewport && main) {
+      var lastVH = window.visualViewport.height;
+      window.visualViewport.addEventListener('resize', function() {
+        var vh = window.visualViewport.height;
+        if (vh > lastVH + 50) {          /* viewport grew → keyboard dismissed */
+          requestAnimationFrame(function() {
+            var max = Math.max(0, main.scrollHeight - main.clientHeight);
+            if (main.scrollTop > max) main.scrollTop = max;
+          });
+        }
+        lastVH = vh;
+      });
+    }
   })();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
