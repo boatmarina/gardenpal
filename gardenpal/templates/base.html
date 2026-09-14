@@ -326,6 +326,17 @@
         lastVH = vh;
       });
     }
+
+    /* On iOS PWA, the browser doesn't always scroll a focused input into view
+       inside a custom scroll container. Do it manually after keyboard animation. */
+    document.addEventListener('focusin', function(e) {
+      var el = e.target;
+      if (!main) return;
+      if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA' && el.tagName !== 'SELECT') return;
+      setTimeout(function() {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 350);
+    });
   })();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
