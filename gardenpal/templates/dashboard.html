@@ -44,6 +44,10 @@
         <path d="M9 21h6"/><path d="M12 17v4"/>
       </svg>
       <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent)">Garden Tips</span>
+      <span id="tips-refreshing" hidden style="font-size:0.65rem;color:var(--muted);display:inline-flex;align-items:center;gap:4px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:spin 1s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        Updating
+      </span>
       <button id="tips-refresh-btn" onclick="loadTips(true)" title="Refresh tips" style="margin-left:auto;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center">
         <svg id="tips-refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -1216,9 +1220,21 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 // ── Garden Tips carousel ──────────────────────────────────────────────────
+var TIPS_CACHE_KEY = 'gp_tips_v2';
 var tipsLoaded = false;
 var _tips = [];
 var _tipIdx = 0;
+
+function _saveTipsCache(tips) {
+  try { localStorage.setItem(TIPS_CACHE_KEY, JSON.stringify(tips)); } catch(e) {}
+}
+function _loadTipsCache() {
+  try { return JSON.parse(localStorage.getItem(TIPS_CACHE_KEY) || 'null'); } catch(e) { return null; }
+}
+function _showRefreshing(show) {
+  var el = document.getElementById('tips-refreshing');
+  if (el) el.hidden = !show;
+}
 
 function _tipDate(isoStr) {
   try {
@@ -1283,6 +1299,18 @@ function tipNav(dir) {
   _renderTip();
 }
 
+/* Render cached tips immediately so the section isn't blank on page load */
+(function() {
+  var cached = _loadTipsCache();
+  if (cached && cached.length) {
+    _tips   = cached;
+    _tipIdx = 0;
+    var loading = document.getElementById('tips-loading');
+    if (loading) loading.hidden = true;
+    _renderTip();
+  }
+})();
+
 function loadTips(forceRefresh) {
   if (tipsLoaded && !forceRefresh) return;
   var section = document.getElementById('tips-section');
@@ -1290,29 +1318,39 @@ function loadTips(forceRefresh) {
   var content = document.getElementById('tips-content');
   var icon    = document.getElementById('tips-refresh-icon');
 
-  loading.hidden = false;
-  content.hidden = true;
-  if (icon) { icon.style.animation = ''; icon.style.opacity = '0.4'; icon.style.pointerEvents = 'none'; }
+  var hasTips = _tips.length > 0;
+  if (hasTips) {
+    /* Tips already visible — show small refreshing badge, leave content alone */
+    _showRefreshing(true);
+  } else {
+    /* Nothing to show yet — use the full loading spinner */
+    loading.hidden = false;
+    content.hidden = true;
+  }
+  if (icon) { icon.style.opacity = '0.4'; icon.style.pointerEvents = 'none'; }
 
   fetch('/api/garden-tips' + (forceRefresh ? '?refresh=1' : ''))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       loading.hidden = true;
+      _showRefreshing(false);
       if (icon) { icon.style.opacity = ''; icon.style.pointerEvents = ''; }
       if (data.gen_error) console.warn('[GardenTips] gen error:', data.gen_error);
       if (data.error)     console.warn('[GardenTips] error:', data.error);
       var tips = data.tips || [];
-      if (!tips.length) { section.style.display = 'none'; return; }
+      if (!tips.length) { if (!hasTips) section.style.display = 'none'; return; }
       _tips   = tips;
       _tipIdx = 0;
+      _saveTipsCache(tips);
       _renderTip();
       section.style.display = '';
       tipsLoaded = true;
     })
     .catch(function() {
       loading.hidden = true;
+      _showRefreshing(false);
       if (icon) { icon.style.opacity = ''; icon.style.pointerEvents = ''; }
-      if (!tipsLoaded) section.style.display = 'none';
+      if (!tipsLoaded && !hasTips) section.style.display = 'none';
     });
 }
 loadTips(false);
