@@ -5373,7 +5373,7 @@ self.addEventListener('fetch', function(e) {
             user_location = (g.user.get("location") or "").strip()
             today_str = _local_today()
             force = request.args.get("refresh") == "1"
-            four_weeks_ago = datetime.now(timezone.utc) - timedelta(weeks=3)
+            thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
             row = db.execute(
                 "SELECT garden_tips FROM users WHERE id = ?", (user_id,)
@@ -5390,7 +5390,7 @@ self.addEventListener('fetch', function(e) {
                 except Exception:
                     history = []
 
-            # Prune tips older than 4 weeks and migrate old format entries
+            # Prune tips older than 30 days, drop old-format entries, cap at 40
             pruned = []
             for t in history:
                 ts_str = t.get("generated_at", "")
@@ -5400,11 +5400,11 @@ self.addEventListener('fetch', function(e) {
                     ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                     if ts.tzinfo is None:
                         ts = ts.replace(tzinfo=timezone.utc)
-                    if ts >= four_weeks_ago:
+                    if ts >= thirty_days_ago:
                         pruned.append(t)
                 except Exception:
                     pass  # drop unparseable entries
-            history = pruned
+            history = pruned[:40]
 
             # Check staleness: is the newest tip < 6 hours old?
             stale = True
