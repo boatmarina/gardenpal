@@ -202,7 +202,31 @@
               </div>
             </li>
             {% endif %}
-            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags and not day.suggestion_adds and not day.notes and not day.photos and not day.edits and not day.deletions and not day.done_season %}
+            {% if day.watering or day.watered_all %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:#1565C0">💧 Watered</span>
+              {% if day.watered_all %}
+              <span style="color:var(--muted)"> all ({{ day.watered_all }}){% if day.watering %}, plus{% endif %}</span>
+              {% endif %}
+              {% if day.watering %}
+              <span style="color:var(--muted)"> — {{ day.watering | join(', ') }}</span>
+              {% endif %}
+            </li>
+            {% endif %}
+            {% if day.fertilization %}
+            <li style="font-size:0.88rem">
+              <span style="font-weight:600;color:#2E7D32">🌱 Fertilized {{ day.fertilization | length }} plant{{ 's' if day.fertilization | length != 1 else '' }}</span>
+              <span style="color:var(--muted)"> — {{ day.fertilization | join(', ') }}</span>
+            </li>
+            {% endif %}
+            {% if day.diary_opens or day.diary_prints %}
+            <li style="font-size:0.88rem">
+              {% if day.diary_opens %}<span style="font-weight:600;color:#6A1B9A">📖 Opened diary {{ day.diary_opens }} time{{ 's' if day.diary_opens != 1 else '' }}</span>{% endif %}
+              {% if day.diary_opens and day.diary_prints %} · {% endif %}
+              {% if day.diary_prints %}<span style="font-weight:600;color:#283593">🖨 Printed/shared {{ day.diary_prints }} time{{ 's' if day.diary_prints != 1 else '' }}</span>{% endif %}
+            </li>
+            {% endif %}
+            {% if not day.logins and not day.plant_entries and not day.yard_entries and not day.zones and not day.garden_entries and not day.garden_notes and not day.chat_queries and not day.tags and not day.suggestion_adds and not day.notes and not day.photos and not day.edits and not day.deletions and not day.done_season and not day.watering and not day.watered_all and not day.fertilization and not day.diary_opens and not day.diary_prints %}
               <li style="font-size:0.85rem;color:var(--muted)">No recorded activity.</li>
             {% endif %}
           </ul>

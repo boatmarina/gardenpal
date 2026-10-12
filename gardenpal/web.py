@@ -2354,6 +2354,8 @@ self.addEventListener('fetch', function(e) {
                 "garden_notes": [], "tags": [], "suggestion_adds": [],
                 "notes": [], "edits": [], "deletions": [], "photos": [],
                 "done_season": [],
+                "watering": [], "watered_all": None,
+                "fertilization": [], "diary_opens": 0, "diary_prints": 0,
                 "_sp": set(), "_sy": set(),
             })
 
@@ -2402,6 +2404,16 @@ self.addEventListener('fetch', function(e) {
                 d["done_season"].append({"name": name, "action": "done"})
             elif act == "garden_undone_season":
                 d["done_season"].append({"name": name, "action": "undone"})
+            elif act == "watered":
+                d["watering"].append(name)
+            elif act == "watered_all":
+                d["watered_all"] = name
+            elif act == "fertilized":
+                d["fertilization"].append(name)
+            elif act == "diary_opened":
+                d["diary_opens"] += 1
+            elif act == "diary_print":
+                d["diary_prints"] += 1
 
         note_rows = db.execute(
             "SELECT gp.created_at, gp.image_path, gp.is_fertilization, gp.fertilizer_type,"
@@ -2524,6 +2536,8 @@ self.addEventListener('fetch', function(e) {
                     "garden_notes": [], "tags": [], "suggestion_adds": [],
                     "notes": [], "edits": [], "deletions": [], "photos": [],
                     "done_season": [],
+                    "watering": [], "watered_all": None,
+                    "fertilization": [], "diary_opens": 0, "diary_prints": 0,
                     "_sp": set(), "_sy": set(),
                 })
 
@@ -2569,6 +2583,16 @@ self.addEventListener('fetch', function(e) {
                     d["done_season"].append({"name": name, "action": "done"})
                 elif act == "garden_undone_season":
                     d["done_season"].append({"name": name, "action": "undone"})
+                elif act == "watered":
+                    d["watering"].append(name)
+                elif act == "watered_all":
+                    d["watered_all"] = name
+                elif act == "fertilized":
+                    d["fertilization"].append(name)
+                elif act == "diary_opened":
+                    d["diary_opens"] += 1
+                elif act == "diary_print":
+                    d["diary_prints"] += 1
             for row in notes_by_uid[uid]:
                 _day(row["created_at"][:10])["garden_notes"].append({
                     "plant_name": row["plant_name"],
