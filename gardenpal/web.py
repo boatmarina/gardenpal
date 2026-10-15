@@ -360,6 +360,9 @@ def create_app() -> Flask:
         DATABASE_URL=os.environ.get("DATABASE_URL"),
         UPLOAD_FOLDER=str(upload_dir),
         MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+        PERMANENT_SESSION_LIFETIME=timedelta(days=90),
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_SAMESITE="Lax",
         _DB_READY=False,
     )
 
@@ -585,6 +588,7 @@ self.addEventListener('fetch', function(e) {
 
             user = db.execute("SELECT id, username FROM users WHERE lower(username) = lower(?)", (username,)).fetchone()
             session.clear()
+            session.permanent = True
             session["user_id"] = user["id"]
             db.execute(
                 "INSERT INTO login_log (user_id, logged_in_at) VALUES (?, ?)",
@@ -614,6 +618,7 @@ self.addEventListener('fetch', function(e) {
                 return render_template("login.html")
 
             session.clear()
+            session.permanent = True
             session["user_id"] = user["id"]
             db.execute(
                 "INSERT INTO login_log (user_id, logged_in_at) VALUES (?, ?)",
