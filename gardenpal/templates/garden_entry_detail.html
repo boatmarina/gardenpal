@@ -985,7 +985,43 @@ function openLightbox(src) {
           if (uploadBtn) uploadBtn.disabled = false;
           submitBtn.disabled = false;
         } else {
-          window.location.reload();
+          // Inject new entry into DOM — no reload, avoids iOS scroll-position bugs
+          const container = document.getElementById('growth-log-entries');
+          if (container && data.photo_date) {
+            const d = new Date(data.photo_date + 'T12:00:00');
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const dateLabel = months[d.getMonth()] + ' ' + d.getDate();
+            const editHref = data.photo_id ? '/garden/photos/' + data.photo_id + '/edit' : null;
+            const editIcon = editHref
+              ? '<a href="' + editHref + '" style="position:absolute;top:8px;right:10px;padding:4px;color:var(--muted);line-height:1;display:flex" aria-label="Edit note">'
+                + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></a>'
+              : '';
+            const imgHtml = data.photo_url
+              ? '<img src="' + data.photo_url + '" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in" onclick="GP.openLightbox(this.src)" />'
+              : '';
+            const padTop = data.photo_url ? '' : ';padding-top:12px';
+            const entry = document.createElement('div');
+            entry.style.borderTop = '1px solid var(--border)';
+            entry.innerHTML = imgHtml
+              + '<div style="padding:10px 14px' + padTop + ';position:relative">'
+              + editIcon
+              + '<p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">' + dateLabel + '</p>'
+              + '<p style="font-size:0.8rem;color:var(--muted)">' + (data.note_text || '') + '</p>'
+              + '</div>';
+            container.insertBefore(entry, container.firstChild);
+            entry.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          // Reset form
+          const noteInput = document.getElementById('garden-note-input');
+          if (noteInput) noteInput.value = '';
+          if (preview) preview.hidden = true;
+          if (thumb) thumb.src = '';
+          const label = document.getElementById('garden-photo-upload-label');
+          if (label) label.textContent = 'Add a photo (optional)';
+          if (input) input.value = '';
+          if (loading) loading.hidden = true;
+          if (uploadBtn) uploadBtn.disabled = false;
+          submitBtn.disabled = false;
         }
       } catch(_) {
         alert('Save failed — please try again.');

@@ -3819,7 +3819,9 @@ self.addEventListener('fetch', function(e) {
             )
         db.commit()
         if is_ajax:
-            return jsonify(ok=True)
+            new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            photo_url = url_for("uploads", filename=image_path) if image_path else None
+            return jsonify(ok=True, photo_id=new_id, photo_date=photo_date, note_text=note_text, photo_url=photo_url)
         flash("Note added.")
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
