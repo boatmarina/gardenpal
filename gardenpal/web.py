@@ -3794,8 +3794,8 @@ self.addEventListener('fetch', function(e) {
             fert_date = _extract_fertilization_date(note_text, photo_date, planted_date)
         elif not is_fert and note_text:
             is_fert, fert_type, fert_date = _ai_detect_fertilization(note_text, photo_date, planted_date)
-        db.execute(
-            "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        photo_row = db.execute(
+            "INSERT INTO garden_photos (entry_id, user_id, image_path, photo_date, notes, created_at, is_fertilization, fertilizer_type, fertilization_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             (
                 entry_id,
                 g.user["id"],
@@ -3807,7 +3807,8 @@ self.addEventListener('fetch', function(e) {
                 fert_type,
                 fert_date,
             ),
-        )
+        ).fetchone()
+        new_photo_id = photo_row[0] if photo_row else None
         if is_fert:
             effective_date = fert_date or photo_date or _local_today()
             db.execute(
@@ -3819,9 +3820,8 @@ self.addEventListener('fetch', function(e) {
             )
         db.commit()
         if is_ajax:
-            new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
             photo_url = url_for("uploads", filename=image_path) if image_path else None
-            return jsonify(ok=True, photo_id=new_id, photo_date=photo_date, note_text=note_text, photo_url=photo_url)
+            return jsonify(ok=True, photo_id=new_photo_id, photo_date=photo_date, note_text=note_text, photo_url=photo_url)
         flash("Note added.")
         return redirect(url_for("garden_detail", entry_id=entry_id))
 
