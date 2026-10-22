@@ -14,7 +14,7 @@ concurrency:
 jobs:
   pytest:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     services:
       postgres:
@@ -46,8 +46,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements-dev.txt') }}
+
       - name: Install browsers (Chromium + WebKit)
-        run: python -m playwright install --with-deps chromium webkit
+        timeout-minutes: 25
+        run: |
+          python -m playwright install chromium webkit
+          python -m playwright install-deps chromium webkit
 
       - name: Run tests
         run: python -m pytest -o addopts="" -q -rfEs --show-capture=no -W ignore::DeprecationWarning
