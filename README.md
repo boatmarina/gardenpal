@@ -77,9 +77,8 @@ Without these keys, the app still works and will show clear setup messages when 
 
 ## Notes
 
-- SQLite database is created at `instance/gardenpal.db`.
-- Uploaded photos are stored in `instance/uploads/`.
-- Existing pre-auth plants are migrated to a starter `demo` account on first launch.
+- Data lives in Postgres (Supabase in production, local Postgres for tests — see `scripts/setup_local_env.sh`).
+- Without Supabase storage configured, uploaded photos are stored in `instance/uploads/`.
 
 ## Suggested next features
 

@@ -35,7 +35,17 @@ for db in gardenpal_test gardenpal_dev; do
   fi
 done
 
-# --ignore-installed blinker: Ubuntu ships a system blinker pip can't uninstall.
-python3 -m pip install -q --ignore-installed blinker -r requirements-dev.txt
+# Reinstall only when the requirements files change or a package is missing.
+STAMP="${XDG_CACHE_HOME:-$HOME/.cache}/gardenpal-deps.sha256"
+REQ_HASH="$(cat requirements.txt requirements-dev.txt | sha256sum | cut -d' ' -f1)"
+if [ "$(cat "$STAMP" 2>/dev/null)" = "$REQ_HASH" ] \
+   && python3 -c "import flask, pg8000, anthropic, PIL, xhtml2pdf, requests, pytest" 2>/dev/null; then
+  echo "Python dependencies already installed."
+else
+  # --ignore-installed blinker: Ubuntu ships a system blinker pip can't uninstall.
+  python3 -m pip install -q --ignore-installed blinker -r requirements-dev.txt
+  mkdir -p "$(dirname "$STAMP")"
+  echo "$REQ_HASH" > "$STAMP"
+fi
 
 echo "Local environment ready: Postgres $PG_VERSION, databases gardenpal_test and gardenpal_dev."

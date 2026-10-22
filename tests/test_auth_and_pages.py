@@ -47,6 +47,15 @@ class TestAuth:
             assert "/auth/login" in resp.headers["Location"], path
 
 
+def test_startup_creates_no_accounts(app, db):
+    """Schema setup must never seed users — a hardcoded admin in a public repo is a backdoor."""
+    from gardenpal.web import init_db
+
+    with app.app_context():
+        init_db()
+    assert db.all("SELECT username FROM users") == []
+
+
 MAIN_PAGES = [
     "/", "/garden", "/garden/new", "/ideas", "/ideas/new", "/yard", "/yard/zones/new",
     "/yard/plants/new", "/tools", "/export/diary",
