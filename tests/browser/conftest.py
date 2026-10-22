@@ -68,14 +68,19 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.fixture
 def page(request, browser, live_server):
-    context = browser.new_context(**IPHONE, base_url=live_server)
+    # Service workers bypass request routing, and WebKit hung on navigations with one active.
+    context = browser.new_context(**IPHONE, base_url=live_server, service_workers="block")
+    context.set_default_timeout(15000)
 
     def _local_only(route):
         host = urlparse(route.request.url).hostname
         if host in ("127.0.0.1", "localhost"):
             route.continue_()
         else:
-            route.abort()
+            # Answer external requests (fonts, CDNs) with an empty 200 instead of a network
+            # error, so no browser stalls the page load on a failed stylesheet.
+            css = route.request.resource_type == "stylesheet"
+            route.fulfill(status=200, body="", content_type="text/css" if css else "text/plain")
 
     context.route("**/*", _local_only)
     pg = context.new_page()
@@ -113,7 +118,6 @@ def logged_in(page, app):
     page.goto("/auth/login")
     page.fill("input[name=username]", "tester")
     page.fill("input[name=password]", "password123")
-    with page.expect_navigation():
-        page.click("button[type=submit]")
-    assert urlparse(page.url).path == "/"
+    page.click("button[type=submit]")
+    page.wait_for_url(lambda url: urlparse(url).path == "/", wait_until="domcontentloaded")
     return page
