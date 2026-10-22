@@ -66,6 +66,12 @@ body {
   width: 100%;
 }
 
+/* Safari offsets sticky children by the scroll container's padding, which left
+   a strip of scrolled content visible above the sticky back button. Move the
+   top spacing into an in-flow spacer instead. */
+.container { padding-top: 0; }
+.container::before { content: ""; display: block; height: 16px; }
+
 /* ================================================================
    TYPOGRAPHY
    ================================================================ */
@@ -100,13 +106,10 @@ p  { line-height: 1.55; }
   max-width: var(--page-w);
   width: 100%;
   margin: 0 auto;
-  padding: calc(16px + env(safe-area-inset-top, 0px)) var(--pad) 10px;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) var(--pad) 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--bg);
-  position: relative;
-  z-index: 10;
 }
 
 .brand-label {
