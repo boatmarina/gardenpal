@@ -7706,7 +7706,9 @@ def init_db():
     ).fetchone():
         # Autocommit each DDL statement independently so the transaction pooler
         # can't split a SERIAL column's implicit CREATE SEQUENCE from its CREATE TABLE,
-        # and so a failed statement doesn't abort the rest.
+        # and so a failed statement doesn't abort the rest. End the transaction the
+        # SELECT above opened first, or autocommit never takes effect.
+        db.commit()
         db._conn.autocommit = True
         for stmt in _SCHEMA_STATEMENTS:
             try:

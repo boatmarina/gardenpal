@@ -1006,8 +1006,9 @@ function openLightbox(src) {
               + '<div style="padding:10px 14px' + padTop + ';position:relative">'
               + editIcon
               + '<p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">' + dateLabel + '</p>'
-              + '<p style="font-size:0.8rem;color:var(--muted)">' + (data.note_text || '') + '</p>'
+              + '<p style="font-size:0.8rem;color:var(--muted)" data-note-text></p>'
               + '</div>';
+            entry.querySelector('[data-note-text]').textContent = data.note_text || '';
             container.insertBefore(entry, container.firstChild);
             // Scroll only the main container — scrollIntoView can also shift the window on iOS
             const main = document.querySelector('main');
