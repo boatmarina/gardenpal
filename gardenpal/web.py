@@ -3808,7 +3808,7 @@ self.addEventListener('fetch', function(e) {
                 fert_date,
             ),
         ).fetchone()
-        new_photo_id = photo_row[0] if photo_row else None
+        new_photo_id = photo_row["id"] if photo_row else None
         if is_fert:
             effective_date = fert_date or photo_date or _local_today()
             db.execute(

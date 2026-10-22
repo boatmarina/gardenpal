@@ -1009,7 +1009,7 @@ function openLightbox(src) {
               + '<p style="font-size:0.8rem;color:var(--muted)">' + (data.note_text || '') + '</p>'
               + '</div>';
             container.insertBefore(entry, container.firstChild);
-            entry.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           }
           // Reset form
           const noteInput = document.getElementById('garden-note-input');
