@@ -100,10 +100,13 @@ p  { line-height: 1.55; }
   max-width: var(--page-w);
   width: 100%;
   margin: 0 auto;
-  padding: calc(16px + env(safe-area-inset-top, 0px)) var(--pad) 0;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) var(--pad) 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: var(--bg);
+  position: relative;
+  z-index: 10;
 }
 
 .brand-label {
