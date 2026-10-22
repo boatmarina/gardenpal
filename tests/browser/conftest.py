@@ -90,7 +90,15 @@ def page(request, browser, live_server):
     pg = context.new_page()
     pg.js_errors = []
     pg.dialogs = []
-    pg.on("pageerror", lambda e: pg.js_errors.append(str(e)))
+    def _on_pageerror(e):
+        msg = str(e)
+        # WebKit reports any failed or cancelled cross-origin request (e.g. an iNaturalist
+        # search cut off by navigating away) as a page error, even when JS catches it.
+        if "due to access control checks" in msg and "127.0.0.1" not in msg:
+            return
+        pg.js_errors.append(msg)
+
+    pg.on("pageerror", _on_pageerror)
 
     def _on_dialog(d):
         pg.dialogs.append(d.message)
