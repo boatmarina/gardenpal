@@ -7,3 +7,4 @@ build/
 .eggs/
 instance/
 .pytest_cache/
+test-results/

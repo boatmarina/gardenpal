@@ -13,8 +13,9 @@ The user should not be the first person to find a bug in a fix. Verify every cha
 **Setup:** `scripts/setup_local_env.sh` starts a local Postgres with `gardenpal_test` and `gardenpal_dev` databases and installs dependencies. Cloud sessions run it automatically via the SessionStart hook. Tests and the local server refuse to connect to anything but localhost — never point them at Supabase.
 
 **Every push:**
-1. Run `pytest` (about 1 minute). All tests must pass. Never push with failing tests.
-2. If you changed a route, template, CSS or JS, run the app with `python3 scripts/run_local.py` (http://127.0.0.1:5001, login `tester` / `password123`, seeded with sample plants, notes and a zone). Drive the changed flow in a real browser — Playwright with an iPhone viewport, Chromium at `/opt/pw-browsers`. Check for JS errors (`pageerror`), unexpected `alert` dialogs and the expected DOM, and take a screenshot and look at it.
+1. Run `pytest` (about 1.5 minutes, including the browser tests). All tests must pass. Never push with failing tests.
+2. If you changed a route, template, CSS or JS, make sure a browser test in `tests/browser/` covers the changed flow, adding one if needed. For exploratory checks, run the app with `python3 scripts/run_local.py` (http://127.0.0.1:5001, login `tester` / `password123`, seeded with sample plants, notes and a zone), drive it with Playwright in an iPhone viewport, take a screenshot and look at it.
+3. After pushing, check the GitHub Actions "Tests" run for the commit. It runs the whole suite, including the WebKit browser tests that are skipped locally. A red run means the push isn't done: fix it.
 
 **Bug fixes:** first add a test that reproduces the bug and confirm it fails, then fix the bug and confirm the test passes. The test stays in the suite as a regression guard.
 
@@ -22,7 +23,7 @@ The user should not be the first person to find a bug in a fix. Verify every cha
 
 **What tests can't cover:** real iOS behaviour — the keyboard, safe-area insets, standalone PWA mode, and some Safari-only CSS such as sticky positioning. For changes in these areas, tell the user explicitly that the fix is unverified on a real device and what to check, rather than presenting it as done.
 
-**Test layout:** `tests/conftest.py` (fixtures: `client`, `user_client`, `db`, `signup()`), `test_auth_and_pages.py`, `test_garden.py` (Edibles and growth log), `test_library_yard_settings.py` (Ornamentals, Yard, Settings, shared gardens, chat), `test_fertilization.py` (pure date logic). The network is blocked and API keys are unset in tests, so AI and lookup calls take their "not configured" paths.
+**Test layout:** `tests/conftest.py` (fixtures: `client`, `user_client`, `db`, `signup()`), `test_auth_and_pages.py`, `test_garden.py` (Edibles and growth log), `test_library_yard_settings.py` (Ornamentals, Yard, Settings, shared gardens, chat), `test_fertilization.py` (pure date logic), and `tests/browser/` (Playwright tests against a live local server in an iPhone viewport, run in Chromium and WebKit, which fail on any JS error or unexpected alert; failure screenshots go to `test-results/`). WebKit isn't installed in cloud sessions, so those runs skip locally and run in CI. The network is blocked and API keys are unset in tests, so AI and lookup calls take their "not configured" paths.
 
 ## Database
 
