@@ -77,10 +77,14 @@ def page(request, browser, live_server):
         if host in ("127.0.0.1", "localhost"):
             route.continue_()
         else:
-            # Answer external requests (fonts, CDNs) with an empty 200 instead of a network
-            # error, so no browser stalls the page load on a failed stylesheet.
-            css = route.request.resource_type == "stylesheet"
-            route.fulfill(status=200, body="", content_type="text/css" if css else "text/plain")
+            # Answer external requests (fonts, iNaturalist, CDNs) with an empty, CORS-enabled
+            # 200 instead of a network error: WebKit stalls page loads on failed stylesheets
+            # and reports blocked cross-origin fetches as page errors even when JS catches them.
+            kind = route.request.resource_type
+            body, ctype = {"stylesheet": ("", "text/css"), "fetch": ("{}", "application/json"),
+                           "xhr": ("{}", "application/json")}.get(kind, ("", "text/plain"))
+            route.fulfill(status=200, body=body, content_type=ctype,
+                          headers={"Access-Control-Allow-Origin": "*"})
 
     context.route("**/*", _local_only)
     pg = context.new_page()
