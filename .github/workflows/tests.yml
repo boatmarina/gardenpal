@@ -24,7 +24,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -50,7 +50,9 @@ jobs:
         run: python -m playwright install --with-deps chromium webkit
 
       - name: Run tests
-        run: python -m pytest -o addopts="" -q -rs
+        run: python -m pytest -o addopts="" -q -rfEs --show-capture=no -W ignore::DeprecationWarning
+        env:
+          COLUMNS: "250"
 
       - name: Upload failure screenshots
         if: failure()

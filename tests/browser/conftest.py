@@ -90,13 +90,17 @@ def page(request, browser, live_server):
     pg.on("dialog", _on_dialog)
     yield pg
 
-    failed = getattr(request.node, "rep_call", None) and request.node.rep_call.failed
-    if failed:
+    rep_call = getattr(request.node, "rep_call", None)
+    failed = rep_call is None or rep_call.failed
+    if failed or pg.js_errors:
         RESULTS_DIR.mkdir(exist_ok=True)
-        pg.screenshot(path=str(RESULTS_DIR / f"{request.node.name}.png"), full_page=False)
+        try:
+            pg.screenshot(path=str(RESULTS_DIR / f"{request.node.name}.png"), full_page=False)
+        except Exception:
+            pass
     context.close()
     if not failed:
-        assert pg.js_errors == [], f"JavaScript errors: {pg.js_errors}"
+        assert pg.js_errors == [], f"JavaScript errors in {browser.browser_type.name}: {pg.js_errors}"
 
 
 @pytest.fixture
