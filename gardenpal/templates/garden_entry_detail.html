@@ -1009,7 +1009,17 @@ function openLightbox(src) {
               + '<p style="font-size:0.8rem;color:var(--muted)">' + (data.note_text || '') + '</p>'
               + '</div>';
             container.insertBefore(entry, container.firstChild);
-            entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Scroll only the main container — scrollIntoView can also shift the window on iOS
+            const main = document.querySelector('main');
+            if (main) {
+              const top = entry.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - 60;
+              main.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            }
+          }
+          if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+          if (window.GP_resetWindowScroll) {
+            window.GP_resetWindowScroll();
+            setTimeout(window.GP_resetWindowScroll, 350);
           }
           // Reset form
           const noteInput = document.getElementById('garden-note-input');

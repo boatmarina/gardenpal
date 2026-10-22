@@ -313,15 +313,36 @@
     /* After the iOS keyboard dismisses the visual viewport grows back. Clamp
        main.scrollTop to the new valid maximum so content is never stranded
        off-screen and the back button is always reachable. */
+    /* iOS scrolls the whole document to keep a focused input above the
+       keyboard, even with body overflow:hidden, and often leaves it shifted
+       after the keyboard closes — pushing the header/back button off the top
+       and leaving a gap at the bottom that can't be scrolled away. */
+    function isTextField(el) {
+      return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
+    }
+    function resetWindowScroll() {
+      if (isTextField(document.activeElement)) return;
+      if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0 || document.body.scrollTop !== 0) {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    }
+    window.GP_resetWindowScroll = resetWindowScroll;
+    document.addEventListener('focusout', function() { setTimeout(resetWindowScroll, 100); });
+    window.addEventListener('scroll', function() { resetWindowScroll(); }, { passive: true });
+
     if (window.visualViewport && main) {
       var lastVH = window.visualViewport.height;
       window.visualViewport.addEventListener('resize', function() {
         var vh = window.visualViewport.height;
         if (vh > lastVH + 50) {          /* viewport grew → keyboard dismissed */
           requestAnimationFrame(function() {
+            resetWindowScroll();
             var max = Math.max(0, main.scrollHeight - main.clientHeight);
             if (main.scrollTop > max) main.scrollTop = max;
           });
+          setTimeout(resetWindowScroll, 300);
         }
         lastVH = vh;
       });
