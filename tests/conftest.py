@@ -2,7 +2,7 @@
 Shared fixtures for route-level tests.
 
 Tests run the real Flask app against a throwaway local Postgres database.
-They never touch Supabase: the URL must point at localhost or the run aborts.
+They never touch Supabase: the URL must point at localhost (or the CI service container) or the run aborts.
 
 Setup (once per machine / container):
     scripts/test_db_setup.sh
@@ -41,7 +41,10 @@ def _pg_connect(url, database=None):
 
 def _reset_database(url):
     p = urlparse(url)
-    if p.hostname not in ("localhost", "127.0.0.1", "::1"):
+    allowed = {"localhost", "127.0.0.1", "::1"}
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        allowed.add("postgres")  # the CI service container
+    if p.hostname not in allowed:
         raise RuntimeError(f"Refusing to run tests against non-local database host {p.hostname!r}")
     dbname = p.path.lstrip("/")
     if not re.fullmatch(r"[A-Za-z0-9_]+", dbname):
