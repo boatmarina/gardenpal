@@ -15,7 +15,8 @@ The user should not be the first person to find a bug in a fix. Verify every cha
 **Every push:**
 1. Run `pytest` (about 1.5 minutes, including the browser tests). All tests must pass. Never push with failing tests.
 2. If you changed a route, template, CSS or JS, make sure a browser test in `tests/browser/` covers the changed flow, adding one if needed. For exploratory checks, run the app with `python3 scripts/run_local.py` (http://127.0.0.1:5001, login `tester` / `password123`, seeded with sample plants, notes and a zone), drive it with Playwright in an iPhone viewport, take a screenshot and look at it.
-3. After pushing, check the GitHub Actions "Tests" run for the commit. It runs the whole suite, including the WebKit browser tests that are skipped locally. A red run means the push isn't done: fix it.
+3. As soon as the push succeeds, tell the user right away: what changed, that the Vercel preview is building, and what to check by hand. Don't wait for CI first, so they can start manual testing in parallel. Then report the CI result in a follow-up message.
+4. After pushing, check the GitHub Actions "Tests" run for the commit. It runs the whole suite, including the WebKit browser tests that are skipped locally. A red run means the push isn't done: fix it.
 
 **Bug fixes:** first add a test that reproduces the bug and confirm it fails, then fix the bug and confirm the test passes. The test stays in the suite as a regression guard.
 
