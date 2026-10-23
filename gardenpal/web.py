@@ -202,8 +202,9 @@ def _connect(database_url: str) -> _PgDB:
             f"postgresql://postgres:YOUR_PASSWORD@db.PROJECT.supabase.co:5432/postgres"
         )
     is_local = parsed.hostname in ('localhost', '127.0.0.1', '::1')
+    ssl_disabled = "sslmode=disable" in (parsed.query or "")
     ssl_ctx = None
-    if not is_local:
+    if not is_local and not ssl_disabled:
         # Supabase uses its own CA for database TLS certificates, which is not
         # in the system bundle, so full chain verification fails. We still use
         # SSL (connection is encrypted in transit) but skip cert verification —
