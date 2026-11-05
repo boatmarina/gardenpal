@@ -2308,6 +2308,58 @@ self.addEventListener('fetch', function(e) {
     def _in_ids(ids):
         return "({})".format(",".join("?" * len(ids))), ids
 
+    def _set_done_for_season(db, user_id, entry_id, plant_name, done):
+        """Mark an edible done (or not) for the season. Callers check access and commit."""
+        v = 1 if done else 0
+        db.execute(
+            "UPDATE garden_entries SET done_for_season = ?, never_fertilize = ?, never_water = ?, updated_at = ?"
+            " WHERE id = ?",
+            (v, v, v, datetime.utcnow().isoformat(timespec="seconds"), entry_id),
+        )
+        if done:
+            # Clear pending alert dates so no alerts fire while done
+            db.execute(
+                "UPDATE garden_entries SET next_fertilization_date = NULL, planned_fertilization_date = NULL,"
+                " next_watering_date = NULL WHERE id = ?",
+                (entry_id,),
+            )
+        _log_activity(db, user_id, "garden_done_season" if done else "garden_undone_season", plant_name)
+
+    _DONE_FOR_SEASON_TOOL = {
+        "name": "set_done_for_season",
+        "description": "Mark one or more edible garden entries as done for the season (finished, harvested out, "
+                       "pulled) or undo that. Done plants are dimmed in the list and stop getting watering and "
+                       "fertilization reminders.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "entry_ids": {"type": "array", "items": {"type": "integer"}},
+                "done": {"type": "boolean", "description": "true = done for the season, false = still growing"},
+            },
+            "required": ["entry_ids", "done"],
+        },
+    }
+
+    def _tool_set_done_for_season(db, user_id, inp):
+        entry_ids, done = inp.get("entry_ids"), inp.get("done")
+        if not isinstance(entry_ids, list) or not entry_ids or not isinstance(done, bool):
+            return {"error": "entry_ids (list) and done (true/false) are required"}
+        visible = set(_shared_user_ids(db, user_id))
+        updated, problems = [], []
+        for eid in entry_ids:
+            row = db.execute("SELECT id, user_id, plant_name FROM garden_entries WHERE id = ?", (eid,)).fetchone()
+            if not row or row["user_id"] not in visible:
+                problems.append(f"Entry {eid} not found")
+            elif row["user_id"] != user_id:
+                problems.append(f"Entry {eid} belongs to your garden partner and is read-only")
+            else:
+                _set_done_for_season(db, user_id, eid, row["plant_name"], done)
+                updated.append(row["plant_name"])
+        db.commit()
+        if not updated:
+            return {"error": "; ".join(problems)}
+        return {"ok": True, "updated": updated, "skipped": problems}
+
     def _shared_user_names(db, user_id):
         """Return {partner_user_id: username} for all confirmed garden-share partners."""
         rows = db.execute(
@@ -4087,21 +4139,7 @@ self.addEventListener('fetch', function(e) {
         if entry is None:
             return jsonify({"error": "not found"}), 404
         new_val = 0 if entry["done_for_season"] else 1
-        now = datetime.utcnow().isoformat(timespec="seconds")
-        db.execute(
-            f"UPDATE garden_entries SET done_for_season = ?, never_fertilize = ?, never_water = ?, updated_at = ?"
-            f" WHERE id = ? AND user_id IN {ph}",
-            [new_val, new_val, new_val, now, entry_id] + id_args,
-        )
-        if new_val == 1:
-            # Clear pending alert dates so no alerts fire while done
-            db.execute(
-                "UPDATE garden_entries SET next_fertilization_date = NULL, planned_fertilization_date = NULL,"
-                " next_watering_date = NULL WHERE id = ?",
-                (entry_id,),
-            )
-        action = "garden_done_season" if new_val == 1 else "garden_undone_season"
-        _log_activity(db, g.user["id"], action, entry["plant_name"])
+        _set_done_for_season(db, g.user["id"], entry_id, entry["plant_name"], bool(new_val))
         db.commit()
         return jsonify({"ok": True, "done_for_season": new_val})
 
@@ -4780,6 +4818,7 @@ self.addEventListener('fetch', function(e) {
         if entry.get("zone_description"): lines.append(f"Zone notes: {entry['zone_description']}")
         if entry["planted_date"]:  lines.append(f"Planted: {entry['planted_date']}")
         if entry["notes"]:         lines.append(f"Entry notes: {entry['notes']}")
+        lines.append("Status: done for the season" if entry["done_for_season"] else "Status: still growing")
 
         # Last fertilization
         last_fert_photo = db.execute(
@@ -4826,6 +4865,8 @@ self.addEventListener('fetch', function(e) {
             "Use the growth log notes and location to give specific, relevant advice. "
             "Keep replies concise and practical. "
             "When the user wants to record an observation or care note, use the save_note tool. "
+            "When the user says this plant is finished for the year (harvested out, pulled, died back) or asks to "
+            "mark it done for the season, use set_done_for_season; use it with done=false to undo. "
             "Never use markdown bold (**text**) or other markdown formatting. "
             "Always format dates as 'Month Day' (e.g. 'May 17'), never as YYYY-MM-DD."
         )
@@ -4842,13 +4883,27 @@ self.addEventListener('fetch', function(e) {
                     },
                     "required": ["note_text"],
                 },
-            }
+            },
+            {
+                "name": "set_done_for_season",
+                "description": "Mark this plant as done for the season (finished, harvested out, pulled) or undo "
+                               "that. Done plants are dimmed in the list and stop getting watering and "
+                               "fertilization reminders.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "done": {"type": "boolean", "description": "true = done for the season, false = still growing"},
+                    },
+                    "required": ["done"],
+                },
+            },
         ]
 
         messages = [{"role": m["role"], "content": m["content"]} for m in history if m.get("role") in ("user", "assistant")]
         messages.append({"role": "user", "content": message})
 
         note_saved = None
+        done_state = None
         client = _anthropic.Anthropic(api_key=api_key)
         try:
             for _ in range(4):
@@ -4867,6 +4922,8 @@ self.addEventListener('fetch', function(e) {
                     result = {"reply": reply}
                     if note_saved:
                         result["note_saved"] = note_saved
+                    if done_state is not None:
+                        result["done_for_season"] = done_state
                     return jsonify(result)
 
                 tool_results = []
@@ -4894,6 +4951,17 @@ self.addEventListener('fetch', function(e) {
                             tool_result = "Note saved."
                         else:
                             tool_result = "Error: note text was empty or entry is read-only."
+                    elif block.name == "set_done_for_season":
+                        done = inp.get("done")
+                        if not isinstance(done, bool):
+                            tool_result = "Error: done must be true or false."
+                        elif entry["user_id"] != user_id:
+                            tool_result = "Error: this plant belongs to your garden partner and is read-only."
+                        else:
+                            _set_done_for_season(db, user_id, entry_id, entry["plant_name"], done)
+                            db.commit()
+                            done_state = 1 if done else 0
+                            tool_result = "Marked done for the season." if done else "Marked as still growing."
                     else:
                         tool_result = "Unknown tool."
                     tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": tool_result})
@@ -4904,6 +4972,8 @@ self.addEventListener('fetch', function(e) {
             result = {"reply": "Done."}
             if note_saved:
                 result["note_saved"] = note_saved
+            if done_state is not None:
+                result["done_for_season"] = done_state
             return jsonify(result)
 
         except Exception as exc:
@@ -4945,7 +5015,7 @@ self.addEventListener('fetch', function(e) {
         entries = db.execute(
             f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
                        ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name,
-                       yz.description AS zone_description, ge.planting_method
+                       yz.description AS zone_description, ge.planting_method, ge.done_for_season
             FROM garden_entries ge
             LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
             WHERE ge.user_id IN {ph}
@@ -4978,6 +5048,7 @@ self.addEventListener('fetch', function(e) {
             for e in entries:
                 ln = f"  ID {e['id']}: {e['plant_name']}"
                 if e["user_id"] != user_id: ln += " [partner's — read only]"
+                if e["done_for_season"]: ln += " [done for the season]"
                 if e["variety"]: ln += f"\n    Variety: {e['variety']}"
                 if e["location_type"] or e["location_name"]:
                     loc = e["location_type"].replace("_", " ") if e["location_type"] else ""
@@ -5012,7 +5083,8 @@ self.addEventListener('fetch', function(e) {
             "soil amendments, fertilizers, observations, and other specifics the user has recorded. "
             "If the answer is in the notes or logs, use it. Only say you don't know something if it genuinely "
             "isn't recorded anywhere in the data above. "
-            "Help the user add plants, add notes, update details, assign or change yard zones, or answer questions about their garden. "
+            "Help the user add plants, add notes, update details, assign or change yard zones, mark plants done for the season, or answer questions about their garden. "
+            "Use set_done_for_season when the user says plants are finished for the year (harvested out, pulled, died back); pass every matching entry in one call. "
             "Entries marked [partner's — read only] belong to a shared garden partner — answer questions about them but do NOT call any tool on them. "
             "For bulk changes call the relevant tool once per entry. "
             "If a tool returns an error, skip that entry silently and continue with the remaining ones — do NOT apologise or stop early. "
@@ -5086,6 +5158,7 @@ self.addEventListener('fetch', function(e) {
                     "required": ["entry_id"],
                 },
             },
+            _DONE_FOR_SEASON_TOOL,
         ]
 
         messages = list(history) + [{"role": "user", "content": message}]
@@ -5262,6 +5335,10 @@ self.addEventListener('fetch', function(e) {
                                         db.commit()
                                         changed = True
                                         result = {"ok": True, "zone_id": zone_id_val}
+
+                        elif block.name == "set_done_for_season":
+                            result = _tool_set_done_for_season(db, user_id, inp)
+                            changed = changed or "ok" in result
 
                         else:
                             result = {"error": f"Unknown tool: {block.name}"}
@@ -5761,7 +5838,8 @@ self.addEventListener('fetch', function(e) {
                        ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name,
                        ge.planting_method, ge.never_water, ge.never_fertilize,
                        ge.last_watered_date, ge.next_watering_date, ge.watering_frequency_days,
-                       ge.last_fertilized_date, ge.last_fertilizer_type, ge.next_fertilization_date
+                       ge.last_fertilized_date, ge.last_fertilizer_type, ge.next_fertilization_date,
+                       ge.done_for_season
                 FROM garden_entries ge
                 LEFT JOIN yard_zones yz ON yz.id = ge.zone_id
                 WHERE ge.user_id IN {ph}
@@ -5785,6 +5863,7 @@ self.addEventListener('fetch', function(e) {
             for e in entries:
                 ln = f"  ID {e['id']}: {e['plant_name']}"
                 if e["user_id"] != user_id: ln += " [partner's — read only]"
+                if e["done_for_season"]: ln += " [done for the season]"
                 if e["variety"]: ln += f"\n    Variety: {e['variety']}"
                 if e["location_type"] or e["location_name"]:
                     loc = e["location_type"].replace("_", " ") if e["location_type"] else ""
@@ -5914,7 +5993,8 @@ self.addEventListener('fetch', function(e) {
             + f"\n=== ORNAMENTALS (library + yard placements) ===\n{ornamentals_text}\n"
             + suggestion_text + "\n"
             "You can answer questions about any plant across both edibles and ornamentals. "
-            "You can also act: add notes, update edible entries, change zones, save ornamental notes, add new plants to the ornamentals library, and update watering and fertilization dates. "
+            "You can also act: add notes, update edible entries, change zones, mark edibles done for the season, save ornamental notes, add new plants to the ornamentals library, and update watering and fertilization dates. "
+            "Use set_done_for_season when the user says edibles are finished for the year (harvested out, pulled, died back); pass every matching entry in one call. "
             "To add a new ornamental: call search_ornamental first to get iNaturalist candidates (taxon_id, scientific name, observation counts), then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental. "
             "IMPORTANT: if search_ornamental fails or returns an error (network issue, no results, etc.), DO NOT give up — call add_ornamental immediately with just the name. add_ornamental works without a taxon_id and will still fetch full plant details. Never tell the user the search failed and stop there; always fall through to add_ornamental. "
             "You can also delete ornamentals you added via this assistant (those show source_type=chat in the context) using delete_ornamental — always confirm with the user before deleting. You cannot delete plants the user added manually. "
@@ -6186,6 +6266,7 @@ self.addEventListener('fetch', function(e) {
                     "required": ["plant_id"],
                 },
             },
+            _DONE_FOR_SEASON_TOOL,
         ]
 
         messages = list(history) + [{"role": "user", "content": message}]
@@ -6858,6 +6939,10 @@ self.addEventListener('fetch', function(e) {
                                         db.commit()
                                         changed = True
                                     result = {"ok": True, "last_fertilized_date": last_f, "next_fertilization_date": next_f}
+
+                        elif block.name == "set_done_for_season":
+                            result = _tool_set_done_for_season(db, user_id, inp)
+                            changed = changed or "ok" in result
 
                         else:
                             result = {"error": "Unknown tool"}

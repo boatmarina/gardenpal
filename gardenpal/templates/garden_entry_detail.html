@@ -433,35 +433,8 @@
       <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:var(--muted)">Growth log</span>
     </div>
 
-    <!-- Notes or empty state -->
-    <div id="growth-log-entries">
-    {% if photos %}
-      {% for photo in photos %}
-      <div style="border-top:1px solid var(--border)">
-        {% if photo.image_path %}
-        <img src="{{ photo.image_path | media_url }}" alt="{{ entry.plant_name }}"
-             style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
-             onclick="GP.openLightbox(this.src)" />
-        {% endif %}
-        <div style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %};position:relative">
-          <a href="{{ url_for('garden_photo_edit', photo_id=photo.id) }}"
-             style="position:absolute;top:8px;right:10px;padding:4px;color:var(--muted);line-height:1;display:flex"
-             aria-label="Edit note">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </a>
-          <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">{{ photo.photo_date | month_day }}</p>
-          <p style="font-size:0.8rem;color:var(--muted)">{{ photo.notes or '' }}</p>
-        </div>
-      </div>
-      {% endfor %}
-    {% endif %}
-    </div>
-
     <!-- Add a note — sub-section within Growth log -->
-    <div style="border-top:1px solid var(--border);padding:14px 16px 18px">
+    <div style="border-top:1px solid var(--border);padding:14px 16px 18px" id="garden-add-note">
       <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin:0 0 14px">Add a note</p>
       <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
         <input type="file" name="photo" accept="image/*" id="garden-photo-input"
@@ -494,6 +467,34 @@
       </form>
     </div>
 
+    <!-- Notes or empty state -->
+    <div id="growth-log-entries">
+    {% if photos %}
+      {% for photo in photos %}
+      <div style="border-top:1px solid var(--border)" data-date="{{ photo.photo_date or '' }}">
+        {% if photo.image_path %}
+        <img src="{{ photo.image_path | media_url }}" alt="{{ entry.plant_name }}"
+             style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;cursor:zoom-in"
+             onclick="GP.openLightbox(this.src)" />
+        {% endif %}
+        <div style="padding:10px 14px{% if not photo.image_path %};padding-top:12px{% endif %};position:relative">
+          <a href="{{ url_for('garden_photo_edit', photo_id=photo.id) }}"
+             style="position:absolute;top:8px;right:10px;padding:4px;color:var(--muted);line-height:1;display:flex"
+             aria-label="Edit note">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </a>
+          <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">{{ photo.photo_date | month_day }}</p>
+          <p style="font-size:0.8rem;color:var(--muted)">{{ photo.notes or '' }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    {% endif %}
+    </div>
+
+
   </div>
 
   <!-- ── Actions ── -->
@@ -523,6 +524,18 @@
 @keyframes chatDot { 0%,80%,100% { transform:scale(0.7);opacity:0.4; } 40% { transform:scale(1);opacity:1; } }
 </style>
 <script>
+// Growth log is newest-first; place a new entry by its date, matching the server's order.
+function insertGrowthEntry(el, dateStr) {
+  var container = document.getElementById('growth-log-entries');
+  if (!container) return;
+  dateStr = dateStr || '';
+  el.setAttribute('data-date', dateStr);
+  var before = null;
+  for (var c = container.firstElementChild; c; c = c.nextElementSibling) {
+    if ((c.getAttribute('data-date') || '') <= dateStr) { before = c; break; }
+  }
+  container.insertBefore(el, before);
+}
 (function() {
   var doneBtn = document.getElementById('done-season-btn');
   if (!doneBtn) return;
@@ -533,22 +546,23 @@
   var banner = document.getElementById('done-season-chip');
   var fertSection = document.getElementById('fert-section');
   var waterSection = document.getElementById('water-section');
-  var isDone = doneBtn.dataset.done === '1';
+  function applyDoneState(isDone) {
+    doneBtn.dataset.done = isDone ? '1' : '0';
+    if (pill) pill.style.background = isDone ? 'var(--muted)' : 'var(--border)';
+    if (knob) knob.style.left = isDone ? '18px' : '2px';
+    if (label) label.textContent = isDone ? 'Done for the season' : 'Mark done for the season';
+    if (sub) sub.textContent = isDone ? 'This plant is finished — tap to undo.' : 'Dims this plant in the list when the season ends.';
+    if (banner) banner.hidden = !isDone;
+    if (fertSection) fertSection.hidden = isDone;
+    if (waterSection) waterSection.hidden = isDone;
+  }
+  window.applyDoneState = applyDoneState;  // also used when the plant chat changes it
   doneBtn.addEventListener('click', function() {
     doneBtn.disabled = true;
     fetch('/garden/' + doneBtn.dataset.entryId + '/toggle-done', {method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}})
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (!data.ok) { doneBtn.disabled = false; return; }
-        isDone = data.done_for_season === 1;
-        doneBtn.dataset.done = isDone ? '1' : '0';
-        if (pill) pill.style.background = isDone ? 'var(--muted)' : 'var(--border)';
-        if (knob) knob.style.left = isDone ? '18px' : '2px';
-        if (label) label.textContent = isDone ? 'Done for the season' : 'Mark done for the season';
-        if (sub) sub.textContent = isDone ? 'This plant is finished — tap to undo.' : 'Dims this plant in the list when the season ends.';
-        if (banner) banner.hidden = !isDone;
-        if (fertSection) fertSection.hidden = isDone;
-        if (waterSection) waterSection.hidden = isDone;
+        if (data.ok) applyDoneState(data.done_for_season === 1);
         doneBtn.disabled = false;
       })
       .catch(function() { doneBtn.disabled = false; });
@@ -688,7 +702,7 @@
       + '<p style="font-size:0.82rem;font-weight:600;margin-bottom:2px;padding-right:22px">' + gpFormatDate(dateStr) + '</p>'
       + '<p style="font-size:0.8rem;color:var(--muted)">' + (noteText || '') + '</p>'
       + '</div>';
-    container.insertBefore(div, container.firstChild);
+    insertGrowthEntry(div, dateStr);
   }
 
   function _resolvePopup(val) {
@@ -1009,12 +1023,15 @@ function openLightbox(src) {
               + '<p style="font-size:0.8rem;color:var(--muted)" data-note-text></p>'
               + '</div>';
             entry.querySelector('[data-note-text]').textContent = data.note_text || '';
-            container.insertBefore(entry, container.firstChild);
-            // Scroll only the main container — scrollIntoView can also shift the window on iOS
+            insertGrowthEntry(entry, data.photo_date);
+            // Scroll only if the new note isn't already in view, and only the main container —
+            // scrollIntoView can also shift the window on iOS
             const main = document.querySelector('main');
             if (main) {
-              const top = entry.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - 60;
-              main.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+              const r = entry.getBoundingClientRect(), m = main.getBoundingClientRect();
+              if (r.top < m.top + 60 || r.bottom > m.bottom - 90) {
+                main.scrollTo({ top: Math.max(0, r.top - m.top + main.scrollTop - 60), behavior: 'smooth' });
+              }
             }
           }
           if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -1117,6 +1134,9 @@ function openLightbox(src) {
       spin.remove();
       var reply = data.reply || data.error || 'Something went wrong.';
       bubble('assistant', reply);
+      if (data.done_for_season !== undefined && window.applyDoneState) {
+        window.applyDoneState(data.done_for_season === 1);
+      }
       if (data.note_saved) {
         var conf = document.createElement('div');
         conf.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:0.78rem;color:var(--green-dark);background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;padding:6px 11px;margin-right:auto;max-width:88%';

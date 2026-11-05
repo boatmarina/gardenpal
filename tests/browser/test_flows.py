@@ -4,6 +4,7 @@ import re
 import pytest
 from PIL import Image
 
+from tests.test_ai_actions import fake_ai, reply, tool_call  # noqa: F401 (fixture)
 from tests.test_garden import AJAX
 
 
@@ -138,3 +139,36 @@ def test_add_ornamental(logged_in, db, mode):
         page.click("#save-idea-btn")
     assert re.search(r"/ideas/\d+$", page.url), page.url
     assert db.one("SELECT name FROM plants")["name"] == "Japanese Anemone"
+
+
+def test_growth_log_form_is_above_notes_and_new_notes_land_in_date_order(logged_in, db):
+    page = logged_in
+    entry = seed_entry(page, db)  # notes dated Jul 15, Aug 15, Sep 15
+    page.goto(f"/garden/{entry['id']}")
+    form_y = page.locator("#garden-add-note").bounding_box()["y"]
+    assert form_y < growth_entries(page).first.bounding_box()["y"], "add-note form should sit above the notes"
+
+    page.fill("#garden-note-input", "Backfilled: first true leaves")
+    page.fill("input[name=photo_date]", "2026-08-01")
+    page.click("#garden-photo-submit-btn")
+    page.wait_for_function("document.querySelectorAll('#growth-log-entries > div').length === 4")
+    texts = [t.split("\n")[-1] for t in growth_entries(page).all_inner_texts()]
+    assert texts == ["Still harvesting", "Thinned to 6in", "Backfilled: first true leaves", "Planted out"]
+
+    page.reload()
+    assert [t.split("\n")[-1] for t in growth_entries(page).all_inner_texts()] == texts
+
+
+def test_plant_chat_can_mark_done_for_season(logged_in, db, fake_ai):
+    page = logged_in
+    entry = seed_entry(page, db, notes=())
+    fake_ai.script += [reply("", tool_call("set_done_for_season", done=True), stop="tool_use"),
+                       reply("Marked your leeks as done for the season.")]
+    page.goto(f"/garden/{entry['id']}")
+    page.click("#entry-chat-toggle")
+    page.fill("#entry-chat-input", "These are finished, I pulled them")
+    page.click("#entry-chat-send")
+    page.wait_for_selector("#done-season-chip", state="visible")
+    assert page.inner_text("#done-season-label") == "Done for the season"
+    assert page.locator("#fert-section").is_hidden()
+    assert db.one("SELECT done_for_season FROM garden_entries")["done_for_season"] == 1

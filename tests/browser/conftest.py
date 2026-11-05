@@ -19,6 +19,7 @@ from tests.conftest import signup
 playwright_api = pytest.importorskip("playwright.sync_api")
 
 RESULTS_DIR = Path(__file__).resolve().parents[2] / "test-results"
+_PREINSTALLED_CHROMIUM = "/opt/pw-browsers/chromium"
 IPHONE = {
     "viewport": {"width": 390, "height": 664},
     "device_scale_factor": 3,
@@ -53,6 +54,13 @@ def browser(request, _playwright):
             _browsers[name] = getattr(_playwright, name).launch()
         except Exception as exc:
             _browsers[name] = exc
+            # Cloud sessions ship whatever Chromium build is current, which may not match the
+            # pinned Playwright; they keep a stable link to it here.
+            if name == "chromium" and Path(_PREINSTALLED_CHROMIUM).exists():
+                try:
+                    _browsers[name] = _playwright.chromium.launch(executable_path=_PREINSTALLED_CHROMIUM)
+                except Exception:
+                    pass
     b = _browsers[name]
     if isinstance(b, Exception):
         pytest.skip(f"{name} not installed here (runs in CI): {str(b).splitlines()[0]}")
