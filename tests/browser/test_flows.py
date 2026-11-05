@@ -22,6 +22,11 @@ def growth_entries(page):
     return page.locator("#growth-log-entries > div")
 
 
+def note_texts(page):
+    """Each growth-log entry's note text (its last non-empty line; WebKit adds a trailing newline)."""
+    return [[ln for ln in t.splitlines() if ln.strip()][-1] for t in growth_entries(page).all_inner_texts()]
+
+
 def test_main_pages_load_without_js_errors(logged_in, db):
     page = logged_in
     entry = seed_entry(page, db)
@@ -152,11 +157,11 @@ def test_growth_log_form_is_above_notes_and_new_notes_land_in_date_order(logged_
     page.fill("input[name=photo_date]", "2026-08-01")
     page.click("#garden-photo-submit-btn")
     page.wait_for_function("document.querySelectorAll('#growth-log-entries > div').length === 4")
-    texts = [t.split("\n")[-1] for t in growth_entries(page).all_inner_texts()]
+    texts = note_texts(page)
     assert texts == ["Still harvesting", "Thinned to 6in", "Backfilled: first true leaves", "Planted out"]
 
     page.reload()
-    assert [t.split("\n")[-1] for t in growth_entries(page).all_inner_texts()] == texts
+    assert note_texts(page) == texts
 
 
 def test_plant_chat_can_mark_done_for_season(logged_in, db, fake_ai):
