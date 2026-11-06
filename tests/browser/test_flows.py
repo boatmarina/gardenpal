@@ -22,6 +22,13 @@ def growth_entries(page):
     return page.locator("#growth-log-entries > div")
 
 
+def open_note_form(page):
+    """The add-note form starts collapsed behind a button."""
+    assert page.locator("#garden-add-note-panel").is_hidden(), "add-note form should start collapsed"
+    page.click("#garden-add-note-toggle")
+    page.wait_for_selector("#garden-note-input", state="visible")
+
+
 def note_texts(page):
     """Each growth-log entry's note text (its last non-empty line; WebKit adds a trailing newline)."""
     return [[ln for ln in t.splitlines() if ln.strip()][-1] for t in growth_entries(page).all_inner_texts()]
@@ -47,6 +54,8 @@ def test_add_note_shows_it_without_reload(logged_in, db):
     page.goto(f"/garden/{entry['id']}")
     before = growth_entries(page).count()
 
+    open_note_form(page)
+    assert page.evaluate("document.activeElement.id") == "garden-note-input", "opening should focus the note field"
     page.fill("#garden-note-input", "Beans & peas <3 with <b>big</b> pods")
     page.wait_for_timeout(500)  # let the delayed focus-scroll run, as with real typing
     with page.expect_response(re.compile(r"/photos$")):
@@ -59,6 +68,8 @@ def test_add_note_shows_it_without_reload(logged_in, db):
     assert "Beans & peas <3 with <b>big</b> pods" in first.inner_text()
     assert first.bounding_box()["y"] < page.viewport_size["height"], "new note should be scrolled into view"
     assert page.input_value("#garden-note-input") == ""
+    assert page.locator("#garden-add-note-panel").is_hidden(), "form should collapse after saving"
+    assert page.locator("#garden-add-note-toggle").is_visible()
     assert page.locator("#garden-photo-loading").is_hidden()
     assert page.locator("#garden-photo-submit-btn").is_enabled()
     assert page.evaluate("window.scrollY") == 0, "the whole page shifted; header would be off-screen"
@@ -75,6 +86,7 @@ def test_add_photo_note(logged_in, db, tmp_path):
     Image.new("RGB", (300, 200), (80, 140, 60)).save(img)
     page.goto(f"/garden/{entry['id']}")
 
+    open_note_form(page)
     page.set_input_files("#garden-photo-input", str(img))
     page.wait_for_selector("#garden-photo-preview:not([hidden])")
     page.click("#garden-photo-submit-btn")
@@ -153,6 +165,7 @@ def test_growth_log_form_is_above_notes_and_new_notes_land_in_date_order(logged_
     form_y = page.locator("#garden-add-note").bounding_box()["y"]
     assert form_y < growth_entries(page).first.bounding_box()["y"], "add-note form should sit above the notes"
 
+    open_note_form(page)
     page.fill("#garden-note-input", "Backfilled: first true leaves")
     page.fill("input[name=photo_date]", "2026-08-01")
     page.click("#garden-photo-submit-btn")
@@ -177,3 +190,17 @@ def test_plant_chat_can_mark_done_for_season(logged_in, db, fake_ai):
     assert page.inner_text("#done-season-label") == "Done for the season"
     assert page.locator("#fert-section").is_hidden()
     assert db.one("SELECT done_for_season FROM garden_entries")["done_for_season"] == 1
+
+
+def test_add_note_cancel_collapses_form(logged_in, db):
+    page = logged_in
+    entry = seed_entry(page, db, notes=("Planted out",))
+    page.goto(f"/garden/{entry['id']}")
+    toggle = page.locator("#garden-add-note-toggle")
+    assert toggle.is_visible() and "Add a note" in toggle.inner_text()
+    open_note_form(page)
+    assert toggle.is_hidden()
+    page.click("#garden-add-note-cancel")
+    assert page.locator("#garden-add-note-panel").is_hidden()
+    assert toggle.is_visible()
+    assert db.one("SELECT COUNT(*) AS n FROM garden_photos")["n"] == 1

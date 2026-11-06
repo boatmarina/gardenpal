@@ -434,8 +434,18 @@
     </div>
 
     <!-- Add a note — sub-section within Growth log -->
-    <div style="border-top:1px solid var(--border);padding:14px 16px 18px" id="garden-add-note">
-      <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin:0 0 14px">Add a note</p>
+    <div style="border-top:1px solid var(--border);padding:12px 16px" id="garden-add-note">
+      <button type="button" id="garden-add-note-toggle" aria-expanded="false" aria-controls="garden-add-note-panel"
+              style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;background:var(--green-light);border:1px solid var(--green-mid);border-radius:10px;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--green-dark)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add a note or photo
+      </button>
+      <div id="garden-add-note-panel" hidden style="padding:2px 0 6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 12px">
+        <p style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin:0">New note</p>
+        <button type="button" id="garden-add-note-cancel"
+                style="background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit;font-size:0.8rem;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Cancel</button>
+      </div>
       <form id="garden-photo-form" method="post" action="{{ url_for('garden_add_photo', entry_id=entry.id) }}" enctype="multipart/form-data" class="stack">
         <input type="file" name="photo" accept="image/*" id="garden-photo-input"
                style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden" />
@@ -465,6 +475,7 @@
         </div>
         <button type="button" class="button" id="garden-photo-submit-btn">Save note</button>
       </form>
+      </div>
     </div>
 
     <!-- Notes or empty state -->
@@ -945,6 +956,24 @@ function openLightbox(src) {
   const submitBtn = document.getElementById('garden-photo-submit-btn');
   const preview = document.getElementById('garden-photo-preview');
   const thumb = document.getElementById('garden-photo-thumb');
+  const noteToggle = document.getElementById('garden-add-note-toggle');
+  const notePanel = document.getElementById('garden-add-note-panel');
+
+  function setNoteFormOpen(open) {
+    if (!noteToggle || !notePanel) return;
+    notePanel.hidden = !open;
+    noteToggle.hidden = open;
+    noteToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  if (noteToggle) {
+    noteToggle.addEventListener('click', function() {
+      setNoteFormOpen(true);
+      const noteField = document.getElementById('garden-note-input');
+      if (noteField) noteField.focus();
+    });
+  }
+  const noteCancel = document.getElementById('garden-add-note-cancel');
+  if (noteCancel) noteCancel.addEventListener('click', function() { setNoteFormOpen(false); });
 
   if (input) {
     input.addEventListener('change', async function() {
@@ -999,6 +1028,7 @@ function openLightbox(src) {
           if (uploadBtn) uploadBtn.disabled = false;
           submitBtn.disabled = false;
         } else {
+          setNoteFormOpen(false);
           // Inject new entry into DOM — no reload, avoids iOS scroll-position bugs
           const container = document.getElementById('growth-log-entries');
           if (container && data.photo_date) {
