@@ -496,9 +496,32 @@
         </form>
       </div>
 
+      <!-- Bed / container within the zone -->
+      <form method="post" action="{{ url_for('yard_plant_set_bed', yard_plant_id=pz.id) }}" class="pz-bed-form"
+            style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 12px">
+        <input type="hidden" name="plant_id" value="{{ plant.id }}" />
+        <span style="font-size:0.62rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)">Bed</span>
+        <select name="bed_choice" class="pz-bed-select" aria-label="Bed in {{ pz.zone_name }}"
+                data-beds='{{ pz.beds | tojson }}' data-current="{{ pz.bed_id or '' }}"
+                style="flex:1;min-width:0;font-size:0.85rem"></select>
+        <span class="pz-bed-new" hidden style="display:flex;gap:8px;flex-basis:100%">
+          <input type="text" name="new_bed_name" maxlength="80" placeholder="New bed name" style="flex:1;min-width:0;font-size:0.85rem" />
+          <button type="submit" class="button button-secondary" style="font-size:0.75rem;flex-shrink:0">Save</button>
+        </span>
+      </form>
+
       <!-- Notes log -->
       {% if pz.yard_notes %}
         {% for n in pz.yard_notes %}
+        {% if n.is_bed_note %}
+        <div style="padding:9px 0;border-top:1px solid var(--border)" class="bed-note-in-log">
+          <p style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:2px">
+            {{ n.note_date | month_day if n.note_date }}
+            <a href="{{ url_for('yard_bed_detail', bed_id=n.bed_id) }}" class="bed-note-tag">Bed note · {{ n.bed_name }}</a>
+          </p>
+          <p style="font-size:0.85rem;line-height:1.5">{{ n.notes }}</p>
+        </div>
+        {% else %}
         <div style="padding:9px 0;border-top:1px solid var(--border);position:relative">
           <p style="font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:2px">{{ n.note_date | month_day if n.note_date }}</p>
           <p style="font-size:0.85rem;line-height:1.5;padding-right:48px">{{ n.notes }}</p>
@@ -510,6 +533,7 @@
                     style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1rem;line-height:1;padding:4px 6px;font-family:inherit">×</button>
           </form>
         </div>
+        {% endif %}
         {% endfor %}
         <button type="button" onclick="gpToggleNote('{{ pz.id }}')"
                 style="margin-top:8px;background:none;border:none;cursor:pointer;font-size:0.8rem;color:var(--accent);font-family:inherit;padding:0">+ Add note</button>
@@ -623,6 +647,22 @@
 
 {% block scripts %}
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Bed picker on each zone card: choosing a bed saves right away; "+ New bed…" asks for a name first.
+  document.querySelectorAll('.pz-bed-form').forEach(function(form) {
+    var select = form.querySelector('.pz-bed-select');
+    var newWrap = form.querySelector('.pz-bed-new');
+    var beds = [];
+    try { beds = JSON.parse(select.dataset.beds || '[]'); } catch(e) {}
+    var picker = GP.bedPicker(select, newWrap.querySelector('input'), {
+      textWrap: newWrap, optionValue: function(b) { return b.id; }
+    });
+    picker.setBeds(beds, select.dataset.current);
+    select.addEventListener('change', function() {
+      if (select.value !== '__new') form.submit();
+    });
+  });
+});
 (function() {
   // Per-row inline toggles
   function wireToggle(btnId, panelId, chevronId) {

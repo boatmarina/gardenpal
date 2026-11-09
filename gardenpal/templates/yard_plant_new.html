@@ -303,6 +303,15 @@
           {% endfor %}
         </select>
       </label>
+      <label id="yard-bed-field" hidden>
+        Bed / container <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span>
+        <select name="bed_choice" id="yard-bed-select"
+                data-zone-beds='{{ (zone_beds or {}) | tojson }}' data-current="{{ request.form.get('bed_choice', '') }}"></select>
+        <span id="yard-bed-new" hidden style="display:block;margin-top:6px">
+          <input type="text" name="new_bed_name" maxlength="80" placeholder="New bed name"
+                 value="{{ request.form.get('new_bed_name', '') }}" />
+        </span>
+      </label>
       <div style="display:flex;flex-direction:column;gap:0.35rem">
         <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.11em;text-transform:uppercase;color:var(--muted)">Tags</span>
         <div class="tag-input-wrap" id="yard-tag-input-wrap">
@@ -326,6 +335,26 @@
 {% block scripts %}
 <script>
 window.LIBRARY_PLANTS = {{ library_plants_json | tojson }};
+document.addEventListener('DOMContentLoaded', function() {
+  // Optional bed / container picker for the chosen zone.
+  var field = document.getElementById('yard-bed-field');
+  var select = document.getElementById('yard-bed-select');
+  var zoneSel = document.querySelector('#common-fields select[name="zone_id"]');
+  if (!field || !select || !zoneSel) return;
+  var bedsByZone = {};
+  try { bedsByZone = JSON.parse(select.dataset.zoneBeds || '{}'); } catch(e) {}
+  var newWrap = document.getElementById('yard-bed-new');
+  var picker = GP.bedPicker(select, newWrap.querySelector('input'), {
+    textWrap: newWrap, optionValue: function(b) { return b.id; }
+  });
+  function refresh(current) {
+    field.hidden = !zoneSel.value;
+    picker.setBeds(bedsByZone[zoneSel.value] || [], current || '');
+    if (current === '__new') { select.value = '__new'; newWrap.hidden = false; }
+  }
+  zoneSel.addEventListener('change', function() { refresh(''); });
+  refresh(select.dataset.current);
+});
 
 /* ── Page-level helper: single source of truth for yard plant detail fields ── */
 function applyYardDetails(details) {

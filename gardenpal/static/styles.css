@@ -1610,3 +1610,19 @@ button.tag-chip-close:hover { opacity: 1; }
   color: #fff;
 }
 .bed-chip[aria-pressed="true"] .bed-chip-count { color: rgba(255,255,255,0.75); }
+
+/* A bed note shown inside a plant's growth log */
+.bed-note-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--green-light);
+  border: 1px solid var(--green-mid);
+  color: var(--green-dark);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  vertical-align: 1px;
+}

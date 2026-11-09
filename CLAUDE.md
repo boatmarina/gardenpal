@@ -1,5 +1,9 @@
 # GardenPal
 
+## Working with the user
+
+When a design choice isn't clear from the request (where a control goes, what happens to existing data, which details to track), ask before building, using a few concrete options with a recommendation. Don't silently pick one.
+
 ## Deployment
 
 Push changes to the feature branch only. Vercel automatically creates a preview deployment from the feature branch, which the user reviews and manually promotes to production via the Vercel dashboard.

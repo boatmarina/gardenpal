@@ -283,4 +283,78 @@
     document.body.appendChild(box);
   };
 
+  /**
+   * Bed / container picker: a <select> of a zone's beds plus "No bed" and "+ New bed…",
+   * with a text input that appears for a new bed's name.
+   *
+   *   select    — the <select>; option values are opts.optionValue(bed), '' or '__new'
+   *   textInput — shown for "+ New bed…" (and, with opts.freeTextWithoutBeds, when there are no beds)
+   *   opts.optionValue(bed)  — option value for a bed (bed name for edibles, bed id for ornamentals)
+   *   opts.mirrorToText      — keep textInput.value = the chosen bed's name (edibles submit the text field)
+   *   opts.freeTextWithoutBeds — with no beds, hide the select and leave the text field for free typing
+   *   opts.onChange(bed)     — called with the chosen bed object, or null
+   * Returns { setBeds(beds, currentValue) }.
+   */
+  G.bedPicker = function bedPicker(select, textInput, opts) {
+    opts = opts || {};
+    var optionValue = opts.optionValue || function (b) { return b.name; };
+    var beds = [];
+    var textWrap = opts.textWrap || textInput;
+
+    function chosenBed() {
+      for (var i = 0; i < beds.length; i++) {
+        if (String(optionValue(beds[i])) === select.value) return beds[i];
+      }
+      return null;
+    }
+
+    function sync(fromUser) {
+      var isNew = select.value === '__new';
+      textWrap.hidden = !select.hidden && !isNew;
+      if (opts.mirrorToText && !select.hidden && !isNew) {
+        var b = chosenBed();
+        textInput.value = b ? b.name : '';
+      }
+      if (fromUser && isNew) { textInput.value = ''; textInput.focus(); }
+      if (opts.onChange) opts.onChange(chosenBed());
+    }
+
+    select.addEventListener('change', function () { sync(true); });
+
+    return {
+      setBeds: function (list, current) {
+        beds = list || [];
+        select.innerHTML = '';
+        function add(value, label) {
+          var o = document.createElement('option');
+          o.value = value; o.textContent = label;
+          select.appendChild(o);
+        }
+        add('', 'No bed');
+        beds.forEach(function (b) { add(String(optionValue(b)), b.name); });
+        add('__new', '+ New bed…');
+
+        if (!beds.length && opts.freeTextWithoutBeds) {
+          select.hidden = true;
+          textWrap.hidden = false;
+          return;
+        }
+        select.hidden = false;
+        current = current == null ? '' : String(current);
+        var match = beds.filter(function (b) {
+          return String(optionValue(b)).toLowerCase() === current.trim().toLowerCase();
+        })[0];
+        if (match) {
+          select.value = String(optionValue(match));
+        } else if (current.trim() && opts.mirrorToText) {
+          select.value = '__new';   // a name that isn't a bed yet: show it in the text field
+          textInput.value = current;
+        } else {
+          select.value = '';
+        }
+        sync(false);
+      }
+    };
+  };
+
 }(window.GP = window.GP || {}));

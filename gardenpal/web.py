@@ -298,7 +298,7 @@ def create_app() -> Flask:
         {
             "version": "2026-11-a",
             "title": "Track the beds and containers in each zone",
-            "body": "Open any zone in the Yard tab to see its beds and containers. Record sun exposure, soil and amendments, and dated notes for each one, and filter the zone's plants by bed. Your garden assistant uses these details when you ask about plants in that bed.",
+            "body": "Open any zone in the Yard tab to see its beds and containers. Record the type, size, sun exposure, soil and amendments for each one, and add dated notes that also show up in the growth log of every plant in that bed. Pick a bed when adding a plant, filter a zone's plants by bed, and your garden assistant uses these details when you ask about plants there.",
             "draft": True,
         },
         {
@@ -1295,15 +1295,17 @@ self.addEventListener('fetch', function(e) {
         shared_names = _shared_user_names(db, g.user["id"])
         pz_rows = db.execute(
             f"""
-            SELECT yp.id, z.id AS zone_id, z.name AS zone_name
+            SELECT yp.id, yp.bed_id, z.id AS zone_id, z.name AS zone_name, b.name AS bed_name
             FROM yard_plants yp
             JOIN yard_zones z ON z.id = yp.zone_id
+            LEFT JOIN yard_beds b ON b.id = yp.bed_id
             WHERE yp.user_id IN {ph} AND lower(yp.plant_name) = lower(?)
             ORDER BY z.name ASC
             """,
             (*id_args, plant["name"]),
         ).fetchall()
-        plant_zones = [{"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "yard_notes": []} for r in pz_rows]
+        plant_zones = [{"id": r["id"], "zone_id": r["zone_id"], "zone_name": r["zone_name"], "yard_notes": [],
+                        "bed_id": r["bed_id"], "bed_name": r["bed_name"], "beds": []} for r in pz_rows]
         if plant_zones:
             ph2, pz_id_args = _in_ids([pz["id"] for pz in plant_zones])
             note_rows = db.execute(
@@ -1313,8 +1315,16 @@ self.addEventListener('fetch', function(e) {
             notes_by_pz: dict = {}
             for n in note_rows:
                 notes_by_pz.setdefault(n["yard_plant_id"], []).append(n)
+            beds_by_zone = _zone_beds_by_zone(db, {pz["zone_id"] for pz in plant_zones})
             for pz in plant_zones:
-                pz["yard_notes"] = notes_by_pz.get(pz["id"], [])
+                notes = [dict(n, is_bed_note=False) for n in notes_by_pz.get(pz["id"], [])]
+                if pz["bed_id"]:
+                    for bn in _bed_notes_for_log(db, {"id": pz["bed_id"], "name": pz["bed_name"]}):
+                        notes.append({"note_date": bn["date"], "notes": bn["notes"], "is_bed_note": True,
+                                      "bed_id": bn["bed_id"], "bed_name": bn["bed_name"]})
+                notes.sort(key=lambda n: n.get("note_date") or "", reverse=True)
+                pz["yard_notes"] = notes
+                pz["beds"] = beds_by_zone.get(str(pz["zone_id"]), [])
         today = _local_today()
 
         ff_fert = _feature_fertilization(g.user)
@@ -1845,9 +1855,11 @@ self.addEventListener('fetch', function(e) {
                       p.next_fertilization_generated_at      AS next_fertilization_generated_at,
                       p.fertilization_frequency_days AS fertilization_frequency_days,
                       p.fertilization_cutoff_date    AS fertilization_cutoff_date,
-                      p.last_fertilized_date         AS last_fertilized_date
+                      p.last_fertilized_date         AS last_fertilized_date,
+                      yb.name                        AS bed_name
                FROM yard_plants yp
                LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id
+               LEFT JOIN yard_beds yb ON yb.id = yp.bed_id
                WHERE yp.zone_id = ? AND yp.user_id IN {ph}
                ORDER BY yp.created_at DESC""",
             [zone_id] + id_args,
@@ -1889,14 +1901,15 @@ self.addEventListener('fetch', function(e) {
                 plant_pill_map[_p["id"]] = _fert_pill_date(_p, today)
             for _ge in garden_entries:
                 ge_pill_map[_ge["id"]] = _fert_pill_date(_ge, today)
-        _ensure_zone_beds(db, zone)
+        _ensure_beds_for_zones(db, [zone_id])
         beds = _zone_beds(db, zone_id)
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
                                garden_entries=garden_entries, ff_water=ff_water, ff_fert=ff_fert,
                                today=today, water_deadline=water_deadline, fert_deadline=fert_deadline,
                                plant_pill_map=plant_pill_map, ge_pill_map=ge_pill_map,
-                               beds=beds, sun_options=BED_SUN_OPTIONS, bed_name_max=BED_NAME_MAX,
+                               beds=beds, sun_options=BED_SUN_OPTIONS, type_options=BED_TYPE_OPTIONS,
+                               bed_name_max=BED_NAME_MAX,
                                selected_bed=(request.args.get("bed") or "").strip().lower())
 
     @app.route("/yard/zones/<int:zone_id>/add-edible")
@@ -1960,13 +1973,20 @@ self.addEventListener('fetch', function(e) {
             " WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?) ORDER BY plant_name ASC",
             (bed["zone_id"], bed["name"]),
         ).fetchall()
+        ornamentals = db.execute(
+            "SELECT yp.id, yp.plant_name, yp.scientific_name, p.id AS lib_plant_id FROM yard_plants yp"
+            " LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id"
+            " WHERE yp.bed_id = ? ORDER BY yp.plant_name ASC",
+            (bed_id,),
+        ).fetchall()
         notes = db.execute(
             "SELECT n.*, u.username FROM yard_bed_notes n JOIN users u ON u.id = n.user_id"
             " WHERE n.bed_id = ? ORDER BY n.note_date DESC NULLS LAST, n.created_at DESC",
             (bed_id,),
         ).fetchall()
-        return render_template("yard_bed_detail.html", bed=bed, plants=plants, notes=notes,
-                               sun_options=BED_SUN_OPTIONS, today=_local_today(), name_max=BED_NAME_MAX)
+        return render_template("yard_bed_detail.html", bed=bed, plants=plants, ornamentals=ornamentals, notes=notes,
+                               sun_options=BED_SUN_OPTIONS, type_options=BED_TYPE_OPTIONS,
+                               today=_local_today(), name_max=BED_NAME_MAX, size_max=BED_SIZE_MAX)
 
     @app.route("/yard/beds/<int:bed_id>/edit", methods=["POST"])
     @login_required
@@ -1979,6 +1999,12 @@ self.addEventListener('fetch', function(e) {
         name = request.form.get("name", "").strip()
         sun = request.form.get("sun_exposure", "").strip() or None
         soil = request.form.get("soil_notes", "").strip() or None
+        bed_type = request.form.get("bed_type", "").strip() or None
+        size = (request.form.get("size", "").strip() or None)
+        if bed_type is not None and bed_type not in BED_TYPE_OPTIONS:
+            bed_type = bed.get("bed_type")
+        if size:
+            size = size[:BED_SIZE_MAX]
         if not name:
             flash("Bed name is required.")
             return redirect(url_for("yard_bed_detail", bed_id=bed_id))
@@ -2002,8 +2028,9 @@ self.addEventListener('fetch', function(e) {
                 (name, bed["zone_id"], bed["name"]),
             )
         db.execute(
-            "UPDATE yard_beds SET name = ?, sun_exposure = ?, soil_notes = ?, updated_at = ? WHERE id = ?",
-            (name, sun, soil, datetime.utcnow().isoformat(timespec="seconds"), bed_id),
+            "UPDATE yard_beds SET name = ?, sun_exposure = ?, soil_notes = ?, bed_type = ?, size = ?, updated_at = ?"
+            " WHERE id = ?",
+            (name, sun, soil, bed_type, size, datetime.utcnow().isoformat(timespec="seconds"), bed_id),
         )
         _log_activity(db, g.user["id"], "bed_updated", name)
         db.commit()
@@ -2053,8 +2080,9 @@ self.addEventListener('fetch', function(e) {
             flash("Bed not found.")
             return redirect(url_for("yard_index"))
         in_use = db.execute(
-            "SELECT COUNT(*) AS n FROM garden_entries WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?)",
-            (bed["zone_id"], bed["name"]),
+            "SELECT (SELECT COUNT(*) FROM garden_entries WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?))"
+            " + (SELECT COUNT(*) FROM yard_plants WHERE bed_id = ?) AS n",
+            (bed["zone_id"], bed["name"], bed_id),
         ).fetchone()["n"]
         if in_use:
             flash(f"{bed['name']} still has {in_use} plant{'s' if in_use != 1 else ''} — move them to another bed first.")
@@ -2063,6 +2091,61 @@ self.addEventListener('fetch', function(e) {
         db.commit()
         flash(f"{bed['name']} deleted.")
         return redirect(url_for("yard_zone_detail", zone_id=bed["zone_id"]))
+
+    def _resolve_bed_choice(db, zone, choice, new_name):
+        """Turn a bed picker value into (bed_id, error). '' = no bed, '<id>' = a bed in this zone,
+        '__new' = create (or reuse) the bed called new_name in this zone."""
+        choice = (choice or "").strip()
+        if not choice:
+            return None, None
+        if choice == "__new":
+            name = (new_name or "").strip()
+            if not name:
+                return None, "Enter a name for the new bed."
+            if len(name) > BED_NAME_MAX:
+                return None, f"Bed names can be up to {BED_NAME_MAX} characters."
+            row = db.execute(
+                "SELECT id FROM yard_beds WHERE zone_id = ? AND lower(name) = lower(?)", (zone["id"], name)
+            ).fetchone()
+            if row:
+                return row["id"], None
+            row = db.execute(
+                "INSERT INTO yard_beds (zone_id, user_id, name, created_at) VALUES (?, ?, ?, ?) RETURNING id",
+                (zone["id"], zone["user_id"], name, datetime.utcnow().isoformat(timespec="seconds")),
+            ).fetchone()
+            _log_activity(db, g.user["id"], "bed_added", f"{name} ({zone['name']})")
+            return row["id"], None
+        try:
+            bed_id = int(choice)
+        except ValueError:
+            return None, "Choose a bed from the list."
+        row = db.execute("SELECT id FROM yard_beds WHERE id = ? AND zone_id = ?", (bed_id, zone["id"])).fetchone()
+        if row is None:
+            return None, "That bed isn't in this zone."
+        return row["id"], None
+
+    @app.route("/yard/plants/<int:yard_plant_id>/bed", methods=["POST"])
+    @login_required
+    def yard_plant_set_bed(yard_plant_id: int):
+        db = get_db()
+        ph, id_args = _in_ids(_shared_user_ids(db, g.user["id"]))
+        yp = db.execute(
+            f"SELECT * FROM yard_plants WHERE id = ? AND user_id IN {ph}", [yard_plant_id] + id_args
+        ).fetchone()
+        back_plant = request.form.get("plant_id", type=int)
+        if yp is None:
+            flash("Plant not found.")
+            return redirect(url_for("yard_index"))
+        zone = db.execute("SELECT * FROM yard_zones WHERE id = ?", (yp["zone_id"],)).fetchone()
+        bed_id, error = _resolve_bed_choice(db, zone, request.form.get("bed_choice"), request.form.get("new_bed_name"))
+        if error:
+            flash(error)
+        else:
+            db.execute("UPDATE yard_plants SET bed_id = ? WHERE id = ?", (bed_id, yard_plant_id))
+            db.commit()
+        if back_plant:
+            return redirect(url_for("idea_detail", plant_id=back_plant))
+        return redirect(url_for("yard_zone_detail", zone_id=yp["zone_id"]))
 
     @app.route("/yard/plants/new", methods=["GET", "POST"])
     @login_required
@@ -2144,7 +2227,7 @@ self.addEventListener('fetch', function(e) {
                 else:
                     apply_lookup_to_yard_form(form_values, details)
                     flash("Planted item details autofilled from name lookup.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
+                return render_template("yard_plant_new.html", zones=zones, zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones]), form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_photo":
                 suggestions, error = identify_plant_from_image(request.files.get("photo"), provider=g.user.get("photo_id_provider") or "plantid", location=g.user.get("location"))
@@ -2161,7 +2244,7 @@ self.addEventListener('fetch', function(e) {
                     if not lookup_error:
                         apply_lookup_to_yard_form(form_values, details)
                     form_values["photo_id_suggestions"] = json.dumps(suggestions)
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
+                return render_template("yard_plant_new.html", zones=zones, zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones]), form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if form_action == "autofill_label":
                 text, error = extract_text_from_image(request.files.get("label_photo"))
@@ -2176,11 +2259,11 @@ self.addEventListener('fetch', function(e) {
                         flash(f"Label read: \"{query}\" — review the name then save.")
                     else:
                         flash("Could not extract a plant name from that label.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
+                return render_template("yard_plant_new.html", zones=zones, zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones]), form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             if not form_values["zone_id"] or not form_values["plant_name"]:
                 flash("Zone and plant name are required.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
+                return render_template("yard_plant_new.html", zones=zones, zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones]), form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             zone = db.execute(
                 f"SELECT id FROM yard_zones WHERE id = ? AND user_id IN {ph}",
@@ -2188,15 +2271,20 @@ self.addEventListener('fetch', function(e) {
             ).fetchone()
             if zone is None:
                 flash("Please choose a valid zone.")
-                return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
+                return render_template("yard_plant_new.html", zones=zones, zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones]), form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
+            zone_row = db.execute("SELECT * FROM yard_zones WHERE id = ?", (zone["id"],)).fetchone()
+            bed_id, bed_error = _resolve_bed_choice(db, zone_row, request.form.get("bed_choice"), request.form.get("new_bed_name"))
+            if bed_error:
+                flash(bed_error)
+                return render_template("yard_plant_new.html", zones=zones, zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones]), form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
             image_path = save_upload(request.files.get("photo"), app.config["UPLOAD_FOLDER"], g.user["id"], "yardplant")
             db.execute(
                 """
                 INSERT INTO yard_plants
                 (user_id, zone_id, plant_name, scientific_name, lookup_query, image_path, location_x, location_y,
-                 size_info, watering_needs, sun_needs, flowering_schedule, lifecycle, spreads, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 size_info, watering_needs, sun_needs, flowering_schedule, lifecycle, spreads, notes, created_at, bed_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     g.user["id"],
@@ -2215,6 +2303,7 @@ self.addEventListener('fetch', function(e) {
                     form_values["spreads"],
                     form_values["notes"],
                     datetime.utcnow().isoformat(timespec="seconds"),
+                    bed_id,
                 ),
             )
             # Add to library if not already there; enrich existing record if it is
@@ -2306,7 +2395,7 @@ self.addEventListener('fetch', function(e) {
             db.commit()
             flash("Planted item saved.")
             return redirect(url_for("yard_zone_detail", zone_id=form_values["zone_id"]))
-        return render_template("yard_plant_new.html", zones=zones, form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
+        return render_template("yard_plant_new.html", zones=zones, zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones]), form_values=form_values, plant_names=plant_names, library_plants=library_plants, library_plants_json=library_plants_json)
 
     @app.route("/yard/plants/<int:yard_plant_id>/remove", methods=["POST"])
     @login_required
@@ -2469,9 +2558,9 @@ self.addEventListener('fetch', function(e) {
         """Mark an edible done (or not) for the season. Callers check access and commit."""
         v = 1 if done else 0
         db.execute(
-            "UPDATE garden_entries SET done_for_season = ?, never_fertilize = ?, never_water = ?, updated_at = ?"
-            " WHERE id = ?",
-            (v, v, v, datetime.utcnow().isoformat(timespec="seconds"), entry_id),
+            "UPDATE garden_entries SET done_for_season = ?, never_fertilize = ?, never_water = ?, updated_at = ?,"
+            " done_for_season_at = ? WHERE id = ?",
+            (v, v, v, datetime.utcnow().isoformat(timespec="seconds"), _local_today() if done else None, entry_id),
         )
         if done:
             # Clear pending alert dates so no alerts fire while done
@@ -2521,29 +2610,65 @@ self.addEventListener('fetch', function(e) {
     # An edible is "in" a bed when its zone matches and its location_name matches the bed name
     # (trimmed, case-insensitive). Bed rows hold the extra details and notes.
     BED_SUN_OPTIONS = {"full_sun": "Full sun", "part_sun": "Part sun", "shade": "Shade"}
+    # Same choices as an edible's location type.
+    BED_TYPE_OPTIONS = {"raised_bed": "Raised bed", "container": "Container", "in_ground": "In ground",
+                        "greenhouse": "Greenhouse", "grow_bag": "Grow bag", "other": "Other"}
     BED_NAME_MAX = 80
+    BED_SIZE_MAX = 60
 
-    def _ensure_zone_beds(db, zone):
-        """Create bed rows for bed names already used by edibles in this zone."""
-        rows = db.execute(
-            "SELECT DISTINCT TRIM(location_name) AS name FROM garden_entries"
-            " WHERE zone_id = ? AND location_name IS NOT NULL AND TRIM(location_name) != ''",
-            (zone["id"],),
+    def _zone_beds_by_zone(db, zone_ids):
+        """{zone_id: [bed names]} for bed pickers."""
+        if not zone_ids:
+            return {}
+        _ensure_beds_for_zones(db, zone_ids)
+        ph, args = _in_ids(list(zone_ids))
+        out = {}
+        for r in db.execute(
+            f"SELECT id, zone_id, name, bed_type FROM yard_beds WHERE zone_id IN {ph} ORDER BY lower(name)", args
+        ).fetchall():
+            out.setdefault(str(r["zone_id"]), []).append({"id": r["id"], "name": r["name"], "type": r["bed_type"] or ""})
+        return out
+
+    def _bed_notes_for_log(db, bed, done_since=None):
+        """Bed notes to show in a plant's growth log: all of them, except ones dated on or after
+        the day the plant was marked done for the season."""
+        if not bed:
+            return []
+        notes = db.execute(
+            "SELECT id, note_date, notes, created_at FROM yard_bed_notes WHERE bed_id = ?", (bed["id"],)
         ).fetchall()
-        now = datetime.utcnow().isoformat(timespec="seconds")
-        for r in rows:
-            db.execute(
-                "INSERT INTO yard_beds (zone_id, user_id, name, created_at) VALUES (?, ?, ?, ?)"
-                " ON CONFLICT (zone_id, lower(name)) DO NOTHING",
-                (zone["id"], zone["user_id"], r["name"][:BED_NAME_MAX], now),
-            )
+        out = []
+        for n in notes:
+            when = n["note_date"] or (n["created_at"] or "")[:10]
+            if done_since and when >= done_since:
+                continue
+            out.append({"id": n["id"], "date": when, "notes": n["notes"], "bed_id": bed["id"], "bed_name": bed["name"]})
+        return out
+
+    def _ensure_beds_for_zones(db, zone_ids):
+        """Create bed rows for bed names already used by edibles in these zones (one query)."""
+        if not zone_ids:
+            return
+        ph, args = _in_ids([int(z) for z in zone_ids])
+        db.execute(
+            f"INSERT INTO yard_beds (zone_id, user_id, name, created_at)"
+            f" SELECT DISTINCT ON (ge.zone_id, lower(TRIM(ge.location_name)))"
+            f"        ge.zone_id, z.user_id, left(TRIM(ge.location_name), {BED_NAME_MAX}), ?"
+            f" FROM garden_entries ge JOIN yard_zones z ON z.id = ge.zone_id"
+            f" WHERE ge.zone_id IN {ph} AND ge.location_name IS NOT NULL AND TRIM(ge.location_name) != ''"
+            # Same bed spelled differently ("Peas bed" / "peas BED"): keep the earliest plant's spelling.
+            f" ORDER BY ge.zone_id, lower(TRIM(ge.location_name)), ge.created_at, ge.id"
+            f" ON CONFLICT (zone_id, lower(name)) DO NOTHING",
+            [datetime.utcnow().isoformat(timespec="seconds")] + args,
+        )
         db.commit()
 
     def _zone_beds(db, zone_id):
         return db.execute(
             "SELECT b.*,"
             " (SELECT COUNT(*) FROM garden_entries ge WHERE ge.zone_id = b.zone_id"
-            "    AND lower(TRIM(ge.location_name)) = lower(b.name)) AS plant_count,"
+            "    AND lower(TRIM(ge.location_name)) = lower(b.name))"
+            "  + (SELECT COUNT(*) FROM yard_plants yp WHERE yp.bed_id = b.id) AS plant_count,"
             " (SELECT COUNT(*) FROM yard_bed_notes n WHERE n.bed_id = b.id) AS note_count"
             " FROM yard_beds b WHERE b.zone_id = ? ORDER BY lower(b.name)",
             (zone_id,),
@@ -2561,6 +2686,10 @@ self.addEventListener('fetch', function(e) {
     def _bed_summary(db, bed, max_notes=5):
         """One line describing a bed for the AI assistants, or None if it has no details."""
         parts = []
+        if bed.get("bed_type"):
+            parts.append(BED_TYPE_OPTIONS.get(bed["bed_type"], bed["bed_type"]))
+        if bed.get("size"):
+            parts.append(f"size {bed['size']}")
         if bed["sun_exposure"]:
             parts.append(BED_SUN_OPTIONS.get(bed["sun_exposure"], bed["sun_exposure"]))
         if bed["soil_notes"]:
@@ -3853,7 +3982,7 @@ self.addEventListener('fetch', function(e) {
                 flash("Plant name is required.")
                 location_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
                 plant_names, plant_varieties = _build_plant_autocomplete_data(db, ids)
-                return render_template("garden_entry_new.html", form_values=request.form,
+                return render_template("garden_entry_new.html", zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones_json]), form_values=request.form,
                                        feature_garden_zones=feature_gz, zones_json=zones_json,
                                        location_names=location_names,
                                        plant_names=plant_names, plant_varieties=plant_varieties)
@@ -3920,7 +4049,7 @@ self.addEventListener('fetch', function(e) {
             ).fetchone()
             if zrow:
                 prefill_zone_name = zrow["name"]
-        return render_template("garden_entry_new.html",
+        return render_template("garden_entry_new.html", zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones_json]),
                                form_values={"planted_date": today,
                                             "zone_name": prefill_zone_name,
                                             "zone_id": str(prefill_zone_id) if prefill_zone_name else ""},
@@ -4054,7 +4183,14 @@ self.addEventListener('fetch', function(e) {
         else:
             back_href = url_for("garden_index")
             back_label = "Edibles"
+        entry_bed = _bed_for_entry(db, entry)
+        bed_notes = _bed_notes_for_log(db, entry_bed, entry["done_for_season_at"] if entry["done_for_season"] else None)
+        # Growth log = the plant's own notes plus its bed's notes, newest first (photos keep their order).
+        log_items = [{"kind": "photo", "photo": ph_row, "date": ph_row["photo_date"] or ""} for ph_row in photos]
+        log_items += [{"kind": "bed", **bn} for bn in bed_notes]
+        log_items.sort(key=lambda item: item["date"] or "", reverse=True)
         return render_template("garden_entry_detail.html", entry=entry, photos=photos, today=today,
+                               log_items=log_items, entry_bed=entry_bed,
                                last_fertilized=last_fertilized, next_fertilization=next_fertilization,
                                fert_deadline=fert_deadline, ff_fert=ff_fert,
                                ff_water=ff_water, last_watered=last_watered, next_watering=next_watering,
@@ -4250,7 +4386,7 @@ self.addEventListener('fetch', function(e) {
             if not plant_name:
                 flash("Plant name is required.")
                 _loc_names = [r["location_name"] for r in db.execute(f"SELECT DISTINCT location_name FROM garden_entries WHERE user_id IN {ph} AND location_name IS NOT NULL ORDER BY location_name ASC", id_args).fetchall()]
-                return render_template("garden_entry_edit.html", entry=entry, form_values=request.form,
+                return render_template("garden_entry_edit.html", zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones_json]), entry=entry, form_values=request.form,
                                        feature_garden_zones=feature_gz, zones_json=zones_json,
                                        zone_name=request.form.get("zone_name", ""),
                                        zone_id=request.form.get("zone_id", ""),
@@ -4364,7 +4500,7 @@ self.addEventListener('fetch', function(e) {
         }
         _today = _local_today()
         _fert_deadline = _local_date_plus(3)
-        return render_template("garden_entry_edit.html", entry=entry, form_values=entry,
+        return render_template("garden_entry_edit.html", zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones_json]), entry=entry, form_values=entry,
                                feature_garden_zones=feature_gz, zones_json=zones_json,
                                zone_name=current_zone_name, zone_id=current_zone_id,
                                location_names=location_names, last_fertilized=last_fertilized,
@@ -4793,7 +4929,7 @@ self.addEventListener('fetch', function(e) {
             "zone_name": zone_name,
             "zone_id": zone_id,
         }
-        return render_template("garden_entry_new.html",
+        return render_template("garden_entry_new.html", zone_beds=_zone_beds_by_zone(db, [z["id"] for z in zones_json]),
                                form_values=form_values,
                                feature_garden_zones=feature_gz, zones_json=zones_json,
                                location_names=location_names,
@@ -8319,6 +8455,21 @@ def init_db():
         db.execute("CREATE INDEX IF NOT EXISTS idx_yard_bed_notes_bed ON yard_bed_notes (bed_id)")
         db.execute("ALTER TABLE yard_beds      ENABLE ROW LEVEL SECURITY")
         db.execute("ALTER TABLE yard_bed_notes ENABLE ROW LEVEL SECURITY")
+        db.execute("ALTER TABLE yard_beds ADD COLUMN IF NOT EXISTS bed_type TEXT")
+        db.execute("ALTER TABLE yard_beds ADD COLUMN IF NOT EXISTS size TEXT")
+        # Ornamentals link to a bed by id (they have no location_name to match on).
+        db.execute("ALTER TABLE yard_plants ADD COLUMN IF NOT EXISTS bed_id INTEGER REFERENCES yard_beds (id) ON DELETE SET NULL")
+        # When an edible was marked done, so bed notes after that date stay out of its growth log.
+        db.execute("ALTER TABLE garden_entries ADD COLUMN IF NOT EXISTS done_for_season_at TEXT")
+        # Backfill for plants marked done before this column existed: the latest activity-log
+        # entry for that plant, else the entry's last update.
+        db.execute(
+            "UPDATE garden_entries ge SET done_for_season_at = COALESCE("
+            " (SELECT MAX(substr(al.logged_at, 1, 10)) FROM activity_log al"
+            "   WHERE al.user_id = ge.user_id AND al.action = 'garden_done_season' AND al.item_name = ge.plant_name),"
+            " substr(ge.updated_at, 1, 10))"
+            " WHERE ge.done_for_season = 1 AND ge.done_for_season_at IS NULL"
+        )
         db.commit()
     except Exception:
         db.rollback()

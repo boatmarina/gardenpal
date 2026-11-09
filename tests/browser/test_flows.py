@@ -266,3 +266,87 @@ def test_add_bed_then_record_details_and_notes(logged_in, db):
     page.wait_for_url(re.compile(rf"/yard/zones/{zone['id']}$"))
     row = page.locator(".bed-row", has_text="Herb planter")
     assert "Full sun" in row.inner_text() and "1 note" in row.inner_text()
+
+
+def test_edible_form_bed_picker(logged_in, db):
+    page = logged_in
+    page.api.post("/garden/new", data={"plant_name": "Peas", "zone_name": "Middle North", "location_name": "Pea trellis"})
+    zone = db.one("SELECT id FROM yard_zones")
+    page.api.post(f"/yard/zones/{zone['id']}/beds", data={"name": "Raised bed 1"})
+    bed = db.one("SELECT id FROM yard_beds WHERE name = 'Raised bed 1'")
+    page.api.post(f"/yard/beds/{bed['id']}/edit", data={"name": "Raised bed 1", "bed_type": "raised_bed"})
+
+    page.goto("/garden/new")
+    assert page.locator("#bed-select").is_hidden(), "no zone yet: free-text location"
+    assert page.locator("#loc-name-input").is_visible()
+    page.fill("input[name=plant_name]", "Leeks")
+    page.click("#zone-name-input")
+    page.locator("#zone-name-dropdown li", has_text="Middle North").click()
+    assert page.locator("#bed-select").is_visible()
+    options = page.locator("#bed-select option").all_inner_texts()
+    assert options == ["No bed", "Pea trellis", "Raised bed 1", "+ New bed…"]
+    assert page.locator("#loc-name-input").is_hidden()
+
+    page.select_option("#bed-select", "Raised bed 1")
+    assert page.input_value("select[name=location_type]") == "raised_bed", "bed type fills an empty location type"
+    with page.expect_navigation():
+        page.click("button:has-text('Save to Edibles')")
+    assert db.one("SELECT location_name FROM garden_entries WHERE plant_name = 'Leeks'")["location_name"] == "Raised bed 1"
+
+    page.goto("/garden/new")
+    page.fill("input[name=plant_name]", "Chard")
+    page.click("#zone-name-input")
+    page.locator("#zone-name-dropdown li", has_text="Middle North").click()
+    page.select_option("#bed-select", "__new")
+    assert page.locator("#loc-name-input").is_visible()
+    page.fill("#loc-name-input", "Chard bed")
+    with page.expect_navigation():
+        page.click("button:has-text('Save to Edibles')")
+    assert db.one("SELECT location_name FROM garden_entries WHERE plant_name = 'Chard'")["location_name"] == "Chard bed"
+
+    entry = db.one("SELECT id FROM garden_entries WHERE plant_name = 'Leeks'")
+    page.goto(f"/garden/{entry['id']}/edit")
+    assert page.input_value("#bed-select") == "Raised bed 1", "edit form preselects the plant's bed"
+
+
+def test_ornamental_page_bed_picker_saves_on_change(logged_in, db):
+    page = logged_in
+    page.api.post("/yard/zones/new", data={"name": "Front yard"})
+    zone = db.one("SELECT id FROM yard_zones")
+    page.api.post(f"/yard/zones/{zone['id']}/beds", data={"name": "Front pots"})
+    page.api.post("/yard/plants/new", data={"zone_id": zone["id"], "plant_name": "Lavender"})
+    lib = db.one("SELECT id FROM plants WHERE name = 'Lavender'")
+    bed = db.one("SELECT id FROM yard_beds")
+
+    page.goto(f"/ideas/{lib['id']}")
+    with page.expect_navigation():
+        page.select_option(".pz-bed-select", str(bed["id"]))
+    assert db.one("SELECT bed_id FROM yard_plants")["bed_id"] == bed["id"]
+    assert page.input_value(".pz-bed-select") == str(bed["id"])
+
+    page.select_option(".pz-bed-select", "__new")
+    page.fill(".pz-bed-new input", "Window box")
+    with page.expect_navigation():
+        page.click(".pz-bed-new button")
+    assert db.one("SELECT b.name FROM yard_plants yp JOIN yard_beds b ON b.id = yp.bed_id")["name"] == "Window box"
+
+
+def test_add_ornamental_from_yard_offers_zone_beds(logged_in, db):
+    page = logged_in
+    page.api.post("/yard/zones/new", data={"name": "Front yard"})
+    page.api.post("/yard/zones/new", data={"name": "Back yard"})
+    front = db.one("SELECT id FROM yard_zones WHERE name = 'Front yard'")
+    back = db.one("SELECT id FROM yard_zones WHERE name = 'Back yard'")
+    page.api.post(f"/yard/zones/{front['id']}/beds", data={"name": "Front pots"})
+
+    page.goto(f"/yard/plants/new?zone_id={front['id']}")
+    page.wait_for_load_state("networkidle")
+    zone_sel = page.locator('#common-fields select[name="zone_id"]')
+    if page.locator("#common-fields").is_hidden():
+        page.evaluate("document.getElementById('common-fields').hidden = false")
+    assert page.locator("#yard-bed-field").is_visible()
+    assert page.locator("#yard-bed-select option").all_inner_texts() == ["No bed", "Front pots", "+ New bed…"]
+    zone_sel.select_option(str(back["id"]))
+    assert page.locator("#yard-bed-select option").all_inner_texts() == ["No bed", "+ New bed…"]
+    page.select_option("#yard-bed-select", "__new")
+    assert page.locator("#yard-bed-new input").is_visible()

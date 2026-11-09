@@ -95,6 +95,7 @@
       <span style="flex:1;min-width:0">
         <span class="bed-row-name">{{ bed.name }}</span>
         <span class="bed-row-meta">
+          {%- if bed.bed_type %}{{ type_options.get(bed.bed_type, bed.bed_type) }} · {% endif -%}
           {%- if bed.sun_exposure %}{{ sun_options.get(bed.sun_exposure, bed.sun_exposure) }} · {% endif -%}
           {{ bed.plant_count }} plant{% if bed.plant_count != 1 %}s{% endif %}
           {%- if bed.note_count %} · {{ bed.note_count }} note{% if bed.note_count != 1 %}s{% endif %}{% endif -%}
@@ -124,7 +125,7 @@
   </section>
 
   {% set filter_beds = beds | selectattr('plant_count') | list %}
-  {% set no_bed_count = (plants | length) + (garden_entries | rejectattr('location_name') | list | length) %}
+  {% set no_bed_count = (plants | rejectattr('bed_name') | list | length) + (garden_entries | rejectattr('location_name') | list | length) %}
   {% if filter_beds %}
   <div id="bed-filter" class="bed-filter" role="group" aria-label="Show plants in">
     <button type="button" class="bed-chip" data-bed="__all" aria-pressed="true">All</button>
@@ -144,7 +145,7 @@
       {% for plant in plants %}
         {% set lib_thumb = plant.lib_photo_urls | first_photo %}
         {% set thumb = lib_thumb or (plant.lib_image_path | media_url if plant.lib_image_path else None) or plant.lib_image_url or (plant.image_path | media_url if plant.image_path else None) %}
-        <article class="card" style="position:relative" data-bed="">
+        <article class="card" style="position:relative" data-bed="{{ (plant.bed_name or '') | lower }}">
           {% if plant.lib_plant_id %}
             <a href="{{ url_for('idea_detail', plant_id=plant.lib_plant_id, zone_id=zone.id) }}" class="card-link">
           {% endif %}
@@ -174,6 +175,7 @@
               </span>
             {% endif %}
             <p>{{ plant.scientific_name or "" }}</p>
+            {% if plant.bed_name %}<p class="muted" style="font-size:0.82rem">{{ plant.bed_name }}</p>{% endif %}
             <p class="muted">{{ plant.sun_needs or "" }}{% if plant.sun_needs and plant.lifecycle %} · {% endif %}{{ plant.lifecycle or "" }}</p>
             {% if plant.notes %}<p class="muted" style="font-size:0.8rem;margin-top:4px">{{ plant.notes }}</p>{% endif %}
             {% if plant.user_id != current_user.id %}

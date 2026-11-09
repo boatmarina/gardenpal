@@ -45,8 +45,9 @@
       </label>
       {% endif %}
       <label>
-        Location name
-        <div style="position:relative">
+        Bed / location
+        <select id="bed-select" hidden data-zone-beds='{{ (zone_beds or {}) | tojson }}'></select>
+        <div style="position:relative" id="loc-name-wrap">
           <input id="loc-name-input" type="text" name="location_name"
                  value="{{ form_values.location_name or '' }}"
                  placeholder="e.g. North bed, big pot on deck…"
@@ -106,7 +107,10 @@
     matches.forEach(function(zone) {
       var li = document.createElement('li');
       li.textContent = zone.name;
-      function pick() { inp.value = zone.name; if (hiddenId) hiddenId.value = zone.id; dropdown.hidden = true; }
+      function pick() {
+        inp.value = zone.name; dropdown.hidden = true;
+        if (hiddenId) { hiddenId.value = zone.id; hiddenId.dispatchEvent(new Event('change')); }
+      }
       li.addEventListener('mousedown', function(e) { e.preventDefault(); pick(); });
       li.addEventListener('touchstart', function(e) { e.preventDefault(); pick(); inp.blur(); });
       dropdown.appendChild(li);
@@ -114,7 +118,10 @@
     dropdown.hidden = false;
   }
   inp.addEventListener('focus', function() { show(inp.value); });
-  inp.addEventListener('input', function() { if (hiddenId) hiddenId.value = ''; show(inp.value); });
+  inp.addEventListener('input', function() {
+    if (hiddenId && hiddenId.value) { hiddenId.value = ''; hiddenId.dispatchEvent(new Event('change')); }
+    show(inp.value);
+  });
   inp.addEventListener('blur', function() { setTimeout(function() { dropdown.hidden = true; }, 200); });
   inp.addEventListener('keydown', function(e) { if (e.key === 'Escape') dropdown.hidden = true; });
 })();
@@ -143,6 +150,44 @@
   inp.addEventListener('blur', function() { setTimeout(function() { dropdown.hidden = true; }, 200); });
   inp.addEventListener('keydown', function(e) { if (e.key === 'Escape') dropdown.hidden = true; });
 })();
+document.addEventListener('DOMContentLoaded', function() {
+  // Once a zone is chosen, offer that zone's beds as a list, with "+ New bed…" for a new one.
+  // (Runs after DOMContentLoaded: garden.js is deferred, so GP isn't ready before then.)
+  var sel = document.getElementById('bed-select');
+  var inp = document.getElementById('loc-name-input');
+  var wrap = document.getElementById('loc-name-wrap');
+  var zoneInp = document.getElementById('zone-name-input');
+  var zoneHidden = document.getElementById('zone-id-hidden');
+  var typeSel = document.querySelector('select[name="location_type"]');
+  if (!sel || !inp || !wrap) return;
+  var bedsByZone = {}, zones = [];
+  try { bedsByZone = JSON.parse(sel.dataset.zoneBeds || '{}'); } catch(e) {}
+  try { zones = JSON.parse((zoneInp && zoneInp.dataset.zones) || '[]'); } catch(e) {}
+  var picker = GP.bedPicker(sel, inp, {
+    textWrap: wrap, mirrorToText: true, freeTextWithoutBeds: true,
+    onChange: function(bed) {
+      if (bed && bed.type && typeSel && !typeSel.value) typeSel.value = bed.type;
+    }
+  });
+  function zoneId() {
+    if (zoneHidden && zoneHidden.value) return String(zoneHidden.value);
+    var name = ((zoneInp && zoneInp.value) || '').trim().toLowerCase();
+    var z = zones.filter(function(z) { return z.name.toLowerCase() === name; })[0];
+    return z ? String(z.id) : '';
+  }
+  var lastZone = zoneId();
+  function refresh() {
+    var z = zoneId();
+    if (z === lastZone && !sel.hidden) return;
+    // Moving to another zone: keep a typed name, but don't carry over a bed picked from the old zone.
+    var keep = sel.hidden || sel.value === '__new' ? inp.value : '';
+    lastZone = z;
+    picker.setBeds(bedsByZone[z] || [], keep);
+  }
+  if (zoneHidden) zoneHidden.addEventListener('change', refresh);
+  if (zoneInp) zoneInp.addEventListener('blur', function() { setTimeout(refresh, 250); });
+  picker.setBeds(bedsByZone[lastZone] || [], inp.value);
+});
 document.addEventListener('DOMContentLoaded', function() {
   var nameInp = document.getElementById('plant-name-input');
   if (!nameInp) return;

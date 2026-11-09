@@ -480,8 +480,19 @@
 
     <!-- Notes or empty state -->
     <div id="growth-log-entries">
-    {% if photos %}
-      {% for photo in photos %}
+    {% for item in log_items %}
+      {% if item.kind == 'bed' %}
+      <div style="border-top:1px solid var(--border)" data-date="{{ item.date }}" class="bed-note-in-log">
+        <div style="padding:10px 14px;padding-top:12px">
+          <p style="font-size:0.82rem;font-weight:600;margin-bottom:2px">
+            {{ item.date | month_day if item.date }}
+            <a href="{{ url_for('yard_bed_detail', bed_id=item.bed_id) }}" class="bed-note-tag">Bed note · {{ item.bed_name }}</a>
+          </p>
+          <p style="font-size:0.8rem;color:var(--muted)">{{ item.notes }}</p>
+        </div>
+      </div>
+      {% else %}
+      {% set photo = item.photo %}
       <div style="border-top:1px solid var(--border)" data-date="{{ photo.photo_date or '' }}">
         {% if photo.image_path %}
         <img src="{{ photo.image_path | media_url }}" alt="{{ entry.plant_name }}"
@@ -501,8 +512,8 @@
           <p style="font-size:0.8rem;color:var(--muted)">{{ photo.notes or '' }}</p>
         </div>
       </div>
-      {% endfor %}
-    {% endif %}
+      {% endif %}
+    {% endfor %}
     </div>
 
 
