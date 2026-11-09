@@ -84,12 +84,67 @@
   </button>
   {% endif %}
 
-  <section class="cards">
+  {% if feature_garden_zones %}
+  <section class="panel" id="zone-beds" style="padding:0;overflow:hidden;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:7px;padding:12px 16px">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0"><rect x="3" y="10" width="18" height="10" rx="2"/><path d="M7 10V7M12 10V5M17 10V7"/></svg>
+      <span style="font-size:0.65rem;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;color:var(--muted)">Beds &amp; containers</span>
+    </div>
+    {% for bed in beds %}
+    <a href="{{ url_for('yard_bed_detail', bed_id=bed.id) }}" class="bed-row">
+      <span style="flex:1;min-width:0">
+        <span class="bed-row-name">{{ bed.name }}</span>
+        <span class="bed-row-meta">
+          {%- if bed.sun_exposure %}{{ sun_options.get(bed.sun_exposure, bed.sun_exposure) }} · {% endif -%}
+          {{ bed.plant_count }} plant{% if bed.plant_count != 1 %}s{% endif %}
+          {%- if bed.note_count %} · {{ bed.note_count }} note{% if bed.note_count != 1 %}s{% endif %}{% endif -%}
+        </span>
+      </span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0"><path d="M9 6l6 6-6 6"/></svg>
+    </a>
+    {% else %}
+    <p style="border-top:1px solid var(--border);padding:12px 16px;margin:0;font-size:0.82rem;color:var(--muted)">
+      Add the beds, containers or rows in this zone to keep track of sun, soil and notes for each one.
+    </p>
+    {% endfor %}
+    <div style="border-top:1px solid var(--border);padding:10px 16px 12px">
+      <button type="button" id="bed-add-toggle" class="bed-add-toggle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add a bed or container
+      </button>
+      <form id="bed-add-form" hidden method="post" action="{{ url_for('yard_bed_new', zone_id=zone.id) }}"
+            style="display:flex;gap:8px;align-items:center">
+        <input type="text" name="name" id="bed-add-name" required maxlength="{{ bed_name_max }}"
+               placeholder="e.g. Raised bed 1, Herb pot" style="flex:1;min-width:0" />
+        <button type="submit" class="button" style="font-size:0.8rem;padding:8px 14px">Add</button>
+        <button type="button" id="bed-add-cancel"
+                style="background:none;border:none;padding:4px;cursor:pointer;font-family:inherit;font-size:0.8rem;color:var(--muted);text-decoration:underline;text-underline-offset:2px">Cancel</button>
+      </form>
+    </div>
+  </section>
+
+  {% set filter_beds = beds | selectattr('plant_count') | list %}
+  {% set no_bed_count = (plants | length) + (garden_entries | rejectattr('location_name') | list | length) %}
+  {% if filter_beds %}
+  <div id="bed-filter" class="bed-filter" role="group" aria-label="Show plants in">
+    <button type="button" class="bed-chip" data-bed="__all" aria-pressed="true">All</button>
+    {% for bed in filter_beds %}
+    <button type="button" class="bed-chip" data-bed="{{ bed.name | lower }}" aria-pressed="false">{{ bed.name }} <span class="bed-chip-count">{{ bed.plant_count }}</span></button>
+    {% endfor %}
+    {% if no_bed_count %}
+    <button type="button" class="bed-chip" data-bed="__none" aria-pressed="false">No bed <span class="bed-chip-count">{{ no_bed_count }}</span></button>
+    {% endif %}
+  </div>
+  <p id="bed-filter-empty" class="empty" hidden>No plants here.</p>
+  {% endif %}
+  {% endif %}
+
+  <section class="cards" id="zone-ornamentals">
     {% if plants %}
       {% for plant in plants %}
         {% set lib_thumb = plant.lib_photo_urls | first_photo %}
         {% set thumb = lib_thumb or (plant.lib_image_path | media_url if plant.lib_image_path else None) or plant.lib_image_url or (plant.image_path | media_url if plant.image_path else None) %}
-        <article class="card" style="position:relative">
+        <article class="card" style="position:relative" data-bed="">
           {% if plant.lib_plant_id %}
             <a href="{{ url_for('idea_detail', plant_id=plant.lib_plant_id, zone_id=zone.id) }}" class="card-link">
           {% endif %}
@@ -159,10 +214,11 @@
   </section>
 
   {% if feature_garden_zones and garden_entries %}
+  <div id="zone-edibles">
   <p style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px">Edibles</p>
   <section class="cards">
     {% for ge in garden_entries %}
-    <article class="card" style="position:relative">
+    <article class="card" style="position:relative" data-bed="{{ (ge.location_name or '') | trim | lower }}">
       <a href="{{ url_for('garden_detail', entry_id=ge.id, from_zone=zone.id) }}" class="card-link">
       <div class="thumb" style="aspect-ratio:3/2">
         <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">
@@ -190,6 +246,7 @@
     </article>
     {% endfor %}
   </section>
+  </div>
   {% endif %}
 {% endblock %}
 
@@ -203,6 +260,49 @@
     toggle.addEventListener('click', function() { form.hidden = false; toggle.hidden = true; });
     cancel.addEventListener('click', function() { form.hidden = true;  toggle.hidden = false; });
   }
+})();
+
+(function() {
+  var toggle = document.getElementById('bed-add-toggle');
+  var form = document.getElementById('bed-add-form');
+  var cancel = document.getElementById('bed-add-cancel');
+  if (!toggle || !form) return;
+  toggle.addEventListener('click', function() {
+    form.hidden = false; toggle.hidden = true;
+    document.getElementById('bed-add-name').focus();
+  });
+  cancel.addEventListener('click', function() { form.hidden = true; toggle.hidden = false; });
+})();
+
+(function() {
+  var bar = document.getElementById('bed-filter');
+  if (!bar) return;
+  var chips = Array.prototype.slice.call(bar.querySelectorAll('.bed-chip'));
+  var cards = Array.prototype.slice.call(document.querySelectorAll('article.card[data-bed]'));
+  var groups = ['zone-ornamentals', 'zone-edibles'].map(function(id) { return document.getElementById(id); }).filter(Boolean);
+  var empty = document.getElementById('bed-filter-empty');
+
+  function apply(key) {
+    if (!chips.some(function(c) { return c.dataset.bed === key; })) key = '__all';
+    chips.forEach(function(c) { c.setAttribute('aria-pressed', c.dataset.bed === key ? 'true' : 'false'); });
+    var shown = 0;
+    cards.forEach(function(card) {
+      var bed = card.dataset.bed;
+      var show = key === '__all' || (key === '__none' ? bed === '' : bed === key);
+      card.hidden = !show;
+      if (show) shown++;
+    });
+    groups.forEach(function(g) { g.hidden = !g.querySelector('article.card[data-bed]:not([hidden])'); });
+    if (empty) empty.hidden = shown > 0;
+    try {
+      var url = new URL(window.location.href);
+      if (key === '__all') url.searchParams.delete('bed'); else url.searchParams.set('bed', key);
+      history.replaceState(null, '', url);
+    } catch (e) {}
+  }
+  chips.forEach(function(c) { c.addEventListener('click', function() { apply(c.dataset.bed); }); });
+  var initial = {{ selected_bed | tojson }};
+  if (initial) apply(initial);
 })();
 
 (function() {

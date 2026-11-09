@@ -293,8 +293,14 @@ def _log_ai_chat(db, user_id, username, context, user_message, plant_name=None):
 
 def create_app() -> Flask:
     # Newest first. Add a new entry at the top when releasing a feature.
-    # WHATS_NEW_VERSION must always equal WHATS_NEW_CHANGELOG[0]["version"].
+    # WHATS_NEW_VERSION is the newest published (non-draft) entry, so drafts never count as "seen".
     WHATS_NEW_CHANGELOG = [
+        {
+            "version": "2026-11-a",
+            "title": "Track the beds and containers in each zone",
+            "body": "Open any zone in the Yard tab to see its beds and containers. Record sun exposure, soil and amendments, and dated notes for each one, and filter the zone's plants by bed. Your garden assistant uses these details when you ask about plants in that bed.",
+            "draft": True,
+        },
         {
             "version": "2026-09-a",
             "title": "Garden tips, updated throughout the season",
@@ -352,7 +358,7 @@ def create_app() -> Flask:
             "admin_only": True,
         },
     ]
-    WHATS_NEW_VERSION = WHATS_NEW_CHANGELOG[0]["version"]
+    WHATS_NEW_VERSION = next(e["version"] for e in WHATS_NEW_CHANGELOG if not e.get("draft"))
 
     app = Flask(__name__, instance_relative_config=True)
     upload_dir = Path("/tmp/gardenpal/uploads") if os.environ.get("VERCEL") else Path(app.instance_path) / "uploads"
@@ -1883,11 +1889,15 @@ self.addEventListener('fetch', function(e) {
                 plant_pill_map[_p["id"]] = _fert_pill_date(_p, today)
             for _ge in garden_entries:
                 ge_pill_map[_ge["id"]] = _fert_pill_date(_ge, today)
+        _ensure_zone_beds(db, zone)
+        beds = _zone_beds(db, zone_id)
         return render_template("yard_zone_detail.html", zone=zone, plants=plants, tags_map=tags_map,
                                shared_names=shared_names, feature_garden_zones=feature_gz,
                                garden_entries=garden_entries, ff_water=ff_water, ff_fert=ff_fert,
                                today=today, water_deadline=water_deadline, fert_deadline=fert_deadline,
-                               plant_pill_map=plant_pill_map, ge_pill_map=ge_pill_map)
+                               plant_pill_map=plant_pill_map, ge_pill_map=ge_pill_map,
+                               beds=beds, sun_options=BED_SUN_OPTIONS, bed_name_max=BED_NAME_MAX,
+                               selected_bed=(request.args.get("bed") or "").strip().lower())
 
     @app.route("/yard/zones/<int:zone_id>/add-edible")
     @login_required
@@ -1906,6 +1916,153 @@ self.addEventListener('fetch', function(e) {
             [zone_id] + id_args,
         ).fetchall()
         return render_template("yard_zone_add_edible.html", zone=zone, all_entries=all_entries)
+
+    @app.route("/yard/zones/<int:zone_id>/beds", methods=["POST"])
+    @login_required
+    def yard_bed_new(zone_id: int):
+        db = get_db()
+        ph, id_args = _in_ids(_shared_user_ids(db, g.user["id"]))
+        zone = db.execute(f"SELECT * FROM yard_zones WHERE id = ? AND user_id IN {ph}", [zone_id] + id_args).fetchone()
+        if zone is None:
+            flash("Yard zone not found.")
+            return redirect(url_for("yard_index"))
+        name = request.form.get("name", "").strip()
+        if not name:
+            flash("Bed name is required.")
+            return redirect(url_for("yard_zone_detail", zone_id=zone_id))
+        if len(name) > BED_NAME_MAX:
+            flash(f"Bed names can be up to {BED_NAME_MAX} characters.")
+            return redirect(url_for("yard_zone_detail", zone_id=zone_id))
+        existing = db.execute(
+            "SELECT id FROM yard_beds WHERE zone_id = ? AND lower(name) = lower(?)", (zone_id, name)
+        ).fetchone()
+        if existing:
+            flash(f"{name} is already in this zone.")
+            return redirect(url_for("yard_bed_detail", bed_id=existing["id"]))
+        row = db.execute(
+            "INSERT INTO yard_beds (zone_id, user_id, name, created_at) VALUES (?, ?, ?, ?) RETURNING id",
+            (zone_id, zone["user_id"], name, datetime.utcnow().isoformat(timespec="seconds")),
+        ).fetchone()
+        _log_activity(db, g.user["id"], "bed_added", f"{name} ({zone['name']})")
+        db.commit()
+        return redirect(url_for("yard_bed_detail", bed_id=row["id"]))
+
+    @app.route("/yard/beds/<int:bed_id>")
+    @login_required
+    def yard_bed_detail(bed_id: int):
+        db = get_db()
+        bed = _get_bed(db, bed_id)
+        if bed is None:
+            flash("Bed not found.")
+            return redirect(url_for("yard_index"))
+        plants = db.execute(
+            "SELECT id, plant_name, variety, planted_date, done_for_season FROM garden_entries"
+            " WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?) ORDER BY plant_name ASC",
+            (bed["zone_id"], bed["name"]),
+        ).fetchall()
+        notes = db.execute(
+            "SELECT n.*, u.username FROM yard_bed_notes n JOIN users u ON u.id = n.user_id"
+            " WHERE n.bed_id = ? ORDER BY n.note_date DESC NULLS LAST, n.created_at DESC",
+            (bed_id,),
+        ).fetchall()
+        return render_template("yard_bed_detail.html", bed=bed, plants=plants, notes=notes,
+                               sun_options=BED_SUN_OPTIONS, today=_local_today(), name_max=BED_NAME_MAX)
+
+    @app.route("/yard/beds/<int:bed_id>/edit", methods=["POST"])
+    @login_required
+    def yard_bed_edit(bed_id: int):
+        db = get_db()
+        bed = _get_bed(db, bed_id)
+        if bed is None:
+            flash("Bed not found.")
+            return redirect(url_for("yard_index"))
+        name = request.form.get("name", "").strip()
+        sun = request.form.get("sun_exposure", "").strip() or None
+        soil = request.form.get("soil_notes", "").strip() or None
+        if not name:
+            flash("Bed name is required.")
+            return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+        if len(name) > BED_NAME_MAX:
+            flash(f"Bed names can be up to {BED_NAME_MAX} characters.")
+            return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+        if sun is not None and sun not in BED_SUN_OPTIONS:
+            sun = bed["sun_exposure"]
+        if name.lower() != bed["name"].lower():
+            clash = db.execute(
+                "SELECT id FROM yard_beds WHERE zone_id = ? AND lower(name) = lower(?) AND id != ?",
+                (bed["zone_id"], name, bed_id),
+            ).fetchone()
+            if clash:
+                flash(f"There's already a bed called {name} in this zone.")
+                return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+        if name != bed["name"]:
+            # Plants link to a bed by name, so carry them over to the new name.
+            db.execute(
+                "UPDATE garden_entries SET location_name = ? WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?)",
+                (name, bed["zone_id"], bed["name"]),
+            )
+        db.execute(
+            "UPDATE yard_beds SET name = ?, sun_exposure = ?, soil_notes = ?, updated_at = ? WHERE id = ?",
+            (name, sun, soil, datetime.utcnow().isoformat(timespec="seconds"), bed_id),
+        )
+        _log_activity(db, g.user["id"], "bed_updated", name)
+        db.commit()
+        flash("Bed updated.")
+        return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+
+    @app.route("/yard/beds/<int:bed_id>/notes", methods=["POST"])
+    @login_required
+    def yard_bed_add_note(bed_id: int):
+        db = get_db()
+        bed = _get_bed(db, bed_id)
+        if bed is None:
+            flash("Bed not found.")
+            return redirect(url_for("yard_index"))
+        notes = request.form.get("notes", "").strip()
+        if not notes:
+            flash("Write a note first.")
+            return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+        raw_date = request.form.get("note_date", "").strip()
+        note_date = raw_date if _ISO_DATE_RE.match(raw_date) else _local_today()
+        db.execute(
+            "INSERT INTO yard_bed_notes (bed_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+            (bed_id, g.user["id"], note_date, notes, datetime.utcnow().isoformat(timespec="seconds")),
+        )
+        _log_activity(db, g.user["id"], "bed_note_added", bed["name"])
+        db.commit()
+        return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+
+    @app.route("/yard/bed-notes/<int:note_id>/delete", methods=["POST"])
+    @login_required
+    def yard_bed_note_delete(note_id: int):
+        db = get_db()
+        note = db.execute("SELECT id, bed_id FROM yard_bed_notes WHERE id = ?", (note_id,)).fetchone()
+        if note is None or _get_bed(db, note["bed_id"]) is None:
+            flash("Note not found.")
+            return redirect(url_for("yard_index"))
+        db.execute("DELETE FROM yard_bed_notes WHERE id = ?", (note_id,))
+        db.commit()
+        return redirect(url_for("yard_bed_detail", bed_id=note["bed_id"]))
+
+    @app.route("/yard/beds/<int:bed_id>/delete", methods=["POST"])
+    @login_required
+    def yard_bed_delete(bed_id: int):
+        db = get_db()
+        bed = _get_bed(db, bed_id)
+        if bed is None:
+            flash("Bed not found.")
+            return redirect(url_for("yard_index"))
+        in_use = db.execute(
+            "SELECT COUNT(*) AS n FROM garden_entries WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?)",
+            (bed["zone_id"], bed["name"]),
+        ).fetchone()["n"]
+        if in_use:
+            flash(f"{bed['name']} still has {in_use} plant{'s' if in_use != 1 else ''} — move them to another bed first.")
+            return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+        db.execute("DELETE FROM yard_beds WHERE id = ?", (bed_id,))
+        db.commit()
+        flash(f"{bed['name']} deleted.")
+        return redirect(url_for("yard_zone_detail", zone_id=bed["zone_id"]))
 
     @app.route("/yard/plants/new", methods=["GET", "POST"])
     @login_required
@@ -2360,6 +2517,87 @@ self.addEventListener('fetch', function(e) {
             return {"error": "; ".join(problems)}
         return {"ok": True, "updated": updated, "skipped": problems}
 
+    # ── Beds / containers inside yard zones ──────────────────────────────────
+    # An edible is "in" a bed when its zone matches and its location_name matches the bed name
+    # (trimmed, case-insensitive). Bed rows hold the extra details and notes.
+    BED_SUN_OPTIONS = {"full_sun": "Full sun", "part_sun": "Part sun", "shade": "Shade"}
+    BED_NAME_MAX = 80
+
+    def _ensure_zone_beds(db, zone):
+        """Create bed rows for bed names already used by edibles in this zone."""
+        rows = db.execute(
+            "SELECT DISTINCT TRIM(location_name) AS name FROM garden_entries"
+            " WHERE zone_id = ? AND location_name IS NOT NULL AND TRIM(location_name) != ''",
+            (zone["id"],),
+        ).fetchall()
+        now = datetime.utcnow().isoformat(timespec="seconds")
+        for r in rows:
+            db.execute(
+                "INSERT INTO yard_beds (zone_id, user_id, name, created_at) VALUES (?, ?, ?, ?)"
+                " ON CONFLICT (zone_id, lower(name)) DO NOTHING",
+                (zone["id"], zone["user_id"], r["name"][:BED_NAME_MAX], now),
+            )
+        db.commit()
+
+    def _zone_beds(db, zone_id):
+        return db.execute(
+            "SELECT b.*,"
+            " (SELECT COUNT(*) FROM garden_entries ge WHERE ge.zone_id = b.zone_id"
+            "    AND lower(TRIM(ge.location_name)) = lower(b.name)) AS plant_count,"
+            " (SELECT COUNT(*) FROM yard_bed_notes n WHERE n.bed_id = b.id) AS note_count"
+            " FROM yard_beds b WHERE b.zone_id = ? ORDER BY lower(b.name)",
+            (zone_id,),
+        ).fetchall()
+
+    def _get_bed(db, bed_id):
+        """The bed if the current user (or their garden partner) owns its zone, else None."""
+        ph, id_args = _in_ids(_shared_user_ids(db, g.user["id"]))
+        return db.execute(
+            f"SELECT b.*, z.name AS zone_name FROM yard_beds b JOIN yard_zones z ON z.id = b.zone_id"
+            f" WHERE b.id = ? AND z.user_id IN {ph}",
+            [bed_id] + id_args,
+        ).fetchone()
+
+    def _bed_summary(db, bed, max_notes=5):
+        """One line describing a bed for the AI assistants, or None if it has no details."""
+        parts = []
+        if bed["sun_exposure"]:
+            parts.append(BED_SUN_OPTIONS.get(bed["sun_exposure"], bed["sun_exposure"]))
+        if bed["soil_notes"]:
+            parts.append(f"soil/amendments: {bed['soil_notes']}")
+        notes = db.execute(
+            "SELECT note_date, notes FROM yard_bed_notes WHERE bed_id = ?"
+            " ORDER BY note_date DESC NULLS LAST, created_at DESC LIMIT ?",
+            (bed["id"], max_notes),
+        ).fetchall()
+        if notes:
+            parts.append("bed notes: " + "; ".join(
+                (f"({n['note_date']}) " if n["note_date"] else "") + n["notes"] for n in notes))
+        return "; ".join(parts) or None
+
+    def _beds_context_text(db, owner_ids):
+        """Beds with any recorded details, for the garden-wide assistants."""
+        ph, args = _in_ids(owner_ids)
+        beds = db.execute(
+            f"SELECT b.*, z.name AS zone_name FROM yard_beds b JOIN yard_zones z ON z.id = b.zone_id"
+            f" WHERE z.user_id IN {ph} ORDER BY lower(z.name), lower(b.name)",
+            args,
+        ).fetchall()
+        lines = []
+        for b in beds:
+            summary = _bed_summary(db, b, max_notes=3)
+            if summary:
+                lines.append(f"  - {b['name']} (zone {b['zone_name']}): {summary}")
+        return "\n".join(lines)
+
+    def _bed_for_entry(db, entry):
+        if not entry["zone_id"] or not (entry["location_name"] or "").strip():
+            return None
+        return db.execute(
+            "SELECT * FROM yard_beds WHERE zone_id = ? AND lower(name) = lower(?)",
+            (entry["zone_id"], entry["location_name"].strip()),
+        ).fetchone()
+
     def _shared_user_names(db, user_id):
         """Return {partner_user_id: username} for all confirmed garden-share partners."""
         rows = db.execute(
@@ -2740,12 +2978,19 @@ self.addEventListener('fetch', function(e) {
                 " WHERE al.action IN ('diary_opened', 'diary_print')"
                 " ORDER BY al.logged_at DESC LIMIT 200"
             ).fetchall()
+            bed_activity = db.execute(
+                "SELECT al.action, al.item_name, al.logged_at, u.username"
+                " FROM activity_log al JOIN users u ON u.id = al.user_id"
+                " WHERE al.action IN ('bed_added', 'bed_updated', 'bed_note_added')"
+                " ORDER BY al.logged_at DESC LIMIT 200"
+            ).fetchall()
         else:
             ai_chat_entries = []
             suggestion_adds = []
             app_error_log = []
             care_activity = []
             diary_activity = []
+            bed_activity = []
         uid = g.user["id"]
         share_rows = db.execute(
             "SELECT gs.id, gs.confirmed, gs.requested_by, u.username AS partner_name "
@@ -2763,6 +3008,7 @@ self.addEventListener('fetch', function(e) {
                                app_error_log=app_error_log,
                                care_activity=care_activity,
                                diary_activity=diary_activity,
+                               bed_activity=bed_activity,
                                ai_chat_entries=ai_chat_entries,
                                suggestion_adds=suggestion_adds,
                                garden_shares=garden_shares,
@@ -4816,6 +5062,11 @@ self.addEventListener('fetch', function(e) {
         if entry["location_name"]: lines.append(f"Location name: {entry['location_name']}")
         if entry["zone_name"]:     lines.append(f"Yard zone: {entry['zone_name']}")
         if entry.get("zone_description"): lines.append(f"Zone notes: {entry['zone_description']}")
+        bed = _bed_for_entry(db, entry)
+        if bed:
+            bed_summary = _bed_summary(db, bed)
+            if bed_summary:
+                lines.append(f"Bed/container '{bed['name']}': {bed_summary}")
         if entry["planted_date"]:  lines.append(f"Planted: {entry['planted_date']}")
         if entry["notes"]:         lines.append(f"Entry notes: {entry['notes']}")
         lines.append("Status: done for the season" if entry["done_for_season"] else "Status: still growing")
@@ -5075,10 +5326,13 @@ self.addEventListener('fetch', function(e) {
             f"  - {z['name']} (ID {z['id']})" + (f": {z['description']}" if z.get("description") else "")
             for z in zones
         ) or "  (no zones yet)"
+        beds_text = _beds_context_text(db, ids)
         system = (
             f"You are a concise assistant for an edible garden tracker. Today is {today}.\n\n"
             f"Current garden entries (includes notes, log entries, location types, dates, and yard zone):\n{entries_text}\n\n"
             f"Available yard zones:\n{zones_text}\n\n"
+            + (f"Beds and containers (an entry is in a bed when its Location name matches the bed in the same zone):\n{beds_text}\n\n" if beds_text else "")
+            +
             "Answer questions using all the information provided above — notes and log entries contain details like "
             "soil amendments, fertilizers, observations, and other specifics the user has recorded. "
             "If the answer is in the notes or logs, use it. Only say you don't know something if it genuinely "
@@ -5985,11 +6239,13 @@ self.addEventListener('fetch', function(e) {
                 + "\n"
             )
 
+        beds_text = _beds_context_text(db, ids)
         system = (
             f"You are a comprehensive garden assistant for GardenPal. Today is {today}.\n"
             + (f"The user's location: {user_location}\n" if user_location else "")
             + f"\n=== EDIBLES (tracked plants) ===\n{edibles_text}\n"
             + f"\n=== YARD ZONES ===\n{zones_text}\n"
+            + (f"\n=== BEDS & CONTAINERS (an edible is in a bed when its Location matches the bed in the same zone) ===\n{beds_text}\n" if beds_text else "")
             + f"\n=== ORNAMENTALS (library + yard placements) ===\n{ornamentals_text}\n"
             + suggestion_text + "\n"
             "You can answer questions about any plant across both edibles and ornamentals. "
@@ -8033,6 +8289,39 @@ def init_db():
         pass
 
     db.commit()
+
+    # Beds / containers within yard zones — outside the fresh-db guard so existing databases get them.
+    # Edibles link to a bed by zone + location_name (case-insensitive), so no column on garden_entries.
+    try:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS yard_beds (
+                id SERIAL PRIMARY KEY,
+                zone_id INTEGER NOT NULL REFERENCES yard_zones (id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                sun_exposure TEXT,
+                soil_notes TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT
+            )
+        """)
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_yard_beds_zone_name ON yard_beds (zone_id, lower(name))")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS yard_bed_notes (
+                id SERIAL PRIMARY KEY,
+                bed_id INTEGER NOT NULL REFERENCES yard_beds (id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+                note_date TEXT,
+                notes TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS idx_yard_bed_notes_bed ON yard_bed_notes (bed_id)")
+        db.execute("ALTER TABLE yard_beds      ENABLE ROW LEVEL SECURITY")
+        db.execute("ALTER TABLE yard_bed_notes ENABLE ROW LEVEL SECURITY")
+        db.commit()
+    except Exception:
+        db.rollback()
 
     for category in DEFAULT_CATEGORIES:
         db.execute(

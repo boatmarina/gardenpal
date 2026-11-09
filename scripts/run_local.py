@@ -41,8 +41,11 @@ def seed():
     if b"Leeks" in c.get("/garden").data:
         return
     c.post("/yard/zones/new", data={"name": "Front Bed", "description": "Full sun"})
-    c.post("/garden/new", data={"plant_name": "Leeks", "variety": "Autumn Giant",
-                                "planted_date": "2026-06-01", "zone_name": "Middle North"})
+    c.post("/garden/new", data={"plant_name": "Leeks", "variety": "Autumn Giant", "planted_date": "2026-06-01",
+                                "zone_name": "Middle North", "location_name": "Raised bed 1"})
+    c.post("/garden/new", data={"plant_name": "Peas", "planted_date": "2026-04-20",
+                                "zone_name": "Middle North", "location_name": "Pea trellis"})
+    c.post("/garden/new", data={"plant_name": "Kale", "planted_date": "2026-05-02", "zone_name": "Middle North"})
     c.post("/garden/new", data={"plant_name": "Tomato", "variety": "Sungold", "planted_date": "2026-05-10"})
     with app.app_context():
         from gardenpal.web import get_db

@@ -204,3 +204,65 @@ def test_add_note_cancel_collapses_form(logged_in, db):
     assert page.locator("#garden-add-note-panel").is_hidden()
     assert toggle.is_visible()
     assert db.one("SELECT COUNT(*) AS n FROM garden_photos")["n"] == 1
+
+
+def test_zone_page_filters_plants_by_bed(logged_in, db):
+    page = logged_in
+    for name, bed in (("Peas", "Peas bed"), ("Snap peas", "Peas bed"), ("Kale", "Brassica bed"), ("Garlic", None)):
+        data = {"plant_name": name, "zone_name": "Middle North"}
+        if bed:
+            data["location_name"] = bed
+        page.api.post("/garden/new", data=data)
+    zone = db.one("SELECT id FROM yard_zones")
+    page.api.post("/yard/plants/new", data={"zone_id": zone["id"], "plant_name": "Lavender"})
+    page.goto(f"/yard/zones/{zone['id']}")
+
+    def visible_cards():
+        return sorted(t.splitlines()[0].strip() for t in page.locator("article.card:visible h3").all_inner_texts())
+
+    assert visible_cards() == ["Garlic", "Kale", "Lavender", "Peas", "Snap peas"]
+    page.click(".bed-chip[data-bed='peas bed']")
+    assert visible_cards() == ["Peas", "Snap peas"]
+    assert page.locator("#zone-ornamentals").is_hidden(), "ornamentals aren't in beds"
+    assert "bed=peas+bed" in page.url or "bed=peas%20bed" in page.url
+
+    page.click(".bed-chip[data-bed='__none']")
+    assert visible_cards() == ["Garlic", "Lavender"]
+
+    page.reload()  # the filter survives a reload via the URL
+    assert visible_cards() == ["Garlic", "Lavender"]
+    page.click(".bed-chip[data-bed='__all']")
+    assert len(visible_cards()) == 5
+
+
+def test_add_bed_then_record_details_and_notes(logged_in, db):
+    page = logged_in
+    page.api.post("/yard/zones/new", data={"name": "Back deck"})
+    zone = db.one("SELECT id FROM yard_zones")
+    page.goto(f"/yard/zones/{zone['id']}")
+    assert page.locator("#bed-add-form").is_hidden()
+    page.click("#bed-add-toggle")
+    page.fill("#bed-add-name", "Herb planter")
+    with page.expect_navigation():
+        page.click("#bed-add-form button[type=submit]")
+    assert re.search(r"/yard/beds/\d+$", page.url)
+
+    page.click("#bed-edit-toggle")
+    page.select_option("select[name=sun_exposure]", "full_sun")
+    page.fill("textarea[name=soil_notes]", "Potting mix + worm castings")
+    with page.expect_navigation():
+        page.click("#bed-edit-form button[type=submit]")
+    assert "Full sun" in page.inner_text("#bed-details")
+    assert "worm castings" in page.inner_text("#bed-details")
+
+    assert page.locator("#bed-note-form").is_hidden()
+    page.click("#bed-note-toggle")
+    page.fill("#bed-note-input", "Top-dressed with compost")
+    with page.expect_navigation():
+        page.click("#bed-note-form button[type=submit]")
+    assert "Top-dressed with compost" in page.inner_text("#bed-notes")
+
+    page.click(".back-btn")
+    page.wait_for_url(re.compile(rf"/yard/zones/{zone['id']}$"))
+    row = page.locator(".bed-row", has_text="Herb planter")
+    assert "Full sun" in row.inner_text() and "1 note" in row.inner_text()

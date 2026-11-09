@@ -374,6 +374,37 @@
     </section>
     {% endif %}
 
+    {% if bed_activity is defined %}
+    <section class="panel" style="margin-bottom:16px" id="admin-bed-activity">
+      <h2 style="margin-bottom:4px">Beds &amp; containers activity</h2>
+      <p class="muted" style="font-size:0.83rem;margin-bottom:14px">
+        Beds added, bed details edited, and bed notes added — last 200 entries.
+      </p>
+      {% if bed_activity %}
+        <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+          {% for row in bed_activity %}
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-md)">
+            {% if row.action == 'bed_added' %}
+            <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;white-space:nowrap;flex-shrink:0">＋ bed</span>
+            {% elif row.action == 'bed_note_added' %}
+            <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#FFF8E1;color:#8D6E00;border:1px solid #FFE082;white-space:nowrap;flex-shrink:0">📝 note</span>
+            {% else %}
+            <span style="font-size:0.68rem;font-weight:700;padding:1px 6px;border-radius:4px;background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;white-space:nowrap;flex-shrink:0">✎ details</span>
+            {% endif %}
+            <span style="font-size:0.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">{{ row.item_name }}</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto">
+              <span style="font-size:0.72rem;color:var(--muted);font-weight:600">{{ row.username }}</span>
+              <span style="font-size:0.72rem;color:var(--muted)">{{ row.logged_at[:16].replace('T', ' ') }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="font-size:0.83rem;color:var(--muted);text-align:center;padding:16px 0">No bed activity yet.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
     {% if perenual_log is defined %}
     <section class="panel" style="margin-bottom:16px">
       <h2 style="margin-bottom:4px">Perenual usage log</h2>
