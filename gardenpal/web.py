@@ -298,7 +298,7 @@ def create_app() -> Flask:
         {
             "version": "2026-11-a",
             "title": "Track the beds and containers in each zone",
-            "body": "Open any zone in the Yard tab to see its beds and containers. Record the type, size, sun exposure, soil and amendments for each one, and add dated notes that also show up in the growth log of every plant in that bed. Pick a bed when adding a plant, filter a zone's plants by bed, and your garden assistant uses these details when you ask about plants there.",
+            "body": "Open any zone in the Yard tab to see its beds and containers. Record the type, size, sun exposure, soil and amendments for each one, and add dated notes that also show up in the growth log of every plant in that bed. Pick a bed when adding a plant and note the spot it sits in, filter a zone's plants by bed, and your garden assistant uses these details when you ask about plants there.",
             "draft": True,
         },
         {
@@ -1879,7 +1879,7 @@ self.addEventListener('fetch', function(e) {
         garden_entries = []
         if feature_gz:
             garden_entries = db.execute(
-                f"SELECT id, plant_name, variety, location_name, planted_date,"
+                f"SELECT id, plant_name, variety, location_name, bed_spot, planted_date,"
                 f"       next_watering_date, never_water,"
                 f"       next_fertilization_date, planned_fertilization_date, never_fertilize,"
                 f"       next_fertilization_generated_at,"
@@ -1969,10 +1969,23 @@ self.addEventListener('fetch', function(e) {
             flash("Bed not found.")
             return redirect(url_for("yard_index"))
         plants = db.execute(
-            "SELECT id, plant_name, variety, planted_date, done_for_season FROM garden_entries"
+            "SELECT id, plant_name, variety, planted_date, done_for_season, bed_spot FROM garden_entries"
             " WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?) ORDER BY plant_name ASC",
             (bed["zone_id"], bed["name"]),
         ).fetchall()
+        # Other beds in the zone this one could be merged into. A bed whose name this bed's name
+        # starts with ("Raised bed 1" for "Raised bed 1 – north end") is suggested first.
+        merge_targets = [
+            {"id": b["id"], "name": b["name"], "spot": _spot_from_bed_name(bed["name"], b["name"]),
+             "suggested": bed["name"].lower().startswith(b["name"].lower())}
+            for b in db.execute(
+                "SELECT id, name FROM yard_beds WHERE zone_id = ? AND id != ? ORDER BY lower(name)",
+                (bed["zone_id"], bed_id),
+            ).fetchall()
+        ]
+        suggested = max((t for t in merge_targets if t["suggested"]), key=lambda t: len(t["name"]), default=None)
+        for t in merge_targets:
+            t["suggested"] = t is suggested
         ornamentals = db.execute(
             "SELECT yp.id, yp.plant_name, yp.scientific_name, p.id AS lib_plant_id FROM yard_plants yp"
             " LEFT JOIN plants p ON p.name = yp.plant_name AND p.user_id = yp.user_id"
@@ -1985,6 +1998,7 @@ self.addEventListener('fetch', function(e) {
             (bed_id,),
         ).fetchall()
         return render_template("yard_bed_detail.html", bed=bed, plants=plants, ornamentals=ornamentals, notes=notes,
+                               merge_targets=merge_targets, spot_max=BED_SPOT_MAX,
                                sun_options=BED_SUN_OPTIONS, type_options=BED_TYPE_OPTIONS,
                                today=_local_today(), name_max=BED_NAME_MAX, size_max=BED_SIZE_MAX)
 
@@ -2091,6 +2105,61 @@ self.addEventListener('fetch', function(e) {
         db.commit()
         flash(f"{bed['name']} deleted.")
         return redirect(url_for("yard_zone_detail", zone_id=bed["zone_id"]))
+
+    def _spot_from_bed_name(old_name, target_name):
+        """Suggested 'spot in bed' text when old_name is merged into target_name: what's left of
+        the old name after the target's name ("Raised bed 1 – north end" → "north end"), else all of it."""
+        old, target = old_name.strip(), target_name.strip()
+        if target and old.lower().startswith(target.lower()):
+            rest = old[len(target):].strip(" \t-–—:,;/|()[]")
+            if rest:
+                return rest[:BED_SPOT_MAX]
+        return old[:BED_SPOT_MAX]
+
+    @app.route("/yard/beds/<int:bed_id>/merge", methods=["POST"])
+    @login_required
+    def yard_bed_merge(bed_id: int):
+        """Fold a bed into another bed of the same zone: its plants and notes move across, each
+        edible keeps a 'spot in bed' label, and the merged bed is removed."""
+        db = get_db()
+        bed = _get_bed(db, bed_id)
+        if bed is None:
+            flash("Bed not found.")
+            return redirect(url_for("yard_index"))
+        target_id = request.form.get("target_bed_id", type=int)
+        target = db.execute(
+            "SELECT * FROM yard_beds WHERE id = ? AND zone_id = ? AND id != ?", (target_id, bed["zone_id"], bed_id)
+        ).fetchone() if target_id else None
+        if target is None:
+            flash("Choose another bed in this zone to merge into.")
+            return redirect(url_for("yard_bed_detail", bed_id=bed_id))
+        if "spot" in request.form:
+            spot = request.form.get("spot", "").strip()[:BED_SPOT_MAX] or None
+        else:
+            spot = _spot_from_bed_name(bed["name"], target["name"])
+        moved = db.execute(
+            "UPDATE garden_entries SET location_name = ?,"
+            " bed_spot = CASE WHEN bed_spot IS NULL OR TRIM(bed_spot) = '' THEN ? ELSE bed_spot END"
+            " WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?) RETURNING id",
+            (target["name"], spot, bed["zone_id"], bed["name"]),
+        ).fetchall()
+        moved_orn = db.execute(
+            "UPDATE yard_plants SET bed_id = ? WHERE bed_id = ? RETURNING id", (target["id"], bed_id)
+        ).fetchall()
+        db.execute("UPDATE yard_bed_notes SET bed_id = ? WHERE bed_id = ?", (target["id"], bed_id))
+        # Keep any details the target doesn't have yet.
+        db.execute(
+            "UPDATE yard_beds SET sun_exposure = COALESCE(sun_exposure, ?), soil_notes = COALESCE(soil_notes, ?),"
+            " bed_type = COALESCE(bed_type, ?), size = COALESCE(size, ?), updated_at = ? WHERE id = ?",
+            (bed["sun_exposure"], bed["soil_notes"], bed["bed_type"], bed["size"],
+             datetime.utcnow().isoformat(timespec="seconds"), target["id"]),
+        )
+        db.execute("DELETE FROM yard_beds WHERE id = ?", (bed_id,))
+        _log_activity(db, g.user["id"], "bed_merged", f"{bed['name']} → {target['name']}")
+        db.commit()
+        n = len(moved) + len(moved_orn)
+        flash(f"Merged {bed['name']} into {target['name']}" + (f" — {n} plant{'s' if n != 1 else ''} moved." if n else "."))
+        return redirect(url_for("yard_bed_detail", bed_id=target["id"]))
 
     def _resolve_bed_choice(db, zone, choice, new_name):
         """Turn a bed picker value into (bed_id, error). '' = no bed, '<id>' = a bed in this zone,
@@ -2615,6 +2684,7 @@ self.addEventListener('fetch', function(e) {
                         "greenhouse": "Greenhouse", "grow_bag": "Grow bag", "other": "Other"}
     BED_NAME_MAX = 80
     BED_SIZE_MAX = 60
+    BED_SPOT_MAX = 80
 
     def _zone_beds_by_zone(db, zone_ids):
         """{zone_id: [bed names]} for bed pickers."""
@@ -2646,14 +2716,24 @@ self.addEventListener('fetch', function(e) {
         return out
 
     def _ensure_beds_for_zones(db, zone_ids):
-        """Create bed rows for bed names already used by edibles in these zones (one query)."""
+        """Keep bed rows in step with the bed names edibles use in these zones: create rows for
+        new names, and drop auto-created rows that are empty again and carry no details."""
         if not zone_ids:
             return
         ph, args = _in_ids([int(z) for z in zone_ids])
         db.execute(
-            f"INSERT INTO yard_beds (zone_id, user_id, name, created_at)"
+            f"DELETE FROM yard_beds b WHERE b.zone_id IN {ph} AND b.auto_created = 1"
+            f" AND b.sun_exposure IS NULL AND b.soil_notes IS NULL AND b.bed_type IS NULL AND b.size IS NULL"
+            f" AND NOT EXISTS (SELECT 1 FROM yard_bed_notes n WHERE n.bed_id = b.id)"
+            f" AND NOT EXISTS (SELECT 1 FROM yard_plants yp WHERE yp.bed_id = b.id)"
+            f" AND NOT EXISTS (SELECT 1 FROM garden_entries ge WHERE ge.zone_id = b.zone_id"
+            f"                 AND lower(TRIM(ge.location_name)) = lower(b.name))",
+            args,
+        )
+        db.execute(
+            f"INSERT INTO yard_beds (zone_id, user_id, name, created_at, auto_created)"
             f" SELECT DISTINCT ON (ge.zone_id, lower(TRIM(ge.location_name)))"
-            f"        ge.zone_id, z.user_id, left(TRIM(ge.location_name), {BED_NAME_MAX}), ?"
+            f"        ge.zone_id, z.user_id, left(TRIM(ge.location_name), {BED_NAME_MAX}), ?, 1"
             f" FROM garden_entries ge JOIN yard_zones z ON z.id = ge.zone_id"
             f" WHERE ge.zone_id IN {ph} AND ge.location_name IS NOT NULL AND TRIM(ge.location_name) != ''"
             # Same bed spelled differently ("Peas bed" / "peas BED"): keep the earliest plant's spelling.
@@ -3110,7 +3190,7 @@ self.addEventListener('fetch', function(e) {
             bed_activity = db.execute(
                 "SELECT al.action, al.item_name, al.logged_at, u.username"
                 " FROM activity_log al JOIN users u ON u.id = al.user_id"
-                " WHERE al.action IN ('bed_added', 'bed_updated', 'bed_note_added')"
+                " WHERE al.action IN ('bed_added', 'bed_updated', 'bed_note_added', 'bed_merged')"
                 " ORDER BY al.logged_at DESC LIMIT 200"
             ).fetchall()
         else:
@@ -3398,7 +3478,7 @@ self.addEventListener('fetch', function(e) {
         ph, id_args = _in_ids(ids)
         entries = db.execute(
             f"""
-            SELECT id, plant_name, variety, location_type, location_name,
+            SELECT id, plant_name, variety, location_type, location_name, bed_spot,
                    planted_date, planting_method, notes, created_at,
                    last_fertilized_date, last_fertilizer_type, next_fertilization_date,
                    last_watered_date, next_watering_date
@@ -3420,7 +3500,7 @@ self.addEventListener('fetch', function(e) {
         out = io.StringIO()
         w = csv.writer(out)
         w.writerow([
-            "Plant", "Variety", "Location Type", "Location Name",
+            "Plant", "Variety", "Location Type", "Location Name", "Spot in Bed",
             "Planted Date", "Planting Method", "Notes", "Growth Log",
             "Last Fertilized", "Fertilizer Type", "Next Fertilization Date",
             "Last Watered", "Next Watering Date",
@@ -3429,7 +3509,7 @@ self.addEventListener('fetch', function(e) {
         for e in entries:
             w.writerow([
                 e["plant_name"], e["variety"] or "",
-                e["location_type"] or "", e["location_name"] or "",
+                e["location_type"] or "", e["location_name"] or "", e["bed_spot"] or "",
                 str(e["planted_date"])[:10] if e["planted_date"] else "",
                 e["planting_method"] or "" if e["planting_method"] else "",
                 e["notes"] or "",
@@ -4012,8 +4092,8 @@ self.addEventListener('fetch', function(e) {
             now = datetime.utcnow().isoformat(timespec="seconds")
             entry_id = db.execute(
                 """INSERT INTO garden_entries
-                   (user_id, plant_name, variety, location_type, location_name, planted_date, planting_method, notes, zone_id, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+                   (user_id, plant_name, variety, location_type, location_name, planted_date, planting_method, notes, zone_id, created_at, updated_at, bed_spot)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
                 (
                     g.user["id"],
                     plant_name,
@@ -4025,6 +4105,7 @@ self.addEventListener('fetch', function(e) {
                     request.form.get("notes", "").strip() or None,
                     zone_id_to_save,
                     now, now,
+                    request.form.get("bed_spot", "").strip()[:BED_SPOT_MAX] or None,
                 ),
             ).fetchone()["id"]
             _log_activity(db, g.user["id"], "garden_entry_added", plant_name)
@@ -4422,11 +4503,13 @@ self.addEventListener('fetch', function(e) {
             never_fertilize = 1 if request.form.get("never_fertilize") else 0
             db.execute(
                 f"""UPDATE garden_entries
-                   SET plant_name = ?, variety = ?, location_type = ?, location_name = ?,
+                   SET bed_spot = ?, plant_name = ?, variety = ?, location_type = ?, location_name = ?,
                        planted_date = ?, planting_method = ?, notes = ?, last_fertilized_date = ?, last_fertilizer_type = ?,
                        never_fertilize = ?, zone_id = ?, updated_at = ?
                    WHERE id = ? AND user_id IN {ph}""",
                 [
+                    (request.form.get("bed_spot", "").strip()[:BED_SPOT_MAX] or None)
+                    if "bed_spot" in request.form else entry["bed_spot"],
                     plant_name,
                     request.form.get("variety", "").strip() or None,
                     request.form.get("location_type", "").strip() or None,
@@ -4923,6 +5006,7 @@ self.addEventListener('fetch', function(e) {
             "variety": src["variety"] or "",
             "location_type": src["location_type"] or "",
             "location_name": src["location_name"] or "",
+            "bed_spot": src["bed_spot"] or "",
             "planted_date": src["planted_date"] or "",
             "planting_method": src["planting_method"] or "",
             "notes": src["notes"] or "",
@@ -5196,6 +5280,7 @@ self.addEventListener('fetch', function(e) {
         if entry["variety"]:       lines.append(f"Variety: {entry['variety']}")
         if entry["location_type"]: lines.append(f"Location type: {entry['location_type'].replace('_', ' ')}")
         if entry["location_name"]: lines.append(f"Location name: {entry['location_name']}")
+        if entry["bed_spot"]:      lines.append(f"Spot within the bed: {entry['bed_spot']}")
         if entry["zone_name"]:     lines.append(f"Yard zone: {entry['zone_name']}")
         if entry.get("zone_description"): lines.append(f"Zone notes: {entry['zone_description']}")
         bed = _bed_for_entry(db, entry)
@@ -5400,7 +5485,7 @@ self.addEventListener('fetch', function(e) {
         ph, id_args = _in_ids(ids)
 
         entries = db.execute(
-            f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
+            f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name, ge.bed_spot,
                        ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name,
                        yz.description AS zone_description, ge.planting_method, ge.done_for_season
             FROM garden_entries ge
@@ -5441,6 +5526,8 @@ self.addEventListener('fetch', function(e) {
                     loc = e["location_type"].replace("_", " ") if e["location_type"] else ""
                     if e["location_name"]:
                         loc = f"{loc} — {e['location_name']}" if loc else e["location_name"]
+                    if e["bed_spot"]:
+                        loc += f" (spot: {e['bed_spot']})"
                     ln += f"\n    Location: {loc}"
                 if e["zone_name"]:
                     ln += f"\n    Zone: {e['zone_name']}"
@@ -5529,6 +5616,7 @@ self.addEventListener('fetch', function(e) {
                         "variety": {"type": "string"},
                         "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "grow_bag", "other"]},
                         "location_name": {"type": "string"},
+                        "bed_spot": {"type": "string", "description": "Where in its bed the plant sits, e.g. 'north end'. Empty string clears it."},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
                         "planting_method": {"type": "string", "enum": ["direct_sow", "seed_transplant", "young_plant"]},
                         "notes": {"type": "string"},
@@ -5671,7 +5759,7 @@ self.addEventListener('fetch', function(e) {
                                 elif entry["user_id"] != user_id:
                                     result = {"error": f"Entry {eid} belongs to your garden partner and is read-only — skip it and continue with the user's own entries"}
                                 else:
-                                    fields = ["plant_name", "variety", "location_type", "location_name", "planted_date", "planting_method", "notes"]
+                                    fields = ["plant_name", "variety", "location_type", "location_name", "bed_spot", "planted_date", "planting_method", "notes"]
                                     sets, params = [], []
                                     for f in fields:
                                         if f in inp:
@@ -6224,7 +6312,7 @@ self.addEventListener('fetch', function(e) {
 
         # ── Edibles ───────────────────────────────────────────────────────────
         entries = db.execute(
-            f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name,
+            f"""SELECT ge.id, ge.plant_name, ge.variety, ge.location_type, ge.location_name, ge.bed_spot,
                        ge.planted_date, ge.notes, ge.user_id, ge.zone_id, yz.name AS zone_name,
                        ge.planting_method, ge.never_water, ge.never_fertilize,
                        ge.last_watered_date, ge.next_watering_date, ge.watering_frequency_days,
@@ -6259,6 +6347,8 @@ self.addEventListener('fetch', function(e) {
                     loc = e["location_type"].replace("_", " ") if e["location_type"] else ""
                     if e["location_name"]:
                         loc = f"{loc} — {e['location_name']}" if loc else e["location_name"]
+                    if e["bed_spot"]:
+                        loc += f" (spot: {e['bed_spot']})"
                     ln += f"\n    Location: {loc}"
                 if e["zone_name"]: ln += f"\n    Zone: {e['zone_name']}"
                 if e["planted_date"]: ln += f"\n    Planted: {e['planted_date']}"
@@ -6447,6 +6537,7 @@ self.addEventListener('fetch', function(e) {
                         "variety": {"type": "string"},
                         "location_type": {"type": "string", "enum": ["raised_bed", "in_ground", "container", "greenhouse", "grow_bag", "other"]},
                         "location_name": {"type": "string"},
+                        "bed_spot": {"type": "string", "description": "Where in its bed the plant sits, e.g. 'north end'. Empty string clears it."},
                         "planted_date": {"type": "string", "description": "YYYY-MM-DD"},
                         "planting_method": {"type": "string", "enum": ["direct_sow", "seed_transplant", "young_plant"]},
                         "notes": {"type": "string"},
@@ -6773,7 +6864,7 @@ self.addEventListener('fetch', function(e) {
                                     result = {"error": f"Entry {eid} is read-only (partner's)"}
                                 else:
                                     fields, vals = [], []
-                                    for col in ("plant_name", "variety", "location_type", "location_name", "planting_method", "notes"):
+                                    for col in ("plant_name", "variety", "location_type", "location_name", "bed_spot", "planting_method", "notes"):
                                         if col in inp and inp[col] is not None:
                                             fields.append(f"{col} = ?")
                                             vals.append((inp[col] or "").strip() or None)
@@ -8470,6 +8561,24 @@ def init_db():
             " substr(ge.updated_at, 1, 10))"
             " WHERE ge.done_for_season = 1 AND ge.done_for_season_at IS NULL"
         )
+        # Where in its bed an edible sits ("north end", "by the trellis").
+        db.execute("ALTER TABLE garden_entries ADD COLUMN IF NOT EXISTS bed_spot TEXT")
+        # auto_created = the bed row was made from an edible's location name, not added on purpose.
+        # Only those are removed automatically once they are empty and have no details.
+        has_flag = db.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'"
+            " AND table_name = 'yard_beds' AND column_name = 'auto_created'"
+        ).fetchone()
+        if not has_flag:
+            db.execute("ALTER TABLE yard_beds ADD COLUMN auto_created INTEGER NOT NULL DEFAULT 0")
+            # One-time backfill for beds that predate the flag: beds someone added, edited or wrote
+            # a note on were logged under their name; everything else came from a location name.
+            db.execute(
+                "UPDATE yard_beds b SET auto_created = 1 FROM yard_zones z WHERE z.id = b.zone_id"
+                " AND NOT EXISTS (SELECT 1 FROM activity_log al WHERE"
+                "   (al.action = 'bed_added' AND al.item_name = b.name || ' (' || z.name || ')')"
+                "   OR (al.action IN ('bed_updated', 'bed_note_added') AND al.item_name = b.name))"
+            )
         db.commit()
     except Exception:
         db.rollback()

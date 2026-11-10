@@ -241,7 +241,7 @@
           </span>
         {% endif %}
         {% if ge.variety %}<p class="muted" style="font-size:0.82rem;font-style:italic">{{ ge.variety }}</p>{% endif %}
-        {% if ge.location_name %}<p class="muted" style="font-size:0.82rem;margin-top:4px">{{ ge.location_name }}</p>{% endif %}
+        {% if ge.location_name %}<p class="muted" style="font-size:0.82rem;margin-top:4px">{{ ge.location_name }}{% if ge.bed_spot %} · {{ ge.bed_spot }}{% endif %}</p>{% endif %}
         {% if ge.planted_date %}<p class="muted" style="font-size:0.78rem;margin-top:4px">Planted {{ ge.planted_date | planted_date }}</p>{% endif %}
       </div>
       </a>

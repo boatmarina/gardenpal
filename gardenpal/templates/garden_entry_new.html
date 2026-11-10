@@ -57,6 +57,13 @@
         </div>
       </label>
       <label>
+        Spot in bed <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span>
+        <input id="bed-spot-input" type="text" name="bed_spot" maxlength="80"
+               value="{{ form_values.bed_spot or '' }}"
+               placeholder="e.g. north end, by the trellis"
+               autocomplete="off" />
+      </label>
+      <label>
         Location type
         <select name="location_type">
           <option value="">Choose…</option>

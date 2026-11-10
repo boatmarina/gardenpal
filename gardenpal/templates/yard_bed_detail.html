@@ -100,6 +100,7 @@
       <span style="flex:1;min-width:0">
         <span class="bed-row-name">{{ ge.plant_name }}</span>
         <span class="bed-row-meta">
+          {%- if ge.bed_spot %}<strong style="font-weight:600;color:var(--fg)">{{ ge.bed_spot }}</strong>{% if ge.variety or ge.planted_date %} · {% endif %}{% endif -%}
           {%- if ge.variety %}{{ ge.variety }}{% endif -%}
           {%- if ge.variety and ge.planted_date %} · {% endif -%}
           {%- if ge.planted_date %}Planted {{ ge.planted_date | planted_date }}{% endif -%}
@@ -169,6 +170,41 @@
     </div>
   </div>
 
+  {% if merge_targets %}
+  <div class="card" style="margin-top:16px;padding:12px 16px" id="bed-merge">
+    <button type="button" id="bed-merge-toggle"
+            style="width:100%;background:none;border:none;padding:2px 0;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:600;color:var(--fg);display:flex;align-items:center;gap:8px;text-align:left">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0"><path d="M6 3v6a6 6 0 0 0 6 6h6"/><path d="M14 11l4 4-4 4"/><path d="M6 21v-6"/></svg>
+      Merge into another bed…
+    </button>
+    <form id="bed-merge-form" hidden method="post" action="{{ url_for('yard_bed_merge', bed_id=bed.id) }}" class="stack" style="gap:10px;margin-top:12px"
+          onsubmit="return confirm('Merge this bed? Its plants and notes move to the bed you chose and this bed is removed.')">
+      <p class="muted" style="font-size:0.8rem;margin:0">
+        Use this when “{{ bed.name }}” is really a spot inside another bed. Its plants and notes move to the bed you choose, and this bed is removed.
+      </p>
+      <label style="font-size:0.85rem">
+        Merge into
+        <select name="target_bed_id" id="bed-merge-target" required>
+          {% for t in merge_targets %}
+          <option value="{{ t.id }}" data-spot="{{ t.spot }}" {% if t.suggested %}selected{% endif %}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if plants %}
+      <label style="font-size:0.85rem">
+        Spot in bed for its plant{{ 's' if plants | length != 1 }}
+        <input type="text" name="spot" id="bed-merge-spot" maxlength="{{ spot_max }}" autocomplete="off" />
+        <span class="muted" style="font-size:0.75rem;text-transform:none;letter-spacing:0;font-weight:400">Saved on each plant so you still know where it sits. Leave empty to skip.</span>
+      </label>
+      {% endif %}
+      <div style="display:flex;gap:8px">
+        <button type="submit" class="button" style="font-size:0.82rem">Merge</button>
+        <button type="button" id="bed-merge-cancel" class="button button-secondary" style="font-size:0.82rem">Cancel</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
   {% if not plants and not ornamentals %}
   <form method="post" action="{{ url_for('yard_bed_delete', bed_id=bed.id) }}"
         onsubmit="return confirm({{ ('Delete ' ~ bed.name ~ ' and its notes?') | tojson | forceescape }})"
@@ -195,6 +231,22 @@
   }
   wire('bed-edit-toggle', 'bed-edit-form', 'bed-edit-cancel', null);
   wire('bed-note-toggle', 'bed-note-form', 'bed-note-cancel', 'bed-note-input');
+  wire('bed-merge-toggle', 'bed-merge-form', 'bed-merge-cancel', null);
+
+  // Suggest the spot text for the chosen bed, until the user types their own.
+  var target = document.getElementById('bed-merge-target');
+  var spot = document.getElementById('bed-merge-spot');
+  if (target && spot) {
+    var edited = false;
+    function suggest() {
+      if (edited) return;
+      var opt = target.options[target.selectedIndex];
+      spot.value = opt ? (opt.dataset.spot || '') : '';
+    }
+    spot.addEventListener('input', function() { edited = true; });
+    target.addEventListener('change', suggest);
+    suggest();
+  }
 })();
 </script>
 {% endblock %}

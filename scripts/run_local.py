@@ -46,6 +46,9 @@ def seed():
     c.post("/garden/new", data={"plant_name": "Peas", "planted_date": "2026-04-20",
                                 "zone_name": "Middle North", "location_name": "Pea trellis"})
     c.post("/garden/new", data={"plant_name": "Kale", "planted_date": "2026-05-02", "zone_name": "Middle North"})
+    # A spot inside a bed recorded as its own location, for trying "Merge into another bed".
+    c.post("/garden/new", data={"plant_name": "Chard", "planted_date": "2026-05-05", "zone_name": "Middle North",
+                                "location_name": "Raised bed 1 - north end"})
     c.post("/garden/new", data={"plant_name": "Tomato", "variety": "Sungold", "planted_date": "2026-05-10"})
     with app.app_context():
         from gardenpal.web import get_db

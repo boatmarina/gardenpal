@@ -347,3 +347,166 @@ class TestEdibleBedPicker:
             m = re.search(r"data-zone-beds='([^']*)'", page)
             assert m, path
             assert '"name": "Bed A"' in m.group(1) and '"type": "raised_bed"' in m.group(1), path
+
+
+def zone_named(db, name):
+    return db.one("SELECT * FROM yard_zones WHERE name = ?", (name,))
+
+
+def bed_named(db, name):
+    return db.one("SELECT * FROM yard_beds WHERE lower(name) = lower(?)", (name,))
+
+
+class TestSpotInBed:
+    def test_saved_from_forms_and_shown(self, user_client, db):
+        entry = make_entry(user_client, db, "Peas", zone_name="North", location_name="Bed A", bed_spot="north end")
+        assert entry["bed_spot"] == "north end"
+        assert "north end" in user_client.get(f"/garden/{entry['id']}").data.decode()
+        zone = zone_named(db, "North")
+        assert "Bed A · north end" in user_client.get(f"/yard/zones/{zone['id']}").data.decode()
+        assert "north end" in user_client.get(f"/yard/beds/{bed_named(db, 'Bed A')['id']}").data.decode()
+        assert 'value="north end"' in user_client.get(f"/garden/{entry['id']}/edit").data.decode()
+        assert 'value="north end"' in user_client.get(f"/garden/{entry['id']}/duplicate").data.decode()
+
+        user_client.post(f"/garden/{entry['id']}/edit", data={"plant_name": "Peas", "zone_name": "North",
+                                                               "location_name": "Bed A", "bed_spot": "by the trellis"})
+        assert db.one("SELECT bed_spot FROM garden_entries")["bed_spot"] == "by the trellis"
+        user_client.post(f"/garden/{entry['id']}/edit", data={"plant_name": "Peas", "zone_name": "North",
+                                                               "location_name": "Bed A"})
+        assert db.one("SELECT bed_spot FROM garden_entries")["bed_spot"] == "by the trellis", "a form without the field keeps it"
+        user_client.post(f"/garden/{entry['id']}/edit", data={"plant_name": "Peas", "zone_name": "North",
+                                                               "location_name": "Bed A", "bed_spot": " "})
+        assert db.one("SELECT bed_spot FROM garden_entries")["bed_spot"] is None
+
+    def test_in_csv_export_and_ai_context(self, user_client, db, fake_ai):
+        entry = make_entry(user_client, db, "Peas", zone_name="North", location_name="Bed A", bed_spot="north end")
+        csv_text = user_client.get("/export/garden.csv").data.decode()
+        assert "Spot in Bed" in csv_text.splitlines()[0] and "north end" in csv_text
+        user_client.post("/api/entry-chat", json={"message": "hi", "entry_id": entry["id"]})
+        user_client.post("/api/garden-chat", json={"message": "hi"})
+        user_client.post("/api/home-chat", json={"message": "hi"})
+        assert len(fake_ai.calls) == 3
+        for call in fake_ai.calls:
+            assert "north end" in call["system"]
+
+    def test_assistant_can_set_spot(self, user_client, db, fake_ai):
+        from tests.test_ai_actions import reply, tool_call
+        entry = make_entry(user_client, db, "Peas", zone_name="North", location_name="Bed A")
+        for path in ("/api/garden-chat", "/api/home-chat"):
+            spot = f"spot via {path}"
+            fake_ai.script += [reply("", tool_call("update_garden_entry", entry_id=entry["id"], bed_spot=spot),
+                                     stop="tool_use"), reply("Done.")]
+            user_client.post(path, json={"message": "peas are at the south end"})
+            assert db.one("SELECT bed_spot FROM garden_entries")["bed_spot"] == spot, path
+
+
+class TestMergeBeds:
+    def _setup(self, client, db):
+        """'Raised bed 1' is a real bed; 'Raised bed 1 - north end' is a spot recorded as a location."""
+        a = make_entry(client, db, "Kale", zone_name="Garden", location_name="Raised bed 1")
+        b = make_entry(client, db, "Peas", zone_name="Garden", location_name="Raised bed 1 - north end")
+        c = make_entry(client, db, "Beans", zone_name="Garden", location_name="raised bed 1 - NORTH end",
+                       bed_spot="already set")
+        zone = zone_named(db, "Garden")
+        client.get(f"/yard/zones/{zone['id']}")
+        return zone, bed_named(db, "Raised bed 1"), bed_named(db, "Raised bed 1 - north end"), (a, b, c)
+
+    def test_merge_moves_plants_notes_and_details(self, user_client, db):
+        zone, real, dup, (a, b, c) = self._setup(user_client, db)
+        orn = add_ornamental(user_client, db, zone, "Nasturtium", bed_choice=str(dup["id"]))
+        user_client.post(f"/yard/beds/{dup['id']}/notes", data={"notes": "Slugs here", "note_date": "2026-05-01"})
+        user_client.post(f"/yard/beds/{dup['id']}/edit", data={"name": dup["name"], "sun_exposure": "shade", "size": "2 ft"})
+        user_client.post(f"/yard/beds/{real['id']}/edit", data={"name": real["name"], "sun_exposure": "full_sun"})
+
+        resp = user_client.post(f"/yard/beds/{dup['id']}/merge", data={"target_bed_id": real["id"], "spot": "north end"})
+        assert resp.headers["Location"].endswith(f"/yard/beds/{real['id']}")
+        rows = {r["plant_name"]: (r["location_name"], r["bed_spot"]) for r in db.all(
+            "SELECT plant_name, location_name, bed_spot FROM garden_entries")}
+        assert rows == {"Kale": ("Raised bed 1", None), "Peas": ("Raised bed 1", "north end"),
+                        "Beans": ("Raised bed 1", "already set")}
+        assert bed_names(db, zone) == ["Raised bed 1"]
+        assert db.one("SELECT bed_id FROM yard_plants WHERE id = ?", (orn["id"],))["bed_id"] == real["id"]
+        assert db.one("SELECT bed_id FROM yard_bed_notes")["bed_id"] == real["id"]
+        merged = db.one("SELECT sun_exposure, size FROM yard_beds")
+        assert merged == {"sun_exposure": "full_sun", "size": "2 ft"}, "target's details win; missing ones are filled in"
+        assert db.one("SELECT item_name FROM activity_log WHERE action = 'bed_merged'")["item_name"] \
+            == "Raised bed 1 - north end → Raised bed 1"
+        page = user_client.get(f"/yard/beds/{real['id']}").data.decode()
+        assert "3 plants moved" in page, "two edibles and one ornamental"
+        assert "north end" in page and "Slugs here" in page
+
+    def test_spot_defaults_to_the_rest_of_the_old_name(self, user_client, db):
+        zone, real, dup, _ = self._setup(user_client, db)
+        user_client.post(f"/yard/beds/{dup['id']}/merge", data={"target_bed_id": real["id"]})
+        assert db.one("SELECT bed_spot FROM garden_entries WHERE plant_name = 'Peas'")["bed_spot"] == "north end"
+
+    def test_empty_spot_skips_the_label(self, user_client, db):
+        zone, real, dup, _ = self._setup(user_client, db)
+        user_client.post(f"/yard/beds/{dup['id']}/merge", data={"target_bed_id": real["id"], "spot": ""})
+        assert db.one("SELECT bed_spot FROM garden_entries WHERE plant_name = 'Peas'")["bed_spot"] is None
+
+    def test_bed_page_suggests_target_and_spot(self, user_client, db):
+        zone, real, dup, _ = self._setup(user_client, db)
+        add_bed(user_client, db, zone, "Herb pot")
+        page = user_client.get(f"/yard/beds/{dup['id']}").data.decode()
+        assert re.search(rf'<option value="{real["id"]}" data-spot="north end" selected>', page)
+        assert 'data-spot="Raised bed 1 - north end"' in page, "unrelated beds suggest the whole old name"
+        only_bed_zone = make_zone(user_client, db, "Lonely")
+        lone = add_bed(user_client, db, only_bed_zone, "Only bed")
+        assert 'id="bed-merge-form"' not in user_client.get(f"/yard/beds/{lone['id']}").data.decode()
+
+    def test_invalid_targets_are_refused(self, app, user_client, db):
+        zone, real, dup, _ = self._setup(user_client, db)
+        other_zone = make_zone(user_client, db, "Elsewhere")
+        far = add_bed(user_client, db, other_zone, "Far bed")
+        for target in (dup["id"], far["id"], 999999, ""):
+            user_client.post(f"/yard/beds/{dup['id']}/merge", data={"target_bed_id": target})
+        assert bed_names(db, zone) == ["Raised bed 1", "Raised bed 1 - north end"]
+
+        intruder = app.test_client()
+        signup(intruder, "intruder")
+        intruder.post(f"/yard/beds/{dup['id']}/merge", data={"target_bed_id": real["id"]})
+        assert bed_names(db, zone) == ["Raised bed 1", "Raised bed 1 - north end"]
+        assert db.one("SELECT location_name FROM garden_entries WHERE plant_name = 'Peas'")["location_name"] \
+            == "Raised bed 1 - north end"
+
+
+class TestPlaceholderBedCleanup:
+    def test_auto_bed_disappears_once_its_plant_moves(self, user_client, db):
+        entry = make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Raised bed 1 - north end")
+        make_entry(user_client, db, "Kale", zone_name="Garden", location_name="Raised bed 1")
+        zone = zone_named(db, "Garden")
+        user_client.get(f"/yard/zones/{zone['id']}")
+        assert len(bed_names(db, zone)) == 2
+        user_client.post(f"/garden/{entry['id']}/edit", data={"plant_name": "Peas", "zone_name": "Garden",
+                                                               "location_name": "Raised bed 1", "bed_spot": "north end"})
+        page = user_client.get(f"/yard/zones/{zone['id']}").data.decode()
+        assert bed_names(db, zone) == ["Raised bed 1"]
+        assert "2 plants" in page
+
+    def test_beds_with_details_notes_or_added_on_purpose_stay(self, user_client, db):
+        zone = make_zone(user_client, db, "Garden")
+        add_bed(user_client, db, zone, "Manual empty")
+        for name in ("With details", "With note"):
+            make_entry(user_client, db, f"Plant in {name}", zone_name="Garden", location_name=name)
+        user_client.get(f"/yard/zones/{zone['id']}")
+        user_client.post(f"/yard/beds/{bed_named(db, 'With details')['id']}/edit",
+                         data={"name": "With details", "soil_notes": "sandy"})
+        user_client.post(f"/yard/beds/{bed_named(db, 'With note')['id']}/notes", data={"notes": "hello"})
+        db.run("UPDATE garden_entries SET location_name = NULL")
+        user_client.get(f"/yard/zones/{zone['id']}")
+        assert bed_names(db, zone) == ["Manual empty", "With details", "With note"]
+
+    def test_backfill_flags_only_beds_that_came_from_location_names(self, app, user_client, db):
+        from gardenpal.web import init_db
+        make_entry(user_client, db, "Peas", zone_name="Garden", location_name="From location")
+        zone = zone_named(db, "Garden")
+        add_bed(user_client, db, zone, "Added by hand")
+        renamed = add_bed(user_client, db, zone, "Old name")
+        user_client.post(f"/yard/beds/{renamed['id']}/edit", data={"name": "Renamed by hand"})
+        user_client.get(f"/yard/zones/{zone['id']}")
+        db.run("ALTER TABLE yard_beds DROP COLUMN auto_created")  # as on a database from before the flag
+        with app.app_context():
+            init_db()
+        flags = {r["name"]: r["auto_created"] for r in db.all("SELECT name, auto_created FROM yard_beds")}
+        assert flags == {"From location": 1, "Added by hand": 0, "Renamed by hand": 0}

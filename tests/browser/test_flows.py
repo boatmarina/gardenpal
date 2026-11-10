@@ -350,3 +350,49 @@ def test_add_ornamental_from_yard_offers_zone_beds(logged_in, db):
     assert page.locator("#yard-bed-select option").all_inner_texts() == ["No bed", "+ New bed…"]
     page.select_option("#yard-bed-select", "__new")
     assert page.locator("#yard-bed-new input").is_visible()
+
+
+def test_merge_bed_suggests_target_and_spot(logged_in, db):
+    page = logged_in
+    for name, loc in (("Kale", "Raised bed 1"), ("Peas", "Raised bed 1 - north end"), ("Basil", "Herb pot")):
+        page.api.post("/garden/new", data={"plant_name": name, "zone_name": "Garden", "location_name": loc})
+    zone = db.one("SELECT id FROM yard_zones")
+    page.goto(f"/yard/zones/{zone['id']}")
+    page.locator(".bed-row", has_text="north end").click()
+    page.wait_for_url(re.compile(r"/yard/beds/\d+$"))
+
+    assert page.locator("#bed-merge-form").is_hidden()
+    page.click("#bed-merge-toggle")
+    target = page.locator("#bed-merge-target")
+    assert target.locator("option:checked").inner_text() == "Raised bed 1", "the bed this name starts with is preselected"
+    assert page.input_value("#bed-merge-spot") == "north end"
+    target.select_option(label="Herb pot")
+    assert page.input_value("#bed-merge-spot") == "Raised bed 1 - north end"
+    target.select_option(label="Raised bed 1")
+    page.fill("#bed-merge-spot", "north end, by the fence")
+    target.select_option(label="Herb pot")
+    target.select_option(label="Raised bed 1")
+    assert page.input_value("#bed-merge-spot") == "north end, by the fence", "typed text isn't overwritten"
+
+    page.evaluate("window.confirm = () => true")
+    with page.expect_navigation():
+        page.click("#bed-merge-form button[type=submit]")
+    assert page.inner_text("h2") == "Raised bed 1"
+    assert "north end, by the fence" in page.locator(".bed-row", has_text="Peas").inner_text()
+    row = db.one("SELECT location_name, bed_spot FROM garden_entries WHERE plant_name = 'Peas'")
+    assert row == {"location_name": "Raised bed 1", "bed_spot": "north end, by the fence"}
+    assert [r["name"] for r in db.all("SELECT name FROM yard_beds ORDER BY name")] == ["Herb pot", "Raised bed 1"]
+
+
+def test_spot_in_bed_field_on_edible_form(logged_in, db):
+    page = logged_in
+    page.goto("/garden/new")
+    page.fill("input[name=plant_name]", "Garlic")
+    page.fill("#loc-name-input", "Long bed")
+    page.fill("#bed-spot-input", "south corner")
+    with page.expect_navigation():
+        page.click("button:has-text('Save to Edibles')")
+    assert "south corner" in page.inner_text("#entry-bed-spot")
+    entry = db.one("SELECT id FROM garden_entries")
+    page.goto(f"/garden/{entry['id']}/edit")
+    assert page.input_value("#bed-spot-input") == "south corner"
