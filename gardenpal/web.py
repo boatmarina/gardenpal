@@ -298,7 +298,7 @@ def create_app() -> Flask:
         {
             "version": "2026-11-a",
             "title": "Track the beds and containers in each zone",
-            "body": "Open any zone in the Yard tab to see its beds and containers. Record the type, size, sun exposure, soil and amendments for each one, and add dated notes that also show up in the growth log of every plant in that bed. Pick a bed when adding a plant and note the spot it sits in, filter a zone's plants by bed, and your garden assistant uses these details when you ask about plants there.",
+            "body": "Open any zone in the Yard tab to see its beds and containers. Record the type, size, sun exposure, soil and amendments for each one, and add dated notes that also show up in the growth log of every plant in that bed.",
             "draft": True,
         },
         {
