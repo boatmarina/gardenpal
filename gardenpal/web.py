@@ -1395,6 +1395,7 @@ self.addEventListener('fetch', function(e) {
                                zone=zone, yard_plant_id=yard_plant_id,
                                plant_tags=plant_tags, user_tags=user_tags,
                                all_zones=all_zones, is_owner=is_owner,
+                               zone_beds_all=_zone_beds_by_zone(db, [z["id"] for z in all_zones]),
                                shared_names=shared_names, today=today,
                                plant_zones=plant_zones,
                                ff_fert=ff_fert, last_fertilized=last_fertilized,
@@ -2210,11 +2211,23 @@ self.addEventListener('fetch', function(e) {
             flash("Plant not found.")
             return redirect(url_for("yard_index"))
         zone = db.execute("SELECT * FROM yard_zones WHERE id = ?", (yp["zone_id"],)).fetchone()
+        # Optionally move the plant to another zone at the same time; its notes stay with it.
+        new_zone_id = request.form.get("zone_id", type=int)
+        if new_zone_id and new_zone_id != yp["zone_id"]:
+            zone = db.execute(
+                f"SELECT * FROM yard_zones WHERE id = ? AND user_id IN {ph}", [new_zone_id] + id_args
+            ).fetchone()
+            if zone is None:
+                flash("Zone not found.")
+                return redirect(url_for("idea_detail", plant_id=back_plant) if back_plant
+                                else url_for("yard_zone_detail", zone_id=yp["zone_id"]))
         bed_id, error = _resolve_bed_choice(db, zone, request.form.get("bed_choice"), request.form.get("new_bed_name"))
         if error:
             flash(error)
         else:
-            db.execute("UPDATE yard_plants SET bed_id = ? WHERE id = ?", (bed_id, yard_plant_id))
+            db.execute("UPDATE yard_plants SET zone_id = ?, bed_id = ? WHERE id = ?", (zone["id"], bed_id, yard_plant_id))
+            if zone["id"] != yp["zone_id"]:
+                _log_activity(db, g.user["id"], "yard_plant_moved", f"{yp['plant_name']} → {zone['name']}")
             db.commit()
         if back_plant:
             return redirect(url_for("idea_detail", plant_id=back_plant))

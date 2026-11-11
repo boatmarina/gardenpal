@@ -1626,3 +1626,20 @@ button.tag-chip-close:hover { opacity: 1; }
   text-decoration: none;
   vertical-align: 1px;
 }
+
+/* Zone / bed labels on an ornamental's zone card */
+.pz-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 3px;
+}
+.pz-value {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0;
+}

@@ -332,26 +332,61 @@ def test_edible_form_bed_picker(logged_in, db):
     assert page.locator("#location-type-field").is_visible()
 
 
-def test_ornamental_page_bed_picker_saves_on_change(logged_in, db):
+def test_ornamental_zone_card_edits_zone_and_bed_together(logged_in, db):
     page = logged_in
     page.api.post("/yard/zones/new", data={"name": "Front yard"})
-    zone = db.one("SELECT id FROM yard_zones")
-    page.api.post(f"/yard/zones/{zone['id']}/beds", data={"name": "Front pots"})
-    page.api.post("/yard/plants/new", data={"zone_id": zone["id"], "plant_name": "Lavender"})
+    page.api.post("/yard/zones/new", data={"name": "Back yard"})
+    front = db.one("SELECT id FROM yard_zones WHERE name = 'Front yard'")
+    back = db.one("SELECT id FROM yard_zones WHERE name = 'Back yard'")
+    page.api.post(f"/yard/zones/{front['id']}/beds", data={"name": "Front pots"})
+    page.api.post(f"/yard/zones/{back['id']}/beds", data={"name": "Under plum tree"})
+    page.api.post("/yard/plants/new", data={"zone_id": front["id"], "plant_name": "Lavender"})
+    yp = db.one("SELECT id FROM yard_plants")
+    page.api.post(f"/yard/plants/{yp['id']}/notes", data={"notes": "Bloomed early"})
     lib = db.one("SELECT id FROM plants WHERE name = 'Lavender'")
-    bed = db.one("SELECT id FROM yard_beds")
 
     page.goto(f"/ideas/{lib['id']}")
-    with page.expect_navigation():
-        page.select_option(".pz-bed-select", str(bed["id"]))
-    assert db.one("SELECT bed_id FROM yard_plants")["bed_id"] == bed["id"]
-    assert page.input_value(".pz-bed-select") == str(bed["id"])
+    card = page.locator(".pz-card")
+    assert "Front yard" in card.locator(".pz-placement").inner_text()
+    assert card.locator(".pz-bed-value").inner_text() == "No bed"
+    assert card.locator(".pz-bed-form").is_hidden(), "zone and bed show as text until you tap the pencil"
 
-    page.select_option(".pz-bed-select", "__new")
+    # Set a bed in the same zone.
+    card.locator(".pz-edit-toggle").click()
+    assert card.locator(".pz-placement").is_hidden()
+    assert card.locator(".pz-bed-select option").all_inner_texts() == ["No bed", "Front pots", "+ New bed…"]
+    card.locator(".pz-bed-select").select_option(label="Front pots")
+    with page.expect_navigation():
+        card.locator(".pz-bed-form button[type=submit]").click()
+    assert page.locator(".pz-card .pz-bed-value").inner_text() == "Front pots"
+
+    # Cancel puts everything back.
+    page.locator(".pz-edit-toggle").click()
+    page.locator(".pz-zone-select").select_option(label="Back yard")
+    page.locator(".pz-edit-cancel").click()
+    assert page.locator(".pz-bed-form").is_hidden()
+    page.locator(".pz-edit-toggle").click()
+    assert page.input_value(".pz-zone-select") == str(front["id"])
+    assert page.locator(".pz-bed-select option:checked").inner_text() == "Front pots"
+
+    # Move to another zone: the bed list follows the zone, and notes come along.
+    page.locator(".pz-zone-select").select_option(label="Back yard")
+    assert page.locator(".pz-bed-select option").all_inner_texts() == ["No bed", "Under plum tree", "+ New bed…"]
+    page.locator(".pz-bed-select").select_option(label="Under plum tree")
+    with page.expect_navigation():
+        page.locator(".pz-bed-form button[type=submit]").click()
+    row = db.one("SELECT yp.zone_id, b.name AS bed FROM yard_plants yp LEFT JOIN yard_beds b ON b.id = yp.bed_id")
+    assert row == {"zone_id": back["id"], "bed": "Under plum tree"}
+    assert "Back yard" in page.locator(".pz-placement").inner_text()
+    assert "Bloomed early" in page.locator(".pz-card").inner_text()
+
+    # A new bed from the editor.
+    page.locator(".pz-edit-toggle").click()
+    page.locator(".pz-bed-select").select_option("__new")
     page.fill(".pz-bed-new input", "Window box")
     with page.expect_navigation():
-        page.click(".pz-bed-new button")
-    assert db.one("SELECT b.name FROM yard_plants yp JOIN yard_beds b ON b.id = yp.bed_id")["name"] == "Window box"
+        page.locator(".pz-bed-form button[type=submit]").click()
+    assert page.locator(".pz-card .pz-bed-value").inner_text() == "Window box"
 
 
 def test_add_ornamental_from_yard_offers_zone_beds(logged_in, db):

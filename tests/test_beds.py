@@ -595,3 +595,54 @@ class TestBedTypeBelongsToTheBed:
         db.run("UPDATE garden_entries SET location_name = NULL WHERE id = ?", (entry["id"],))
         user_client.get(f"/yard/zones/{zone['id']}")
         assert bed_names(db, zone) == []
+
+
+class TestMoveOrnamentalBetweenZones:
+    def test_move_with_bed_keeps_notes(self, user_client, db):
+        front = make_zone(user_client, db, "Front")
+        back = make_zone(user_client, db, "Back")
+        back_bed = add_bed(user_client, db, back, "Under plum tree")
+        yp = add_ornamental(user_client, db, front)
+        user_client.post(f"/yard/plants/{yp['id']}/notes", data={"notes": "Bloomed early"})
+        user_client.post(f"/yard/plants/{yp['id']}/bed", data={"zone_id": back["id"], "bed_choice": str(back_bed["id"])})
+        row = db.one("SELECT zone_id, bed_id FROM yard_plants")
+        assert row == {"zone_id": back["id"], "bed_id": back_bed["id"]}
+        assert db.one("SELECT yard_plant_id FROM yard_plant_notes")["yard_plant_id"] == yp["id"]
+        assert db.one("SELECT item_name FROM activity_log WHERE action = 'yard_plant_moved'")["item_name"] == "Lavender → Back"
+
+    def test_new_bed_is_created_in_the_new_zone(self, user_client, db):
+        front = make_zone(user_client, db, "Front")
+        back = make_zone(user_client, db, "Back")
+        yp = add_ornamental(user_client, db, front)
+        user_client.post(f"/yard/plants/{yp['id']}/bed",
+                         data={"zone_id": back["id"], "bed_choice": "__new", "new_bed_name": "Window box"})
+        bed = bed_named(db, "Window box")
+        assert bed["zone_id"] == back["id"]
+        assert db.one("SELECT zone_id, bed_id FROM yard_plants") == {"zone_id": back["id"], "bed_id": bed["id"]}
+
+    def test_old_zones_bed_with_new_zone_is_refused(self, user_client, db):
+        front = make_zone(user_client, db, "Front")
+        back = make_zone(user_client, db, "Back")
+        front_bed = add_bed(user_client, db, front, "Front pots")
+        yp = add_ornamental(user_client, db, front, bed_choice=str(front_bed["id"]))
+        user_client.post(f"/yard/plants/{yp['id']}/bed", data={"zone_id": back["id"], "bed_choice": str(front_bed["id"])})
+        assert db.one("SELECT zone_id, bed_id FROM yard_plants") == {"zone_id": front["id"], "bed_id": front_bed["id"]}
+
+    def test_cannot_move_into_someone_elses_zone(self, app, user_client, db):
+        front = make_zone(user_client, db, "Front")
+        yp = add_ornamental(user_client, db, front)
+        stranger = app.test_client()
+        signup(stranger, "stranger")
+        theirs = make_zone(stranger, db, "Their zone")
+        user_client.post(f"/yard/plants/{yp['id']}/bed", data={"zone_id": theirs["id"], "bed_choice": ""})
+        assert db.one("SELECT zone_id FROM yard_plants")["zone_id"] == front["id"]
+
+    def test_card_shows_zone_and_bed_as_text(self, user_client, db):
+        zone = make_zone(user_client, db, "Front")
+        bed = add_bed(user_client, db, zone, "Front pots")
+        add_ornamental(user_client, db, zone, "Lavender", bed_choice=str(bed["id"]))
+        lib = db.one("SELECT id FROM plants WHERE name = 'Lavender'")
+        page = user_client.get(f"/ideas/{lib['id']}").data.decode()
+        assert re.search(r'class="pz-value pz-bed-value"[^>]*>Front pots<', page)
+        assert f'href="/yard/beds/{bed["id"]}"' in page
+        assert re.search(r'class="pz-bed-form stack" hidden', page), "the editor starts closed"
