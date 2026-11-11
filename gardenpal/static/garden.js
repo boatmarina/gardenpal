@@ -337,6 +337,7 @@
         if (!beds.length && opts.freeTextWithoutBeds) {
           select.hidden = true;
           textWrap.hidden = false;
+          if (opts.onChange) opts.onChange(null);
           return;
         }
         select.hidden = false;

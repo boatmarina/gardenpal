@@ -57,13 +57,13 @@
         </div>
       </label>
       <label>
-        Spot in bed <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span>
+        <span>Spot in bed <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></span>
         <input id="bed-spot-input" type="text" name="bed_spot" maxlength="80"
                value="{{ form_values.bed_spot or '' }}"
                placeholder="e.g. north end, by the trellis"
                autocomplete="off" />
       </label>
-      <label>
+      <label id="location-type-field">
         Location type
         <select name="location_type">
           <option value="">Choose…</option>
@@ -139,6 +139,9 @@
   var locations = [];
   try { locations = JSON.parse(inp.dataset.locations || '[]'); } catch(e) {}
   function show(query) {
+    // With the bed list showing, this field is only for naming a new bed: don't suggest old names.
+    var bedSel = document.getElementById('bed-select');
+    if (bedSel && !bedSel.hidden) { dropdown.hidden = true; return; }
     var q = (query || '').trim().toLowerCase();
     var matches = q ? locations.filter(function(l) { return l.toLowerCase().includes(q); }) : locations;
     if (!matches.length) { dropdown.hidden = true; return; }
@@ -173,7 +176,12 @@ document.addEventListener('DOMContentLoaded', function() {
   var picker = GP.bedPicker(sel, inp, {
     textWrap: wrap, mirrorToText: true, freeTextWithoutBeds: true,
     onChange: function(bed) {
-      if (bed && bed.type && typeSel && !typeSel.value) typeSel.value = bed.type;
+      // An existing bed already has its type, so only ask for one when making a new bed
+      // (or when there's no bed at all).
+      if (!typeSel) return;
+      if (bed && bed.type) typeSel.value = bed.type;
+      var field = typeSel.closest('label');
+      if (field) field.hidden = !!bed;
     }
   });
   function zoneId() {

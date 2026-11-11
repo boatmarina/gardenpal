@@ -78,9 +78,9 @@ class TestBedPage:
         assert "Peas bed" in page and "Peas" in page and f"/garden/{entry['id']}" in page
 
         user_client.post(f"/yard/beds/{bed['id']}/edit",
-                         data={"name": "Peas bed", "sun_exposure": "part_sun", "soil_notes": "Added 2in compost"})
+                         data={"name": "Peas bed", "sun_exposure": "Part sun", "soil_notes": "Added 2in compost"})
         row = db.one("SELECT sun_exposure, soil_notes FROM yard_beds WHERE id = ?", (bed["id"],))
-        assert row == {"sun_exposure": "part_sun", "soil_notes": "Added 2in compost"}
+        assert row == {"sun_exposure": "Part sun", "soil_notes": "Added 2in compost"}
 
         user_client.post(f"/yard/beds/{bed['id']}/notes", data={"notes": "Soil test: pH 6.5", "note_date": "2026-10-01"})
         user_client.post(f"/yard/beds/{bed['id']}/notes", data={"notes": "  "})
@@ -94,11 +94,26 @@ class TestBedPage:
         actions = {r["action"] for r in db.all("SELECT action FROM activity_log")}
         assert {"bed_updated", "bed_note_added"} <= actions
 
-    def test_unknown_sun_value_is_ignored(self, user_client, db):
+    def test_sun_exposure_is_free_text(self, app, user_client, db):
+        from gardenpal.web import init_db
         zone = make_zone(user_client, db)
         bed = add_bed(user_client, db, zone, "Pot")
-        user_client.post(f"/yard/beds/{bed['id']}/edit", data={"name": "Pot", "sun_exposure": "blazing"})
+        user_client.post(f"/yard/beds/{bed['id']}/edit", data={"name": "Pot", "sun_exposure": " Morning sun, ~4 hrs "})
+        assert db.one("SELECT sun_exposure FROM yard_beds")["sun_exposure"] == "Morning sun, ~4 hrs"
+        page = user_client.get(f"/yard/beds/{bed['id']}").data.decode()
+        assert "Morning sun, ~4 hrs" in page and 'name="sun_exposure"' in page and "<select name=\"sun_exposure\"" not in page
+        assert "Morning sun, ~4 hrs" in user_client.get(f"/yard/zones/{zone['id']}").data.decode()
+
+        user_client.post(f"/yard/beds/{bed['id']}/edit", data={"name": "Pot", "sun_exposure": "x" * 200})
+        assert len(db.one("SELECT sun_exposure FROM yard_beds")["sun_exposure"]) == 80
+        user_client.post(f"/yard/beds/{bed['id']}/edit", data={"name": "Pot", "sun_exposure": ""})
         assert db.one("SELECT sun_exposure FROM yard_beds")["sun_exposure"] is None
+
+        # A value saved back when this was a fixed choice becomes the same words as text.
+        db.run("UPDATE yard_beds SET sun_exposure = 'part_sun'")
+        with app.app_context():
+            init_db()
+        assert db.one("SELECT sun_exposure FROM yard_beds")["sun_exposure"] == "Part sun"
 
     def test_rename_moves_plants_in_that_zone_only(self, user_client, db):
         a = make_entry(user_client, db, "Peas", zone_name="North", location_name="Bed A")
@@ -172,7 +187,7 @@ class TestBedsInAiContext:
         client.get(f"/yard/zones/{entry['zone_id']}")
         bed = db.one("SELECT * FROM yard_beds")
         client.post(f"/yard/beds/{bed['id']}/edit",
-                    data={"name": "Peas bed", "sun_exposure": "shade", "soil_notes": "Heavy clay"})
+                    data={"name": "Peas bed", "sun_exposure": "Shade", "soil_notes": "Heavy clay"})
         client.post(f"/yard/beds/{bed['id']}/notes", data={"notes": "Added gypsum", "note_date": "2026-09-01"})
         return entry
 
@@ -415,8 +430,8 @@ class TestMergeBeds:
         zone, real, dup, (a, b, c) = self._setup(user_client, db)
         orn = add_ornamental(user_client, db, zone, "Nasturtium", bed_choice=str(dup["id"]))
         user_client.post(f"/yard/beds/{dup['id']}/notes", data={"notes": "Slugs here", "note_date": "2026-05-01"})
-        user_client.post(f"/yard/beds/{dup['id']}/edit", data={"name": dup["name"], "sun_exposure": "shade", "size": "2 ft"})
-        user_client.post(f"/yard/beds/{real['id']}/edit", data={"name": real["name"], "sun_exposure": "full_sun"})
+        user_client.post(f"/yard/beds/{dup['id']}/edit", data={"name": dup["name"], "sun_exposure": "Shade", "size": "2 ft"})
+        user_client.post(f"/yard/beds/{real['id']}/edit", data={"name": real["name"], "sun_exposure": "Full sun"})
 
         resp = user_client.post(f"/yard/beds/{dup['id']}/merge", data={"target_bed_id": real["id"], "spot": "north end"})
         assert resp.headers["Location"].endswith(f"/yard/beds/{real['id']}")
@@ -428,7 +443,7 @@ class TestMergeBeds:
         assert db.one("SELECT bed_id FROM yard_plants WHERE id = ?", (orn["id"],))["bed_id"] == real["id"]
         assert db.one("SELECT bed_id FROM yard_bed_notes")["bed_id"] == real["id"]
         merged = db.one("SELECT sun_exposure, size FROM yard_beds")
-        assert merged == {"sun_exposure": "full_sun", "size": "2 ft"}, "target's details win; missing ones are filled in"
+        assert merged == {"sun_exposure": "Full sun", "size": "2 ft"}, "target's details win; missing ones are filled in"
         assert db.one("SELECT item_name FROM activity_log WHERE action = 'bed_merged'")["item_name"] \
             == "Raised bed 1 - north end → Raised bed 1"
         page = user_client.get(f"/yard/beds/{real['id']}").data.decode()
@@ -510,3 +525,73 @@ class TestPlaceholderBedCleanup:
             init_db()
         flags = {r["name"]: r["auto_created"] for r in db.all("SELECT name, auto_created FROM yard_beds")}
         assert flags == {"From location": 1, "Added by hand": 0, "Renamed by hand": 0}
+
+
+class TestBedTypeBelongsToTheBed:
+    def test_new_bed_takes_the_type_chosen_on_the_plant_form(self, user_client, db):
+        make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Trough", location_type="container")
+        zone = zone_named(db, "Garden")
+        user_client.get(f"/yard/zones/{zone['id']}")
+        assert bed_named(db, "Trough")["bed_type"] == "container"
+
+    def test_plant_in_an_existing_bed_gets_that_beds_type(self, user_client, db):
+        make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Trough", location_type="container")
+        zone = zone_named(db, "Garden")
+        user_client.get(f"/yard/zones/{zone['id']}")
+        # The form hides the type for an existing bed; whatever it submits, the bed's type wins.
+        kale = make_entry(user_client, db, "Kale", zone_name="Garden", location_name="trough", location_type="in_ground")
+        assert kale["location_type"] == "container"
+        chard = make_entry(user_client, db, "Chard", zone_name="Garden", location_name="Trough")
+        assert chard["location_type"] == "container"
+        user_client.post(f"/garden/{chard['id']}/edit", data={"plant_name": "Chard", "zone_name": "Garden",
+                                                               "location_name": "Trough", "location_type": "grow_bag"})
+        assert db.one("SELECT location_type FROM garden_entries WHERE id = ?", (chard["id"],))["location_type"] == "container"
+
+    def test_bed_without_a_type_leaves_the_plants_type_alone(self, user_client, db):
+        zone = make_zone(user_client, db, "Garden")
+        add_bed(user_client, db, zone, "Mystery bed")
+        entry = make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Mystery bed", location_type="in_ground")
+        assert entry["location_type"] == "in_ground"
+        assert bed_named(db, "Mystery bed")["bed_type"] is None, "a bed added on purpose isn't changed by a plant"
+
+    def test_changing_the_beds_type_updates_its_plants(self, user_client, db):
+        a = make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Trough", location_type="container")
+        other = make_entry(user_client, db, "Kale", zone_name="Garden", location_name="Elsewhere", location_type="in_ground")
+        user_client.get(f"/yard/zones/{zone_named(db, 'Garden')['id']}")
+        bed = bed_named(db, "Trough")
+        user_client.post(f"/yard/beds/{bed['id']}/edit", data={"name": "Trough", "bed_type": "raised_bed"})
+        types = {r["id"]: r["location_type"] for r in db.all("SELECT id, location_type FROM garden_entries")}
+        assert types == {a["id"]: "raised_bed", other["id"]: "in_ground"}
+
+    def test_older_untyped_bed_takes_its_earliest_plants_type(self, user_client, db):
+        make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Trough", location_type="grow_bag")
+        make_entry(user_client, db, "Kale", zone_name="Garden", location_name="Trough", location_type="container")
+        zone = zone_named(db, "Garden")
+        user_client.get(f"/yard/zones/{zone['id']}")
+        db.run("UPDATE yard_beds SET bed_type = NULL")  # as created before beds had a type
+        db.run("UPDATE garden_entries SET location_type = 'grow_bag' WHERE plant_name = 'Peas'")
+        db.run("UPDATE garden_entries SET location_type = 'container' WHERE plant_name = 'Kale'")
+        user_client.get(f"/yard/zones/{zone['id']}")
+        assert bed_named(db, "Trough")["bed_type"] == "grow_bag"
+
+        # Once someone has edited the bed, a cleared type stays cleared.
+        user_client.post(f"/yard/beds/{bed_named(db, 'Trough')['id']}/edit", data={"name": "Trough", "bed_type": ""})
+        user_client.get(f"/yard/zones/{zone['id']}")
+        assert bed_named(db, "Trough")["bed_type"] is None
+
+    def test_merged_plants_take_the_target_beds_type(self, user_client, db):
+        make_entry(user_client, db, "Kale", zone_name="Garden", location_name="Raised bed 1", location_type="raised_bed")
+        make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Raised bed 1 - north end", location_type="other")
+        user_client.get(f"/yard/zones/{zone_named(db, 'Garden')['id']}")
+        user_client.post(f"/yard/beds/{bed_named(db, 'Raised bed 1 - north end')['id']}/merge",
+                         data={"target_bed_id": bed_named(db, "Raised bed 1")["id"]})
+        assert db.one("SELECT location_type FROM garden_entries WHERE plant_name = 'Peas'")["location_type"] == "raised_bed"
+
+    def test_typed_placeholder_bed_is_still_cleaned_up(self, user_client, db):
+        entry = make_entry(user_client, db, "Peas", zone_name="Garden", location_name="Spot name", location_type="container")
+        zone = zone_named(db, "Garden")
+        user_client.get(f"/yard/zones/{zone['id']}")
+        assert bed_named(db, "Spot name")["bed_type"] == "container"
+        db.run("UPDATE garden_entries SET location_name = NULL WHERE id = ?", (entry["id"],))
+        user_client.get(f"/yard/zones/{zone['id']}")
+        assert bed_names(db, zone) == []

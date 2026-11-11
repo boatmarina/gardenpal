@@ -1998,7 +1998,7 @@ self.addEventListener('fetch', function(e) {
             (bed_id,),
         ).fetchall()
         return render_template("yard_bed_detail.html", bed=bed, plants=plants, ornamentals=ornamentals, notes=notes,
-                               merge_targets=merge_targets, spot_max=BED_SPOT_MAX,
+                               merge_targets=merge_targets, spot_max=BED_SPOT_MAX, sun_max=BED_SUN_MAX,
                                sun_options=BED_SUN_OPTIONS, type_options=BED_TYPE_OPTIONS,
                                today=_local_today(), name_max=BED_NAME_MAX, size_max=BED_SIZE_MAX)
 
@@ -2011,7 +2011,7 @@ self.addEventListener('fetch', function(e) {
             flash("Bed not found.")
             return redirect(url_for("yard_index"))
         name = request.form.get("name", "").strip()
-        sun = request.form.get("sun_exposure", "").strip() or None
+        sun = request.form.get("sun_exposure", "").strip()[:BED_SUN_MAX] or None
         soil = request.form.get("soil_notes", "").strip() or None
         bed_type = request.form.get("bed_type", "").strip() or None
         size = (request.form.get("size", "").strip() or None)
@@ -2025,8 +2025,6 @@ self.addEventListener('fetch', function(e) {
         if len(name) > BED_NAME_MAX:
             flash(f"Bed names can be up to {BED_NAME_MAX} characters.")
             return redirect(url_for("yard_bed_detail", bed_id=bed_id))
-        if sun is not None and sun not in BED_SUN_OPTIONS:
-            sun = bed["sun_exposure"]
         if name.lower() != bed["name"].lower():
             clash = db.execute(
                 "SELECT id FROM yard_beds WHERE zone_id = ? AND lower(name) = lower(?) AND id != ?",
@@ -2046,6 +2044,12 @@ self.addEventListener('fetch', function(e) {
             " WHERE id = ?",
             (name, sun, soil, bed_type, size, datetime.utcnow().isoformat(timespec="seconds"), bed_id),
         )
+        if bed_type:
+            # The type belongs to the bed, so its plants' location type follows it.
+            db.execute(
+                "UPDATE garden_entries SET location_type = ? WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?)",
+                (bed_type, bed["zone_id"], name),
+            )
         _log_activity(db, g.user["id"], "bed_updated", name)
         db.commit()
         flash("Bed updated.")
@@ -2138,10 +2142,10 @@ self.addEventListener('fetch', function(e) {
         else:
             spot = _spot_from_bed_name(bed["name"], target["name"])
         moved = db.execute(
-            "UPDATE garden_entries SET location_name = ?,"
+            "UPDATE garden_entries SET location_name = ?, location_type = COALESCE(?, location_type),"
             " bed_spot = CASE WHEN bed_spot IS NULL OR TRIM(bed_spot) = '' THEN ? ELSE bed_spot END"
             " WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?) RETURNING id",
-            (target["name"], spot, bed["zone_id"], bed["name"]),
+            (target["name"], target["bed_type"], spot, bed["zone_id"], bed["name"]),
         ).fetchall()
         moved_orn = db.execute(
             "UPDATE yard_plants SET bed_id = ? WHERE bed_id = ? RETURNING id", (target["id"], bed_id)
@@ -2678,7 +2682,10 @@ self.addEventListener('fetch', function(e) {
     # ── Beds / containers inside yard zones ──────────────────────────────────
     # An edible is "in" a bed when its zone matches and its location_name matches the bed name
     # (trimmed, case-insensitive). Bed rows hold the extra details and notes.
+    # Sun exposure is free text. These are the three fixed choices it used to be, kept so a
+    # value saved back then still reads properly.
     BED_SUN_OPTIONS = {"full_sun": "Full sun", "part_sun": "Part sun", "shade": "Shade"}
+    BED_SUN_MAX = 80
     # Same choices as an edible's location type.
     BED_TYPE_OPTIONS = {"raised_bed": "Raised bed", "container": "Container", "in_ground": "In ground",
                         "greenhouse": "Greenhouse", "grow_bag": "Grow bag", "other": "Other"}
@@ -2717,13 +2724,14 @@ self.addEventListener('fetch', function(e) {
 
     def _ensure_beds_for_zones(db, zone_ids):
         """Keep bed rows in step with the bed names edibles use in these zones: create rows for
-        new names, and drop auto-created rows that are empty again and carry no details."""
+        new names (taking the plant's location type as the bed type), and drop auto-created rows
+        that are empty again and were never edited."""
         if not zone_ids:
             return
         ph, args = _in_ids([int(z) for z in zone_ids])
+        valid_types = ", ".join(f"'{k}'" for k in BED_TYPE_OPTIONS)
         db.execute(
-            f"DELETE FROM yard_beds b WHERE b.zone_id IN {ph} AND b.auto_created = 1"
-            f" AND b.sun_exposure IS NULL AND b.soil_notes IS NULL AND b.bed_type IS NULL AND b.size IS NULL"
+            f"DELETE FROM yard_beds b WHERE b.zone_id IN {ph} AND b.auto_created = 1 AND b.updated_at IS NULL"
             f" AND NOT EXISTS (SELECT 1 FROM yard_bed_notes n WHERE n.bed_id = b.id)"
             f" AND NOT EXISTS (SELECT 1 FROM yard_plants yp WHERE yp.bed_id = b.id)"
             f" AND NOT EXISTS (SELECT 1 FROM garden_entries ge WHERE ge.zone_id = b.zone_id"
@@ -2731,9 +2739,10 @@ self.addEventListener('fetch', function(e) {
             args,
         )
         db.execute(
-            f"INSERT INTO yard_beds (zone_id, user_id, name, created_at, auto_created)"
+            f"INSERT INTO yard_beds (zone_id, user_id, name, created_at, auto_created, bed_type)"
             f" SELECT DISTINCT ON (ge.zone_id, lower(TRIM(ge.location_name)))"
-            f"        ge.zone_id, z.user_id, left(TRIM(ge.location_name), {BED_NAME_MAX}), ?, 1"
+            f"        ge.zone_id, z.user_id, left(TRIM(ge.location_name), {BED_NAME_MAX}), ?, 1,"
+            f"        CASE WHEN ge.location_type IN ({valid_types}) THEN ge.location_type END"
             f" FROM garden_entries ge JOIN yard_zones z ON z.id = ge.zone_id"
             f" WHERE ge.zone_id IN {ph} AND ge.location_name IS NOT NULL AND TRIM(ge.location_name) != ''"
             # Same bed spelled differently ("Peas bed" / "peas BED"): keep the earliest plant's spelling.
@@ -2741,7 +2750,31 @@ self.addEventListener('fetch', function(e) {
             f" ON CONFLICT (zone_id, lower(name)) DO NOTHING",
             [datetime.utcnow().isoformat(timespec="seconds")] + args,
         )
+        # Beds that came from a location name before beds had a type, and were never edited:
+        # take the type from their earliest plant that has one.
+        db.execute(
+            f"UPDATE yard_beds b SET bed_type = ("
+            f"   SELECT ge.location_type FROM garden_entries ge WHERE ge.zone_id = b.zone_id"
+            f"   AND lower(TRIM(ge.location_name)) = lower(b.name) AND ge.location_type IN ({valid_types})"
+            f"   ORDER BY ge.created_at, ge.id LIMIT 1)"
+            f" WHERE b.zone_id IN {ph} AND b.bed_type IS NULL AND b.auto_created = 1 AND b.updated_at IS NULL"
+            f" AND EXISTS (SELECT 1 FROM garden_entries ge WHERE ge.zone_id = b.zone_id"
+            f"             AND lower(TRIM(ge.location_name)) = lower(b.name) AND ge.location_type IN ({valid_types}))",
+            args,
+        )
         db.commit()
+
+    def _location_type_for(db, zone_id, location_name, submitted):
+        """An edible's location type: its bed's type when the bed already has one, else what was submitted."""
+        submitted = (submitted or "").strip() or None
+        name = (location_name or "").strip()
+        if zone_id and name:
+            bed = db.execute(
+                "SELECT bed_type FROM yard_beds WHERE zone_id = ? AND lower(name) = lower(?)", (zone_id, name)
+            ).fetchone()
+            if bed and bed["bed_type"]:
+                return bed["bed_type"]
+        return submitted
 
     def _zone_beds(db, zone_id):
         return db.execute(
@@ -4098,7 +4131,8 @@ self.addEventListener('fetch', function(e) {
                     g.user["id"],
                     plant_name,
                     request.form.get("variety", "").strip() or None,
-                    request.form.get("location_type", "").strip() or None,
+                    _location_type_for(db, zone_id_to_save, request.form.get("location_name"),
+                                       request.form.get("location_type")),
                     request.form.get("location_name", "").strip() or None,
                     request.form.get("planted_date", "").strip() or None,
                     request.form.get("planting_method", "").strip() or None,
@@ -4512,7 +4546,8 @@ self.addEventListener('fetch', function(e) {
                     if "bed_spot" in request.form else entry["bed_spot"],
                     plant_name,
                     request.form.get("variety", "").strip() or None,
-                    request.form.get("location_type", "").strip() or None,
+                    _location_type_for(db, zone_id_to_save, request.form.get("location_name"),
+                                       request.form.get("location_type")),
                     request.form.get("location_name", "").strip() or None,
                     request.form.get("planted_date", "").strip() or None,
                     request.form.get("planting_method", "").strip() or None,
@@ -8560,6 +8595,12 @@ def init_db():
             "   WHERE al.user_id = ge.user_id AND al.action = 'garden_done_season' AND al.item_name = ge.plant_name),"
             " substr(ge.updated_at, 1, 10))"
             " WHERE ge.done_for_season = 1 AND ge.done_for_season_at IS NULL"
+        )
+        # Sun exposure became free text: turn the three old fixed choices into the same words.
+        db.execute(
+            "UPDATE yard_beds SET sun_exposure = CASE sun_exposure WHEN 'full_sun' THEN 'Full sun'"
+            " WHEN 'part_sun' THEN 'Part sun' WHEN 'shade' THEN 'Shade' END"
+            " WHERE sun_exposure IN ('full_sun', 'part_sun', 'shade')"
         )
         # Where in its bed an edible sits ("north end", "by the trellis").
         db.execute("ALTER TABLE garden_entries ADD COLUMN IF NOT EXISTS bed_spot TEXT")

@@ -304,7 +304,7 @@
         </select>
       </label>
       <label id="yard-bed-field" hidden>
-        Bed / container <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span>
+        <span>Bed / container <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></span>
         <select name="bed_choice" id="yard-bed-select"
                 data-zone-beds='{{ (zone_beds or {}) | tojson }}' data-current="{{ request.form.get('bed_choice', '') }}"></select>
         <span id="yard-bed-new" hidden style="display:block;margin-top:6px">

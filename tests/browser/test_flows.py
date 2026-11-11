@@ -248,11 +248,11 @@ def test_add_bed_then_record_details_and_notes(logged_in, db):
     assert re.search(r"/yard/beds/\d+$", page.url)
 
     page.click("#bed-edit-toggle")
-    page.select_option("select[name=sun_exposure]", "full_sun")
+    page.fill("input[name=sun_exposure]", "Full sun until 3pm")
     page.fill("textarea[name=soil_notes]", "Potting mix + worm castings")
     with page.expect_navigation():
         page.click("#bed-edit-form button[type=submit]")
-    assert "Full sun" in page.inner_text("#bed-details")
+    assert "Full sun until 3pm" in page.inner_text("#bed-details")
     assert "worm castings" in page.inner_text("#bed-details")
 
     assert page.locator("#bed-note-form").is_hidden()
@@ -265,7 +265,7 @@ def test_add_bed_then_record_details_and_notes(logged_in, db):
     page.click(".back-btn")
     page.wait_for_url(re.compile(rf"/yard/zones/{zone['id']}$"))
     row = page.locator(".bed-row", has_text="Herb planter")
-    assert "Full sun" in row.inner_text() and "1 note" in row.inner_text()
+    assert "Full sun until 3pm" in row.inner_text() and "1 note" in row.inner_text()
 
 
 def test_edible_form_bed_picker(logged_in, db):
@@ -287,8 +287,19 @@ def test_edible_form_bed_picker(logged_in, db):
     assert options == ["No bed", "Pea trellis", "Raised bed 1", "+ New bed…"]
     assert page.locator("#loc-name-input").is_hidden()
 
+    type_field = page.locator("#location-type-field")
+    assert type_field.is_visible(), "no bed chosen yet: the type can still be set"
     page.select_option("#bed-select", "Raised bed 1")
-    assert page.input_value("select[name=location_type]") == "raised_bed", "bed type fills an empty location type"
+    assert type_field.is_hidden(), "an existing bed already has its type"
+    assert page.input_value("select[name=location_type]") == "raised_bed"
+    page.select_option("#bed-select", "__new")
+    assert type_field.is_visible(), "a new bed needs a type"
+    assert page.locator("#loc-name-dropdown").is_hidden(), "naming a new bed shouldn't suggest existing ones"
+    page.select_option("#bed-select", "Pea trellis")
+    assert type_field.is_hidden()
+    page.select_option("#bed-select", "")
+    assert type_field.is_visible()
+    page.select_option("#bed-select", "Raised bed 1")
     with page.expect_navigation():
         page.click("button:has-text('Save to Edibles')")
     assert db.one("SELECT location_name FROM garden_entries WHERE plant_name = 'Leeks'")["location_name"] == "Raised bed 1"
@@ -300,13 +311,25 @@ def test_edible_form_bed_picker(logged_in, db):
     page.select_option("#bed-select", "__new")
     assert page.locator("#loc-name-input").is_visible()
     page.fill("#loc-name-input", "Chard bed")
+    page.select_option("select[name=location_type]", "grow_bag")
     with page.expect_navigation():
         page.click("button:has-text('Save to Edibles')")
     assert db.one("SELECT location_name FROM garden_entries WHERE plant_name = 'Chard'")["location_name"] == "Chard bed"
+    page.goto(f"/yard/zones/{zone['id']}")
+    assert db.one("SELECT bed_type FROM yard_beds WHERE name = 'Chard bed'")["bed_type"] == "grow_bag"
 
     entry = db.one("SELECT id FROM garden_entries WHERE plant_name = 'Leeks'")
     page.goto(f"/garden/{entry['id']}/edit")
     assert page.input_value("#bed-select") == "Raised bed 1", "edit form preselects the plant's bed"
+    assert page.locator("#location-type-field").is_hidden(), "editing a plant in an existing bed hides the type"
+
+    # Switching to a zone with no beds brings the type field back with the free-text location.
+    page.api.post("/yard/zones/new", data={"name": "Empty zone"})
+    page.goto(f"/garden/{entry['id']}/edit")
+    page.fill("#zone-name-input", "Empty")
+    page.locator("#zone-name-dropdown li", has_text="Empty zone").click()
+    assert page.locator("#bed-select").is_hidden()
+    assert page.locator("#location-type-field").is_visible()
 
 
 def test_ornamental_page_bed_picker_saves_on_change(logged_in, db):
