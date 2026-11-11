@@ -646,3 +646,97 @@ class TestMoveOrnamentalBetweenZones:
         assert re.search(r'class="pz-value pz-bed-value"[^>]*>Front pots<', page)
         assert f'href="/yard/beds/{bed["id"]}"' in page
         assert re.search(r'class="pz-bed-form stack" hidden', page), "the editor starts closed"
+
+
+class TestAssistantBedTools:
+    def _beds(self, client, db):
+        for name, loc in (("Beans", "Beans bed"), ("Peas", "Peas bed"), ("Kale", "Strawberry bed")):
+            make_entry(client, db, name, zone_name="Garden", location_name=loc, location_type="raised_bed")
+        zone = zone_named(db, "Garden")
+        client.get(f"/yard/zones/{zone['id']}")
+        beans, peas, straw = (bed_named(db, n) for n in ("Beans bed", "Peas bed", "Strawberry bed"))
+        client.post(f"/yard/beds/{beans['id']}/edit", data={"name": "Beans bed", "soil_notes": "Cedar Grove Vegomix"})
+        client.post(f"/yard/beds/{peas['id']}/edit", data={"name": "Peas bed", "soil_notes": "Clay loam"})
+        return beans, peas, straw
+
+    def _run(self, client, fake_ai, path, tool, **inp):
+        from tests.test_ai_actions import reply, tool_call
+        fake_ai.script += [reply("", tool_call(tool, **inp), stop="tool_use"), reply("Done.")]
+        resp = client.post(path, json={"message": "please"})
+        assert resp.status_code == 200, resp.get_json()
+        return resp.get_json()
+
+    def soil(self, db):
+        return {r["name"]: r["soil_notes"] for r in db.all("SELECT name, soil_notes FROM yard_beds")}
+
+    def test_tools_offered_and_every_bed_listed_with_its_id(self, user_client, db, fake_ai):
+        beans, peas, straw = self._beds(user_client, db)
+        for path in ("/api/home-chat", "/api/garden-chat"):
+            user_client.post(path, json={"message": "hi"})
+        for call in fake_ai.calls:
+            names = {t["name"] for t in call["tools"]}
+            assert {"update_beds", "add_bed_note"} <= names
+            assert f"ID {straw['id']}: Strawberry bed (zone Garden): Raised bed" in call["system"]
+            assert f"ID {beans['id']}: Beans bed (zone Garden)" in call["system"]
+
+    def test_append_soil_to_many_beds_without_duplicating(self, user_client, db, fake_ai):
+        beans, peas, straw = self._beds(user_client, db)
+        data = self._run(user_client, fake_ai, "/api/home-chat", "update_beds",
+                         bed_ids=[beans["id"], peas["id"], straw["id"]], soil_notes="Cedar grove vegomix")
+        assert data["changed"] is True
+        assert self.soil(db) == {"Beans bed": "Cedar Grove Vegomix",
+                                 "Peas bed": "Clay loam; Cedar grove vegomix",
+                                 "Strawberry bed": "Cedar grove vegomix"}
+        assert "Cedar grove vegomix" in user_client.get(f"/yard/beds/{straw['id']}").data.decode()
+
+    def test_replace_soil_and_set_other_details(self, user_client, db, fake_ai):
+        beans, peas, straw = self._beds(user_client, db)
+        self._run(user_client, fake_ai, "/api/garden-chat", "update_beds", bed_ids=[peas["id"]],
+                  soil_notes="Vegomix", soil_mode="replace", size="4x8 ft", sun_exposure="Full sun", bed_type="container")
+        row = db.one("SELECT soil_notes, size, sun_exposure, bed_type FROM yard_beds WHERE id = ?", (peas["id"],))
+        assert row == {"soil_notes": "Vegomix", "size": "4x8 ft", "sun_exposure": "Full sun", "bed_type": "container"}
+        assert db.one("SELECT location_type FROM garden_entries WHERE plant_name = 'Peas'")["location_type"] == "container"
+        assert self.soil(db)["Beans bed"] == "Cedar Grove Vegomix", "beds not named are untouched"
+
+        self._run(user_client, fake_ai, "/api/garden-chat", "update_beds", bed_ids=[peas["id"]], size="")
+        assert db.one("SELECT size FROM yard_beds WHERE id = ?", (peas["id"],))["size"] is None
+
+    def test_bad_input_and_other_peoples_beds_are_refused(self, app, user_client, db, fake_ai):
+        from tests.test_ai_actions import tool_results
+        beans, peas, straw = self._beds(user_client, db)
+        stranger = app.test_client()
+        signup(stranger, "stranger")
+        theirs = add_bed(stranger, db, make_zone(stranger, db, "Theirs"), "Their bed")
+        self._run(user_client, fake_ai, "/api/home-chat", "update_beds",
+                  bed_ids=[theirs["id"], 999999, beans["id"]], soil_notes="hacked", soil_mode="replace")
+        assert db.one("SELECT soil_notes FROM yard_beds WHERE id = ?", (theirs["id"],))["soil_notes"] is None
+        assert db.one("SELECT soil_notes FROM yard_beds WHERE id = ?", (beans["id"],))["soil_notes"] == "hacked"
+        assert "not found" in " ".join(tool_results(fake_ai.calls[-1]))
+
+        self._run(user_client, fake_ai, "/api/home-chat", "update_beds", bed_ids=[beans["id"]], bed_type="castle")
+        assert "bed_type must be one of" in " ".join(tool_results(fake_ai.calls[-1]))
+        self._run(user_client, fake_ai, "/api/home-chat", "update_beds", bed_ids=[beans["id"]])
+        assert "Nothing to update" in " ".join(tool_results(fake_ai.calls[-1]))
+
+    def test_partner_can_update_shared_beds(self, app, db, fake_ai):
+        alice = app.test_client()
+        signup(alice, "alice")
+        bob = app.test_client()
+        signup(bob, "bob")
+        alice.post("/settings/share-garden", data={"partner_username": "bob"})
+        bob.post("/settings/share-garden", data={"partner_username": "alice"})
+        bed = add_bed(alice, db, make_zone(alice, db, "Shared"), "Shared bed")
+        self._run(bob, fake_ai, "/api/home-chat", "update_beds", bed_ids=[bed["id"]], soil_notes="Compost")
+        assert db.one("SELECT soil_notes FROM yard_beds")["soil_notes"] == "Compost"
+
+    def test_add_note_to_several_beds(self, user_client, db, fake_ai):
+        beans, peas, straw = self._beds(user_client, db)
+        self._run(user_client, fake_ai, "/api/garden-chat", "add_bed_note",
+                  bed_ids=[beans["id"], peas["id"]], note="Added 2in compost", note_date="2026-10-01")
+        notes = db.all("SELECT bed_id, note_date, notes FROM yard_bed_notes ORDER BY bed_id")
+        assert notes == [{"bed_id": beans["id"], "note_date": "2026-10-01", "notes": "Added 2in compost"},
+                         {"bed_id": peas["id"], "note_date": "2026-10-01", "notes": "Added 2in compost"}]
+        peas_entry = db.one("SELECT id FROM garden_entries WHERE plant_name = 'Peas'")
+        assert "Added 2in compost" in user_client.get(f"/garden/{peas_entry['id']}").data.decode()
+        actions = [r["action"] for r in db.all("SELECT action FROM activity_log WHERE action = 'bed_note_added'")]
+        assert len(actions) == 2

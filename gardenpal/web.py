@@ -2831,7 +2831,11 @@ self.addEventListener('fetch', function(e) {
         return "; ".join(parts) or None
 
     def _beds_context_text(db, owner_ids):
-        """Beds with any recorded details, for the garden-wide assistants."""
+        """Every bed in the user's (and partner's) zones, with ids so the assistants can edit them."""
+        ensure_ph, ensure_args = _in_ids(owner_ids)
+        zone_ids = [r["id"] for r in db.execute(
+            f"SELECT id FROM yard_zones WHERE user_id IN {ensure_ph}", ensure_args).fetchall()]
+        _ensure_beds_for_zones(db, zone_ids)
         ph, args = _in_ids(owner_ids)
         beds = db.execute(
             f"SELECT b.*, z.name AS zone_name FROM yard_beds b JOIN yard_zones z ON z.id = b.zone_id"
@@ -2840,10 +2844,122 @@ self.addEventListener('fetch', function(e) {
         ).fetchall()
         lines = []
         for b in beds:
-            summary = _bed_summary(db, b, max_notes=3)
-            if summary:
-                lines.append(f"  - {b['name']} (zone {b['zone_name']}): {summary}")
+            summary = _bed_summary(db, b, max_notes=3) or "no details yet"
+            lines.append(f"  - ID {b['id']}: {b['name']} (zone {b['zone_name']}): {summary}")
         return "\n".join(lines)
+
+    _BED_TOOLS = [
+        {
+            "name": "update_beds",
+            "description": "Update details of one or more beds/containers (use bed IDs from the beds list). "
+                           "Only the fields you pass change; an empty string clears that field. For soil_notes, "
+                           "soil_mode 'append' (default) adds to what's there, 'replace' overwrites it.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "bed_ids": {"type": "array", "items": {"type": "integer"}},
+                    "bed_type": {"type": "string", "enum": [""] + list(BED_TYPE_OPTIONS)},
+                    "size": {"type": "string", "description": "e.g. '4x8 ft', '15 gal'"},
+                    "sun_exposure": {"type": "string", "description": "Free text, e.g. 'Full sun', 'morning sun only'"},
+                    "soil_notes": {"type": "string", "description": "Soil type, compost or amendments"},
+                    "soil_mode": {"type": "string", "enum": ["append", "replace"]},
+                },
+                "required": ["bed_ids"],
+            },
+        },
+        {
+            "name": "add_bed_note",
+            "description": "Add a dated note to one or more beds/containers, e.g. 'Added 2in compost'. "
+                           "Bed notes also show in the growth log of every plant in that bed.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "bed_ids": {"type": "array", "items": {"type": "integer"}},
+                    "note": {"type": "string"},
+                    "note_date": {"type": "string", "description": "YYYY-MM-DD, defaults to today"},
+                },
+                "required": ["bed_ids", "note"],
+            },
+        },
+    ]
+
+    def _visible_beds(db, user_id, bed_ids):
+        """{id: bed row} for the requested beds the user (or their garden partner) can edit, plus problems."""
+        ph, args = _in_ids(_shared_user_ids(db, user_id))
+        found, problems = {}, []
+        for bid in bed_ids:
+            row = db.execute(
+                f"SELECT b.* FROM yard_beds b JOIN yard_zones z ON z.id = b.zone_id WHERE b.id = ? AND z.user_id IN {ph}",
+                [bid] + args,
+            ).fetchone() if isinstance(bid, int) else None
+            if row:
+                found[bid] = row
+            else:
+                problems.append(f"Bed {bid} not found")
+        return found, problems
+
+    def _tool_update_beds(db, user_id, inp):
+        bed_ids = inp.get("bed_ids")
+        if not isinstance(bed_ids, list) or not bed_ids:
+            return {"error": "bed_ids (list) is required"}
+        fields = {k: inp[k] for k in ("bed_type", "size", "sun_exposure", "soil_notes") if isinstance(inp.get(k), str)}
+        if not fields:
+            return {"error": "Nothing to update: pass bed_type, size, sun_exposure or soil_notes"}
+        if "bed_type" in fields and fields["bed_type"] and fields["bed_type"] not in BED_TYPE_OPTIONS:
+            return {"error": f"bed_type must be one of: {', '.join(BED_TYPE_OPTIONS)}"}
+        beds, problems = _visible_beds(db, user_id, bed_ids)
+        append = inp.get("soil_mode", "append") != "replace"
+        now = datetime.utcnow().isoformat(timespec="seconds")
+        updated = []
+        for bed in beds.values():
+            vals = {
+                "bed_type": fields["bed_type"] or None if "bed_type" in fields else bed["bed_type"],
+                "size": (fields["size"].strip()[:BED_SIZE_MAX] or None) if "size" in fields else bed["size"],
+                "sun_exposure": (fields["sun_exposure"].strip()[:BED_SUN_MAX] or None)
+                                if "sun_exposure" in fields else bed["sun_exposure"],
+                "soil_notes": bed["soil_notes"],
+            }
+            if "soil_notes" in fields:
+                new_soil = fields["soil_notes"].strip()
+                old_soil = (bed["soil_notes"] or "").strip()
+                if append and new_soil and old_soil:
+                    vals["soil_notes"] = old_soil if new_soil.lower() in old_soil.lower() else f"{old_soil}; {new_soil}"
+                else:
+                    vals["soil_notes"] = new_soil or None
+            db.execute(
+                "UPDATE yard_beds SET bed_type = ?, size = ?, sun_exposure = ?, soil_notes = ?, updated_at = ? WHERE id = ?",
+                (vals["bed_type"], vals["size"], vals["sun_exposure"], vals["soil_notes"], now, bed["id"]),
+            )
+            if vals["bed_type"] and vals["bed_type"] != bed["bed_type"]:
+                db.execute(
+                    "UPDATE garden_entries SET location_type = ? WHERE zone_id = ? AND lower(TRIM(location_name)) = lower(?)",
+                    (vals["bed_type"], bed["zone_id"], bed["name"]),
+                )
+            _log_activity(db, user_id, "bed_updated", bed["name"])
+            updated.append(bed["name"])
+        db.commit()
+        if not updated:
+            return {"error": "; ".join(problems)}
+        return {"ok": True, "updated": updated, "skipped": problems}
+
+    def _tool_add_bed_note(db, user_id, inp):
+        bed_ids, note = inp.get("bed_ids"), (inp.get("note") or "").strip()
+        if not isinstance(bed_ids, list) or not bed_ids or not note:
+            return {"error": "bed_ids (list) and note are required"}
+        raw_date = (inp.get("note_date") or "").strip()
+        note_date = raw_date if _ISO_DATE_RE.match(raw_date) else _local_today()
+        beds, problems = _visible_beds(db, user_id, bed_ids)
+        now = datetime.utcnow().isoformat(timespec="seconds")
+        for bed in beds.values():
+            db.execute(
+                "INSERT INTO yard_bed_notes (bed_id, user_id, note_date, notes, created_at) VALUES (?, ?, ?, ?, ?)",
+                (bed["id"], user_id, note_date, note, now),
+            )
+            _log_activity(db, user_id, "bed_note_added", bed["name"])
+        db.commit()
+        if not beds:
+            return {"error": "; ".join(problems)}
+        return {"ok": True, "added_to": [b["name"] for b in beds.values()], "skipped": problems}
 
     def _bed_for_entry(db, entry):
         if not entry["zone_id"] or not (entry["location_name"] or "").strip():
@@ -5610,6 +5726,10 @@ self.addEventListener('fetch', function(e) {
             "isn't recorded anywhere in the data above. "
             "Help the user add plants, add notes, update details, assign or change yard zones, mark plants done for the season, or answer questions about their garden. "
             "Use set_done_for_season when the user says plants are finished for the year (harvested out, pulled, died back); pass every matching entry in one call. "
+            "You can edit beds and containers: use update_beds to set type, size, sun exposure or soil/amendments "
+            "(pass every matching bed in one call; for soil, append to what's there unless the user asks to replace it), "
+            "and add_bed_note for dated events like adding compost. If a bed has no type set, judge from its name and the "
+            "location type of the plants in it, and ask if unsure. "
             "Entries marked [partner's — read only] belong to a shared garden partner — answer questions about them but do NOT call any tool on them. "
             "For bulk changes call the relevant tool once per entry. "
             "If a tool returns an error, skip that entry silently and continue with the remaining ones — do NOT apologise or stop early. "
@@ -5685,6 +5805,7 @@ self.addEventListener('fetch', function(e) {
                 },
             },
             _DONE_FOR_SEASON_TOOL,
+            *_BED_TOOLS,
         ]
 
         messages = list(history) + [{"role": "user", "content": message}]
@@ -5864,6 +5985,14 @@ self.addEventListener('fetch', function(e) {
 
                         elif block.name == "set_done_for_season":
                             result = _tool_set_done_for_season(db, user_id, inp)
+                            changed = changed or "ok" in result
+
+                        elif block.name == "update_beds":
+                            result = _tool_update_beds(db, user_id, inp)
+                            changed = changed or "ok" in result
+
+                        elif block.name == "add_bed_note":
+                            result = _tool_add_bed_note(db, user_id, inp)
                             changed = changed or "ok" in result
 
                         else:
@@ -6525,6 +6654,10 @@ self.addEventListener('fetch', function(e) {
             "You can answer questions about any plant across both edibles and ornamentals. "
             "You can also act: add notes, update edible entries, change zones, mark edibles done for the season, save ornamental notes, add new plants to the ornamentals library, and update watering and fertilization dates. "
             "Use set_done_for_season when the user says edibles are finished for the year (harvested out, pulled, died back); pass every matching entry in one call. "
+            "You can edit beds and containers: use update_beds to set type, size, sun exposure or soil/amendments "
+            "(pass every matching bed in one call; for soil, append to what's there unless the user asks to replace it), "
+            "and add_bed_note for dated events like adding compost. If a bed has no type set, judge from its name and the "
+            "location type of the plants in it, and ask if unsure. "
             "To add a new ornamental: call search_ornamental first to get iNaturalist candidates (taxon_id, scientific name, observation counts), then pick the best match using the user's location, conversation context, and observation counts — only ask the user if genuinely ambiguous. Then call add_ornamental. "
             "IMPORTANT: if search_ornamental fails or returns an error (network issue, no results, etc.), DO NOT give up — call add_ornamental immediately with just the name. add_ornamental works without a taxon_id and will still fetch full plant details. Never tell the user the search failed and stop there; always fall through to add_ornamental. "
             "You can also delete ornamentals you added via this assistant (those show source_type=chat in the context) using delete_ornamental — always confirm with the user before deleting. You cannot delete plants the user added manually. "
@@ -6798,6 +6931,7 @@ self.addEventListener('fetch', function(e) {
                 },
             },
             _DONE_FOR_SEASON_TOOL,
+            *_BED_TOOLS,
         ]
 
         messages = list(history) + [{"role": "user", "content": message}]
@@ -7473,6 +7607,14 @@ self.addEventListener('fetch', function(e) {
 
                         elif block.name == "set_done_for_season":
                             result = _tool_set_done_for_season(db, user_id, inp)
+                            changed = changed or "ok" in result
+
+                        elif block.name == "update_beds":
+                            result = _tool_update_beds(db, user_id, inp)
+                            changed = changed or "ok" in result
+
+                        elif block.name == "add_bed_note":
+                            result = _tool_add_bed_note(db, user_id, inp)
                             changed = changed or "ok" in result
 
                         else:
