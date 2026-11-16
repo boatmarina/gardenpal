@@ -454,3 +454,38 @@ def test_spot_in_bed_field_on_edible_form(logged_in, db):
     entry = db.one("SELECT id FROM garden_entries")
     page.goto(f"/garden/{entry['id']}/edit")
     assert page.input_value("#bed-spot-input") == "south corner"
+
+
+def test_home_assistant_open_by_default_with_examples(logged_in, db, fake_ai, browser, live_server):
+    page = logged_in
+    page.goto("/")
+    panel, examples = page.locator("#home-chat-panel"), page.locator("#home-chat-examples")
+    assert panel.is_visible() and page.locator("#home-chat-input").is_visible(), "the assistant is open on load"
+    assert examples.is_visible(), "examples show while nothing has been asked yet"
+    assert page.get_attribute("#home-chat-toggle", "aria-expanded") == "true"
+    assert page.evaluate("document.activeElement.id") != "home-chat-input", "no keyboard pop-up on load"
+
+    # Collapsing is remembered for this session only.
+    page.click("#home-chat-toggle")
+    assert panel.is_hidden() and examples.is_visible()
+    page.reload()
+    assert panel.is_hidden(), "stays collapsed after a reload in the same session"
+    other = browser.new_context(base_url=live_server, service_workers="block")
+    other_page = other.new_page()
+    other_page.goto("/auth/login")
+    other_page.fill("input[name=username]", "tester")
+    other_page.fill("input[name=password]", "password123")
+    other_page.click("button[type=submit]")
+    other_page.wait_for_url(lambda url: url.endswith("/"), wait_until="domcontentloaded")
+    assert other_page.locator("#home-chat-panel").is_visible(), "a new session starts open again"
+    other.close()
+
+    # Once you've asked something, the conversation replaces the examples.
+    page.click("#home-chat-toggle")
+    fake_ai.script.append(reply("Your garden looks great."))
+    page.fill("#home-chat-input", "How is my garden?")
+    page.click("#home-chat-send")
+    page.wait_for_selector("#home-chat-messages >> text=Your garden looks great.")
+    assert examples.is_hidden()
+    page.reload()
+    assert panel.is_visible() and examples.is_hidden(), "the conversation is still there after a reload"

@@ -8,19 +8,19 @@
 
   <!-- Home garden assistant -->
   <div class="card" style="padding:0;margin-bottom:20px;overflow:hidden">
-    <button id="home-chat-toggle" type="button"
+    <button id="home-chat-toggle" type="button" aria-expanded="true" aria-controls="home-chat-panel"
             style="width:100%;display:flex;align-items:center;gap:8px;padding:13px 20px 10px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--fg);text-align:left">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
       Ask your garden assistant
-      <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s"><path d="M6 9l6 6 6-6"/></svg>
+      <svg id="home-chat-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-left:auto;transition:transform 0.2s;transform:rotate(180deg)"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="home-chat-examples" style="padding:0 20px 14px">
       <p style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:5px">Try asking</p>
       <p id="home-chat-example-text" style="font-size:0.82rem;color:var(--fg);margin:0;transition:opacity 0.35s;font-style:italic;line-height:1.4;min-height:2.8em">"Add zucchini planted today in front yard zone, variety spineless beauty"</p>
     </div>
-    <div id="home-chat-panel" hidden>
+    <div id="home-chat-panel">
       <div id="home-chat-messages" style="padding:4px 20px 10px;display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto"></div>
       <div style="display:flex;gap:8px;padding:10px 20px 18px;border-top:1px solid var(--border);align-items:flex-end">
         <textarea id="home-chat-input" rows="2" placeholder="Ask about your garden, add a note, change a zone…"
@@ -714,23 +714,29 @@ document.addEventListener('DOMContentLoaded', function() {
   var saved = {};
   try { saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}'); } catch(_) {}
   var history = saved.history || [];
-  var isOpen  = !!saved.open;
+  // Open unless collapsed earlier in this session, so the assistant is easy to find.
+  var isOpen  = saved.open !== false;
 
   function save() {
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({open: isOpen, history: history.slice(-20)})); } catch(_) {}
   }
 
+  // Examples show whenever there's no conversation to look at: while collapsed, or open with
+  // nothing asked yet this session.
+  function syncExamples() {
+    if (examples) examples.hidden = isOpen && history.length > 0;
+  }
   function openPanel() {
     panel.hidden = false;
-    if (examples) examples.hidden = true;
     chevron.style.transform = 'rotate(180deg)';
-    isOpen = true; save();
+    toggle.setAttribute('aria-expanded', 'true');
+    isOpen = true; syncExamples(); save();
   }
   function closePanel() {
     panel.hidden = true;
-    if (examples) examples.hidden = false;
     chevron.style.transform = '';
-    isOpen = false; save();
+    toggle.setAttribute('aria-expanded', 'false');
+    isOpen = false; syncExamples(); save();
   }
   toggle.addEventListener('click', function() { if (panel.hidden) openPanel(); else closePanel(); });
 
@@ -781,7 +787,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   history.forEach(function(m) { if (m.role && m.content) bubble(m.role, m.content); });
-  if (isOpen) openPanel();
+  if (isOpen) openPanel(); else closePanel();
 
   async function send() {
     var text = input.value.trim();
@@ -792,6 +798,7 @@ document.addEventListener('DOMContentLoaded', function() {
     sendBtn.disabled = true;
 
     bubble('user', text);
+    if (examples) examples.hidden = true;
     var spin = spinnerBubble();
 
     try {
